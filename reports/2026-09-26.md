@@ -1,6 +1,6 @@
 # ⚽ Goals Scanner — Saturday 26 September 2026
 
-**Scan window:** Sat 26 Sep 11:16 → Sun 27 Sep 11:21 (UK time) · **48 fixtures** across **6 competitions** · generated 11:21 UK
+**Scan window:** Sat 26 Sep 11:37 → Sun 27 Sep 11:42 (UK time) · **48 fixtures** across **6 competitions** · generated 11:42 UK
 
 ## 🎯 Shortlist
 
