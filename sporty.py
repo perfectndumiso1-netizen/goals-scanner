@@ -8,6 +8,8 @@ import json
 import logging
 import os
 import re
+import shutil
+import subprocess
 import time
 import unicodedata
 from datetime import datetime, timezone
@@ -27,20 +29,50 @@ MAX_PAGES = 40
 SESSION = requests.Session()
 SESSION.headers.update({"User-Agent": UA, "Accept": "application/json", "Accept-Language": "en"})
 
+# Sportybet sits behind AWS WAF bot control. Python's HTTP/1.1 client gets a JavaScript challenge
+# (HTTP 202, x-amzn-waf-action: challenge) from cloud IPs such as GitHub's runners, while curl over
+# HTTP/2 is served normally from the same machine. So: curl first, requests as a fallback.
+CURL = shutil.which("curl")
+_TRANSPORT = {"mode": "curl" if CURL else "requests"}
 
-# ----------------------------------------------------------------------------- fetching
+
+def _fetch_curl(url: str) -> tuple[int, str]:
+    cmd = [CURL, "-s", "--http2", "-m", str(TIMEOUT), "-A", UA, "-H", "Accept: application/json",
+           "-H", "Accept-Language: en", "-w", "\n%{http_code}", url]
+    out = subprocess.run(cmd, capture_output=True, text=True, timeout=TIMEOUT + 10).stdout
+    body, _, code = out.rpartition("\n")
+    return int(code or 0), body
+
+
+def _fetch_requests(url: str) -> tuple[int, str]:
+    r = SESSION.get(url, timeout=TIMEOUT)
+    return r.status_code, r.text
+
+
 def _get(url: str) -> dict | None:
     try:
-        r = SESSION.get(url, timeout=TIMEOUT)
-        if r.status_code != 200:
-            log.warning("Sportybet HTTP %s for %s", r.status_code, url[:120])
+        if _TRANSPORT["mode"] == "curl":
+            try:
+                code, body = _fetch_curl(url)
+            except (OSError, subprocess.SubprocessError, ValueError) as exc:
+                log.warning("Sportybet curl failed (%s) - switching to requests", exc)
+                _TRANSPORT["mode"] = "requests"
+                code, body = _fetch_requests(url)
+        else:
+            code, body = _fetch_requests(url)
+        if code == 202 and _TRANSPORT["mode"] == "requests" and CURL:
+            # WAF challenge on the plain client: retry once through curl and stay there
+            _TRANSPORT["mode"] = "curl"
+            code, body = _fetch_curl(url)
+        if code != 200:
+            log.warning("Sportybet HTTP %s for %s", code, url[:120])
             return None
-        d = r.json()
+        d = json.loads(body)
         if d.get("bizCode") not in (10000, None):
             log.warning("Sportybet bizCode %s: %s", d.get("bizCode"), str(d.get("message"))[:100])
             return None
         return d.get("data") or {}
-    except (requests.RequestException, ValueError) as exc:
+    except (requests.RequestException, ValueError, subprocess.SubprocessError, OSError) as exc:
         log.warning("Sportybet request failed: %s", exc)
         return None
 
