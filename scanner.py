@@ -810,11 +810,17 @@ def sb_price(r: MatchRow, mkt: str):
 
 
 # ----------------------------------------------------------------------------- run schedule / parlays
+def run_desc(label: str, tz: bool = False) -> str:
+    """'run 07:00' / 'manual run 15:05' (+ timezone label)."""
+    txt = f"manual run {label[7:]}" if str(label).startswith("manual") else f"run {label}"
+    return f"{txt} {TZL}" if tz else txt
+
+
 def run_schedule(now: datetime) -> tuple[str, datetime]:
     """(run label, parlay window end). The window ends at the next scheduled run."""
     hours = CONFIG["RUN_HOURS"]
     todays = [now.replace(hour=h, minute=0, second=0, microsecond=0) for h in hours]
-    label = "manual"
+    label = f"manual {now:%H:%M}"
     for t in todays:
         if abs((now - t).total_seconds()) <= 75 * 60:
             label = f"{t:%H:%M}"
@@ -1164,7 +1170,7 @@ def leg_row(l: parlay_mod.Leg) -> str:
 
 def render_parlays(ctx: dict, pr: dict, ids: list[str], psum: dict) -> list[str]:
     lo, hi = CONFIG["PARLAY_ODDS"]
-    L = [f"## 🎟️ Parlays — run {ctx['run']} · combined odds {lo:.2f}–{hi:.2f}", ""]
+    L = [f"## 🎟️ Parlays — {run_desc(ctx['run'])} · combined odds {lo:.2f}–{hi:.2f}", ""]
     src = pr["source"]
     win = f"kick-offs before the next run ({ctx['window_end']:%a %H:%M} {TZL})"
     if pr["extended"]:
@@ -1296,7 +1302,7 @@ def render_report(ctx: dict, rows: list[MatchRow], picks: dict, summary: dict, n
     now = ctx["now"]
     L = [f"# ⚽ Goals Scanner — {now:%A %d %B %Y}", ""]
     comps = {comp(r) for r in rows}
-    L.append(f"**Run {ctx.get('run', '')} {TZL}** · scan window {ctx['start']:%a %d %b %H:%M} → {ctx['end']:%a %d %b %H:%M} · "
+    L.append(f"**{run_desc(ctx.get('run', ''), True).capitalize()}** · scan window {ctx['start']:%a %d %b %H:%M} → {ctx['end']:%a %d %b %H:%M} · "
              f"**{len(rows)} fixtures** across **{len(comps)} competitions** · generated {now:%H:%M} {TZL} · "
              f"next run {ctx['window_end']:%a %H:%M}")
     L.append("")
@@ -1408,7 +1414,7 @@ def render_readme_block(ctx: dict, rows: list[MatchRow], picks: dict, summary: d
         L.append("")
     pr = ctx.get("parlays") or {}
     if pr:
-        L.append(f"**Parlays (run {ctx.get('run', '')}, {pr['source']})** — see [dossier]({report_rel.replace('.md', '-parlays.md')})")
+        L.append(f"**Parlays ({run_desc(ctx.get('run', ''))}, {pr['source']})** — see [dossier]({report_rel.replace('.md', '-parlays.md')})")
         L.append("")
         for i, pl in enumerate(pr["parlays"], 1):
             legs = "; ".join(f"{l.match} — {l.label} @ {l.odds:.2f}" for l in pl)
@@ -1491,7 +1497,7 @@ def rows_to_csv(rows: list[MatchRow], path: Path) -> None:
 def render_dossier(ctx: dict, pr: dict, ids: list[str], rows_by_key: dict, headlines: dict) -> str:
     """Parlay dossier: every parlay, then the full data sheet of every match involved (+ headlines)."""
     now = ctx["now"]
-    L = [f"# 🎟️ Parlay dossier — {now:%A %d %B %Y}, run {ctx['run']} {TZL}", ""]
+    L = [f"# 🎟️ Parlay dossier — {now:%A %d %B %Y}, {run_desc(ctx['run'], True)}", ""]
     lo, hi = CONFIG["PARLAY_ODDS"]
     L.append(f"_{len(pr['parlays'])} parlay(s) · combined odds {lo:.2f}–{hi:.2f} · prices: {pr['source']} · "
              f"generated {now:%H:%M} {TZL}. Full method and the honest backtest warning are in the main report._")
@@ -1619,7 +1625,7 @@ def send_telegram_document(path: Path, caption: str) -> bool:
 
 def telegram_text(ctx: dict, rows: list[MatchRow], picks: dict, report_url: str | None) -> str:
     now = ctx["now"]
-    L = [f"⚽ <b>Goals Scanner — {now:%a %d %b}, run {ctx.get('run', '')}</b>", f"{len(rows)} fixtures scanned · times in {TZL}"]
+    L = [f"⚽ <b>Goals Scanner — {now:%a %d %b}, {run_desc(ctx.get('run', ''))}</b>", f"{len(rows)} fixtures scanned · times in {TZL}"]
     pr = ctx.get("parlays") or {}
     if pr:
         L.append("")
@@ -1796,9 +1802,9 @@ def main() -> None:
         stamp = f"{today_str}-{now:%H%M}"
         try:
             pdf_report = pdfgen.markdown_to_pdf(report_md, PDF_DIR / f"goals-scanner-{stamp}.pdf", "Goals Scanner",
-                                                f"Run {run_label} {TZL} · full report")
+                                                f"{run_desc(run_label, True).capitalize()} · full report")
             pdf_dossier = pdfgen.markdown_to_pdf(dossier_md, PDF_DIR / f"parlays-{stamp}.pdf", "Parlay dossier",
-                                                 f"Run {run_label} {TZL} · parlay match data")
+                                                 f"{run_desc(run_label, True).capitalize()} · parlay match data")
         except Exception as exc:  # noqa: BLE001 - never lose the run because of the PDF
             log.warning("PDF generation failed: %s", exc)
 
@@ -1808,7 +1814,7 @@ def main() -> None:
     report_url = f"{server}/{repo}/blob/{branch}/reports/{today_str}.md" if repo else None
     send_telegram(telegram_text(ctx, rows, picks, report_url))
     if pdf_report:
-        send_telegram_document(pdf_report, f"📄 Full report — {now:%a %d %b}, run {run_label} {TZL} ({len(rows)} fixtures)")
+        send_telegram_document(pdf_report, f"📄 Full report — {now:%a %d %b}, {run_desc(run_label, True)} ({len(rows)} fixtures)")
     if pdf_dossier and pr["parlays"]:
         send_telegram_document(pdf_dossier, f"🎟️ Parlay dossier — {len(pr['parlays'])} parlay(s), full match data")
     if digest_lines:
