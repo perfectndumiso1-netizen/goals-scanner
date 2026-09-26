@@ -15,9 +15,9 @@ Every run:
   headlines for every parlay match); Markdown + CSV committed here; a weekly performance digest on Mondays.
 
 <!-- SCAN:START -->
-### Latest scan — Saturday 26 September 2026 (17:01 SAST)
+### Latest scan — Saturday 26 September 2026 (18:27 SAST)
 
-23 fixtures scanned · window Sat 16:56 → Sun 17:01 SAST · [open full report](reports/2026-09-26.md)
+23 fixtures scanned · window Sat 18:22 → Sun 18:27 SAST · [open full report](reports/2026-09-26.md)
 
 **Over 1.5 goals** — 5 pick(s)
 
@@ -57,11 +57,11 @@ Every run:
 | Sun 27 Sep 02:30 | **FC Dallas v Los Angeles FC** | USA · MLS | 63% | ⭐ |
 | … | _2 more in the full report_ | | | |
 
-**Parlays (run 17:00, Sportybet)** — see [dossier](reports/2026-09-26-parlays.md)
+**Parlays (manual run 18:27, Sportybet)** — see [dossier](reports/2026-09-26-parlays.md)
 
 1. @ **2.75** (P 37%): Guadalajara Chivas v Queretaro — Home or draw (1X) @ 1.17; Charlotte v Chicago Fire — Home win @ 2.35
 2. @ **3.24** (P 30%): CF Montreal v FC Cincinnati — Home win @ 2.75; Houston Dynamo v Sporting Kansas City — Home or draw (1X) @ 1.18
-3. @ **3.48** (P 28%): Philadelphia Union v Orlando City — Home or away (12) @ 1.18; Real Salt Lake v New England Revolution — Away win @ 2.95
+3. @ **3.14** (P 31%): Atlanta Utd v New York City — Home win @ 2.45; Philadelphia Union v Orlando City — Over 2.5 goals @ 1.28
 
 **Tracker**
 
@@ -73,7 +73,7 @@ Every run:
 
 ### Parlay ledger
 
-_No settled parlays yet — 15 pending (graded automatically once the results are in)._
+_No settled parlays yet — 16 pending (graded automatically once the results are in)._
 
 <!-- SCAN:END -->
 

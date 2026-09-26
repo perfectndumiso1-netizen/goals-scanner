@@ -1,0 +1,13 @@
+match_date,kickoff,country,div,league,home,away,sel,label,p,p_model,p_sb,odds,status,score,settled_on,run,report_date
+2026-09-27,2026-09-27 01:30,USA,USA:MLS,MLS,CF Montreal,FC Cincinnati,U45,Under 4.5 goals,0.746,0.752,0.740,1.30,pending,,,manual 18:27,2026-09-26
+2026-09-27,2026-09-27 02:30,USA,USA:MLS,MLS,Austin FC,San Diego FC,12,Austin FC or San Diego FC,0.745,0.746,0.744,1.30,pending,,,manual 18:27,2026-09-26
+2026-09-27,2026-09-27 01:30,USA,USA:MLS,MLS,Philadelphia Union,Orlando City,AO05,Orlando City over 0.5 goals,0.744,0.761,0.728,1.31,pending,,,manual 18:27,2026-09-26
+2026-09-27,2026-09-27 02:30,USA,USA:MLS,MLS,FC Dallas,Los Angeles FC,12,FC Dallas or Los Angeles FC,0.742,0.745,0.739,1.30,pending,,,manual 18:27,2026-09-26
+2026-09-27,2026-09-27 01:30,USA,USA:MLS,MLS,Charlotte,Chicago Fire,U45,Under 4.5 goals,0.742,0.766,0.717,1.34,pending,,,manual 18:27,2026-09-26
+2026-09-27,2026-09-27 01:30,USA,USA:MLS,MLS,Atlanta Utd,New York City,12,Atlanta Utd or New York City,0.739,0.739,0.739,1.30,pending,,,manual 18:27,2026-09-26
+2026-09-26,2026-09-27 00:50,Mexico,MEX:Liga MX,Liga MX,Cruz Azul,Toluca,12,Cruz Azul or Toluca,0.737,0.736,0.737,1.30,pending,,,manual 18:27,2026-09-26
+2026-09-27,2026-09-27 14:00,Spain,SP2,Segunda División,Valladolid,Cordoba,12,Valladolid or Cordoba,0.727,0.728,0.725,1.31,pending,,,manual 18:27,2026-09-26
+2026-09-27,2026-09-27 16:15,Spain,SP2,Segunda División,Mallorca,Almeria,12,Mallorca or Almeria,0.721,0.721,0.721,1.31,pending,,,manual 18:27,2026-09-26
+2026-09-27,2026-09-27 16:15,Spain,SP2,Segunda División,Mallorca,Almeria,U35,Under 3.5 goals,0.713,0.722,0.705,1.34,pending,,,manual 18:27,2026-09-26
+2026-09-27,2026-09-27 14:00,Spain,SP2,Segunda División,Valladolid,Cordoba,AO05,Cordoba over 0.5 goals,0.712,0.711,0.713,1.31,pending,,,manual 18:27,2026-09-26
+2026-09-27,2026-09-27 01:07,Mexico,MEX:Liga MX,Liga MX,Guadalajara Chivas,Queretaro,AU15,Queretaro under 1.5 goals,0.711,0.703,0.719,1.30,pending,,,manual 18:27,2026-09-26
