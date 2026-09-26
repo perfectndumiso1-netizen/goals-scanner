@@ -1,35 +1,35 @@
 # ⚽ Goals Scanner — Saturday 26 September 2026
 
-**Run manual SAST** · scan window Sat 26 Sep 14:52 → Sun 27 Sep 14:57 · **48 fixtures** across **6 competitions** · generated 14:57 SAST · next run Sat 17:00
+**Run manual SAST** · scan window Sat 26 Sep 14:54 → Sun 27 Sep 14:59 · **48 fixtures** across **6 competitions** · generated 14:59 SAST · next run Sat 17:00
 
-> Sportybet (ZA): 44 of 48 fixtures priced.
+> Sportybet prices unavailable this run — average market prices shown instead.
 
 ## 🎟️ Parlays — run manual · combined odds 2.70–3.50
 
-_Prices: **Sportybet**. Window: kick-offs before the next run (Sat 17:00 SAST). 26 priced matches, 207 candidate legs. Legs are limited to 1X2, double chance and Over/Under 2.5 — markets with real prices. Each parlay maximises expected return (calibrated probability × price) inside the odds band._
+_Prices: **avg market** — Sportybet was unreachable, average market prices used. Window: kick-offs before the next run (Sat 17:00 SAST). 26 priced matches, 207 candidate legs. Legs are limited to 1X2, double chance and Over/Under 2.5 — markets with real prices. Each parlay maximises expected return (calibrated probability × price) inside the odds band._
 
-### Parlay 1 — 2 legs @ **3.47** · win probability **30%** · expected return +4.5% · id `20260926-01`
-
-| Kick-off | Match | Competition | Selection | Price | Fair odds | Probability | Leg edge |
-|---|---|---|---|---|---|---|---|
-| 09-26 16:00 | **York v Gillingham** | League Two | **Home win** | **1.80** | 1.71 | 58% | +5.2% |
-| 09-26 16:00 | **Newport County v Grimsby** | League Two | **Away win** | **1.93** | 1.94 | 51% | -0.7% |
-
-### Parlay 2 — 2 legs @ **3.29** · win probability **29%** · expected return -3.2% · id `20260926-02`
+### Parlay 1 — 2 legs @ **2.73** · win probability **34%** · expected return -6.9% · id `20260926-04`
 
 | Kick-off | Match | Competition | Selection | Price | Fair odds | Probability | Leg edge |
 |---|---|---|---|---|---|---|---|
-| 09-26 16:00 | **Solihull v Boreham Wood** | National League | **Away win** | **1.68** | 1.69 | 59% | -0.9% |
-| 09-26 16:00 | **Fleetwood Town v Rochdale** | League Two | **Under 2.5 goals** | **1.96** | 2.01 | 50% | -2.4% |
+| 09-26 16:00 | **Southend v Barrow** | National League | **Over 2.5 goals** | **1.59** | 1.64 | 61% | -3.3% |
+| 09-26 16:00 | **Bristol Rvs v Exeter** | League Two | **Home win** | **1.72** | 1.79 | 56% | -3.7% |
 
-### Parlay 3 — 2 legs @ **2.89** · win probability **33%** · expected return -5.5% · id `20260926-03`
+### Parlay 2 — 2 legs @ **2.86** · win probability **32%** · expected return -7.9% · id `20260926-05`
 
 | Kick-off | Match | Competition | Selection | Price | Fair odds | Probability | Leg edge |
 |---|---|---|---|---|---|---|---|
-| 09-26 16:00 | **Boston Utd v Fylde** | National League | **Over 2.5 goals** | **1.52** | 1.56 | 64% | -2.6% |
-| 09-26 16:00 | **Cambridge v AFC Wimbledon** | League One | **Home win** | **1.90** | 1.96 | 51% | -3.0% |
+| 09-26 16:00 | **Plymouth v Burton** | League One | **Home win** | **1.59** | 1.65 | 61% | -3.5% |
+| 09-26 16:00 | **Newport County v Grimsby** | League Two | **Away win** | **1.80** | 1.89 | 53% | -4.5% |
 
-**Parlay record:** no settled parlays yet (3 pending).
+### Parlay 3 — 2 legs @ **3.11** · win probability **29%** · expected return -8.3% · id `20260926-06`
+
+| Kick-off | Match | Competition | Selection | Price | Fair odds | Probability | Leg edge |
+|---|---|---|---|---|---|---|---|
+| 09-26 16:00 | **Boston Utd v Fylde** | National League | **Over 2.5 goals** | **1.48** | 1.54 | 65% | -3.8% |
+| 09-26 16:00 | **Rotherham v Crewe** | League Two | **Home win** | **2.10** | 2.20 | 45% | -4.7% |
+
+**Parlay record:** no settled parlays yet (6 pending).
 
 > ⚠️ Honest expectation: a parlay at ~3.1 needs to win about 1 in 3 to break even. In the 2023-26 backtest this exact construction won 30-33% of the time and returned −4% to −13% per unit at average prices — the bookmaker margin compounds across legs. Treat parlays as entertainment with a known cost, not as income. Full test: `backtest/PARLAY_EXPERIMENT.md`.
 
@@ -143,38 +143,7 @@ _Rule: final probability ≥ 60% (⭐⭐ ≥ 63%, ⭐⭐⭐ ≥ 66%). Backtest 2
 
 ## 💰 Sportybet price check — shortlisted picks
 
-_Fair odds = 1 / calibrated probability (90% sharp market, 10% model where prices exist). A positive edge means Sportybet pays more than the fair price; the backtest found positive edges of this kind on Over 2.5 returned about +3% at the best available price — small, but real. Negative edges mean the price is below fair value._
-
-| Market | Match | Kick-off | Probability | Fair odds | Sportybet | Edge |
-|---|---|---|---|---|---|---|
-| Over 1.5 goals | **Philadelphia Union v Orlando City** | Sun 01:30 | 90% | 1.12 | **1.08** | -3.1% ❌ short |
-| Over 1.5 goals | **Stockport v Peterboro** | Sat 16:00 | 87% | 1.14 | **1.11** | -3.0% ≈ fair |
-| Over 1.5 goals | **CF Montreal v FC Cincinnati** | Sun 01:30 | 86% | 1.16 | **1.14** | -2.1% ≈ fair |
-| Over 1.5 goals | **Charlotte v Chicago Fire** | Sun 01:30 | 85% | 1.18 | **1.15** | -2.2% ≈ fair |
-| Over 1.5 goals | **Seattle Sounders v Minnesota United** | Sun 02:30 | 84% | 1.19 | **1.18** | -1.2% ≈ fair |
-| Over 2.5 goals | **Philadelphia Union v Orlando City** | Sun 01:30 | 75% | 1.33 | **1.29** | -2.8% ≈ fair |
-| Over 2.5 goals | **Solihull v Boreham Wood** | Sat 16:00 | 71% | 1.41 | **1.37** | -3.0% ❌ short |
-| Over 2.5 goals | **Stockport v Peterboro** | Sat 16:00 | 70% | 1.44 | **1.37** | -4.7% ❌ short |
-| Over 2.5 goals | **CF Montreal v FC Cincinnati** | Sun 01:30 | 67% | 1.50 | **1.46** | -2.8% ≈ fair |
-| Over 2.5 goals | **Charlotte v Chicago Fire** | Sun 01:30 | 65% | 1.54 | **1.50** | -2.6% ≈ fair |
-| Over 2.5 goals | **Seattle Sounders v Minnesota United** | Sun 02:30 | 62% | 1.62 | **1.58** | -2.6% ≈ fair |
-| Over 2.5 goals | **Boston Utd v Fylde** | Sat 16:00 | 64% | 1.56 | **1.52** | -2.6% ≈ fair |
-| Over 2.5 goals | **Nashville SC v Toronto FC** | Sun 02:30 | 64% | 1.56 | **1.51** | -3.0% ❌ short |
-| Over 2.5 goals | **Aldershot v Tamworth** | Sat 16:00 | 62% | 1.60 | **1.54** | -3.8% ❌ short |
-| Over 2.5 goals | **New York Red Bulls v St. Louis City** | Sun 01:30 | 67% | 1.50 | **1.45** | -3.5% ❌ short |
-| Over 2.5 goals | **FC Dallas v Los Angeles FC** | Sun 02:30 | 60% | 1.68 | **1.63** | -2.8% ≈ fair |
-| Both teams to score | **Philadelphia Union v Orlando City** | Sun 01:30 | 68% | 1.47 | **1.42** | -3.3% ❌ short |
-| Both teams to score | **CF Montreal v FC Cincinnati** | Sun 01:30 | 67% | 1.48 | **1.42** | -4.4% ❌ short |
-| Both teams to score | **Solihull v Boreham Wood** | Sat 16:00 | 67% | 1.49 | **1.40** | -6.3% ❌ short |
-| Both teams to score | **Seattle Sounders v Minnesota United** | Sun 02:30 | 64% | 1.55 | **1.51** | -2.7% ≈ fair |
-| Both teams to score | **Boston Utd v Fylde** | Sat 16:00 | 65% | 1.53 | **1.43** | -6.6% ❌ short |
-| Both teams to score | **Charlotte v Chicago Fire** | Sun 01:30 | 66% | 1.53 | **1.45** | -4.9% ❌ short |
-| Both teams to score | **Aldershot v Tamworth** | Sat 16:00 | 64% | 1.55 | **1.45** | -6.6% ❌ short |
-| Both teams to score | **New York Red Bulls v St. Louis City** | Sun 01:30 | 65% | 1.55 | **1.46** | -5.6% ❌ short |
-| Both teams to score | **FC Dallas v Los Angeles FC** | Sun 02:30 | 63% | 1.60 | **1.54** | -3.5% ❌ short |
-| Both teams to score | **Worthing v Halifax** | Sat 16:00 | 63% | 1.60 | **1.48** | -7.4% ❌ short |
-| Both teams to score | **Nashville SC v Toronto FC** | Sun 02:30 | 59% | 1.70 | **1.68** | -1.2% ≈ fair |
-| Both teams to score | **Austin FC v San Diego FC** | Sun 02:30 | 62% | 1.61 | **1.52** | -5.8% ❌ short |
+_Sportybet prices were not available for this run._
 
 ## 🧾 Other markets — 1X2, double chance, team goals, corners, cards
 
@@ -182,54 +151,54 @@ _Probabilities are model + sharp-market blends (1X2, team goals) or the backtest
 
 | Kick-off (SAST) | Match | Competition | Home / Draw / Away | 1X / X2 | Home to score / 2+ | Away to score / 2+ | Corners exp. (O9.5 · O10.5) | Cards exp. (O3.5 · O4.5) | Sportybet 1X2 |
 |---|---|---|---|---|---|---|---|---|---|
-| Sat 26 Sep 16:00 | **Cambridge v AFC Wimbledon** | England · League One | 51% / 27% / 22% | 78% / 49% | 80% / 47% | 62% / 25% | 10.3 (57% · 46%) | 3.3 (41% · 24%) | 1.90 / 3.50 / 4.00 |
-| Sat 26 Sep 16:00 | **Plymouth v Burton** | England · League One | 62% / 21% / 16% | 84% / 38% | 85% / 57% | 64% / 28% | 10.2 (56% · 45%) | 3.6 (48% · 30%) | 1.50 / 4.50 / 5.90 |
-| Sat 26 Sep 16:00 | **Stockport v Peterboro** | England · League One | 71% / 17% / 12% | 88% / 29% | 91% / 69% | 65% / 28% | 10.6 (61% · 49%) | 3.2 (40% · 23%) | 1.34 / 5.70 / 7.30 |
-| Sat 26 Sep 16:00 | **Wycombe v Reading** | England · League One | 37% / 26% / 38% | 62% / 63% | 77% / 44% | 77% / 43% | 10.1 (55% · 43%) | 3.2 (39% · 22%) | 2.60 / 3.60 / 2.50 |
-| Sat 26 Sep 16:00 | **Bristol Rvs v Exeter** | England · League Two | 55% / 24% / 20% | 80% / 45% | 82% / 52% | 64% / 27% | 9.7 (50% · 39%) | 3.5 (46% · 28%) | 1.76 / 3.75 / 4.40 |
-| Sat 26 Sep 16:00 | **Cheltenham v Chesterfield** | England · League Two | 31% / 26% / 43% | 57% / 69% | 74% / 38% | 79% / 47% | 9.6 (48% · 37%) | 3.6 (49% · 31%) | 2.95 / 3.60 / 2.25 |
-| Sat 26 Sep 16:00 | **Fleetwood Town v Rochdale** | England · League Two | 50% / 26% / 24% | 76% / 50% | 80% / 47% | 65% / 29% | 9.9 (52% · 40%) | 3.6 (47% · 29%) | 1.93 / 3.60 / 3.90 |
-| Sat 26 Sep 16:00 | **Newport County v Grimsby** | England · League Two | 23% / 25% / 51% | 49% / 77% | 66% / 30% | 81% / 49% | 10.3 (57% · 45%) | 3.8 (52% · 34%) | 3.80 / 3.60 / 1.93 |
-| Sat 26 Sep 16:00 | **Rotherham v Crewe** | England · League Two | 45% / 26% / 30% | 70% / 55% | 79% / 47% | 72% / 36% | 9.6 (49% · 38%) | 3.9 (54% · 36%) | 2.15 / 3.60 / 3.20 |
-| Sat 26 Sep 16:00 | **Shrewsbury v Colchester** | England · League Two | 38% / 28% / 33% | 67% / 62% | 73% / 37% | 71% / 35% | 9.4 (47% · 35%) | 4.2 (58% · 40%) | 2.40 / 3.30 / 2.90 |
-| Sat 26 Sep 16:00 | **Swindon v Accrington** | England · League Two | 43% / 27% / 31% | 69% / 57% | 78% / 45% | 71% / 35% | 10.3 (57% · 45%) | 3.7 (50% · 32%) | 2.20 / 3.50 / 3.10 |
-| Sat 26 Sep 16:00 | **Tranmere v Walsall** | England · League Two | 39% / 27% / 34% | 66% / 61% | 75% / 40% | 73% / 37% | 10.2 (56% · 44%) | 3.5 (47% · 29%) | 2.40 / 3.40 / 2.85 |
-| Sat 26 Sep 16:00 | **York v Gillingham** | England · League Two | 58% / 22% / 19% | 81% / 42% | 87% / 61% | 63% / 26% | 10.1 (55% · 43%) | 3.5 (46% · 28%) | 1.80 / 3.90 / 4.10 |
-| Sat 26 Sep 16:00 | **Aldershot v Tamworth** | England · National League | 39% / 24% / 37% | 63% / 61% | 80% / 48% | 79% / 46% | 9.8 (52% · 40%) | 4.3 (61% · 43%) | 2.45 / 3.70 / 2.55 |
-| Sat 26 Sep 16:00 | **Altrincham v Hornchurch** | England · National League | 45% / 25% / 30% | 70% / 55% | 79% / 47% | 72% / 37% | 9.9 (52% · 40%) | 3.8 (51% · 33%) | 2.10 / 3.60 / 3.20 |
-| Sat 26 Sep 16:00 | **Boston Utd v Fylde** | England · National League | 38% / 24% / 38% | 62% / 62% | 80% / 47% | 80% / 48% | 10.1 (54% · 43%) | 4.3 (61% · 43%) | 2.50 / 3.70 / 2.50 |
-| Sat 26 Sep 16:00 | **Carlisle v Woking** | England · National League | 58% / 23% / 19% | 81% / 42% | 85% / 57% | 68% / 31% | 10.4 (58% · 46%) | 3.5 (46% · 28%) | 1.64 / 4.10 / 4.60 |
-| Sat 26 Sep 16:00 | **Harrogate v Eastleigh** | England · National League | 60% / 22% / 18% | 82% / 40% | 85% / 57% | 65% / 28% | 9.9 (52% · 40%) | 3.3 (43% · 25%) | 1.60 / 4.10 / 4.90 |
-| Sat 26 Sep 16:00 | **Kidderminster v Yeovil** | England · National League | 46% / 27% / 27% | 73% / 54% | 79% / 46% | 68% / 32% | 9.5 (48% · 36%) | 4.9 (70% · 53%) | 2.05 / 3.50 / 3.40 |
-| Sat 26 Sep 16:00 | **Scunthorpe v Hartlepool** | England · National League | 46% / 25% / 29% | 71% / 54% | 80% / 48% | 72% / 36% | 10.1 (55% · 43%) | 3.1 (37% · 20%) | 2.10 / 3.60 / 3.20 |
-| Sat 26 Sep 16:00 | **Solihull v Boreham Wood** | England · National League | 20% / 21% / 59% | 41% / 80% | 74% / 39% | 89% / 65% | 10.1 (54% · 42%) | 3.7 (50% · 32%) | 4.20 / 4.25 / 1.68 |
-| Sat 26 Sep 16:00 | **Southend v Barrow** | England · National League | 56% / 23% / 21% | 79% / 44% | 85% / 56% | 69% / 33% | 10.0 (54% · 42%) | 4.0 (55% · 37%) | 1.68 / 4.00 / 4.40 |
-| Sat 26 Sep 16:00 | **Sutton v Forest Green** | England · National League | 35% / 27% / 38% | 62% / 65% | 74% / 39% | 75% / 40% | 10.0 (53% · 42%) | 5.0 (71% · 54%) | 2.70 / 3.40 / 2.45 |
-| Sat 26 Sep 16:00 | **Wealdstone v Gateshead** | England · National League | 55% / 24% / 21% | 79% / 45% | 84% / 55% | 67% / 31% | 9.2 (44% · 32%) | 4.0 (56% · 37%) | 1.73 / 3.90 / 4.25 |
-| Sat 26 Sep 16:00 | **Worthing v Halifax** | England · National League | 44% / 25% / 31% | 69% / 56% | 81% / 49% | 75% / 41% | 10.1 (54% · 43%) | 4.2 (58% · 40%) | 2.15 / 3.60 / 3.00 |
-| Sat 26 Sep 16:15 | **Granada v Andorra** | Spain · Segunda División | 43% / 28% / 29% | 71% / 57% | 76% / 42% | 68% / 32% | 8.9 (40% · 29%) | 5.3 (75% · 59%) | 2.25 / 3.33 / 3.20 |
-| Sat 26 Sep 18:30 | **Oldham v Salford** | England · League Two | 39% / 27% / 35% | 65% / 61% | 77% / 43% | 74% / 39% | 9.7 (50% · 38%) | 3.7 (50% · 32%) | 2.45 / 3.50 / 2.75 |
-| Sat 26 Sep 18:30 | **Celta B v Sabadell** | Spain · Segunda División | 29% / 28% / 42% | 58% / 71% | 70% / 34% | 75% / 40% | 8.9 (40% · 29%) | 5.2 (74% · 58%) | 3.33 / 3.33 / 2.15 |
-| Sat 26 Sep 18:30 | **Tenerife v Cadiz** | Spain · Segunda División | 50% / 29% / 21% | 79% / 50% | 76% / 41% | 59% / 23% | 9.0 (42% · 31%) | 4.8 (68% · 51%) | 1.85 / 3.33 / 4.50 |
-| Sun 27 Sep 00:50 | **Cruz Azul v Toluca** | Mexico · Liga MX | 37% / 26% / 37% | 63% / 63% | 79% / 46% | 72% / 37% | – | – | 2.60 / 3.60 / 2.60 |
-| Sun 27 Sep 01:07 | **Guadalajara Chivas v Queretaro** | Mexico · Liga MX | 64% / 20% / 16% | 84% / 36% | 81% / 50% | 66% / 30% | – | – | 1.59 / 4.30 / 5.25 |
-| Sun 27 Sep 01:30 | **Atlanta Utd v New York City** | USA · MLS | 42% / 26% / 32% | 68% / 58% | 78% / 45% | 75% / 40% | – | – | 2.35 / 3.70 / 3.00 |
-| Sun 27 Sep 01:30 | **CF Montreal v FC Cincinnati** | USA · MLS | 37% / 24% / 39% | 61% / 63% | 84% / 54% | 79% / 46% | – | – | 2.75 / 4.00 / 2.40 |
-| Sun 27 Sep 01:30 | **Charlotte v Chicago Fire** | USA · MLS | 45% / 24% / 31% | 69% / 55% | 85% / 56% | 75% / 41% | – | – | 2.20 / 3.90 / 3.10 |
-| Sun 27 Sep 01:30 | **New York Red Bulls v St. Louis City** | USA · MLS | 28% / 23% / 49% | 51% / 72% | 79% / 46% | 79% / 46% | – | – | 3.70 / 4.25 / 1.90 |
-| Sun 27 Sep 01:30 | **Philadelphia Union v Orlando City** | USA · MLS | 66% / 18% / 17% | 83% / 34% | 89% / 64% | 76% / 42% | – | – | 1.50 / 5.40 / 5.60 |
-| Sun 27 Sep 02:30 | **Austin FC v San Diego FC** | USA · MLS | 40% / 25% / 34% | 66% / 60% | 81% / 49% | 74% / 39% | – | – | 2.45 / 3.75 / 2.80 |
-| Sun 27 Sep 02:30 | **FC Dallas v Los Angeles FC** | USA · MLS | 42% / 25% / 33% | 67% / 58% | 81% / 50% | 76% / 42% | – | – | 2.35 / 3.80 / 2.90 |
-| Sun 27 Sep 02:30 | **Houston Dynamo v Sporting Kansas City** | USA · MLS | 62% / 21% / 17% | 83% / 38% | 86% / 58% | 69% / 33% | – | – | 1.62 / 4.50 / 5.30 |
-| Sun 27 Sep 02:30 | **Nashville SC v Toronto FC** | USA · MLS | 66% / 19% / 15% | 85% / 34% | 86% / 59% | 69% / 33% | – | – | 1.47 / 5.10 / 6.50 |
-| Sun 27 Sep 02:30 | **Seattle Sounders v Minnesota United** | USA · MLS | 43% / 25% / 32% | 68% / 57% | 83% / 53% | 77% / 44% | – | – | 2.35 / 3.80 / 2.95 |
+| Sat 26 Sep 16:00 | **Cambridge v AFC Wimbledon** | England · League One | 51% / 27% / 22% | 78% / 49% | 80% / 47% | 62% / 25% | 10.3 (57% · 46%) | 3.3 (41% · 24%) | – |
+| Sat 26 Sep 16:00 | **Plymouth v Burton** | England · League One | 61% / 22% / 17% | 83% / 39% | 85% / 57% | 64% / 28% | 10.2 (56% · 45%) | 3.6 (48% · 30%) | – |
+| Sat 26 Sep 16:00 | **Stockport v Peterboro** | England · League One | 70% / 17% / 13% | 87% / 30% | 91% / 69% | 65% / 28% | 10.6 (61% · 49%) | 3.2 (40% · 23%) | – |
+| Sat 26 Sep 16:00 | **Wycombe v Reading** | England · League One | 37% / 26% / 37% | 63% / 63% | 77% / 44% | 77% / 43% | 10.1 (55% · 43%) | 3.2 (39% · 22%) | – |
+| Sat 26 Sep 16:00 | **Bristol Rvs v Exeter** | England · League Two | 56% / 24% / 20% | 80% / 44% | 82% / 52% | 64% / 27% | 9.7 (50% · 39%) | 3.5 (46% · 28%) | – |
+| Sat 26 Sep 16:00 | **Cheltenham v Chesterfield** | England · League Two | 31% / 25% / 44% | 56% / 69% | 74% / 38% | 79% / 47% | 9.6 (48% · 37%) | 3.6 (49% · 31%) | – |
+| Sat 26 Sep 16:00 | **Fleetwood Town v Rochdale** | England · League Two | 50% / 27% / 23% | 77% / 50% | 80% / 47% | 65% / 29% | 9.9 (52% · 40%) | 3.6 (47% · 29%) | – |
+| Sat 26 Sep 16:00 | **Newport County v Grimsby** | England · League Two | 22% / 25% / 53% | 47% / 78% | 66% / 30% | 81% / 49% | 10.3 (57% · 45%) | 3.8 (52% · 34%) | – |
+| Sat 26 Sep 16:00 | **Rotherham v Crewe** | England · League Two | 45% / 25% / 30% | 70% / 55% | 79% / 47% | 72% / 36% | 9.6 (49% · 38%) | 3.9 (54% · 36%) | – |
+| Sat 26 Sep 16:00 | **Shrewsbury v Colchester** | England · League Two | 37% / 29% / 34% | 66% / 63% | 73% / 37% | 71% / 35% | 9.4 (47% · 35%) | 4.2 (58% · 40%) | – |
+| Sat 26 Sep 16:00 | **Swindon v Accrington** | England · League Two | 42% / 27% / 31% | 69% / 58% | 78% / 45% | 71% / 35% | 10.3 (57% · 45%) | 3.7 (50% · 32%) | – |
+| Sat 26 Sep 16:00 | **Tranmere v Walsall** | England · League Two | 38% / 28% / 34% | 66% / 62% | 75% / 40% | 73% / 37% | 10.2 (56% · 44%) | 3.5 (47% · 29%) | – |
+| Sat 26 Sep 16:00 | **York v Gillingham** | England · League Two | 62% / 21% / 17% | 83% / 38% | 87% / 61% | 63% / 26% | 10.1 (55% · 43%) | 3.5 (46% · 28%) | – |
+| Sat 26 Sep 16:00 | **Aldershot v Tamworth** | England · National League | 39% / 24% / 37% | 63% / 61% | 80% / 48% | 79% / 46% | 9.8 (52% · 40%) | 4.3 (61% · 43%) | – |
+| Sat 26 Sep 16:00 | **Altrincham v Hornchurch** | England · National League | 44% / 25% / 31% | 69% / 56% | 79% / 47% | 72% / 37% | 9.9 (52% · 40%) | 3.8 (51% · 33%) | – |
+| Sat 26 Sep 16:00 | **Boston Utd v Fylde** | England · National League | 39% / 24% / 37% | 63% / 61% | 80% / 47% | 80% / 48% | 10.1 (54% · 43%) | 4.3 (61% · 43%) | – |
+| Sat 26 Sep 16:00 | **Carlisle v Woking** | England · National League | 58% / 23% / 19% | 81% / 42% | 85% / 57% | 68% / 31% | 10.4 (58% · 46%) | 3.5 (46% · 28%) | – |
+| Sat 26 Sep 16:00 | **Harrogate v Eastleigh** | England · National League | 60% / 22% / 17% | 83% / 40% | 85% / 57% | 65% / 28% | 9.9 (52% · 40%) | 3.3 (43% · 25%) | – |
+| Sat 26 Sep 16:00 | **Kidderminster v Yeovil** | England · National League | 46% / 27% / 27% | 73% / 54% | 79% / 46% | 68% / 32% | 9.5 (48% · 36%) | 4.9 (70% · 53%) | – |
+| Sat 26 Sep 16:00 | **Scunthorpe v Hartlepool** | England · National League | 46% / 25% / 29% | 71% / 54% | 80% / 48% | 72% / 36% | 10.1 (55% · 43%) | 3.1 (37% · 20%) | – |
+| Sat 26 Sep 16:00 | **Solihull v Boreham Wood** | England · National League | 18% / 21% / 61% | 39% / 82% | 74% / 39% | 89% / 65% | 10.1 (54% · 42%) | 3.7 (50% · 32%) | – |
+| Sat 26 Sep 16:00 | **Southend v Barrow** | England · National League | 55% / 23% / 22% | 78% / 45% | 85% / 56% | 69% / 33% | 10.0 (54% · 42%) | 4.0 (55% · 37%) | – |
+| Sat 26 Sep 16:00 | **Sutton v Forest Green** | England · National League | 35% / 27% / 38% | 62% / 65% | 74% / 39% | 75% / 40% | 10.0 (53% · 42%) | 5.0 (71% · 54%) | – |
+| Sat 26 Sep 16:00 | **Wealdstone v Gateshead** | England · National League | 55% / 24% / 21% | 79% / 45% | 84% / 55% | 67% / 31% | 9.2 (44% · 32%) | 4.0 (56% · 37%) | – |
+| Sat 26 Sep 16:00 | **Worthing v Halifax** | England · National League | 44% / 25% / 31% | 69% / 56% | 81% / 49% | 75% / 41% | 10.1 (54% · 43%) | 4.2 (58% · 40%) | – |
+| Sat 26 Sep 16:15 | **Granada v Andorra** | Spain · Segunda División | 44% / 28% / 28% | 72% / 56% | 76% / 42% | 68% / 32% | 8.9 (40% · 29%) | 5.3 (75% · 59%) | – |
+| Sat 26 Sep 18:30 | **Oldham v Salford** | England · League Two | 38% / 27% / 35% | 65% / 62% | 77% / 43% | 74% / 39% | 9.7 (50% · 38%) | 3.7 (50% · 32%) | – |
+| Sat 26 Sep 18:30 | **Celta B v Sabadell** | Spain · Segunda División | 31% / 29% / 40% | 60% / 69% | 70% / 34% | 75% / 40% | 8.9 (40% · 29%) | 5.2 (74% · 58%) | – |
+| Sat 26 Sep 18:30 | **Tenerife v Cadiz** | Spain · Segunda División | 49% / 29% / 22% | 78% / 51% | 76% / 41% | 59% / 23% | 9.0 (42% · 31%) | 4.8 (68% · 51%) | – |
+| Sun 27 Sep 00:50 | **Cruz Azul v Toluca** | Mexico · Liga MX | 37% / 26% / 37% | 63% / 63% | 79% / 46% | 72% / 37% | – | – | – |
+| Sun 27 Sep 01:07 | **Guadalajara Chivas v Queretaro** | Mexico · Liga MX | 68% / 18% / 14% | 86% / 32% | 81% / 50% | 66% / 30% | – | – | – |
+| Sun 27 Sep 01:30 | **Atlanta Utd v New York City** | USA · MLS | 42% / 26% / 32% | 68% / 58% | 78% / 45% | 75% / 40% | – | – | – |
+| Sun 27 Sep 01:30 | **CF Montreal v FC Cincinnati** | USA · MLS | 37% / 24% / 39% | 61% / 63% | 84% / 54% | 79% / 46% | – | – | – |
+| Sun 27 Sep 01:30 | **Charlotte v Chicago Fire** | USA · MLS | 45% / 24% / 31% | 69% / 55% | 85% / 56% | 75% / 41% | – | – | – |
+| Sun 27 Sep 01:30 | **New York Red Bulls v St. Louis City** | USA · MLS | 29% / 23% / 47% | 53% / 71% | 79% / 46% | 79% / 46% | – | – | – |
+| Sun 27 Sep 01:30 | **Philadelphia Union v Orlando City** | USA · MLS | 67% / 17% / 16% | 84% / 33% | 89% / 64% | 76% / 42% | – | – | – |
+| Sun 27 Sep 02:30 | **Austin FC v San Diego FC** | USA · MLS | 40% / 25% / 35% | 65% / 60% | 81% / 49% | 74% / 39% | – | – | – |
+| Sun 27 Sep 02:30 | **FC Dallas v Los Angeles FC** | USA · MLS | 42% / 25% / 33% | 67% / 58% | 81% / 50% | 76% / 42% | – | – | – |
+| Sun 27 Sep 02:30 | **Houston Dynamo v Sporting Kansas City** | USA · MLS | 63% / 21% / 16% | 84% / 37% | 86% / 58% | 69% / 33% | – | – | – |
+| Sun 27 Sep 02:30 | **Nashville SC v Toronto FC** | USA · MLS | 66% / 19% / 15% | 85% / 34% | 86% / 59% | 69% / 33% | – | – | – |
+| Sun 27 Sep 02:30 | **Seattle Sounders v Minnesota United** | USA · MLS | 43% / 25% / 32% | 68% / 57% | 83% / 53% | 77% / 44% | – | – | – |
 | Sun 27 Sep 03:30 | **Real Salt Lake v New England Revolution** | USA · MLS | 40% / 25% / 35% | 65% / 60% | 79% / 46% | 79% / 46% | – | – | – |
 | Sun 27 Sep 04:30 | **Los Angeles Galaxy v Colorado Rapids** | USA · MLS | 43% / 24% / 32% | 68% / 57% | 79% / 47% | 72% / 36% | – | – | – |
 | Sun 27 Sep 04:30 | **San Jose Earthquakes v Portland Timbers** | USA · MLS | 46% / 24% / 30% | 70% / 54% | 84% / 54% | 78% / 44% | – | – | – |
 | Sun 27 Sep 04:30 | **Vancouver Whitecaps v DC United** | USA · MLS | 75% / 15% / 10% | 90% / 25% | 85% / 57% | 69% / 33% | – | – | – |
-| Sun 27 Sep 05:05 | **Santos Laguna v Pachuca** | Mexico · Liga MX | 31% / 25% / 43% | 57% / 69% | 75% / 40% | 73% / 38% | – | – | 3.20 / 3.70 / 2.15 |
-| Sun 27 Sep 05:10 | **Tigres UANL v Puebla** | Mexico · Liga MX | 60% / 22% / 18% | 82% / 40% | 80% / 48% | 67% / 30% | – | – | 1.60 / 4.25 / 5.25 |
-| Sun 27 Sep 14:00 | **Valladolid v Cordoba** | Spain · Segunda División | 42% / 27% / 31% | 69% / 58% | 77% / 44% | 71% / 35% | 9.1 (42% · 31%) | 5.6 (79% · 64%) | 2.35 / 3.40 / 2.95 |
+| Sun 27 Sep 05:05 | **Santos Laguna v Pachuca** | Mexico · Liga MX | 32% / 25% / 43% | 57% / 68% | 75% / 40% | 73% / 38% | – | – | – |
+| Sun 27 Sep 05:10 | **Tigres UANL v Puebla** | Mexico · Liga MX | 61% / 22% / 17% | 83% / 39% | 80% / 48% | 67% / 30% | – | – | – |
+| Sun 27 Sep 14:00 | **Valladolid v Cordoba** | Spain · Segunda División | 43% / 27% / 31% | 69% / 57% | 77% / 44% | 71% / 35% | 9.1 (42% · 31%) | 5.6 (79% · 64%) | – |
 
 ## 🔍 Match details (click to expand)
 
@@ -239,12 +208,10 @@ _Probabilities are model + sharp-market blends (1X2, team goals) or the backtest
 * Team-form model alone: 1.65 – 1.07 · P(O2.5) 51% · P(BTTS) 54% · Market-implied: 1.58 – 0.95
 * Market: Over 2.5 @ 2.01 / Under 2.5 @ 1.74 (implied O2.5 46%) · 1X2 1.82 / 3.50 / 4.27
 * League context: avg 1.51 home + 1.27 away goals · O2.5 in 53% · BTTS in 56% of matches
-* **1X2** (fair, market+Sportybet+model): home 51% · draw 27% · away 22% → fair odds 1.96 / 3.77 / 4.46 · **Double chance** 1X 78% · 12 73% · X2 49%
+* **1X2** (fair, market+model): home 51% · draw 27% · away 22% → fair odds 1.94 / 3.76 / 4.56 · **Double chance** 1X 78% · 12 73% · X2 49%
 * **Team goals:** Cambridge to score 80% (2+ 47%) · AFC Wimbledon to score 62% (2+ 25%)
 * **Corners:** expected 5.9 (home) + 4.5 (away) = **10.3** · total O8.5 **69%** · O9.5 **57%** · O10.5 **46%** · O11.5 **35%** · home O3.5 77% · O4.5 64% · O5.5 50% · away O3.5 61% · O4.5 45% · O5.5 31% _(team averages: Cambridge 5.9 for / 4.0 against over 40 games, AFC Wimbledon 5.4 / 5.3 over 40)_
 * **Cards** (yellow + red): expected 1.6 + 1.7 = **3.3** · total O3.5 **41%** · O4.5 **24%** · O5.5 **13%** · referee B Toner factor 1.04 (17 weighted games) _(team averages: Cambridge 1.5 received / 1.4 opponents booked, AFC Wimbledon 1.6 / 1.9)_
-* **Sportybet:** 1X2 1.90 / 3.50 / 4.00 · DC 1X/12/X2 1.24 / 1.29 / 1.80 · goals O1.5 1.33 / U 3.25 · O2.5 2.00 / U 1.78 · O3.5 3.50 / U 1.30 · BTTS 1.85 / 1.86 · Cambridge goals O0.5 1.21 / U 4.10 · O1.5 2.00 / U 1.76 · AFC Wimbledon goals O0.5 1.51 / U 2.45 · O1.5 3.40 / U 1.29
-* **Sportybet corners / cards:** home corners O4.5 1.40 / U 2.80 · O5.5 1.74 / U 2.02 · away corners O3.5 1.63 / U 2.20 · O4.5 2.25 / U 1.60 · O5.5 3.30 / U 1.30
 
 **Cambridge** (Home) — 40 matches used (weighted 15.1), 19 home
 
@@ -286,11 +253,10 @@ _No head-to-head data in the last two seasons._
 * Team-form model alone: 1.70 – 1.22 · P(O2.5) 56% · P(BTTS) 58% · Market-implied: 1.95 – 1.01
 * Market: Over 2.5 @ 1.64 / Under 2.5 @ 2.16 (implied O2.5 57%) · 1X2 1.59 / 4.11 / 5.06
 * League context: avg 1.51 home + 1.27 away goals · O2.5 in 53% · BTTS in 56% of matches
-* **1X2** (fair, market+Sportybet+model): home 62% · draw 21% · away 16% → fair odds 1.60 / 4.67 / 6.18 · **Double chance** 1X 84% · 12 79% · X2 38%
+* **1X2** (fair, market+model): home 61% · draw 22% · away 17% → fair odds 1.65 / 4.46 / 5.92 · **Double chance** 1X 83% · 12 78% · X2 39%
 * **Team goals:** Plymouth to score 85% (2+ 57%) · Burton to score 64% (2+ 28%)
 * **Corners:** expected 5.6 (home) + 4.6 (away) = **10.2** · total O8.5 **68%** · O9.5 **56%** · O10.5 **45%** · O11.5 **34%** · home O3.5 75% · O4.5 61% · O5.5 47% · away O3.5 63% · O4.5 47% · O5.5 33% _(team averages: Plymouth 5.9 for / 5.4 against over 40 games, Burton 4.4 / 4.7 over 40)_
 * **Cards** (yellow + red): expected 1.8 + 1.9 = **3.6** · total O3.5 **48%** · O4.5 **30%** · O5.5 **17%** · referee S Mather factor 0.90 (20 weighted games) _(team averages: Plymouth 2.2 received / 2.3 opponents booked, Burton 1.6 / 2.0)_
-* **Sportybet:** 1X2 1.50 / 4.50 / 5.90 · DC 1X/12/X2 1.14 / 1.20 / 2.35 · goals O1.5 1.19 / U 4.60 · O2.5 1.59 / U 2.30 · O3.5 2.45 / U 1.53 · BTTS 1.71 / 2.00 · Plymouth goals O0.5 1.10 / U 6.30 · O1.5 1.50 / U 2.45 · Burton goals O0.5 1.54 / U 2.40 · O1.5 3.50 / U 1.28
 
 **Plymouth** (Home) — 40 matches used (weighted 15.1), 19 home
 
@@ -333,11 +299,10 @@ _No head-to-head data in the last two seasons._
 * Team-form model alone: 1.76 – 1.21 · P(O2.5) 57% · P(BTTS) 59% · Market-implied: 2.48 – 1.03
 * Market: Over 2.5 @ 1.37 / Under 2.5 @ 2.92 (implied O2.5 68%) · 1X2 1.35 / 5.21 / 6.95
 * League context: avg 1.51 home + 1.27 away goals · O2.5 in 53% · BTTS in 56% of matches
-* **1X2** (fair, market+Sportybet+model): home 71% · draw 17% · away 12% → fair odds 1.41 / 6.04 / 8.05 · **Double chance** 1X 88% · 12 83% · X2 29%
+* **1X2** (fair, market+model): home 70% · draw 17% · away 13% → fair odds 1.43 / 5.73 / 7.78 · **Double chance** 1X 87% · 12 83% · X2 30%
 * **Team goals:** Stockport to score 91% (2+ 69%) · Peterboro to score 65% (2+ 28%)
 * **Corners:** expected 6.2 (home) + 4.4 (away) = **10.6** · total O8.5 **72%** · O9.5 **61%** · O10.5 **49%** · O11.5 **38%** · home O3.5 80% · O4.5 67% · O5.5 54% · away O3.5 60% · O4.5 44% · O5.5 30% _(team averages: Stockport 6.1 for / 4.3 against over 40 games, Peterboro 5.0 / 6.0 over 40)_
 * **Cards** (yellow + red): expected 1.6 + 1.6 = **3.2** · total O3.5 **40%** · O4.5 **23%** · O5.5 **12%** · referee R Martin factor 0.93 (16 weighted games) _(team averages: Stockport 1.6 received / 1.5 opponents booked, Peterboro 1.7 / 2.0)_
-* **Sportybet:** 1X2 1.34 / 5.70 / 7.30 · DC 1X/12/X2 1.10 / 1.14 / 2.85 · goals O1.5 1.11 / U 6.30 · O2.5 1.37 / U 3.00 · O3.5 1.92 / U 1.86 · BTTS 1.60 / 2.20 · Stockport goals O0.5 1.05 / U 8.60 · O1.5 1.30 / U 3.33 · Peterboro goals O0.5 1.50 / U 2.50 · O1.5 3.30 / U 1.30
 
 **Stockport** (Home) — 40 matches used (weighted 15.3), 19 home
 
@@ -380,11 +345,10 @@ _No head-to-head data in the last two seasons._
 * Team-form model alone: 1.54 – 1.37 · P(O2.5) 56% · P(BTTS) 59% · Market-implied: 1.47 – 1.47
 * Market: Over 2.5 @ 1.65 / Under 2.5 @ 2.14 (implied O2.5 56%) · 1X2 2.52 / 3.61 / 2.53
 * League context: avg 1.51 home + 1.27 away goals · O2.5 in 53% · BTTS in 56% of matches
-* **1X2** (fair, market+Sportybet+model): home 37% · draw 26% · away 38% → fair odds 2.74 / 3.85 / 2.67 · **Double chance** 1X 62% · 12 74% · X2 63%
+* **1X2** (fair, market+model): home 37% · draw 26% · away 37% → fair odds 2.73 / 3.82 / 2.68 · **Double chance** 1X 63% · 12 74% · X2 63%
 * **Team goals:** Wycombe to score 77% (2+ 44%) · Reading to score 77% (2+ 43%)
 * **Corners:** expected 5.8 (home) + 4.4 (away) = **10.1** · total O8.5 **67%** · O9.5 **55%** · O10.5 **43%** · O11.5 **33%** · home O3.5 76% · O4.5 62% · O5.5 49% · away O3.5 60% · O4.5 43% · O5.5 29% _(team averages: Wycombe 5.9 for / 5.0 against over 40 games, Reading 4.1 / 4.9 over 40)_
 * **Cards** (yellow + red): expected 1.3 + 1.9 = **3.2** · total O3.5 **39%** · O4.5 **22%** · O5.5 **11%** · referee T Reeves factor 0.90 (18 weighted games) _(team averages: Wycombe 1.5 received / 2.1 opponents booked, Reading 1.7 / 1.5)_
-* **Sportybet:** 1X2 2.60 / 3.60 / 2.50 · DC 1X/12/X2 1.48 / 1.29 / 1.45 · goals O1.5 1.21 / U 4.30 · O2.5 1.66 / U 2.20 · O3.5 2.60 / U 1.48 · BTTS 1.54 / 2.30 · Wycombe goals O0.5 1.24 / U 3.80 · O1.5 2.15 / U 1.67 · Reading goals O0.5 1.23 / U 3.90 · O1.5 2.10 / U 1.70
 
 **Wycombe** (Home) — 40 matches used (weighted 15.0), 20 home
 
@@ -427,11 +391,10 @@ _No head-to-head data in the last two seasons._
 * Team-form model alone: 1.52 – 1.01 · P(O2.5) 46% · P(BTTS) 50% · Market-implied: 1.75 – 1.01
 * Market: Over 2.5 @ 1.78 / Under 2.5 @ 1.95 (implied O2.5 52%) · 1X2 1.72 / 3.79 / 4.41
 * League context: avg 1.47 home + 1.12 away goals · O2.5 in 47% · BTTS in 51% of matches
-* **1X2** (fair, market+Sportybet+model): home 55% · draw 24% · away 20% → fair odds 1.81 / 4.08 / 4.95 · **Double chance** 1X 80% · 12 76% · X2 45%
+* **1X2** (fair, market+model): home 56% · draw 24% · away 20% → fair odds 1.79 / 4.10 / 5.10 · **Double chance** 1X 80% · 12 76% · X2 44%
 * **Team goals:** Bristol Rvs to score 82% (2+ 52%) · Exeter to score 64% (2+ 27%)
 * **Corners:** expected 5.5 (home) + 4.2 (away) = **9.7** · total O8.5 **63%** · O9.5 **50%** · O10.5 **39%** · O11.5 **28%** · home O3.5 73% · O4.5 59% · O5.5 45% · away O3.5 57% · O4.5 41% · O5.5 27% _(team averages: Bristol Rvs 5.0 for / 4.5 against over 40 games, Exeter 4.7 / 5.1 over 40)_
 * **Cards** (yellow + red): expected 1.6 + 1.9 = **3.5** · total O3.5 **46%** · O4.5 **28%** · O5.5 **15%** · referee M Coy factor 0.86 (14 weighted games) _(team averages: Bristol Rvs 2.4 received / 2.0 opponents booked, Exeter 1.8 / 1.8)_
-* **Sportybet:** 1X2 1.76 / 3.75 / 4.40 · DC 1X/12/X2 1.21 / 1.26 / 1.93 · goals O1.5 1.27 / U 3.70 · O2.5 1.84 / U 1.94 · O3.5 3.00 / U 1.37 · BTTS 1.77 / 1.94 · Bristol Rvs goals O0.5 1.17 / U 4.70 · O1.5 1.80 / U 1.94 · Exeter goals O0.5 1.50 / U 2.45 · O1.5 3.33 / U 1.30
 
 **Bristol Rvs** (Home) — 40 matches used (weighted 15.0), 19 home
 
@@ -473,11 +436,10 @@ _No head-to-head data in the last two seasons._
 * Team-form model alone: 1.49 – 1.28 · P(O2.5) 52% · P(BTTS) 56% · Market-implied: 1.32 – 1.61
 * Market: Over 2.5 @ 1.66 / Under 2.5 @ 2.11 (implied O2.5 56%) · 1X2 3.03 / 3.65 / 2.13
 * League context: avg 1.47 home + 1.12 away goals · O2.5 in 47% · BTTS in 51% of matches
-* **1X2** (fair, market+Sportybet+model): home 31% · draw 26% · away 43% → fair odds 3.19 / 3.90 / 2.32 · **Double chance** 1X 57% · 12 74% · X2 69%
+* **1X2** (fair, market+model): home 31% · draw 25% · away 44% → fair odds 3.23 / 3.93 / 2.29 · **Double chance** 1X 56% · 12 75% · X2 69%
 * **Team goals:** Cheltenham to score 74% (2+ 38%) · Chesterfield to score 79% (2+ 47%)
 * **Corners:** expected 5.0 (home) + 4.5 (away) = **9.6** · total O8.5 **61%** · O9.5 **48%** · O10.5 **37%** · O11.5 **26%** · home O3.5 68% · O4.5 53% · O5.5 39% · away O3.5 62% · O4.5 45% · O5.5 31% _(team averages: Cheltenham 4.7 for / 5.2 against over 40 games, Chesterfield 5.1 / 4.1 over 40)_
 * **Cards** (yellow + red): expected 1.7 + 1.9 = **3.6** · total O3.5 **49%** · O4.5 **31%** · O5.5 **17%** · referee D Whitestone factor 0.98 (14 weighted games) _(team averages: Cheltenham 1.8 received / 1.9 opponents booked, Chesterfield 1.7 / 2.2)_
-* **Sportybet:** 1X2 2.95 / 3.60 / 2.25 · DC 1X/12/X2 1.58 / 1.29 / 1.37 · goals O1.5 1.23 / U 4.00 · O2.5 1.73 / U 2.05 · O3.5 2.80 / U 1.43 · BTTS 1.60 / 2.20 · Cheltenham goals O0.5 1.30 / U 3.33 · O1.5 2.40 / U 1.53 · Chesterfield goals O0.5 1.22 / U 4.00 · O1.5 2.00 / U 1.74
 
 **Cheltenham** (Home) — 40 matches used (weighted 15.2), 20 home
 
@@ -520,12 +482,10 @@ _No head-to-head data in the last two seasons._
 * Team-form model alone: 1.36 – 1.08 · P(O2.5) 44% · P(BTTS) 50% · Market-implied: 1.61 – 1.05
 * Market: Over 2.5 @ 1.86 / Under 2.5 @ 1.85 (implied O2.5 50%) · 1X2 1.88 / 3.58 / 3.87
 * League context: avg 1.47 home + 1.12 away goals · O2.5 in 47% · BTTS in 51% of matches
-* **1X2** (fair, market+Sportybet+model): home 50% · draw 26% · away 24% → fair odds 1.99 / 3.81 / 4.24 · **Double chance** 1X 76% · 12 74% · X2 50%
+* **1X2** (fair, market+model): home 50% · draw 27% · away 23% → fair odds 1.99 / 3.77 / 4.32 · **Double chance** 1X 77% · 12 73% · X2 50%
 * **Team goals:** Fleetwood Town to score 80% (2+ 47%) · Rochdale to score 65% (2+ 29%)
 * **Corners:** expected 5.6 (home) + 4.3 (away) = **9.9** · total O8.5 **64%** · O9.5 **52%** · O10.5 **40%** · O11.5 **30%** · home O3.5 74% · O4.5 60% · O5.5 46% · away O3.5 59% · O4.5 42% · O5.5 28% _(team averages: Fleetwood Town 5.1 for / 5.0 against over 40 games, Rochdale 3.5 / 5.6 over 7)_
 * **Cards** (yellow + red): expected 1.6 + 2.0 = **3.6** · total O3.5 **47%** · O4.5 **29%** · O5.5 **16%** · referee A Chilowicz factor 0.97 (15 weighted games) _(team averages: Fleetwood Town 2.3 received / 1.9 opponents booked, Rochdale 1.8 / 1.6)_
-* **Sportybet:** 1X2 1.93 / 3.60 / 3.90 · DC 1X/12/X2 1.25 / 1.29 / 1.77 · goals O1.5 1.26 / U 3.75 · O2.5 1.82 / U 1.96 · O3.5 3.00 / U 1.38 · BTTS 1.70 / 2.05 · Fleetwood Town goals O0.5 1.19 / U 4.40 · O1.5 1.89 / U 1.85 · Rochdale goals O0.5 1.42 / U 2.75 · O1.5 2.95 / U 1.36
-* **Sportybet corners / cards:** home corners O4.5 1.50 / U 2.50 · O5.5 1.94 / U 1.80 · away corners O3.5 1.60 / U 2.25 · O4.5 2.20 / U 1.63 · O5.5 3.20 / U 1.32
 
 **Fleetwood Town** (Home) — 40 matches used (weighted 15.1), 20 home
 
@@ -567,12 +527,10 @@ _No head-to-head data in the last two seasons._
 * Team-form model alone: 1.35 – 1.25 · P(O2.5) 48% · P(BTTS) 54% · Market-implied: 1.05 – 1.70
 * Market: Over 2.5 @ 1.79 / Under 2.5 @ 1.94 (implied O2.5 52%) · 1X2 4.10 / 3.67 / 1.80
 * League context: avg 1.47 home + 1.12 away goals · O2.5 in 47% · BTTS in 51% of matches
-* **1X2** (fair, market+Sportybet+model): home 23% · draw 25% · away 51% → fair odds 4.32 / 3.94 / 1.94 · **Double chance** 1X 49% · 12 75% · X2 77%
+* **1X2** (fair, market+model): home 22% · draw 25% · away 53% → fair odds 4.55 / 4.00 / 1.89 · **Double chance** 1X 47% · 12 75% · X2 78%
 * **Team goals:** Newport County to score 66% (2+ 30%) · Grimsby to score 81% (2+ 49%)
 * **Corners:** expected 5.2 (home) + 5.1 (away) = **10.3** · total O8.5 **69%** · O9.5 **57%** · O10.5 **45%** · O11.5 **35%** · home O3.5 71% · O4.5 56% · O5.5 42% · away O3.5 69% · O4.5 54% · O5.5 39% _(team averages: Newport County 4.3 for / 5.7 against over 40 games, Grimsby 6.6 / 4.8 over 40)_
 * **Cards** (yellow + red): expected 1.8 + 2.0 = **3.8** · total O3.5 **52%** · O4.5 **34%** · O5.5 **20%** · referee D Drysdale factor 0.97 (16 weighted games) _(team averages: Newport County 1.9 received / 2.3 opponents booked, Grimsby 1.4 / 2.4)_
-* **Sportybet:** 1X2 3.80 / 3.60 / 1.93 · DC 1X/12/X2 1.77 / 1.29 / 1.25 · goals O1.5 1.27 / U 3.70 · O2.5 1.84 / U 1.94 · O3.5 3.00 / U 1.37 · BTTS 1.71 / 2.00 · Newport County goals O0.5 1.43 / U 2.70 · O1.5 3.00 / U 1.36 · Grimsby goals O0.5 1.19 / U 4.40 · O1.5 1.90 / U 1.84
-* **Sportybet corners / cards:** home corners O3.5 1.45 / U 2.62 · O4.5 1.87 / U 1.87 · O5.5 2.55 / U 1.48 · away corners O4.5 1.44 / U 2.65 · O5.5 1.81 / U 1.93
 
 **Newport County** (Home) — 40 matches used (weighted 15.0), 19 home
 
@@ -615,11 +573,10 @@ _No head-to-head data in the last two seasons._
 * Team-form model alone: 1.32 – 1.16 · P(O2.5) 45% · P(BTTS) 51% · Market-implied: 1.60 – 1.28
 * Market: Over 2.5 @ 1.69 / Under 2.5 @ 2.07 (implied O2.5 55%) · 1X2 2.10 / 3.63 / 3.11
 * League context: avg 1.47 home + 1.12 away goals · O2.5 in 47% · BTTS in 51% of matches
-* **1X2** (fair, market+Sportybet+model): home 45% · draw 26% · away 30% → fair odds 2.22 / 3.92 / 3.39 · **Double chance** 1X 70% · 12 74% · X2 55%
+* **1X2** (fair, market+model): home 45% · draw 25% · away 30% → fair odds 2.20 / 3.99 / 3.38 · **Double chance** 1X 70% · 12 75% · X2 55%
 * **Team goals:** Rotherham to score 79% (2+ 47%) · Crewe to score 72% (2+ 36%)
 * **Corners:** expected 5.1 (home) + 4.5 (away) = **9.6** · total O8.5 **61%** · O9.5 **49%** · O10.5 **38%** · O11.5 **27%** · home O3.5 69% · O4.5 54% · O5.5 40% · away O3.5 62% · O4.5 46% · O5.5 32% _(team averages: Rotherham 4.4 for / 5.2 against over 40 games, Crewe 5.2 / 4.8 over 40)_
 * **Cards** (yellow + red): expected 1.9 + 2.1 = **3.9** · total O3.5 **54%** · O4.5 **36%** · O5.5 **21%** · referee D Rock factor 1.02 (19 weighted games) _(team averages: Rotherham 2.1 received / 2.0 opponents booked, Crewe 1.6 / 1.9)_
-* **Sportybet:** 1X2 2.15 / 3.60 / 3.20 · DC 1X/12/X2 1.34 / 1.29 / 1.62 · goals O1.5 1.23 / U 4.00 · O2.5 1.73 / U 2.10 · O3.5 2.75 / U 1.43 · BTTS 1.60 / 2.20 · Rotherham goals O0.5 1.20 / U 4.20 · O1.5 1.96 / U 1.79 · Crewe goals O0.5 1.32 / U 3.20 · O1.5 2.50 / U 1.50
 
 **Rotherham** (Home) — 40 matches used (weighted 15.2), 20 home
 
@@ -661,11 +618,10 @@ _No head-to-head data in the last two seasons._
 * Team-form model alone: 1.31 – 1.12 · P(O2.5) 44% · P(BTTS) 50% · Market-implied: 1.30 – 1.26
 * Market: Over 2.5 @ 1.98 / Under 2.5 @ 1.76 (implied O2.5 47%) · 1X2 2.55 / 3.29 / 2.67
 * League context: avg 1.47 home + 1.12 away goals · O2.5 in 47% · BTTS in 51% of matches
-* **1X2** (fair, market+Sportybet+model): home 38% · draw 28% · away 33% → fair odds 2.62 / 3.53 / 2.99 · **Double chance** 1X 67% · 12 72% · X2 62%
+* **1X2** (fair, market+model): home 37% · draw 29% · away 34% → fair odds 2.70 / 3.50 / 2.91 · **Double chance** 1X 66% · 12 71% · X2 63%
 * **Team goals:** Shrewsbury to score 73% (2+ 37%) · Colchester to score 71% (2+ 35%)
 * **Corners:** expected 5.1 (home) + 4.4 (away) = **9.4** · total O8.5 **59%** · O9.5 **47%** · O10.5 **35%** · O11.5 **25%** · home O3.5 69% · O4.5 53% · O5.5 39% · away O3.5 59% · O4.5 43% · O5.5 29% _(team averages: Shrewsbury 4.1 for / 4.3 against over 40 games, Colchester 4.6 / 4.5 over 40)_
 * **Cards** (yellow + red): expected 2.1 + 2.1 = **4.2** · total O3.5 **58%** · O4.5 **40%** · O5.5 **25%** · referee J Robinson factor 1.12 (6 weighted games) _(team averages: Shrewsbury 2.2 received / 1.7 opponents booked, Colchester 1.7 / 2.3)_
-* **Sportybet:** 1X2 2.40 / 3.30 / 2.90 · DC 1X/12/X2 1.38 / 1.32 / 1.51 · goals O1.5 1.32 / U 3.30 · O2.5 2.00 / U 1.78 · O3.5 3.50 / U 1.30 · BTTS 1.76 / 1.95 · Shrewsbury goals O0.5 1.29 / U 3.40 · O1.5 2.35 / U 1.55 · Colchester goals O0.5 1.36 / U 3.00 · O1.5 2.65 / U 1.44
 
 **Shrewsbury** (Home) — 40 matches used (weighted 15.0), 19 home
 
@@ -708,11 +664,10 @@ _No head-to-head data in the last two seasons._
 * Team-form model alone: 1.57 – 1.10 · P(O2.5) 50% · P(BTTS) 54% · Market-implied: 1.53 – 1.25
 * Market: Over 2.5 @ 1.77 / Under 2.5 @ 1.96 (implied O2.5 53%) · 1X2 2.17 / 3.50 / 3.06
 * League context: avg 1.47 home + 1.12 away goals · O2.5 in 47% · BTTS in 51% of matches
-* **1X2** (fair, market+Sportybet+model): home 43% · draw 27% · away 31% → fair odds 2.33 / 3.77 / 3.28 · **Double chance** 1X 69% · 12 73% · X2 57%
+* **1X2** (fair, market+model): home 42% · draw 27% · away 31% → fair odds 2.35 / 3.76 / 3.24 · **Double chance** 1X 69% · 12 73% · X2 58%
 * **Team goals:** Swindon to score 78% (2+ 45%) · Accrington to score 71% (2+ 35%)
 * **Corners:** expected 5.7 (home) + 4.6 (away) = **10.3** · total O8.5 **69%** · O9.5 **57%** · O10.5 **45%** · O11.5 **34%** · home O3.5 75% · O4.5 61% · O5.5 48% · away O3.5 63% · O4.5 47% · O5.5 33% _(team averages: Swindon 4.8 for / 7.2 against over 40 games, Accrington 3.7 / 5.9 over 40)_
 * **Cards** (yellow + red): expected 1.7 + 2.0 = **3.7** · total O3.5 **50%** · O4.5 **32%** · O5.5 **18%** · referee H Blair factor 0.99 (11 weighted games) _(team averages: Swindon 1.8 received / 1.1 opponents booked, Accrington 2.7 / 1.7)_
-* **Sportybet:** 1X2 2.20 / 3.50 / 3.10 · DC 1X/12/X2 1.34 / 1.29 / 1.61 · goals O1.5 1.24 / U 3.90 · O2.5 1.76 / U 2.05 · O3.5 2.85 / U 1.41 · BTTS 1.62 / 2.15 · Swindon goals O0.5 1.21 / U 4.10 · O1.5 2.00 / U 1.75 · Accrington goals O0.5 1.33 / U 3.20 · O1.5 2.50 / U 1.49
 
 **Swindon** (Home) — 40 matches used (weighted 15.0), 20 home
 
@@ -755,11 +710,10 @@ _No head-to-head data in the last two seasons._
 * Team-form model alone: 1.33 – 1.20 · P(O2.5) 46% · P(BTTS) 52% · Market-implied: 1.37 – 1.30
 * Market: Over 2.5 @ 1.86 / Under 2.5 @ 1.86 (implied O2.5 50%) · 1X2 2.48 / 3.31 / 2.72
 * League context: avg 1.47 home + 1.12 away goals · O2.5 in 47% · BTTS in 51% of matches
-* **1X2** (fair, market+Sportybet+model): home 39% · draw 27% · away 34% → fair odds 2.58 / 3.64 / 2.97 · **Double chance** 1X 66% · 12 73% · X2 61%
+* **1X2** (fair, market+model): home 38% · draw 28% · away 34% → fair odds 2.62 / 3.62 / 2.92 · **Double chance** 1X 66% · 12 72% · X2 62%
 * **Team goals:** Tranmere to score 75% (2+ 40%) · Walsall to score 73% (2+ 37%)
 * **Corners:** expected 5.3 (home) + 4.9 (away) = **10.2** · total O8.5 **68%** · O9.5 **56%** · O10.5 **44%** · O11.5 **33%** · home O3.5 71% · O4.5 56% · O5.5 42% · away O3.5 67% · O4.5 51% · O5.5 37% _(team averages: Tranmere 3.9 for / 5.8 against over 40 games, Walsall 5.4 / 5.7 over 40)_
 * **Cards** (yellow + red): expected 1.7 + 1.8 = **3.5** · total O3.5 **47%** · O4.5 **29%** · O5.5 **16%** · referee S Parkinson factor 0.91 (18 weighted games) _(team averages: Tranmere 2.4 received / 1.8 opponents booked, Walsall 1.9 / 1.9)_
-* **Sportybet:** 1X2 2.40 / 3.40 / 2.85 · DC 1X/12/X2 1.39 / 1.31 / 1.52 · goals O1.5 1.26 / U 3.80 · O2.5 1.82 / U 1.96 · O3.5 2.95 / U 1.38 · BTTS 1.64 / 2.15 · Tranmere goals O0.5 1.25 / U 3.70 · O1.5 2.15 / U 1.64 · Walsall goals O0.5 1.30 / U 3.30 · O1.5 2.40 / U 1.53
 
 **Tranmere** (Home) — 40 matches used (weighted 15.0), 19 home
 
@@ -802,12 +756,10 @@ _No head-to-head data in the last two seasons._
 * Team-form model alone: 1.78 – 1.04 · P(O2.5) 53% · P(BTTS) 54% · Market-implied: 2.07 – 1.00
 * Market: Over 2.5 @ 1.57 / Under 2.5 @ 2.28 (implied O2.5 59%) · 1X2 1.51 / 4.41 / 5.49
 * League context: avg 1.47 home + 1.12 away goals · O2.5 in 47% · BTTS in 51% of matches
-* **1X2** (fair, market+Sportybet+model): home 58% · draw 22% · away 19% → fair odds 1.71 / 4.53 / 5.14 · **Double chance** 1X 81% · 12 78% · X2 42%
+* **1X2** (fair, market+model): home 62% · draw 21% · away 17% → fair odds 1.60 / 4.84 / 5.92 · **Double chance** 1X 83% · 12 79% · X2 38%
 * **Team goals:** York to score 87% (2+ 61%) · Gillingham to score 63% (2+ 26%)
 * **Corners:** expected 5.8 (home) + 4.4 (away) = **10.1** · total O8.5 **67%** · O9.5 **55%** · O10.5 **43%** · O11.5 **33%** · home O3.5 76% · O4.5 63% · O5.5 49% · away O3.5 59% · O4.5 43% · O5.5 29% _(team averages: York 6.5 for / 4.7 against over 7 games, Gillingham 4.6 / 5.2 over 40)_
 * **Cards** (yellow + red): expected 1.5 + 2.0 = **3.5** · total O3.5 **46%** · O4.5 **28%** · O5.5 **15%** · referee S Oldham factor 0.97 (19 weighted games) _(team averages: York 1.7 received / 1.8 opponents booked, Gillingham 2.0 / 1.8)_
-* **Sportybet:** 1X2 1.80 / 3.90 / 4.10 · DC 1X/12/X2 1.23 / 1.25 / 1.89 · goals O1.5 1.19 / U 4.60 · O2.5 1.60 / U 2.30 · O3.5 2.45 / U 1.53 · BTTS 1.57 / 2.25 · York goals O0.5 1.13 / U 5.30 · O1.5 1.66 / U 2.15 · Gillingham goals O0.5 1.37 / U 2.95 · O1.5 2.70 / U 1.43
-* **Sportybet corners / cards:** home corners O5.5 1.44 / U 2.65 · away corners O3.5 1.72 / U 2.05 · O4.5 2.50 / U 1.50 · O5.5 3.80 / U 1.24
 
 **York** (Home) — 40 matches used (weighted 14.7), 20 home
 
@@ -849,11 +801,10 @@ _No head-to-head data in the last two seasons._
 * Team-form model alone: 1.69 – 1.36 · P(O2.5) 59% · P(BTTS) 61% · Market-implied: 1.61 – 1.57
 * Market: Over 2.5 @ 1.50 / Under 2.5 @ 2.41 (implied O2.5 62%) · 1X2 2.36 / 3.60 / 2.49
 * League context: avg 1.60 home + 1.36 away goals · O2.5 in 59% · BTTS in 61% of matches
-* **1X2** (fair, market+Sportybet+model): home 39% · draw 24% · away 37% → fair odds 2.58 / 4.09 / 2.72 · **Double chance** 1X 63% · 12 76% · X2 61%
+* **1X2** (fair, market+model): home 39% · draw 24% · away 37% → fair odds 2.56 / 4.14 / 2.72 · **Double chance** 1X 63% · 12 76% · X2 61%
 * **Team goals:** Aldershot to score 80% (2+ 48%) · Tamworth to score 79% (2+ 46%)
 * **Corners:** expected 5.5 (home) + 4.3 (away) = **9.8** · total O8.5 **64%** · O9.5 **52%** · O10.5 **40%** · O11.5 **29%** · home O3.5 73% · O4.5 59% · O5.5 45% · away O3.5 59% · O4.5 43% · O5.5 29% _(team averages: Aldershot 4.3 for / 5.0 against over 9 games, Tamworth 5.2 / 5.2 over 9)_
 * **Cards** (yellow + red): expected 2.2 + 2.2 = **4.3** · total O3.5 **61%** · O4.5 **43%** · O5.5 **27%** _(team averages: Aldershot 2.5 received / 2.4 opponents booked, Tamworth 1.9 / 2.3)_
-* **Sportybet:** 1X2 2.45 / 3.70 / 2.55 · DC 1X/12/X2 1.45 / 1.27 / 1.49 · goals O1.5 1.16 / U 5.00 · O2.5 1.54 / U 2.45 · O3.5 2.30 / U 1.60 · BTTS 1.45 / 2.50 · Aldershot goals O0.5 1.19 / U 4.20 · O1.5 1.90 / U 1.80 · Tamworth goals O0.5 1.20 / U 4.10 · O1.5 1.95 / U 1.76
 
 **Aldershot** (Home) — 40 matches used (weighted 16.2), 19 home
 
@@ -894,11 +845,10 @@ _No head-to-head data in the last two seasons._
 * Team-form model alone: 1.54 – 1.29 · P(O2.5) 54% · P(BTTS) 58% · Market-implied: 1.58 – 1.29
 * Market: Over 2.5 @ 1.69 / Under 2.5 @ 2.05 (implied O2.5 55%) · 1X2 2.08 / 3.49 / 2.98
 * League context: avg 1.60 home + 1.36 away goals · O2.5 in 59% · BTTS in 61% of matches
-* **1X2** (fair, market+Sportybet+model): home 45% · draw 25% · away 30% → fair odds 2.25 / 3.94 / 3.32 · **Double chance** 1X 70% · 12 75% · X2 55%
+* **1X2** (fair, market+model): home 44% · draw 25% · away 31% → fair odds 2.28 / 3.98 / 3.22 · **Double chance** 1X 69% · 12 75% · X2 56%
 * **Team goals:** Altrincham to score 79% (2+ 47%) · Hornchurch to score 72% (2+ 37%)
 * **Corners:** expected 5.7 (home) + 4.2 (away) = **9.9** · total O8.5 **64%** · O9.5 **52%** · O10.5 **40%** · O11.5 **30%** · home O3.5 75% · O4.5 62% · O5.5 48% · away O3.5 57% · O4.5 40% · O5.5 27% _(team averages: Altrincham 4.6 for / 4.2 against over 9 games, Hornchurch 4.9 / 6.0 over 9)_
 * **Cards** (yellow + red): expected 1.8 + 2.0 = **3.8** · total O3.5 **51%** · O4.5 **33%** · O5.5 **19%** · referee L Smith factor 1.00 (20 weighted games) _(team averages: Altrincham 2.4 received / 2.1 opponents booked, Hornchurch 1.8 / 1.1)_
-* **Sportybet:** 1X2 2.10 / 3.60 / 3.20 · DC 1X/12/X2 1.32 / 1.27 / 1.64 · goals O1.5 1.24 / U 4.00 · O2.5 1.74 / U 2.05 · O3.5 2.80 / U 1.42 · BTTS 1.61 / 2.15 · Altrincham goals O0.5 1.19 / U 4.10 · O1.5 1.93 / U 1.78 · Hornchurch goals O0.5 1.33 / U 3.10 · O1.5 2.50 / U 1.47
 
 **Altrincham** (Home) — 40 matches used (weighted 16.1), 19 home
 
@@ -938,11 +888,10 @@ _No head-to-head data in the last two seasons._
 * Team-form model alone: 1.57 – 1.50 · P(O2.5) 59% · P(BTTS) 62% · Market-implied: 1.60 – 1.63
 * Market: Over 2.5 @ 1.48 / Under 2.5 @ 2.48 (implied O2.5 63%) · 1X2 2.47 / 3.62 / 2.37
 * League context: avg 1.60 home + 1.36 away goals · O2.5 in 59% · BTTS in 61% of matches
-* **1X2** (fair, market+Sportybet+model): home 38% · draw 24% · away 38% → fair odds 2.62 / 4.12 / 2.66 · **Double chance** 1X 62% · 12 76% · X2 62%
+* **1X2** (fair, market+model): home 39% · draw 24% · away 37% → fair odds 2.58 / 4.21 / 2.67 · **Double chance** 1X 63% · 12 76% · X2 61%
 * **Team goals:** Boston Utd to score 80% (2+ 47%) · Fylde to score 80% (2+ 48%)
 * **Corners:** expected 5.5 (home) + 4.5 (away) = **10.1** · total O8.5 **66%** · O9.5 **54%** · O10.5 **43%** · O11.5 **32%** · home O3.5 74% · O4.5 60% · O5.5 46% · away O3.5 62% · O4.5 45% · O5.5 31% _(team averages: Boston Utd 6.1 for / 6.6 against over 9 games, Fylde 4.6 / 3.8 over 9)_
 * **Cards** (yellow + red): expected 2.3 + 2.0 = **4.3** · total O3.5 **61%** · O4.5 **43%** · O5.5 **27%** · referee A Miller factor 1.01 (9 weighted games) _(team averages: Boston Utd 2.2 received / 2.0 opponents booked, Fylde 1.8 / 2.9)_
-* **Sportybet:** 1X2 2.50 / 3.70 / 2.50 · DC 1X/12/X2 1.46 / 1.27 / 1.48 · goals O1.5 1.16 / U 5.10 · O2.5 1.52 / U 2.50 · O3.5 2.25 / U 1.63 · BTTS 1.43 / 2.55 · Boston Utd goals O0.5 1.19 / U 4.25 · O1.5 1.89 / U 1.81 · Fylde goals O0.5 1.19 / U 4.20 · O1.5 1.91 / U 1.80
 
 **Boston Utd** (Home) — 40 matches used (weighted 16.0), 20 home
 
@@ -982,11 +931,10 @@ _No head-to-head data in the last two seasons._
 * Team-form model alone: 1.64 – 1.27 · P(O2.5) 56% · P(BTTS) 59% · Market-implied: 1.95 – 1.12
 * Market: Over 2.5 @ 1.56 / Under 2.5 @ 2.27 (implied O2.5 59%) · 1X2 1.62 / 3.94 / 4.38
 * League context: avg 1.60 home + 1.36 away goals · O2.5 in 59% · BTTS in 61% of matches
-* **1X2** (fair, market+Sportybet+model): home 58% · draw 23% · away 19% → fair odds 1.72 / 4.42 / 5.17 · **Double chance** 1X 81% · 12 77% · X2 42%
+* **1X2** (fair, market+model): home 58% · draw 23% · away 19% → fair odds 1.73 / 4.30 / 5.24 · **Double chance** 1X 81% · 12 77% · X2 42%
 * **Team goals:** Carlisle to score 85% (2+ 57%) · Woking to score 68% (2+ 31%)
 * **Corners:** expected 5.9 (home) + 4.5 (away) = **10.4** · total O8.5 **69%** · O9.5 **58%** · O10.5 **46%** · O11.5 **35%** · home O3.5 77% · O4.5 64% · O5.5 50% · away O3.5 61% · O4.5 45% · O5.5 31% _(team averages: Carlisle 5.8 for / 4.9 against over 9 games, Woking 5.3 / 5.8 over 9)_
 * **Cards** (yellow + red): expected 1.6 + 1.9 = **3.5** · total O3.5 **46%** · O4.5 **28%** · O5.5 **15%** · referee J Westgate factor 0.95 (5 weighted games) _(team averages: Carlisle 1.5 received / 2.1 opponents booked, Woking 1.7 / 2.2)_
-* **Sportybet:** 1X2 1.64 / 4.10 / 4.60 · DC 1X/12/X2 1.19 / 1.22 / 2.05 · goals O1.5 1.18 / U 4.70 · O2.5 1.58 / U 2.35 · O3.5 2.40 / U 1.55 · BTTS 1.59 / 2.15 · Carlisle goals O0.5 1.11 / U 5.60 · O1.5 1.57 / U 2.25 · Woking goals O0.5 1.41 / U 2.70 · O1.5 2.90 / U 1.36
 
 **Carlisle** (Home) — 40 matches used (weighted 16.0), 20 home
 
@@ -1027,11 +975,10 @@ _No head-to-head data in the last two seasons._
 * Team-form model alone: 1.64 – 1.36 · P(O2.5) 58% · P(BTTS) 61% · Market-implied: 1.93 – 1.02
 * Market: Over 2.5 @ 1.64 / Under 2.5 @ 2.13 (implied O2.5 56%) · 1X2 1.56 / 3.96 / 4.81
 * League context: avg 1.60 home + 1.36 away goals · O2.5 in 59% · BTTS in 61% of matches
-* **1X2** (fair, market+Sportybet+model): home 60% · draw 22% · away 18% → fair odds 1.67 / 4.51 / 5.61 · **Double chance** 1X 82% · 12 78% · X2 40%
+* **1X2** (fair, market+model): home 60% · draw 22% · away 17% → fair odds 1.66 / 4.46 / 5.72 · **Double chance** 1X 83% · 12 78% · X2 40%
 * **Team goals:** Harrogate to score 85% (2+ 57%) · Eastleigh to score 65% (2+ 28%)
 * **Corners:** expected 5.5 (home) + 4.3 (away) = **9.9** · total O8.5 **64%** · O9.5 **52%** · O10.5 **40%** · O11.5 **30%** · home O3.5 74% · O4.5 60% · O5.5 46% · away O3.5 59% · O4.5 42% · O5.5 29% _(team averages: Harrogate 4.6 for / 5.4 against over 40 games, Eastleigh 4.3 / 5.1 over 9)_
 * **Cards** (yellow + red): expected 1.7 + 1.6 = **3.3** · total O3.5 **43%** · O4.5 **25%** · O5.5 **13%** · referee M Scholes factor 0.91 (4 weighted games) _(team averages: Harrogate 1.7 received / 1.7 opponents booked, Eastleigh 1.6 / 2.0)_
-* **Sportybet:** 1X2 1.60 / 4.10 / 4.90 · DC 1X/12/X2 1.17 / 1.22 / 2.10 · goals O1.5 1.20 / U 4.40 · O2.5 1.64 / U 2.20 · O3.5 2.55 / U 1.49 · BTTS 1.67 / 2.05 · Harrogate goals O0.5 1.11 / U 5.50 · O1.5 1.58 / U 2.25 · Eastleigh goals O0.5 1.47 / U 2.50 · O1.5 3.20 / U 1.30
 
 **Harrogate** (Home) — 40 matches used (weighted 16.3), 20 home
 
@@ -1071,11 +1018,10 @@ _No head-to-head data in the last two seasons._
 * Team-form model alone: 1.61 – 1.22 · P(O2.5) 54% · P(BTTS) 57% · Market-implied: 1.56 – 1.14
 * Market: Over 2.5 @ 1.82 / Under 2.5 @ 1.88 (implied O2.5 51%) · 1X2 1.96 / 3.39 / 3.35
 * League context: avg 1.60 home + 1.36 away goals · O2.5 in 59% · BTTS in 61% of matches
-* **1X2** (fair, market+Sportybet+model): home 46% · draw 27% · away 27% → fair odds 2.16 / 3.74 / 3.72 · **Double chance** 1X 73% · 12 73% · X2 54%
+* **1X2** (fair, market+model): home 46% · draw 27% · away 27% → fair odds 2.16 / 3.68 / 3.76 · **Double chance** 1X 73% · 12 73% · X2 54%
 * **Team goals:** Kidderminster to score 79% (2+ 46%) · Yeovil to score 68% (2+ 32%)
 * **Corners:** expected 5.4 (home) + 4.2 (away) = **9.5** · total O8.5 **60%** · O9.5 **48%** · O10.5 **36%** · O11.5 **26%** · home O3.5 72% · O4.5 58% · O5.5 44% · away O3.5 56% · O4.5 39% · O5.5 26% _(team averages: Kidderminster 4.4 for / 4.9 against over 9 games, Yeovil 4.0 / 4.5 over 9)_
 * **Cards** (yellow + red): expected 2.4 + 2.5 = **4.9** · total O3.5 **70%** · O4.5 **53%** · O5.5 **37%** · referee O Mackey factor 1.02 (12 weighted games) _(team averages: Kidderminster 3.4 received / 3.1 opponents booked, Yeovil 2.1 / 2.0)_
-* **Sportybet:** 1X2 2.05 / 3.50 / 3.40 · DC 1X/12/X2 1.30 / 1.29 / 1.66 · goals O1.5 1.28 / U 3.60 · O2.5 1.88 / U 1.90 · O3.5 3.10 / U 1.35 · BTTS 1.70 / 1.99 · Kidderminster goals O0.5 1.21 / U 3.90 · O1.5 2.00 / U 1.72 · Yeovil goals O0.5 1.39 / U 2.80 · O1.5 2.80 / U 1.39
 
 **Kidderminster** (Home) — 9 matches used (weighted 7.8), 5 home
 
@@ -1115,11 +1061,10 @@ _No head-to-head data in the last two seasons._
 * Team-form model alone: 1.57 – 1.26 · P(O2.5) 54% · P(BTTS) 57% · Market-implied: 1.62 – 1.26
 * Market: Over 2.5 @ 1.68 / Under 2.5 @ 2.06 (implied O2.5 55%) · 1X2 2.02 / 3.49 / 3.14
 * League context: avg 1.60 home + 1.36 away goals · O2.5 in 59% · BTTS in 61% of matches
-* **1X2** (fair, market+Sportybet+model): home 46% · draw 25% · away 29% → fair odds 2.18 / 3.95 / 3.47 · **Double chance** 1X 71% · 12 75% · X2 54%
+* **1X2** (fair, market+model): home 46% · draw 25% · away 29% → fair odds 2.16 / 3.99 / 3.49 · **Double chance** 1X 71% · 12 75% · X2 54%
 * **Team goals:** Scunthorpe to score 80% (2+ 48%) · Hartlepool to score 72% (2+ 36%)
 * **Corners:** expected 5.7 (home) + 4.5 (away) = **10.1** · total O8.5 **67%** · O9.5 **55%** · O10.5 **43%** · O11.5 **32%** · home O3.5 75% · O4.5 61% · O5.5 47% · away O3.5 60% · O4.5 44% · O5.5 30% _(team averages: Scunthorpe 5.1 for / 6.3 against over 9 games, Hartlepool 4.3 / 5.3 over 9)_
 * **Cards** (yellow + red): expected 1.4 + 1.6 = **3.1** · total O3.5 **37%** · O4.5 **20%** · O5.5 **10%** · referee W Davis factor 0.80 (11 weighted games) _(team averages: Scunthorpe 2.0 received / 1.6 opponents booked, Hartlepool 2.1 / 1.7)_
-* **Sportybet:** 1X2 2.10 / 3.60 / 3.20 · DC 1X/12/X2 1.33 / 1.27 / 1.64 · goals O1.5 1.18 / U 4.70 · O2.5 1.59 / U 2.30 · O3.5 2.40 / U 1.54 · BTTS 1.50 / 2.35 · Scunthorpe goals O0.5 1.16 / U 4.60 · O1.5 1.79 / U 1.91 · Hartlepool goals O0.5 1.27 / U 3.40 · O1.5 2.25 / U 1.56
 
 **Scunthorpe** (Home) — 40 matches used (weighted 16.3), 20 home
 
@@ -1160,11 +1105,10 @@ _No head-to-head data in the last two seasons._
 * Team-form model alone: 1.48 – 1.76 · P(O2.5) 63% · P(BTTS) 65% · Market-implied: 1.32 – 2.28
 * Market: Over 2.5 @ 1.33 / Under 2.5 @ 3.05 (implied O2.5 70%) · 1X2 4.41 / 4.29 / 1.56
 * League context: avg 1.60 home + 1.36 away goals · O2.5 in 59% · BTTS in 61% of matches
-* **1X2** (fair, market+Sportybet+model): home 20% · draw 21% · away 59% → fair odds 5.05 / 4.71 / 1.69 · **Double chance** 1X 41% · 12 79% · X2 80%
+* **1X2** (fair, market+model): home 18% · draw 21% · away 61% → fair odds 5.53 / 4.71 / 1.65 · **Double chance** 1X 39% · 12 79% · X2 82%
 * **Team goals:** Solihull to score 74% (2+ 39%) · Boreham Wood to score 89% (2+ 65%)
 * **Corners:** expected 5.4 (home) + 4.6 (away) = **10.1** · total O8.5 **66%** · O9.5 **54%** · O10.5 **42%** · O11.5 **32%** · home O3.5 73% · O4.5 58% · O5.5 44% · away O3.5 63% · O4.5 47% · O5.5 33% _(team averages: Solihull 5.8 for / 5.1 against over 9 games, Boreham Wood 6.3 / 3.4 over 9)_
 * **Cards** (yellow + red): expected 1.9 + 1.9 = **3.7** · total O3.5 **50%** · O4.5 **32%** · O5.5 **18%** · referee A Merchant factor 1.00 (3 weighted games) _(team averages: Solihull 2.0 received / 2.0 opponents booked, Boreham Wood 1.5 / 1.8)_
-* **Sportybet:** 1X2 4.20 / 4.25 / 1.68 · DC 1X/12/X2 2.00 / 1.21 / 1.21 · goals O2.5 1.37 / U 3.00 · O3.5 1.91 / U 1.87 · BTTS 1.40 / 2.65 · Solihull goals O0.5 1.28 / U 3.40 · O1.5 2.30 / U 1.56 · Boreham Wood goals O0.5 1.08 / U 6.60 · O1.5 1.43 / U 2.60
 
 **Solihull** (Home) — 40 matches used (weighted 16.1), 20 home
 
@@ -1205,11 +1149,10 @@ _No head-to-head data in the last two seasons._
 * Team-form model alone: 1.95 – 1.24 · P(O2.5) 62% · P(BTTS) 61% · Market-implied: 1.87 – 1.16
 * Market: Over 2.5 @ 1.59 / Under 2.5 @ 2.23 (implied O2.5 58%) · 1X2 1.71 / 3.81 / 3.97
 * League context: avg 1.60 home + 1.36 away goals · O2.5 in 59% · BTTS in 61% of matches
-* **1X2** (fair, market+Sportybet+model): home 56% · draw 23% · away 21% → fair odds 1.79 / 4.38 / 4.70 · **Double chance** 1X 79% · 12 77% · X2 44%
+* **1X2** (fair, market+model): home 55% · draw 23% · away 22% → fair odds 1.82 / 4.34 / 4.55 · **Double chance** 1X 78% · 12 77% · X2 45%
 * **Team goals:** Southend to score 85% (2+ 56%) · Barrow to score 69% (2+ 33%)
 * **Corners:** expected 5.8 (home) + 4.2 (away) = **10.0** · total O8.5 **66%** · O9.5 **54%** · O10.5 **42%** · O11.5 **31%** · home O3.5 76% · O4.5 63% · O5.5 49% · away O3.5 57% · O4.5 41% · O5.5 27% _(team averages: Southend 6.2 for / 3.6 against over 9 games, Barrow 5.2 / 5.0 over 40)_
 * **Cards** (yellow + red): expected 1.8 + 2.2 = **4.0** · total O3.5 **55%** · O4.5 **37%** · O5.5 **22%** · referee J Oldham factor 1.01 (13 weighted games) _(team averages: Southend 1.8 received / 1.8 opponents booked, Barrow 2.4 / 1.9)_
-* **Sportybet:** 1X2 1.68 / 4.00 / 4.40 · DC 1X/12/X2 1.20 / 1.23 / 2.00 · goals O1.5 1.19 / U 4.60 · O2.5 1.60 / U 2.30 · O3.5 2.45 / U 1.53 · BTTS 1.59 / 2.15 · Southend goals O0.5 1.12 / U 5.40 · O1.5 1.60 / U 2.20 · Barrow goals O0.5 1.40 / U 2.70 · O1.5 2.85 / U 1.37
 
 **Southend** (Home) — 40 matches used (weighted 16.6), 19 home
 
@@ -1249,11 +1192,10 @@ _No head-to-head data in the last two seasons._
 * Team-form model alone: 1.45 – 1.38 · P(O2.5) 54% · P(BTTS) 58% · Market-implied: 1.33 – 1.39
 * Market: Over 2.5 @ 1.82 / Under 2.5 @ 1.89 (implied O2.5 51%) · 1X2 2.62 / 3.26 / 2.42
 * League context: avg 1.60 home + 1.36 away goals · O2.5 in 59% · BTTS in 61% of matches
-* **1X2** (fair, market+Sportybet+model): home 35% · draw 27% · away 38% → fair odds 2.88 / 3.71 / 2.61 · **Double chance** 1X 62% · 12 73% · X2 65%
+* **1X2** (fair, market+model): home 35% · draw 27% · away 38% → fair odds 2.88 / 3.71 / 2.61 · **Double chance** 1X 62% · 12 73% · X2 65%
 * **Team goals:** Sutton to score 74% (2+ 39%) · Forest Green to score 75% (2+ 40%)
 * **Corners:** expected 5.5 (home) + 4.5 (away) = **10.0** · total O8.5 **65%** · O9.5 **53%** · O10.5 **42%** · O11.5 **31%** · home O3.5 73% · O4.5 59% · O5.5 45% · away O3.5 61% · O4.5 45% · O5.5 31% _(team averages: Sutton 4.7 for / 3.6 against over 9 games, Forest Green 7.0 / 4.8 over 9)_
 * **Cards** (yellow + red): expected 2.4 + 2.5 = **5.0** · total O3.5 **71%** · O4.5 **54%** · O5.5 **38%** · referee P Johnson factor 1.06 (4 weighted games) _(team averages: Sutton 2.7 received / 2.5 opponents booked, Forest Green 2.2 / 2.1)_
-* **Sportybet:** 1X2 2.70 / 3.40 / 2.45 · DC 1X/12/X2 1.48 / 1.30 / 1.41 · goals O1.5 1.27 / U 3.70 · O2.5 1.84 / U 1.94 · O3.5 3.00 / U 1.37 · BTTS 1.64 / 2.10 · Sutton goals O0.5 1.29 / U 3.30 · O1.5 2.35 / U 1.53 · Forest Green goals O0.5 1.26 / U 3.50 · O1.5 2.20 / U 1.59
 
 **Sutton** (Home) — 40 matches used (weighted 16.2), 20 home
 
@@ -1294,11 +1236,10 @@ _No head-to-head data in the last two seasons._
 * Team-form model alone: 1.73 – 1.25 · P(O2.5) 57% · P(BTTS) 59% · Market-implied: 1.86 – 1.10
 * Market: Over 2.5 @ 1.63 / Under 2.5 @ 2.14 (implied O2.5 57%) · 1X2 1.67 / 3.78 / 4.26
 * League context: avg 1.60 home + 1.36 away goals · O2.5 in 59% · BTTS in 61% of matches
-* **1X2** (fair, market+Sportybet+model): home 55% · draw 24% · away 21% → fair odds 1.81 / 4.24 / 4.75 · **Double chance** 1X 79% · 12 76% · X2 45%
+* **1X2** (fair, market+model): home 55% · draw 24% · away 21% → fair odds 1.81 / 4.19 / 4.80 · **Double chance** 1X 79% · 12 76% · X2 45%
 * **Team goals:** Wealdstone to score 84% (2+ 55%) · Gateshead to score 67% (2+ 31%)
 * **Corners:** expected 5.4 (home) + 3.8 (away) = **9.2** · total O8.5 **56%** · O9.5 **44%** · O10.5 **32%** · O11.5 **23%** · home O3.5 72% · O4.5 58% · O5.5 44% · away O3.5 50% · O4.5 33% · O5.5 21% _(team averages: Wealdstone 4.3 for / 3.7 against over 9 games, Gateshead 2.7 / 4.7 over 9)_
 * **Cards** (yellow + red): expected 1.8 + 2.2 = **4.0** · total O3.5 **56%** · O4.5 **37%** · O5.5 **23%** · referee H Wager factor 1.04 (13 weighted games) _(team averages: Wealdstone 2.0 received / 2.0 opponents booked, Gateshead 2.0 / 1.8)_
-* **Sportybet:** 1X2 1.73 / 3.90 / 4.25 · DC 1X/12/X2 1.21 / 1.24 / 1.93 · goals O1.5 1.21 / U 4.25 · O2.5 1.67 / U 2.15 · O3.5 2.65 / U 1.47 · BTTS 1.63 / 2.10 · Wealdstone goals O0.5 1.14 / U 5.00 · O1.5 1.67 / U 2.05 · Gateshead goals O0.5 1.42 / U 2.65 · O1.5 2.95 / U 1.35
 
 **Wealdstone** (Home) — 40 matches used (weighted 16.3), 19 home
 
@@ -1339,11 +1280,10 @@ _No head-to-head data in the last two seasons._
 * Team-form model alone: 1.59 – 1.36 · P(O2.5) 57% · P(BTTS) 60% · Market-implied: 1.67 – 1.40
 * Market: Over 2.5 @ 1.56 / Under 2.5 @ 2.27 (implied O2.5 59%) · 1X2 2.11 / 3.56 / 2.89
 * League context: avg 1.60 home + 1.36 away goals · O2.5 in 59% · BTTS in 61% of matches
-* **1X2** (fair, market+Sportybet+model): home 44% · draw 25% · away 31% → fair odds 2.28 / 3.97 / 3.23 · **Double chance** 1X 69% · 12 75% · X2 56%
+* **1X2** (fair, market+model): home 44% · draw 25% · away 31% → fair odds 2.28 / 3.98 / 3.21 · **Double chance** 1X 69% · 12 75% · X2 56%
 * **Team goals:** Worthing to score 81% (2+ 49%) · Halifax to score 75% (2+ 41%)
 * **Corners:** expected 5.6 (home) + 4.5 (away) = **10.1** · total O8.5 **66%** · O9.5 **54%** · O10.5 **43%** · O11.5 **32%** · home O3.5 74% · O4.5 60% · O5.5 46% · away O3.5 61% · O4.5 45% · O5.5 31% _(team averages: Worthing 4.2 for / 6.8 against over 9 games, Halifax 4.0 / 5.9 over 9)_
 * **Cards** (yellow + red): expected 1.8 + 2.4 = **4.2** · total O3.5 **58%** · O4.5 **40%** · O5.5 **25%** · referee D Blades factor 0.98 (1 weighted games) _(team averages: Worthing 2.0 received / 2.9 opponents booked, Halifax 2.1 / 1.9)_
-* **Sportybet:** 1X2 2.15 / 3.60 / 3.00 · DC 1X/12/X2 1.35 / 1.27 / 1.60 · goals O1.5 1.17 / U 4.80 · O2.5 1.57 / U 2.35 · O3.5 2.35 / U 1.57 · BTTS 1.48 / 2.40 · Worthing goals O0.5 1.17 / U 4.50 · O1.5 1.81 / U 1.89 · Halifax goals O0.5 1.25 / U 3.60 · O1.5 2.15 / U 1.61
 
 **Worthing** (Home) — 9 matches used (weighted 7.8), 5 home
 
@@ -1383,11 +1323,10 @@ _No head-to-head data in the last two seasons._
 * Team-form model alone: 1.50 – 1.24 · P(O2.5) 51% · P(BTTS) 56% · Market-implied: 1.42 – 1.14
 * Market: Over 2.5 @ 1.96 / Under 2.5 @ 1.76 (implied O2.5 47%) · 1X2 2.16 / 3.26 / 3.14
 * League context: avg 1.45 home + 1.19 away goals · O2.5 in 50% · BTTS in 52% of matches
-* **1X2** (fair, market+Sportybet+model): home 43% · draw 28% · away 29% → fair odds 2.32 / 3.56 / 3.47 · **Double chance** 1X 71% · 12 72% · X2 57%
+* **1X2** (fair, market+model): home 44% · draw 28% · away 28% → fair odds 2.29 / 3.57 / 3.54 · **Double chance** 1X 72% · 12 72% · X2 56%
 * **Team goals:** Granada to score 76% (2+ 42%) · Andorra to score 68% (2+ 32%)
 * **Corners:** expected 4.7 (home) + 4.2 (away) = **8.9** · total O8.5 **52%** · O9.5 **40%** · O10.5 **29%** · O11.5 **20%** · home O3.5 63% · O4.5 47% · O5.5 33% · away O3.5 57% · O4.5 41% · O5.5 27% _(team averages: Granada 4.3 for / 4.6 against over 40 games, Andorra 5.0 / 3.4 over 40)_
 * **Cards** (yellow + red): expected 2.6 + 2.7 = **5.3** · total O3.5 **75%** · O4.5 **59%** · O5.5 **43%** _(team averages: Granada 2.7 received / 2.5 opponents booked, Andorra 2.6 / 2.9)_
-* **Sportybet:** 1X2 2.25 / 3.33 / 3.20 · DC 1X/12/X2 1.33 / 1.32 / 1.59 · goals O1.5 1.32 / U 3.30 · O2.5 1.99 / U 1.79 · O3.5 3.40 / U 1.30 · BTTS 1.77 / 1.95 · Granada goals O0.5 1.26 / U 3.60 · O1.5 2.20 / U 1.62 · Andorra goals O0.5 1.40 / U 2.85 · O1.5 2.85 / U 1.39
 
 **Granada** (Home) — 40 matches used (weighted 14.9), 19 home
 
@@ -1430,11 +1369,10 @@ _No head-to-head data in the last two seasons._
 * Team-form model alone: 1.45 – 1.06 · P(O2.5) 46% · P(BTTS) 51% · Market-implied: 1.46 – 1.39
 * Market: Over 2.5 @ 1.71 / Under 2.5 @ 2.04 (implied O2.5 54%) · 1X2 2.44 / 3.49 / 2.66
 * League context: avg 1.47 home + 1.12 away goals · O2.5 in 47% · BTTS in 51% of matches
-* **1X2** (fair, market+Sportybet+model): home 39% · draw 27% · away 35% → fair odds 2.59 / 3.71 / 2.90 · **Double chance** 1X 65% · 12 73% · X2 61%
+* **1X2** (fair, market+model): home 38% · draw 27% · away 35% → fair odds 2.62 / 3.68 / 2.89 · **Double chance** 1X 65% · 12 73% · X2 62%
 * **Team goals:** Oldham to score 77% (2+ 43%) · Salford to score 74% (2+ 39%)
 * **Corners:** expected 5.2 (home) + 4.5 (away) = **9.7** · total O8.5 **62%** · O9.5 **50%** · O10.5 **38%** · O11.5 **28%** · home O3.5 70% · O4.5 55% · O5.5 41% · away O3.5 61% · O4.5 45% · O5.5 31% _(team averages: Oldham 5.1 for / 4.5 against over 40 games, Salford 5.8 / 4.0 over 40)_
 * **Cards** (yellow + red): expected 1.6 + 2.1 = **3.7** · total O3.5 **50%** · O4.5 **32%** · O5.5 **18%** · referee I Searle factor 0.96 (12 weighted games) _(team averages: Oldham 1.7 received / 2.2 opponents booked, Salford 1.8 / 1.9)_
-* **Sportybet:** 1X2 2.45 / 3.50 / 2.75 · DC 1X/12/X2 1.42 / 1.30 / 1.51 · goals O1.5 1.25 / U 3.80 · O2.5 1.80 / U 1.98 · O3.5 2.95 / U 1.39 · BTTS 1.64 / 2.15 · Oldham goals O0.5 1.25 / U 3.70 · O1.5 2.20 / U 1.63 · Salford goals O0.5 1.29 / U 3.40 · O1.5 2.35 / U 1.55
 
 **Oldham** (Home) — 40 matches used (weighted 15.2), 20 home
 
@@ -1477,11 +1415,10 @@ _No head-to-head data in the last two seasons._
 * Team-form model alone: 1.37 – 1.22 · P(O2.5) 48% · P(BTTS) 53% · Market-implied: 1.18 – 1.39
 * Market: Over 2.5 @ 1.96 / Under 2.5 @ 1.76 (implied O2.5 47%) · 1X2 2.95 / 3.26 / 2.24
 * League context: avg 1.45 home + 1.19 away goals · O2.5 in 50% · BTTS in 52% of matches
-* **1X2** (fair, market+Sportybet+model): home 29% · draw 28% · away 42% → fair odds 3.40 / 3.52 / 2.37 · **Double chance** 1X 58% · 12 72% · X2 71%
+* **1X2** (fair, market+model): home 31% · draw 29% · away 40% → fair odds 3.27 / 3.46 / 2.47 · **Double chance** 1X 60% · 12 71% · X2 69%
 * **Team goals:** Celta B to score 70% (2+ 34%) · Sabadell to score 75% (2+ 40%)
 * **Corners:** expected 4.8 (home) + 4.2 (away) = **8.9** · total O8.5 **53%** · O9.5 **40%** · O10.5 **29%** · O11.5 **20%** · home O3.5 65% · O4.5 49% · O5.5 35% · away O3.5 56% · O4.5 40% · O5.5 26% _(team averages: Celta B 3.9 for / 3.9 against over 6 games, Sabadell 4.8 / 2.8 over 6)_
 * **Cards** (yellow + red): expected 2.3 + 2.9 = **5.2** · total O3.5 **74%** · O4.5 **58%** · O5.5 **42%** _(team averages: Celta B 2.8 received / 2.9 opponents booked, Sabadell 2.9 / 2.0)_
-* **Sportybet:** 1X2 3.33 / 3.33 / 2.15 · DC 1X/12/X2 1.62 / 1.31 / 1.31 · goals O1.5 1.34 / U 3.20 · O2.5 2.05 / U 1.75 · O3.5 3.60 / U 1.28 · BTTS 1.81 / 1.89 · Celta B goals O0.5 1.43 / U 2.70 · O1.5 3.00 / U 1.36 · Sabadell goals O0.5 1.26 / U 3.60 · O1.5 2.20 / U 1.62
 
 **Celta B** (Home) — 6 matches used (weighted 5.3), 3 home
 
@@ -1523,11 +1460,10 @@ _No head-to-head data in the last two seasons._
 * Team-form model alone: 1.54 – 1.12 · P(O2.5) 50% · P(BTTS) 53% · Market-implied: 1.40 – 0.88
 * Market: Over 2.5 @ 2.33 / Under 2.5 @ 1.54 (implied O2.5 40%) · 1X2 1.90 / 3.14 / 4.02
 * League context: avg 1.45 home + 1.19 away goals · O2.5 in 50% · BTTS in 52% of matches
-* **1X2** (fair, market+Sportybet+model): home 50% · draw 29% · away 21% → fair odds 1.99 / 3.50 / 4.72 · **Double chance** 1X 79% · 12 71% · X2 50%
+* **1X2** (fair, market+model): home 49% · draw 29% · away 22% → fair odds 2.05 / 3.42 / 4.57 · **Double chance** 1X 78% · 12 71% · X2 51%
 * **Team goals:** Tenerife to score 76% (2+ 41%) · Cadiz to score 59% (2+ 23%)
 * **Corners:** expected 5.1 (home) + 3.9 (away) = **9.0** · total O8.5 **54%** · O9.5 **42%** · O10.5 **31%** · O11.5 **21%** · home O3.5 69% · O4.5 54% · O5.5 40% · away O3.5 52% · O4.5 36% · O5.5 23% _(team averages: Tenerife 3.8 for / 3.4 against over 6 games, Cadiz 4.1 / 5.2 over 40)_
 * **Cards** (yellow + red): expected 2.1 + 2.7 = **4.8** · total O3.5 **68%** · O4.5 **51%** · O5.5 **35%** _(team averages: Tenerife 2.0 received / 1.5 opponents booked, Cadiz 3.2 / 2.0)_
-* **Sportybet:** 1X2 1.85 / 3.33 / 4.50 · DC 1X/12/X2 1.20 / 1.31 / 1.84 · goals O1.5 1.43 / U 2.80 · O2.5 2.30 / U 1.60 · O3.5 4.25 / U 1.21 · BTTS 2.10 / 1.67 · Tenerife goals O0.5 1.24 / U 3.75 · O1.5 2.15 / U 1.66 · Cadiz goals O0.5 1.67 / U 2.10 · O1.5 4.20 / U 1.20
 
 **Tenerife** (Home) — 6 matches used (weighted 5.2), 3 home
 
@@ -1569,9 +1505,8 @@ _No head-to-head data in the last two seasons._
 * Team-form model alone: 1.55 – 1.29 · P(O2.5) 54% · P(BTTS) 58%
 * Market 1X2: 2.53 / 3.43 / 2.49 (no O/U odds published in feed)
 * League context: avg 1.59 home + 1.23 away goals · O2.5 in 53% · BTTS in 58% of matches
-* **1X2** (fair, market+Sportybet+model): home 37% · draw 26% · away 37% → fair odds 2.70 / 3.79 / 2.73 · **Double chance** 1X 63% · 12 74% · X2 63%
+* **1X2** (fair, market+model): home 37% · draw 26% · away 37% → fair odds 2.73 / 3.77 / 2.71 · **Double chance** 1X 63% · 12 74% · X2 63%
 * **Team goals:** Cruz Azul to score 79% (2+ 46%) · Toluca to score 72% (2+ 37%)
-* **Sportybet:** 1X2 2.60 / 3.60 / 2.60 · DC 1X/12/X2 1.47 / 1.30 / 1.47 · goals O1.5 1.17 / U 4.80 · O2.5 1.58 / U 2.35 · O3.5 2.40 / U 1.56 · BTTS 1.49 / 2.50 · Cruz Azul goals O0.5 1.21 / U 4.10 · O1.5 1.99 / U 1.76 · Toluca goals O0.5 1.21 / U 4.10 · O1.5 2.00 / U 1.75
 
 **Cruz Azul** (Home) — 40 matches used (weighted 16.7), 20 home
 
@@ -1610,9 +1545,8 @@ _No head-to-head data in the last two seasons._
 * Team-form model alone: 1.67 – 1.09 · P(O2.5) 52% · P(BTTS) 54%
 * Market 1X2: 1.36 / 4.77 / 6.87 (no O/U odds published in feed)
 * League context: avg 1.59 home + 1.23 away goals · O2.5 in 53% · BTTS in 58% of matches
-* **1X2** (fair, market+Sportybet+model): home 64% · draw 20% · away 16% → fair odds 1.56 / 5.00 / 6.25 · **Double chance** 1X 84% · 12 80% · X2 36%
+* **1X2** (fair, market+model): home 68% · draw 18% · away 14% → fair odds 1.47 / 5.50 / 7.16 · **Double chance** 1X 86% · 12 82% · X2 32%
 * **Team goals:** Guadalajara Chivas to score 81% (2+ 50%) · Queretaro to score 66% (2+ 30%)
-* **Sportybet:** 1X2 1.59 / 4.30 / 5.25 · DC 1X/12/X2 1.17 / 1.22 / 2.20 · goals O1.5 1.20 / U 4.40 · O2.5 1.65 / U 2.20 · O3.5 2.60 / U 1.49 · BTTS 1.72 / 2.05 · Guadalajara Chivas goals O0.5 1.12 / U 5.75 · O1.5 1.58 / U 2.30 · Queretaro goals O0.5 1.50 / U 2.45 · O1.5 3.33 / U 1.30
 
 **Guadalajara Chivas** (Home) — 40 matches used (weighted 15.9), 19 home
 
@@ -1651,9 +1585,8 @@ _No head-to-head data in the last two seasons._
 * Team-form model alone: 1.53 – 1.38 · P(O2.5) 56% · P(BTTS) 59%
 * Market 1X2: 2.18 / 3.50 / 2.95 (no O/U odds published in feed)
 * League context: avg 1.75 home + 1.41 away goals · O2.5 in 63% · BTTS in 64% of matches
-* **1X2** (fair, market+Sportybet+model): home 42% · draw 26% · away 32% → fair odds 2.39 / 3.83 / 3.12 · **Double chance** 1X 68% · 12 74% · X2 58%
+* **1X2** (fair, market+model): home 42% · draw 26% · away 32% → fair odds 2.37 / 3.82 / 3.16 · **Double chance** 1X 68% · 12 74% · X2 58%
 * **Team goals:** Atlanta Utd to score 78% (2+ 45%) · New York City to score 75% (2+ 40%)
-* **Sportybet:** 1X2 2.35 / 3.70 / 3.00 · DC 1X/12/X2 1.40 / 1.31 / 1.58 · goals O1.5 1.21 / U 4.70 · O2.5 1.66 / U 2.30 · O3.5 2.60 / U 1.53 · BTTS 1.55 / 2.45 · Atlanta Utd goals O0.5 1.21 / U 4.50 · O1.5 1.97 / U 1.84 · New York City goals O0.5 1.27 / U 3.75 · O1.5 2.25 / U 1.64
 
 **Atlanta Utd** (Home) — 34 matches used (weighted 16.1), 16 home
 
@@ -1691,9 +1624,8 @@ _No head-to-head data in the last two seasons._
 * Team-form model alone: 1.82 – 1.54 · P(O2.5) 65% · P(BTTS) 66%
 * Market 1X2: 2.54 / 3.79 / 2.35 (no O/U odds published in feed)
 * League context: avg 1.75 home + 1.41 away goals · O2.5 in 63% · BTTS in 64% of matches
-* **1X2** (fair, market+Sportybet+model): home 37% · draw 24% · away 39% → fair odds 2.72 / 4.18 / 2.54 · **Double chance** 1X 61% · 12 76% · X2 63%
+* **1X2** (fair, market+model): home 37% · draw 24% · away 39% → fair odds 2.68 / 4.18 / 2.58 · **Double chance** 1X 61% · 12 76% · X2 63%
 * **Team goals:** CF Montreal to score 84% (2+ 54%) · FC Cincinnati to score 79% (2+ 46%)
-* **Sportybet:** 1X2 2.75 / 4.00 / 2.40 · DC 1X/12/X2 1.57 / 1.27 / 1.46 · goals O1.5 1.14 / U 6.10 · O2.5 1.46 / U 2.80 · O3.5 2.10 / U 1.76 · BTTS 1.42 / 2.90 · CF Montreal goals O0.5 1.20 / U 4.60 · O1.5 1.93 / U 1.88 · FC Cincinnati goals O0.5 1.17 / U 5.10 · O1.5 1.80 / U 2.00
 
 **CF Montreal** (Home) — 33 matches used (weighted 16.0), 17 home
 
@@ -1732,9 +1664,8 @@ _No head-to-head data in the last two seasons._
 * Team-form model alone: 1.88 – 1.40 · P(O2.5) 64% · P(BTTS) 64%
 * Market 1X2: 2.10 / 3.78 / 2.92 (no O/U odds published in feed)
 * League context: avg 1.75 home + 1.41 away goals · O2.5 in 63% · BTTS in 64% of matches
-* **1X2** (fair, market+Sportybet+model): home 45% · draw 24% · away 31% → fair odds 2.23 / 4.12 / 3.23 · **Double chance** 1X 69% · 12 76% · X2 55%
+* **1X2** (fair, market+model): home 45% · draw 24% · away 31% → fair odds 2.23 / 4.16 / 3.22 · **Double chance** 1X 69% · 12 76% · X2 55%
 * **Team goals:** Charlotte to score 85% (2+ 56%) · Chicago Fire to score 75% (2+ 41%)
-* **Sportybet:** 1X2 2.20 / 3.90 / 3.10 · DC 1X/12/X2 1.38 / 1.28 / 1.65 · goals O1.5 1.15 / U 5.80 · O2.5 1.50 / U 2.70 · O3.5 2.20 / U 1.71 · BTTS 1.45 / 2.75 · Charlotte goals O0.5 1.16 / U 5.40 · O1.5 1.75 / U 2.10 · Chicago Fire goals O0.5 1.24 / U 4.10 · O1.5 2.10 / U 1.75
 
 **Charlotte** (Home) — 36 matches used (weighted 16.2), 19 home
 
@@ -1773,9 +1704,8 @@ _No head-to-head data in the last two seasons._
 * Team-form model alone: 1.56 – 1.56 · P(O2.5) 60% · P(BTTS) 63%
 * Market 1X2: 3.16 / 3.90 / 1.96 (no O/U odds published in feed)
 * League context: avg 1.75 home + 1.41 away goals · O2.5 in 63% · BTTS in 64% of matches
-* **1X2** (fair, market+Sportybet+model): home 28% · draw 23% · away 49% → fair odds 3.55 / 4.34 / 2.05 · **Double chance** 1X 51% · 12 77% · X2 72%
+* **1X2** (fair, market+model): home 29% · draw 23% · away 47% → fair odds 3.41 / 4.28 / 2.11 · **Double chance** 1X 53% · 12 77% · X2 71%
 * **Team goals:** New York Red Bulls to score 79% (2+ 46%) · St. Louis City to score 79% (2+ 46%)
-* **Sportybet:** 1X2 3.70 / 4.25 / 1.90 · DC 1X/12/X2 1.88 / 1.25 / 1.29 · goals O1.5 1.14 / U 6.20 · O2.5 1.45 / U 2.85 · O3.5 2.10 / U 1.78 · BTTS 1.46 / 2.75 · New York Red Bulls goals O0.5 1.28 / U 3.75 · O1.5 2.30 / U 1.64 · St. Louis City goals O0.5 1.12 / U 6.30 · O1.5 1.59 / U 2.40
 
 **New York Red Bulls** (Home) — 33 matches used (weighted 15.7), 15 home
 
@@ -1813,9 +1743,8 @@ _No head-to-head data in the last two seasons._
 * Team-form model alone: 2.17 – 1.43 · P(O2.5) 70% · P(BTTS) 68%
 * Market 1X2: 1.40 / 5.03 / 5.82 (no O/U odds published in feed)
 * League context: avg 1.75 home + 1.41 away goals · O2.5 in 63% · BTTS in 64% of matches
-* **1X2** (fair, market+Sportybet+model): home 66% · draw 18% · away 17% → fair odds 1.53 / 5.67 / 5.95 · **Double chance** 1X 83% · 12 82% · X2 34%
+* **1X2** (fair, market+model): home 67% · draw 17% · away 16% → fair odds 1.50 / 5.75 / 6.24 · **Double chance** 1X 84% · 12 83% · X2 33%
 * **Team goals:** Philadelphia Union to score 89% (2+ 64%) · Orlando City to score 76% (2+ 42%)
-* **Sportybet:** 1X2 1.50 / 5.40 / 5.60 · DC 1X/12/X2 1.16 / 1.17 / 2.50 · goals O1.5 1.08 / U 8.50 · O2.5 1.29 / U 3.75 · O3.5 1.72 / U 2.20 · BTTS 1.42 / 2.90 · Philadelphia Union goals O0.5 1.05 / U 9.80 · O1.5 1.31 / U 3.50 · Orlando City goals O0.5 1.32 / U 3.40 · O1.5 2.45 / U 1.55
 
 **Philadelphia Union** (Home) — 36 matches used (weighted 16.2), 17 home
 
@@ -1854,9 +1783,8 @@ _No head-to-head data in the last two seasons._
 * Team-form model alone: 1.65 – 1.35 · P(O2.5) 58% · P(BTTS) 60%
 * Market 1X2: 2.34 / 3.59 / 2.66 (no O/U odds published in feed)
 * League context: avg 1.75 home + 1.41 away goals · O2.5 in 63% · BTTS in 64% of matches
-* **1X2** (fair, market+Sportybet+model): home 40% · draw 25% · away 34% → fair odds 2.49 / 3.93 / 2.91 · **Double chance** 1X 66% · 12 75% · X2 60%
+* **1X2** (fair, market+model): home 40% · draw 25% · away 35% → fair odds 2.49 / 3.95 / 2.89 · **Double chance** 1X 65% · 12 75% · X2 60%
 * **Team goals:** Austin FC to score 81% (2+ 49%) · San Diego FC to score 74% (2+ 39%)
-* **Sportybet:** 1X2 2.45 / 3.75 / 2.80 · DC 1X/12/X2 1.45 / 1.30 / 1.54 · goals O1.5 1.19 / U 5.00 · O2.5 1.61 / U 2.40 · O3.5 2.45 / U 1.57 · BTTS 1.52 / 2.55 · Austin FC goals O0.5 1.21 / U 4.50 · O1.5 1.98 / U 1.83 · San Diego FC goals O0.5 1.24 / U 4.10 · O1.5 2.15 / U 1.72
 
 **Austin FC** (Home) — 37 matches used (weighted 16.3), 17 home
 
@@ -1895,9 +1823,8 @@ _No head-to-head data in the last two seasons._
 * Team-form model alone: 1.69 – 1.43 · P(O2.5) 60% · P(BTTS) 63%
 * Market 1X2: 2.25 / 3.61 / 2.76 (no O/U odds published in feed)
 * League context: avg 1.75 home + 1.41 away goals · O2.5 in 63% · BTTS in 64% of matches
-* **1X2** (fair, market+Sportybet+model): home 42% · draw 25% · away 33% → fair odds 2.39 / 3.98 / 3.03 · **Double chance** 1X 67% · 12 75% · X2 58%
+* **1X2** (fair, market+model): home 42% · draw 25% · away 33% → fair odds 2.38 / 3.98 / 3.04 · **Double chance** 1X 67% · 12 75% · X2 58%
 * **Team goals:** FC Dallas to score 81% (2+ 50%) · Los Angeles FC to score 76% (2+ 42%)
-* **Sportybet:** 1X2 2.35 / 3.80 / 2.90 · DC 1X/12/X2 1.42 / 1.29 / 1.59 · goals O1.5 1.20 / U 4.80 · O2.5 1.63 / U 2.35 · O3.5 2.50 / U 1.55 · BTTS 1.54 / 2.50 · FC Dallas goals O0.5 1.21 / U 4.50 · O1.5 1.96 / U 1.86 · Los Angeles FC goals O0.5 1.26 / U 3.90 · O1.5 2.20 / U 1.67
 
 **FC Dallas** (Home) — 36 matches used (weighted 16.2), 17 home
 
@@ -1936,9 +1863,8 @@ _No head-to-head data in the last two seasons._
 * Team-form model alone: 1.93 – 1.17 · P(O2.5) 60% · P(BTTS) 59%
 * Market 1X2: 1.48 / 4.37 / 5.66 (no O/U odds published in feed)
 * League context: avg 1.75 home + 1.41 away goals · O2.5 in 63% · BTTS in 64% of matches
-* **1X2** (fair, market+Sportybet+model): home 62% · draw 21% · away 17% → fair odds 1.62 / 4.75 / 5.81 · **Double chance** 1X 83% · 12 79% · X2 38%
+* **1X2** (fair, market+model): home 63% · draw 21% · away 16% → fair odds 1.58 / 4.83 / 6.23 · **Double chance** 1X 84% · 12 79% · X2 37%
 * **Team goals:** Houston Dynamo to score 86% (2+ 58%) · Sporting Kansas City to score 69% (2+ 33%)
-* **Sportybet:** 1X2 1.62 / 4.50 / 5.30 · DC 1X/12/X2 1.18 / 1.22 / 2.25 · goals O1.5 1.20 / U 4.90 · O2.5 1.61 / U 2.40 · O3.5 2.50 / U 1.56 · BTTS 1.68 / 2.20 · Houston Dynamo goals O0.5 1.12 / U 6.40 · O1.5 1.57 / U 2.40 · Sporting Kansas City goals O0.5 1.49 / U 2.65 · O1.5 3.25 / U 1.35
 
 **Houston Dynamo** (Home) — 34 matches used (weighted 16.3), 17 home
 
@@ -1977,9 +1903,8 @@ _No head-to-head data in the last two seasons._
 * Team-form model alone: 1.99 – 1.18 · P(O2.5) 62% · P(BTTS) 60%
 * Market 1X2: 1.43 / 4.61 / 6.01 (no O/U odds published in feed)
 * League context: avg 1.75 home + 1.41 away goals · O2.5 in 63% · BTTS in 64% of matches
-* **1X2** (fair, market+Sportybet+model): home 66% · draw 19% · away 15% → fair odds 1.52 / 5.25 / 6.62 · **Double chance** 1X 85% · 12 81% · X2 34%
+* **1X2** (fair, market+model): home 66% · draw 19% · away 15% → fair odds 1.52 / 5.20 / 6.62 · **Double chance** 1X 85% · 12 81% · X2 34%
 * **Team goals:** Nashville SC to score 86% (2+ 59%) · Toronto FC to score 69% (2+ 33%)
-* **Sportybet:** 1X2 1.47 / 5.10 / 6.50 · DC 1X/12/X2 1.14 / 1.18 / 2.60 · goals O1.5 1.16 / U 5.60 · O2.5 1.51 / U 2.65 · O3.5 2.25 / U 1.68 · BTTS 1.68 / 2.20 · Nashville SC goals O0.5 1.08 / U 7.80 · O1.5 1.44 / U 2.85 · Toronto FC goals O0.5 1.53 / U 2.55 · O1.5 3.50 / U 1.31
 
 **Nashville SC** (Home) — 36 matches used (weighted 16.4), 18 home
 
@@ -2018,9 +1943,8 @@ _No head-to-head data in the last two seasons._
 * Team-form model alone: 1.77 – 1.48 · P(O2.5) 63% · P(BTTS) 65%
 * Market 1X2: 2.19 / 3.66 / 2.84 (no O/U odds published in feed)
 * League context: avg 1.75 home + 1.41 away goals · O2.5 in 63% · BTTS in 64% of matches
-* **1X2** (fair, market+Sportybet+model): home 43% · draw 25% · away 32% → fair odds 2.34 / 4.00 / 3.09 · **Double chance** 1X 68% · 12 75% · X2 57%
+* **1X2** (fair, market+model): home 43% · draw 25% · away 32% → fair odds 2.30 / 4.05 / 3.14 · **Double chance** 1X 68% · 12 75% · X2 57%
 * **Team goals:** Seattle Sounders to score 83% (2+ 53%) · Minnesota United to score 77% (2+ 44%)
-* **Sportybet:** 1X2 2.35 / 3.80 / 2.95 · DC 1X/12/X2 1.41 / 1.29 / 1.60 · goals O1.5 1.18 / U 5.20 · O2.5 1.58 / U 2.45 · O3.5 2.40 / U 1.61 · BTTS 1.51 / 2.60 · Seattle Sounders goals O0.5 1.19 / U 4.75 · O1.5 1.89 / U 1.92 · Minnesota United goals O0.5 1.25 / U 4.00 · O1.5 2.15 / U 1.71
 
 **Seattle Sounders** (Home) — 36 matches used (weighted 16.3), 18 home
 
@@ -2217,9 +2141,8 @@ _No head-to-head data in the last two seasons._
 * Team-form model alone: 1.37 – 1.31 · P(O2.5) 50% · P(BTTS) 55%
 * Market 1X2: 2.94 / 3.56 / 2.12 (no O/U odds published in feed)
 * League context: avg 1.59 home + 1.23 away goals · O2.5 in 53% · BTTS in 58% of matches
-* **1X2** (fair, market+Sportybet+model): home 31% · draw 25% · away 43% → fair odds 3.20 / 3.93 / 2.31 · **Double chance** 1X 57% · 12 75% · X2 69%
+* **1X2** (fair, market+model): home 32% · draw 25% · away 43% → fair odds 3.11 / 3.95 / 2.35 · **Double chance** 1X 57% · 12 75% · X2 68%
 * **Team goals:** Santos Laguna to score 75% (2+ 40%) · Pachuca to score 73% (2+ 38%)
-* **Sportybet:** 1X2 3.20 / 3.70 / 2.15 · DC 1X/12/X2 1.64 / 1.29 / 1.35 · goals O1.5 1.19 / U 4.50 · O2.5 1.63 / U 2.25 · O3.5 2.50 / U 1.51 · BTTS 1.54 / 2.40 · Santos Laguna goals O0.5 1.28 / U 3.40 · O1.5 2.30 / U 1.57 · Pachuca goals O0.5 1.18 / U 4.50 · O1.5 1.86 / U 1.88
 
 **Santos Laguna** (Home) — 38 matches used (weighted 14.2), 18 home
 
@@ -2258,9 +2181,8 @@ _No head-to-head data in the last two seasons._
 * Team-form model alone: 1.62 – 1.10 · P(O2.5) 51% · P(BTTS) 54%
 * Market 1X2: 1.52 / 4.12 / 5.27 (no O/U odds published in feed)
 * League context: avg 1.59 home + 1.23 away goals · O2.5 in 53% · BTTS in 58% of matches
-* **1X2** (fair, market+Sportybet+model): home 60% · draw 22% · away 18% → fair odds 1.66 / 4.57 / 5.62 · **Double chance** 1X 82% · 12 78% · X2 40%
+* **1X2** (fair, market+model): home 61% · draw 22% · away 17% → fair odds 1.64 / 4.63 / 5.74 · **Double chance** 1X 83% · 12 78% · X2 39%
 * **Team goals:** Tigres UANL to score 80% (2+ 48%) · Puebla to score 67% (2+ 30%)
-* **Sportybet:** 1X2 1.60 / 4.25 / 5.25 · DC 1X/12/X2 1.17 / 1.22 / 2.20 · goals O1.5 1.21 / U 4.25 · O2.5 1.67 / U 2.15 · O3.5 2.65 / U 1.47 · BTTS 1.74 / 2.05 · Tigres UANL goals O0.5 1.12 / U 5.60 · O1.5 1.60 / U 2.25 · Puebla goals O0.5 1.52 / U 2.45 · O1.5 3.40 / U 1.29
 
 **Tigres UANL** (Home) — 40 matches used (weighted 15.5), 19 home
 
@@ -2299,11 +2221,10 @@ _No head-to-head data in the last two seasons._
 * Team-form model alone: 1.42 – 1.27 · P(O2.5) 50% · P(BTTS) 55% · Market-implied: 1.49 – 1.24
 * Market: Over 2.5 @ 1.81 / Under 2.5 @ 1.91 (implied O2.5 51%) · 1X2 2.18 / 3.35 / 2.99
 * League context: avg 1.45 home + 1.19 away goals · O2.5 in 50% · BTTS in 52% of matches
-* **1X2** (fair, market+Sportybet+model): home 42% · draw 27% · away 31% → fair odds 2.40 / 3.68 / 3.21 · **Double chance** 1X 69% · 12 73% · X2 58%
+* **1X2** (fair, market+model): home 43% · draw 27% · away 31% → fair odds 2.35 / 3.72 / 3.27 · **Double chance** 1X 69% · 12 73% · X2 57%
 * **Team goals:** Valladolid to score 77% (2+ 44%) · Cordoba to score 71% (2+ 35%)
 * **Corners:** expected 4.7 (home) + 4.4 (away) = **9.1** · total O8.5 **55%** · O9.5 **42%** · O10.5 **31%** · O11.5 **22%** · home O3.5 64% · O4.5 48% · O5.5 34% · away O3.5 60% · O4.5 44% · O5.5 30% _(team averages: Valladolid 4.3 for / 3.7 against over 40 games, Cordoba 6.5 / 3.6 over 40)_
 * **Cards** (yellow + red): expected 2.7 + 3.0 = **5.6** · total O3.5 **79%** · O4.5 **64%** · O5.5 **48%** _(team averages: Valladolid 3.1 received / 2.7 opponents booked, Cordoba 2.9 / 2.8)_
-* **Sportybet:** 1X2 2.35 / 3.40 / 2.95 · DC 1X/12/X2 1.38 / 1.31 / 1.54 · goals O1.5 1.25 / U 3.80 · O2.5 1.80 / U 1.98 · O3.5 2.95 / U 1.39 · BTTS 1.63 / 2.15 · Valladolid goals O0.5 1.24 / U 3.80 · O1.5 2.10 / U 1.68 · Cordoba goals O0.5 1.31 / U 3.25 · O1.5 2.45 / U 1.52
 
 **Valladolid** (Home) — 40 matches used (weighted 14.9), 18 home
 
@@ -2361,6 +2282,9 @@ _Flat-stake return is for model evaluation only: 1 unit on every Over 2.5 pick a
 
 | Id | Created | Run | Legs | Odds | Prob. | Status |
 |---|---|---|---|---|---|---|
+| `20260926-04` | 2026-09-26 14:59 | manual | Southend v Barrow — Over 2.5 goals @ 1.59; Bristol Rvs v Exeter — Home win @ 1.72 | 2.73 | 34% | ⏳ pending |
+| `20260926-05` | 2026-09-26 14:59 | manual | Plymouth v Burton — Home win @ 1.59; Newport County v Grimsby — Away win @ 1.80 | 2.86 | 32% | ⏳ pending |
+| `20260926-06` | 2026-09-26 14:59 | manual | Boston Utd v Fylde — Over 2.5 goals @ 1.48; Rotherham v Crewe — Home win @ 2.10 | 3.11 | 30% | ⏳ pending |
 | `20260926-01` | 2026-09-26 14:57 | manual | York v Gillingham — Home win @ 1.80; Newport County v Grimsby — Away win @ 1.93 | 3.47 | 30% | ⏳ pending |
 | `20260926-02` | 2026-09-26 14:57 | manual | Solihull v Boreham Wood — Away win @ 1.68; Fleetwood Town v Rochdale — Under 2.5 goals @ 1.96 | 3.29 | 29% | ⏳ pending |
 | `20260926-03` | 2026-09-26 14:57 | manual | Boston Utd v Fylde — Over 2.5 goals @ 1.52; Cambridge v AFC Wimbledon — Home win @ 1.90 | 2.89 | 33% | ⏳ pending |
