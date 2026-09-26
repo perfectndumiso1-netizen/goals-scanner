@@ -10,11 +10,11 @@ val appVersionName = System.getenv("APP_VERSION_NAME") ?: "1.0.0"
 val keystorePath = System.getenv("KEYSTORE_PATH")
 
 android {
-    namespace = "za.goalsscanner"
+    namespace = "com.playreport.app"
     compileSdk = 34
 
     defaultConfig {
-        applicationId = "za.goalsscanner"
+        applicationId = "com.playreport.app"
         minSdk = 26
         targetSdk = 34
         versionCode = appVersionCode
@@ -59,4 +59,6 @@ dependencies {
     implementation("androidx.swiperefreshlayout:swiperefreshlayout:1.1.0")
     implementation("androidx.activity:activity-ktx:1.9.1")
     implementation("com.google.android.material:material:1.12.0")
+    implementation("androidx.core:core-ktx:1.13.1")
+    implementation("androidx.work:work-runtime-ktx:2.9.1")
 }

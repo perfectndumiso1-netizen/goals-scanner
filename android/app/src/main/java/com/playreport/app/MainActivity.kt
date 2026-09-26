@@ -1,8 +1,10 @@
-package za.goalsscanner
+package com.playreport.app
 
+import android.Manifest
 import android.annotation.SuppressLint
 import android.content.Intent
 import android.net.Uri
+import android.os.Build
 import android.os.Bundle
 import android.view.ViewGroup
 import android.webkit.JavascriptInterface
@@ -11,36 +13,46 @@ import android.webkit.WebResourceResponse
 import android.webkit.WebSettings
 import android.webkit.WebView
 import androidx.activity.OnBackPressedCallback
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.swiperefreshlayout.widget.SwipeRefreshLayout
 import androidx.webkit.WebViewAssetLoader
 import androidx.webkit.WebViewClientCompat
+import androidx.work.Constraints
+import androidx.work.ExistingPeriodicWorkPolicy
+import androidx.work.NetworkType
+import androidx.work.PeriodicWorkRequestBuilder
+import androidx.work.WorkManager
 import org.json.JSONObject
-import java.io.BufferedReader
-import java.net.HttpURLConnection
-import java.net.URL
 import java.util.concurrent.Executors
+import java.util.concurrent.TimeUnit
 
 /**
- * Thin native shell: a WebView showing the bundled UI (assets/www) plus a small bridge so the page can
- * fetch JSON from GitHub / Livescore / Sportybet without browser cross-origin limits, open links in the
- * browser and support pull-to-refresh and the system back button.
+ * PlayReport — native shell around the bundled UI (assets/www). The bridge lets the page fetch data,
+ * post notifications, open WhatsApp / e-mail, check for and install updates.
  */
 class MainActivity : AppCompatActivity() {
 
     private lateinit var web: WebView
     private lateinit var swipe: SwipeRefreshLayout
     private val pool = Executors.newFixedThreadPool(4)
+    private var pendingTab: String? = null
 
     companion object {
         const val HOST = "appassets.androidplatform.net"
         const val START = "https://$HOST/assets/www/index.html"
-        const val UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0 Safari/537.36"
+    }
+
+    private val askNotifications = registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+        js("window.app && window.app.onPermission && window.app.onPermission($granted);")
     }
 
     @SuppressLint("SetJavaScriptEnabled")
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        Notifier.createChannels(this)
+        scheduleChecks()
+
         swipe = SwipeRefreshLayout(this)
         web = WebView(this)
         web.layoutParams = ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
@@ -54,7 +66,6 @@ class MainActivity : AppCompatActivity() {
             textZoom = 100
             allowFileAccess = false
             allowContentAccess = false
-            mediaPlaybackRequiresUserGesture = true
         }
         web.overScrollMode = WebView.OVER_SCROLL_NEVER
 
@@ -63,6 +74,7 @@ class MainActivity : AppCompatActivity() {
             .addPathHandler("/assets/", WebViewAssetLoader.AssetsPathHandler(this))
             .build()
 
+        pendingTab = intent?.getStringExtra("tab")
         web.webViewClient = object : WebViewClientCompat() {
             override fun shouldInterceptRequest(view: WebView, request: WebResourceRequest): WebResourceResponse? =
                 loader.shouldInterceptRequest(request.url)
@@ -73,6 +85,10 @@ class MainActivity : AppCompatActivity() {
                 openExternal(url)
                 return true
             }
+
+            override fun onPageFinished(view: WebView, url: String) {
+                pendingTab?.let { t -> js("window.app && window.app.setTab && window.app.setTab(${JSONObject.quote(t)});"); pendingTab = null }
+            }
         }
         web.addJavascriptInterface(Bridge(), "Android")
 
@@ -80,7 +96,6 @@ class MainActivity : AppCompatActivity() {
         swipe.setOnRefreshListener {
             web.evaluateJavascript("window.app && window.app.refresh ? window.app.refresh() : Android.refreshDone();", null)
         }
-        // only let the pull-to-refresh gesture win when the page is scrolled to the top
         web.viewTreeObserver.addOnScrollChangedListener { swipe.isEnabled = web.scrollY == 0 }
 
         onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
@@ -96,6 +111,26 @@ class MainActivity : AppCompatActivity() {
         })
 
         if (savedInstanceState == null) web.loadUrl(START) else web.restoreState(savedInstanceState)
+        requestNotificationPermission()
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        intent.getStringExtra("tab")?.let { t -> js("window.app && window.app.setTab && window.app.setTab(${JSONObject.quote(t)});") }
+    }
+
+    private fun requestNotificationPermission() {
+        if (Build.VERSION.SDK_INT >= 33 && !Notifier.canNotify(this)) {
+            askNotifications.launch(Manifest.permission.POST_NOTIFICATIONS)
+        }
+    }
+
+    private fun scheduleChecks() {
+        val req = PeriodicWorkRequestBuilder<CheckWorker>(15, TimeUnit.MINUTES)
+            .setConstraints(Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build())
+            .build()
+        WorkManager.getInstance(this).enqueueUniquePeriodicWork("playreport-check", ExistingPeriodicWorkPolicy.UPDATE, req)
     }
 
     override fun onSaveInstanceState(outState: Bundle) {
@@ -106,7 +141,7 @@ class MainActivity : AppCompatActivity() {
     override fun onResume() {
         super.onResume()
         web.onResume()
-        web.evaluateJavascript("window.app && window.app.onResume && window.app.onResume();", null)
+        js("window.app && window.app.onResume && window.app.onResume();")
     }
 
     override fun onPause() {
@@ -129,29 +164,11 @@ class MainActivity : AppCompatActivity() {
     private fun js(code: String) = runOnUiThread { web.evaluateJavascript(code, null) }
 
     inner class Bridge {
-        /** Asynchronous GET; the result is delivered to window.__fetchDone(id, status, body). */
         @JavascriptInterface
         fun fetch(id: Int, url: String, userAgent: String?) {
             pool.execute {
-                var status = 0
-                var body = ""
-                try {
-                    val conn = URL(url).openConnection() as HttpURLConnection
-                    conn.connectTimeout = 15000
-                    conn.readTimeout = 25000
-                    conn.instanceFollowRedirects = true
-                    conn.setRequestProperty("User-Agent", userAgent ?: UA)
-                    conn.setRequestProperty("Accept", "application/json, text/plain, */*")
-                    conn.setRequestProperty("Accept-Language", "en")
-                    status = conn.responseCode
-                    val stream = if (status < 400) conn.inputStream else conn.errorStream
-                    body = stream?.bufferedReader(Charsets.UTF_8)?.use(BufferedReader::readText) ?: ""
-                    conn.disconnect()
-                } catch (e: Exception) {
-                    status = 0
-                    body = e.message ?: "network error"
-                }
-                js("window.__fetchDone && window.__fetchDone($id, $status, ${JSONObject.quote(body)});")
+                val r = Net.get(url, userAgent ?: Net.UA)
+                js("window.__fetchDone && window.__fetchDone($id, ${r.code}, ${JSONObject.quote(r.body)});")
             }
         }
 
@@ -174,6 +191,55 @@ class MainActivity : AppCompatActivity() {
         fun version(): String = BuildConfig.VERSION_NAME
 
         @JavascriptInterface
-        fun repo(): String = BuildConfig.REPO
+        fun dataUrl(): String = Net.LATEST_JSON
+
+        @JavascriptInterface
+        fun rawBase(): String = "https://raw.githubusercontent.com/${Net.REPO}/${Net.BRANCH}/"
+
+        @JavascriptInterface
+        fun notificationsAllowed(): Boolean = Notifier.canNotify(this@MainActivity)
+
+        @JavascriptInterface
+        fun requestNotifications() = runOnUiThread { requestNotificationPermission() }
+
+        @JavascriptInterface
+        fun notify(channel: String, id: Int, title: String, text: String, tab: String?) =
+            Notifier.notify(this@MainActivity, channel, id, title, text, tab ?: "today")
+
+        /** Goal alert from the open app; ignored if the background checker already announced this score. */
+        @JavascriptInterface
+        fun notifyGoal(eid: String, score: String, title: String, text: String) {
+            if (!Notifier.goalSeen(this@MainActivity, eid, score)) {
+                Notifier.notify(this@MainActivity, Notifier.CH_GOALS, eid.hashCode(), title, text, "live")
+            }
+        }
+
+        @JavascriptInterface
+        fun markScore(eid: String, score: String) { Notifier.goalSeen(this@MainActivity, eid, score) }
+
+        @JavascriptInterface
+        fun checkUpdate() {
+            pool.execute {
+                val info = Updater.check()
+                val payload = if (info != null && Updater.isNewer(info.version, BuildConfig.VERSION_NAME))
+                    JSONObject().put("version", info.version).put("url", info.url).put("notes", info.notes).toString()
+                else "null"
+                js("window.__updateInfo && window.__updateInfo($payload);")
+            }
+        }
+
+        @JavascriptInterface
+        fun installUpdate(url: String) {
+            pool.execute {
+                js("window.__updateProgress && window.__updateProgress('downloading');")
+                val f = Updater.download(this@MainActivity, url)
+                if (f == null) {
+                    js("window.__updateProgress && window.__updateProgress('failed');")
+                } else {
+                    js("window.__updateProgress && window.__updateProgress('installing');")
+                    runOnUiThread { Updater.install(this@MainActivity, f) }
+                }
+            }
+        }
     }
 }

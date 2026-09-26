@@ -57,18 +57,18 @@ jobs:
           cd android
           gradle --no-daemon assembleRelease
           ls -la app/build/outputs/apk/release/
-          cp app/build/outputs/apk/release/app-release.apk "$RUNNER_TEMP/goals-scanner.apk"
+          cp app/build/outputs/apk/release/app-release.apk "$RUNNER_TEMP/PlayReport.apk"
 
       - name: Upload build artifact
         uses: actions/upload-artifact@v4
         with:
-          name: goals-scanner-apk
-          path: ${{ runner.temp }}/goals-scanner.apk
+          name: PlayReport-apk
+          path: ${{ runner.temp }}/PlayReport.apk
 
       - name: Publish release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           TAG="app-v${APP_VERSION_NAME}"
-          NOTES="Goals Scanner Android app v${APP_VERSION_NAME} (build ${APP_VERSION_CODE}). Download goals-scanner.apk, allow installing from unknown sources, install. Updates install over the previous version."
-          gh release create "$TAG" "$RUNNER_TEMP/goals-scanner.apk" --repo "$GITHUB_REPOSITORY" --title "Goals Scanner app v${APP_VERSION_NAME}" --notes "$NOTES" --latest
+          NOTES="PlayReport for Android v${APP_VERSION_NAME} (build ${APP_VERSION_CODE}). Download PlayReport.apk and install it. Installed apps update themselves automatically."
+          gh release create "$TAG" "$RUNNER_TEMP/PlayReport.apk" --repo "$GITHUB_REPOSITORY" --title "PlayReport v${APP_VERSION_NAME}" --notes "$NOTES" --latest

@@ -79,16 +79,20 @@ _No settled parlays yet — 15 pending (graded automatically once the results ar
 
 ---
 
-## 📱 Android app
+## 📱 PlayReport — the Android app
 
-**Download:** [goals-scanner.apk (latest)](https://github.com/perfectndumiso1-netizen/goals-scanner/releases/latest/download/goals-scanner.apk)
-— on the phone allow "install from unknown sources" when asked; updates install over the old version.
+**Download:** [PlayReport.apk (latest)](https://github.com/perfectndumiso1-netizen/goals-scanner/releases/latest/download/PlayReport.apk)
+— on the phone allow "install from unknown sources" when asked. If you still have the old *Goals Scanner* app
+installed, uninstall it first (PlayReport is a new package). From then on the app updates itself: it checks for new
+versions, downloads them and asks for one confirmation tap to install.
 
-The app has no server of its own: it reads `data/app/latest.json`, the reports and the ledger straight from this
-repository, so it always shows exactly what the last scan published. Tabs: **Today** (parlays, shortlists, tracker),
+The app has no server of its own: it reads `data/app/latest.json`, the reports and the ledger published by each scan,
+so it always shows exactly what the last scan produced. Tabs: **Today** (parlays, shortlists, tracker),
 **Live** (scores, minute and scorers for parlay legs and shortlisted picks, from Livescore.com's public feed, with a
 live verdict per leg), **Fixtures** (every match with a full data sheet, Sportybet prices, corners and cards),
-**Reports** (every report and dossier), **Ledger** (graded parlays and performance).
+**Analysis** (the full report and the parlay dossier rendered in-app, with an archive of earlier days),
+**Ledger** (graded parlays and performance). Notifications: new analysis after each run, goals in tracked matches
+(with the scorer — within ~15 min when the app is closed, instantly while the Live tab is open) and app updates.
 Every push to `android/` rebuilds the APK on GitHub Actions and publishes it on the Releases page.
 
 ## What you get every run

@@ -1,22 +1,24 @@
-/* Goals Scanner — app UI. Data: data/app/latest.json in the GitHub repo (the backend).
-   Live scores: Livescore.com public JSON, fetched on the phone through the native bridge. */
+/* PlayReport — app UI. Reads the published analysis (latest.json) through the native bridge;
+   live scores from Livescore.com's public JSON. Nothing about the publishing backend is shown to the user. */
 (function () {
   'use strict';
 
   // ------------------------------------------------------------------ settings / state
   const native = window.Android || null;
-  const DEFAULT_REPO = (native && native.repo && native.repo()) || 'perfectndumiso1-netizen/goals-scanner';
-  const settings = Object.assign({ repo: DEFAULT_REPO, branch: 'main', liveEvery: 60, tzOffset: 2 },
-    JSON.parse(localStorage.getItem('gs_settings') || '{}'));
+  const RAW_BASE = (native && native.rawBase && native.rawBase()) || 'https://raw.githubusercontent.com/perfectndumiso1-netizen/goals-scanner/main/';
+  const DATA_URL = (native && native.dataUrl && native.dataUrl()) || (RAW_BASE + 'data/app/latest.json');
+  const CONTACT = { whatsapp: '27738212664', whatsappShown: '073 821 2664', email: 'msanindumiso@gmail.com' };
+  const settings = Object.assign({ liveEvery: 60, tzOffset: 2, goalAlerts: true },
+    JSON.parse(localStorage.getItem('pr_settings') || '{}'));
   const state = { data: null, tab: 'today', detail: null, live: {}, incidents: {}, liveTimer: null, lastLive: 0,
-    report: null, reportMd: '', search: '', sort: 'O25', loading: false };
+    report: null, reportMd: '', reportKind: 'report', reportDate: null, search: '', sort: 'O25', loading: false, update: null, updateStage: null };
 
   const $ = (sel) => document.querySelector(sel);
   const view = $('#view');
 
-  function saveSettings() { localStorage.setItem('gs_settings', JSON.stringify(settings)); }
-  function rawUrl(path) { return `https://raw.githubusercontent.com/${settings.repo}/${settings.branch}/${path}`; }
-  function ghUrl(path) { return `https://github.com/${settings.repo}/blob/${settings.branch}/${path}`; }
+  function saveSettings() { localStorage.setItem('pr_settings', JSON.stringify(settings)); }
+  function rawUrl(path) { return RAW_BASE + path; }
+  const APP_VERSION = (native && native.version && native.version()) || '';
 
   // ------------------------------------------------------------------ fetch bridge
   let fid = 0; const pending = {};
@@ -53,9 +55,12 @@
   function toast(msg) { const t = $('#toast'); t.textContent = msg; t.classList.add('show'); clearTimeout(t._h); t._h = setTimeout(() => t.classList.remove('show'), 2200); }
   function md(text) {
     let html;
-    try { html = marked.parse(text || '', { gfm: true, breaks: false }); } catch (e) { return `<pre>${esc(text)}</pre>`; }
+    const clean = String(text || '').replace(/Goals Scanner/g, 'PlayReport').replace(/https?:\/\/(?:www\.)?(?:github\.com|raw\.githubusercontent\.com)\/\S*/g, '');
+    try { html = marked.parse(clean, { gfm: true, breaks: false }); } catch (e) { return `<pre>${esc(clean)}</pre>`; }
     // wide tables: keep cells on one line and scroll sideways instead of breaking words
     const box = document.createElement('div'); box.innerHTML = html;
+    // brand + never expose the publishing backend
+    box.querySelectorAll('a[href]').forEach((a) => { if (/github\.com|githubusercontent\.com/i.test(a.href)) { const s = document.createElement('span'); s.textContent = a.textContent; a.replaceWith(s); } });
     box.querySelectorAll('table').forEach((t) => { const n = t.querySelector('tr') ? t.querySelector('tr').children.length : 0; if (n > 4) t.classList.add('wide'); });
     return box.innerHTML;
   }
@@ -71,14 +76,14 @@
   async function loadData(force) {
     if (state.loading) return; state.loading = true; $('#btn-refresh').classList.add('spin');
     try {
-      const url = rawUrl('data/app/latest.json') + '?t=' + Date.now();
+      const url = DATA_URL + '?t=' + Date.now();
       const d = indexData(await getJson(url));
-      state.data = d; localStorage.setItem('gs_latest', JSON.stringify(d));
+      state.data = d; state.data._loadedAt = Date.now(); localStorage.setItem('pr_latest', JSON.stringify(d));
       statusLine(); render();
       if (force) toast('Updated');
     } catch (e) {
-      if (!state.data) { const c = localStorage.getItem('gs_latest'); if (c) { state.data = indexData(JSON.parse(c)); statusLine(); render(); } }
-      toast('Could not reach GitHub (' + e.message + ')' + (state.data ? ' — showing cached data' : ''));
+      if (!state.data) { const c = localStorage.getItem('pr_latest'); if (c) { state.data = indexData(JSON.parse(c)); statusLine(); render(); } }
+      toast('Could not reach the PlayReport server (' + e.message + ')' + (state.data ? ' — showing saved data' : ''));
       if (!state.data) view.innerHTML = `<div class="empty">No data yet.<br>Check your connection and pull to refresh.</div>`;
     } finally {
       state.loading = false; $('#btn-refresh').classList.remove('spin'); if (native && native.refreshDone) native.refreshDone();
@@ -87,7 +92,7 @@
   function statusLine() {
     const m = state.data && state.data.meta; if (!m) return;
     const run = String(m.run || '').startsWith('manual') ? 'manual run ' + m.run.slice(7) : 'run ' + m.run;
-    $('#status-line').textContent = `${m.generated} ${m.tz} · ${run} · ${m.fixtures} fixtures`;
+    $('#status-line').textContent = `Analysis ${m.generated} ${m.tz} · ${run} · ${m.fixtures} fixtures`;
   }
 
   // ------------------------------------------------------------------ rendering: today
@@ -116,7 +121,7 @@
     const d = state.data, m = d.meta; const parts = [];
     parts.push(`<div class="card"><div class="small">Scan window <b>${esc(m.window_start.slice(5))}</b> → <b>${esc(m.window_end.slice(5))}</b> ${esc(m.tz)} · parlays for kick-offs before <b>${esc(m.parlay_window_end.slice(5))}</b></div>
       ${(m.notes || []).map((n) => `<div class="tiny muted">• ${esc(n)}</div>`).join('')}
-      <div style="margin-top:8px"><a class="btn" href="${ghUrl(m.report_md)}">Full report</a><a class="btn" href="${ghUrl(m.dossier_md)}">Parlay dossier</a><a class="btn" href="https://github.com/${settings.repo}/releases/latest">App updates</a></div></div>`);
+      <div style="margin-top:8px"><button class="btn primary" data-analysis="report">📄 Full analysis</button><button class="btn" data-analysis="dossier">🎟️ Parlay dossier</button></div></div>`);
     parts.push(`<h2 style="margin:12px 4px 6px;font-size:18px">🎟️ Parlays <span class="muted small">odds ${m.parlay_band && m.parlay_band.length ? m.parlay_band.map(f2).join('–') : '2.70–3.50'}</span></h2>`);
     if (!d.parlays.length) parts.push(`<div class="card empty">No parlay possible in this window.</div>`);
     d.parlays.forEach((p, i) => parts.push(parlayCard(p, i, false)));
@@ -135,7 +140,14 @@
     const t = d.tracker || {};
     parts.push(`<div class="card"><h2>Shortlist tracker</h2>${['O15', 'O25', 'BTTS'].map((mk) => { const s = t[mk] || {};
       return `<div class="row small" style="padding:4px 0;border-top:1px solid var(--line)"><div class="grow">${MK[mk]}</div><div>${s.settled || 0} settled · hit ${pct(s.rate)} · 30d ${pct(s.recent_rate)} · ${s.pending || 0} pending${s.roi != null ? ' · return ' + signed(s.roi) : ''}</div></div>`; }).join('')}</div>`);
+    parts.push(contactCard());
     view.innerHTML = parts.join('');
+    view.querySelectorAll('[data-analysis]').forEach((b) => { b.onclick = () => { state.reportKind = b.dataset.analysis; setTab('analysis'); }; });
+  }
+  function contactCard() {
+    return `<div class="card contact"><h2>Contact</h2><div class="small muted">Questions, feedback or a request? Get in touch.</div>
+      <div class="contact-row"><a class="btn wa" href="https://wa.me/${CONTACT.whatsapp}"><span class="ic">💬</span> WhatsApp ${esc(CONTACT.whatsappShown)}</a>
+      <a class="btn" href="mailto:${esc(CONTACT.email)}"><span class="ic">✉️</span> ${esc(CONTACT.email)}</a></div></div>`;
   }
 
   // ------------------------------------------------------------------ live
@@ -178,13 +190,16 @@
     const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
     days.add(todayStr);
     const want = new Set(tracked.map((f) => f.livescore_id));
-    let got = 0;
+    let got = 0; const goalEvents = [];
     for (const day of days) {
       try {
         const j = await getJson(`https://prod-public-api.livescore.com/v1/api/app/date/soccer/${day.replace(/-/g, '')}/${settings.tzOffset}?MD=1`);
         (j.Stages || []).forEach((st) => (st.Events || []).forEach((e) => {
           const eid = String(e.Eid); if (!want.has(eid)) return; got++;
+          const prev = state.live[eid];
           state.live[eid] = { status: e.Eps || '', hg: e.Tr1 != null ? +e.Tr1 : null, ag: e.Tr2 != null ? +e.Tr2 : null, ht: [e.Trh1, e.Trh2], t: Date.now() };
+          const cur = state.live[eid];
+          if (prev && prev.hg != null && cur.hg != null && (cur.hg + cur.ag) > (prev.hg + prev.ag)) goalEvents.push(eid);
         }));
       } catch (e) { if (manual) toast('Livescore unavailable (' + e.message + ')'); }
     }
@@ -206,7 +221,18 @@
       } catch (e) { /* ignore */ }
     }
     if (state.tab === 'live' && !state.detail) renderLive();
+    goalEvents.forEach((eid) => announceGoal(eid));
     return got;
+  }
+  function announceGoal(eid) {
+    if (!settings.goalAlerts) return;
+    const f = trackedFixtures().find((x) => x.livescore_id === eid); const s = state.live[eid]; if (!f || !s) return;
+    const inc = state.incidents[eid]; const goals = inc ? inc.items.filter((it) => ['goal', 'own goal', 'penalty'].includes(it.type)) : [];
+    const last = goals.length ? goals[goals.length - 1] : null;
+    const scorer = last ? `${last.player || ''} ${last.min != null ? last.min + "'" : ''}${last.type !== 'goal' ? ' (' + last.type + ')' : ''}`.trim() : '';
+    const title = `⚽ GOAL  ${f.home_long || f.home} ${s.hg} – ${s.ag} ${f.away_long || f.away}`;
+    const text = (scorer ? scorer + ' · ' : '') + `${s.status} · ${f.competition}`;
+    if (native && native.notifyGoal) native.notifyGoal(eid, `${s.hg}-${s.ag}`, title, text); else toast(title);
   }
   function scheduleLive() {
     clearInterval(state.liveTimer);
@@ -305,27 +331,29 @@
     window.scrollTo(0, 0);
   }
 
-  // ------------------------------------------------------------------ reports
-  async function openReport(name) {
-    state.report = name; state.reportMd = ''; renderReports();
-    try { const r = await nfetch(rawUrl(`reports/${name}.md`) + '?t=' + Math.floor(Date.now() / 60000)); if (r.code !== 200) throw new Error('HTTP ' + r.code); state.reportMd = r.body; }
-    catch (e) { state.reportMd = `_Could not load report (${e.message})._`; }
-    if (state.tab === 'reports') renderReports();
+  // ------------------------------------------------------------------ analysis (reports rendered in-app)
+  function reportPath(date, kind) { return kind === 'dossier' ? `reports/${date}-parlays.md` : `reports/${date}.md`; }
+  async function openReport(date, kind) {
+    const d = state.data; date = date || (d.history.reports || [])[0] || (d.meta.generated || '').slice(0, 10); kind = kind || state.reportKind || 'report';
+    state.reportDate = date; state.reportKind = kind; state.report = `${date}|${kind}`; state.reportMd = ''; renderAnalysis();
+    const token = state.report;
+    try { const r = await nfetch(rawUrl(reportPath(date, kind)) + '?t=' + Math.floor(Date.now() / 60000)); if (r.code !== 200) throw new Error('HTTP ' + r.code); if (state.report === token) state.reportMd = r.body; }
+    catch (e) { if (state.report === token) state.reportMd = `_This analysis could not be loaded right now (${e.message}). Pull down to try again._`; }
+    if (state.tab === 'analysis' && state.report === token) renderAnalysis();
   }
-  function renderReports() {
+  function renderAnalysis() {
     const d = state.data; const parts = [];
-    if (state.report) {
-      parts.push(`<div class="detail-head"><button class="back" id="back">‹ Back</button><div class="grow"><b>${esc(state.report)}</b></div><a class="btn" href="${ghUrl('reports/' + state.report + '.md')}">GitHub</a></div>`);
-      parts.push(`<div class="card md">${state.reportMd ? md(state.reportMd) : '<div class="empty">Loading…</div>'}</div>`);
-      view.innerHTML = parts.join(''); $('#back').onclick = () => { state.report = null; renderReports(); window.scrollTo(0, 0); };
-      return;
-    }
-    parts.push(`<div class="card"><h2>Reports</h2><div class="small muted">Full Markdown reports and parlay dossiers, as committed to GitHub by each run (the latest run of a day overwrites that day's file).</div></div>`);
-    parts.push(`<div class="card">`);
-    (d.history.reports || []).forEach((r) => parts.push(`<div class="list-item"><div class="main"><div class="match">${esc(r)}</div></div><div><button class="btn" data-report="${esc(r)}">Report</button><button class="btn" data-report="${esc(r)}-parlays">Dossier</button></div></div>`));
-    parts.push(`</div>`);
+    if (!state.report) { openReport(null, state.reportKind); return; }
+    const dates = d.history.reports || []; const kind = state.reportKind; const date = state.reportDate;
+    const dd = parseLocal(date + ' 00:00'); const nice = dd ? `${DAYS[dd.getDay()]} ${date.slice(8, 10)}/${date.slice(5, 7)}/${date.slice(0, 4)}` : date;
+    parts.push(`<div class="card"><div class="seg"><button class="${kind === 'report' ? 'on' : ''}" data-kind="report">📄 Full analysis</button><button class="${kind === 'dossier' ? 'on' : ''}" data-kind="dossier">🎟️ Parlay dossier</button></div>
+      <div class="row" style="margin-top:8px"><div class="grow small"><b>${esc(nice)}</b>${date === dates[0] ? ' <span class="chip good">latest</span>' : ''}</div>
+      ${dates.length > 1 ? `<select id="an-date">${dates.map((r) => `<option value="${esc(r)}" ${r === date ? 'selected' : ''}>${esc(r)}</option>`).join('')}</select>` : ''}</div>
+      <div class="tiny muted" style="margin-top:4px">${kind === 'report' ? 'Every fixture in the window with expected goals, market probabilities, shortlists, corners, cards and team news.' : 'The parlays of the latest run with a data sheet for every leg.'} The latest run of a day replaces that day's analysis.</div></div>`);
+    parts.push(`<div class="card md">${state.reportMd ? md(state.reportMd) : '<div class="empty">Loading analysis…</div>'}</div>`);
     view.innerHTML = parts.join('');
-    view.querySelectorAll('[data-report]').forEach((b) => { b.onclick = () => openReport(b.dataset.report); });
+    view.querySelectorAll('[data-kind]').forEach((b) => { b.onclick = () => { if (b.dataset.kind !== state.reportKind) { openReport(state.reportDate, b.dataset.kind); window.scrollTo(0, 0); } }; });
+    const sel = $('#an-date'); if (sel) sel.onchange = (e) => { openReport(e.target.value, state.reportKind); window.scrollTo(0, 0); };
   }
 
   // ------------------------------------------------------------------ ledger
@@ -347,32 +375,69 @@
     view.innerHTML = parts.join('');
   }
 
-  // ------------------------------------------------------------------ settings
+  // ------------------------------------------------------------------ settings & about
+  function notifState() {
+    if (!native || !native.notificationsAllowed) return null;
+    try { return !!native.notificationsAllowed(); } catch (e) { return null; }
+  }
   function renderSettings() {
     const parts = [`<div class="detail-head"><button class="back" id="back">‹ Back</button><div class="grow"><b>Settings</b></div></div>`];
-    parts.push(`<div class="card settings"><label>GitHub repository (owner/name)</label><input id="s-repo" value="${esc(settings.repo)}">
-      <label>Branch</label><input id="s-branch" value="${esc(settings.branch)}">
+    const allowed = notifState();
+    parts.push(`<div class="card settings"><h2>Notifications</h2>
+      <div class="row"><div class="grow small">${allowed === false ? '<span class="chip bad">off</span> Allow notifications to get new-analysis, goal and update alerts.' : allowed ? '<span class="chip good">on</span> New analysis · goals in tracked matches · app updates' : 'Notifications are only available in the Android app.'}</div>
+      ${allowed === false ? '<button class="btn primary" id="s-notif">Allow</button>' : ''}</div>
+      <label class="row" style="margin-top:10px"><input type="checkbox" id="s-goals" ${settings.goalAlerts ? 'checked' : ''} style="width:auto;flex:none"> <span class="grow">Goal alerts with the scorer for parlay legs and shortlisted matches</span></label>
+      <div class="tiny muted" style="margin-top:6px">Alerts arrive within about 15 minutes when the app is closed and instantly while the Live tab is open.</div></div>`);
+    parts.push(`<div class="card settings"><h2>Display</h2>
       <label>Live auto-refresh (seconds, min 20)</label><input id="s-live" type="number" value="${settings.liveEvery}">
-      <label>Report timezone offset from UTC (hours; South Africa = 2)</label><input id="s-tz" type="number" value="${settings.tzOffset}">
-      <div style="margin-top:12px"><button class="btn primary" id="s-save">Save</button><button class="btn" id="s-clear">Clear cache</button></div></div>`);
-    parts.push(`<div class="card small"><b>About</b><div class="muted">Goals Scanner app ${native && native.version ? 'v' + native.version() : '(browser)'} · data from <a href="https://github.com/${esc(settings.repo)}">github.com/${esc(settings.repo)}</a>.</div>
-      <div class="muted" style="margin-top:6px">The scanner runs three times a day on GitHub Actions; this app only reads what it publishes. Live scores come from Livescore.com's public feed and never influence the model. Statistical information, not advice.</div>
-      <div style="margin-top:8px"><a class="btn" href="https://github.com/${esc(settings.repo)}/releases/latest">Check for app update</a></div></div>`);
+      <label>Analysis timezone offset from UTC (hours; South Africa = 2)</label><input id="s-tz" type="number" value="${settings.tzOffset}">
+      <div style="margin-top:12px"><button class="btn primary" id="s-save">Save</button><button class="btn" id="s-clear">Clear saved data</button></div></div>`);
+    parts.push(`<div class="card settings"><h2>App</h2><div class="row"><div class="grow small">PlayReport ${APP_VERSION ? 'v' + APP_VERSION : '(browser preview)'}${state.update ? ` · <b>v${esc(state.update.version)} available</b>` : ' · up to date'}</div>
+      ${state.update ? `<button class="btn primary" id="s-install">Update</button>` : `<button class="btn" id="s-check">Check for update</button>`}</div>
+      <div class="tiny muted" style="margin-top:6px">PlayReport checks for updates automatically and downloads them for you; Android asks for one confirmation before installing.</div></div>`);
+    parts.push(contactCard());
+    parts.push(`<div class="card small"><b>About PlayReport</b><div class="muted" style="margin-top:4px">Football analysis three times a day (07:00, 12:00 and 17:00 SAST): expected goals, Over 1.5 / Over 2.5 / BTTS probabilities, 1X2, corners, cards, Sportybet prices, parlays and an audited ledger. Live scores come from a public feed and never influence the model.</div>
+      <div class="muted" style="margin-top:6px">Statistical information, not betting advice. Bet responsibly — 18+.</div></div>`);
     view.innerHTML = parts.join('');
     $('#back').onclick = () => { state.detail = null; render(); };
-    $('#s-save').onclick = () => { settings.repo = $('#s-repo').value.trim() || DEFAULT_REPO; settings.branch = $('#s-branch').value.trim() || 'main';
-      settings.liveEvery = Math.max(20, +$('#s-live').value || 60); settings.tzOffset = +$('#s-tz').value || 0; saveSettings(); scheduleLive(); toast('Saved'); state.detail = null; loadData(true); };
-    $('#s-clear').onclick = () => { localStorage.removeItem('gs_latest'); state.data = null; toast('Cache cleared'); state.detail = null; loadData(true); };
+    $('#s-save').onclick = () => { settings.liveEvery = Math.max(20, +$('#s-live').value || 60); settings.tzOffset = +$('#s-tz').value || 0; saveSettings(); scheduleLive(); toast('Saved'); state.detail = null; render(); };
+    $('#s-clear').onclick = () => { localStorage.removeItem('pr_latest'); state.data = null; toast('Saved data cleared'); state.detail = null; loadData(true); };
+    $('#s-goals').onchange = (e) => { settings.goalAlerts = e.target.checked; saveSettings(); };
+    const n = $('#s-notif'); if (n) n.onclick = () => { if (native && native.requestNotifications) native.requestNotifications(); };
+    const c = $('#s-check'); if (c) c.onclick = () => { toast('Checking…'); state.updateChecked = 'manual'; if (native && native.checkUpdate) native.checkUpdate(); else toast('Updates are only available in the Android app'); };
+    const i = $('#s-install'); if (i) i.onclick = () => startUpdate();
   }
+
+  // ------------------------------------------------------------------ updates
+  function startUpdate() {
+    if (!state.update || !native || !native.installUpdate) return;
+    state.updateStage = 'downloading'; renderBanner(); toast('Downloading update…');
+    native.installUpdate(state.update.url);
+  }
+  function renderBanner() {
+    const b = $('#banner'); const u = state.update;
+    if (!u) { b.innerHTML = ''; return; }
+    const stage = state.updateStage;
+    b.innerHTML = `<div class="update"><div class="grow"><b>PlayReport v${esc(u.version)} is ready</b><div class="tiny">${stage === 'downloading' ? 'Downloading…' : stage === 'installing' ? 'Opening the installer — tap Install when Android asks.' : stage === 'failed' ? 'Download failed — check your connection and try again.' : 'Tap Update to install the new version.'}</div></div>
+      ${stage === 'downloading' || stage === 'installing' ? '<span class="spinner"></span>' : '<button class="btn primary" id="b-update">Update</button>'}</div>`;
+    const btn = $('#b-update'); if (btn) btn.onclick = startUpdate;
+  }
+  window.__updateInfo = function (info) {
+    state.update = info || null; state.updateStage = null; renderBanner();
+    if (state.updateChecked === 'manual') { toast(info ? `Version ${info.version} available` : 'You have the latest version'); state.updateChecked = null; }
+    if (state.detail === 'settings') render();
+  };
+  window.__updateProgress = function (stage) { state.updateStage = stage; renderBanner(); if (stage === 'failed') toast('Update download failed'); };
 
   // ------------------------------------------------------------------ router
   function render() {
     if (!state.data && state.detail !== 'settings') return;
     if (state.detail === 'settings') return renderSettings();
     if (state.detail) return renderDetail(state.detail);
-    ({ today: renderToday, live: renderLive, fixtures: renderFixtures, reports: renderReports, ledger: renderLedger }[state.tab] || renderToday)();
+    ({ today: renderToday, live: renderLive, fixtures: renderFixtures, analysis: renderAnalysis, ledger: renderLedger }[state.tab] || renderToday)();
   }
   function setTab(tab) {
+    if (!['today', 'live', 'fixtures', 'analysis', 'ledger'].includes(tab)) tab = 'today';
     state.tab = tab; state.detail = null; state.report = null;
     document.querySelectorAll('#tabs button').forEach((b) => b.classList.toggle('active', b.dataset.tab === tab));
     render(); window.scrollTo(0, 0);
@@ -386,20 +451,22 @@
     const item = e.target.closest('[data-fx]');
     if (item && item.classList.contains('tap')) { state.detail = item.dataset.fx; render(); return; }
     const a = e.target.closest('a[href]');
-    if (a && /^https?:/.test(a.getAttribute('href')) && native && native.openUrl) { e.preventDefault(); native.openUrl(a.href); }
+    if (a && /^(https?:|mailto:|tel:)/.test(a.getAttribute('href')) && native && native.openUrl) { e.preventDefault(); native.openUrl(a.href); }
   });
   document.addEventListener('visibilitychange', () => { if (!document.hidden && state.tab === 'live') refreshLive(false); });
 
   window.app = {
     refresh() { loadData(true).then(() => { if (state.tab === 'live') refreshLive(true); }); },
     back() { if (state.detail) { state.detail = null; render(); return true; } if (state.report) { state.report = null; render(); return true; } if (state.tab !== 'today') { setTab('today'); return true; } return false; },
-    onResume() { if (state.data && Date.now() - (state.data._loadedAt || 0) > 5 * 60000) loadData(false); if (state.tab === 'live') refreshLive(false); },
-    state, settings,
+    onResume() { if (state.data && Date.now() - (state.data._loadedAt || 0) > 5 * 60000) loadData(false); if (state.tab === 'live') refreshLive(false); if (state.detail === 'settings') render(); },
+    onPermission(granted) { toast(granted ? 'Notifications on — you will hear about new analysis, goals and updates' : 'Notifications are off — you can enable them in Settings'); if (state.detail === 'settings') render(); },
+    setTab, state, settings,
   };
 
   // boot: cached first, then network
-  const cached = localStorage.getItem('gs_latest');
+  const cached = localStorage.getItem('pr_latest');
   if (cached) { try { state.data = indexData(JSON.parse(cached)); statusLine(); render(); } catch (e) { /* ignore */ } }
-  loadData(false).then(() => { if (state.data) state.data._loadedAt = Date.now(); });
+  loadData(false);
   scheduleLive();
+  if (native && native.checkUpdate) setTimeout(() => { try { native.checkUpdate(); } catch (e) { /* ignore */ } }, 4000);
 })();
