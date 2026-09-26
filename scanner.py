@@ -70,17 +70,27 @@ CONFIG = {
     "MAX_MATCHES_PER_TEAM": 40,
     # minimum (time-weighted) matches per team before a match may be shortlisted
     "MIN_EFF_MATCHES": 4.0,
-    # Bayesian shrinkage of team strengths towards league average (in matches)
-    "SHRINK_K": 4.0,
-    # how quickly venue-specific (home/away) form takes over from overall form
-    "VENUE_K": 5.0,
-    # weight given to bookmaker implied probability (Over 2.5 only) when odds exist
-    "MARKET_WEIGHT": 0.4,
-    # shortlist rules: final probability >= p AND average historical hit-rate of both teams >= hist
+    # Bayesian shrinkage of team strengths towards league average (in matches).
+    # Backtested 2023-26: K=40 is far better calibrated than small values (goal form is noisy).
+    "SHRINK_K": 40.0,
+    # how quickly venue-specific (home/away) form takes over from overall form (backtest: matters little)
+    "VENUE_K": 20.0,
+    # Dixon-Coles low-score correction (fitted on 2023-25 scores)
+    "DC_RHO": -0.05,
+    # weight of market-implied expected goals when odds exist. Backtest: the market beats the model
+    # at every weight below ~0.9, so the model only fine-tunes the market where odds are published.
+    "MARKET_XG_WEIGHT": 0.9,
+    # shortlist rules: final probability >= p; tiers give ⭐⭐ / ⭐⭐⭐ ratings (values from the backtest)
     "THRESHOLDS": {
-        "O15": {"p": _env_float("MIN_P_O15", 0.84), "hist": 0.75},
-        "O25": {"p": _env_float("MIN_P_O25", 0.60), "hist": 0.50},
-        "BTTS": {"p": _env_float("MIN_P_BTTS", 0.62), "hist": 0.50},
+        "O15": {"p": _env_float("MIN_P_O15", 0.84), "tiers": (0.87, 0.90)},
+        "O25": {"p": _env_float("MIN_P_O25", 0.60), "tiers": (0.64, 0.68)},
+        "BTTS": {"p": _env_float("MIN_P_BTTS", 0.60), "tiers": (0.63, 0.66)},
+    },
+    # backtest hit-rates (test seasons 2025/26-26/27) shown in the report so expectations stay honest
+    "BACKTEST": {
+        "O15": "87% of shortlisted matches (⭐⭐ 88%, ⭐⭐⭐ 95%) over 900 picks",
+        "O25": "67% of shortlisted matches (⭐⭐ 71%, ⭐⭐⭐ 77%) over 1,675 picks",
+        "BTTS": "64% of shortlisted matches (⭐⭐ 65%, ⭐⭐⭐ 71%) over 1,800 picks",
     },
     "MAX_PICKS": int(_env_float("MAX_PICKS", 15)),
     "REQUEST_TIMEOUT": 30,
@@ -213,12 +223,68 @@ def f2(x) -> str:
     return "–" if x is None or (isinstance(x, float) and math.isnan(x)) else f"{x:.2f}"
 
 
-def stars(p: float, thr: float) -> str:
-    if p >= thr + 0.10:
+def stars(p: float, mkt: str) -> str:
+    t2, t3 = CONFIG["THRESHOLDS"][mkt]["tiers"]
+    if p >= t3:
         return "⭐⭐⭐"
-    if p >= thr + 0.05:
+    if p >= t2:
         return "⭐⭐"
     return "⭐"
+
+
+MAXG = 10  # score matrix size (goals 0..10)
+
+
+def score_matrix(lh: float, la: float, rho: float = 0.0) -> np.ndarray:
+    """Score probabilities P(home=i, away=j); rho != 0 applies the Dixon-Coles low-score correction."""
+    g = np.arange(MAXG + 1)
+    ph = np.exp(-lh) * lh ** g / np.array([math.factorial(int(k)) for k in g])
+    pa = np.exp(-la) * la ** g / np.array([math.factorial(int(k)) for k in g])
+    M = np.outer(ph, pa)
+    if rho:
+        M[0, 0] *= 1 - lh * la * rho
+        M[1, 0] *= 1 + la * rho
+        M[0, 1] *= 1 + lh * rho
+        M[1, 1] *= 1 - rho
+        M = np.clip(M, 1e-12, None)
+    return M / M.sum()
+
+
+def probs_from_matrix(M: np.ndarray) -> dict:
+    g = np.arange(MAXG + 1)
+    tot = g[:, None] + g[None, :]
+    return {"O15": float(M[tot >= 2].sum()), "O25": float(M[tot >= 3].sum()), "O35": float(M[tot >= 4].sum()),
+            "BTTS": float(M[1:, 1:].sum()),
+            "HW": float(M[g[:, None] > g[None, :]].sum()), "AW": float(M[g[:, None] < g[None, :]].sum())}
+
+
+def market_lambdas(odds_h, odds_d, odds_a, odds_over, odds_under):
+    """Expected goals implied by the market: total from the Over/Under 2.5 price, split from 1X2.
+    Returns (lam_h, lam_a) or None when any price is missing."""
+    vals = [odds_h, odds_d, odds_a, odds_over, odds_under]
+    if any(v is None or (isinstance(v, float) and math.isnan(v)) or v <= 1 for v in vals):
+        return None
+    p_over = (1 / odds_over) / (1 / odds_over + 1 / odds_under)
+    inv = np.array([1 / odds_h, 1 / odds_d, 1 / odds_a])
+    p_h, _, p_a = inv / inv.sum()
+    lo, hi = 0.3, 7.0
+    for _ in range(40):                                  # total goals matching P(over 2.5)
+        mid = (lo + hi) / 2
+        if 1 - poisson_cdf(2, mid) < p_over:
+            lo = mid
+        else:
+            hi = mid
+    lt = (lo + hi) / 2
+    lo, hi = 0.05, 0.95
+    for _ in range(30):                                  # home share matching P(home) - P(away)
+        s = (lo + hi) / 2
+        P = probs_from_matrix(score_matrix(lt * s, lt * (1 - s)))
+        if P["HW"] - P["AW"] < p_h - p_a:
+            lo = s
+        else:
+            hi = s
+    s = (lo + hi) / 2
+    return lt * s, lt * (1 - s)
 
 
 # ----------------------------------------------------------------------------- data loading
@@ -521,14 +587,22 @@ class MatchRow:
     fx: pd.Series
     home: TeamProfile
     away: TeamProfile
-    lam_h: float
+    lam_h: float          # final expected goals (market-blended where odds exist)
     lam_a: float
-    p: dict          # market -> model probability
-    p_market_o25: float
-    p_final: dict    # market -> blended probability used for ranking
-    hist: dict       # market -> average historical hit-rate of both teams
+    mod_h: float          # model-only expected goals
+    mod_a: float
+    mkt_h: float          # market-implied expected goals (nan without odds)
+    mkt_a: float
+    p_model: dict         # market -> model-only probability
+    p_market_o25: float   # bookmaker-implied P(over 2.5)
+    p_final: dict         # market -> final probability used for ranking (O15, O25, O35, BTTS)
+    hist: dict            # market -> average historical hit-rate of both teams (information only)
     h2h: list
     div_avg: DivAvg
+
+    @property
+    def basis(self) -> str:
+        return "market+model" if not math.isnan(self.mkt_h) else "model only"
 
     @property
     def data_ok(self) -> bool:
@@ -546,15 +620,10 @@ def analyse(fx: pd.Series, long: pd.DataFrame, results: pd.DataFrame,
     H = build_profile(long, fx["country"], fx["home"], "H", now)
     A = build_profile(long, fx["country"], fx["away"], "A", now)
 
-    lam_h = min(max(da.mu_h * H.att * A.dfc, 0.15), 4.5)
-    lam_a = min(max(da.mu_a * A.att * H.dfc, 0.15), 4.5)
-    lt = lam_h + lam_a
-    p = {
-        "O15": 1 - poisson_cdf(1, lt),
-        "O25": 1 - poisson_cdf(2, lt),
-        "O35": 1 - poisson_cdf(3, lt),
-        "BTTS": (1 - math.exp(-lam_h)) * (1 - math.exp(-lam_a)),
-    }
+    rho = CONFIG["DC_RHO"]
+    mod_h = min(max(da.mu_h * H.att * A.dfc, 0.15), 4.5)
+    mod_a = min(max(da.mu_a * A.att * H.dfc, 0.15), 4.5)
+    p_model = probs_from_matrix(score_matrix(mod_h, mod_a, rho))
 
     oo, ou = fx["odds_over"], fx["odds_under"]
     if pd.notna(oo) and pd.notna(ou) and oo > 1 and ou > 1:
@@ -562,29 +631,31 @@ def analyse(fx: pd.Series, long: pd.DataFrame, results: pd.DataFrame,
     else:
         p_mkt = float("nan")
 
-    mw = CONFIG["MARKET_WEIGHT"]
-    p_final = {
-        "O15": p["O15"],
-        "O25": (1 - mw) * p["O25"] + mw * p_mkt if not math.isnan(p_mkt) else p["O25"],
-        "BTTS": p["BTTS"],
-    }
+    mk = market_lambdas(fx["odds_h"], fx["odds_d"], fx["odds_a"], oo, ou)
+    if mk is not None:
+        w = CONFIG["MARKET_XG_WEIGHT"]
+        mkt_h, mkt_a = mk
+        lam_h = (1 - w) * mod_h + w * mkt_h
+        lam_a = (1 - w) * mod_a + w * mkt_a
+    else:
+        mkt_h = mkt_a = float("nan")
+        lam_h, lam_a = mod_h, mod_a
+    p_final = probs_from_matrix(score_matrix(lam_h, lam_a, rho))
     hist = {
         "O15": float(np.nanmean([H.rate_o15, A.rate_o15])) if H.n and A.n else float("nan"),
         "O25": float(np.nanmean([H.rate_o25, A.rate_o25])) if H.n and A.n else float("nan"),
         "BTTS": float(np.nanmean([H.rate_btts, A.rate_btts])) if H.n and A.n else float("nan"),
     }
-    return MatchRow(fx, H, A, lam_h, lam_a, p, p_mkt, p_final, hist,
+    return MatchRow(fx, H, A, lam_h, lam_a, mod_h, mod_a, mkt_h, mkt_a, p_model, p_mkt, p_final, hist,
                     head_to_head(results, fx["country"], fx["home"], fx["away"]), da)
 
 
 def select_picks(rows: list[MatchRow]) -> dict[str, list[MatchRow]]:
     picks: dict[str, list[MatchRow]] = {}
     for mkt, thr in CONFIG["THRESHOLDS"].items():
-        attr = {"O15": "rate_o15", "O25": "rate_o25", "BTTS": "rate_btts"}[mkt]
-        cand = [r for r in rows if r.data_ok and r.p_final[mkt] >= thr["p"]
-                and not math.isnan(r.hist[mkt]) and r.hist[mkt] >= thr["hist"]
-                # neither team may be far below the floor on its own
-                and min(getattr(r.home, attr), getattr(r.away, attr)) >= thr["hist"] - 0.10]
+        # backtest: team hit-rate floors and model-vs-market filters added nothing once the
+        # probabilities were calibrated, so the rule is simply "final probability >= threshold"
+        cand = [r for r in rows if r.data_ok and r.p_final[mkt] >= thr["p"]]
         cand.sort(key=lambda r: r.p_final[mkt], reverse=True)
         picks[mkt] = cand[: CONFIG["MAX_PICKS"]]
     return picks
@@ -643,7 +714,7 @@ def add_picks(t: pd.DataFrame, picks: dict[str, list[MatchRow]], today: datetime
                 "match_date": key[0], "kickoff": r.fx["kickoff"].strftime("%Y-%m-%d %H:%M"),
                 "country": r.fx["country"], "div": r.fx["div"], "league": r.fx["league"],
                 "home": r.fx["home"], "away": r.fx["away"], "market": mkt,
-                "p_model": f"{r.p[mkt]:.3f}",
+                "p_model": f"{r.p_model[mkt]:.3f}",
                 "p_market": "" if math.isnan(r.p_market_o25) or mkt != "O25" else f"{r.p_market_o25:.3f}",
                 "p_final": f"{r.p_final[mkt]:.3f}",
                 "odds": "" if pd.isna(odds) else f"{odds:.2f}",
@@ -705,25 +776,29 @@ def market_str(r: MatchRow) -> str:
     return f"{r.fx['odds_over']:.2f} ({pct(r.p_market_o25)})"
 
 
+def basis_str(r: MatchRow) -> str:
+    return "📈 market+model" if r.basis == "market+model" else "🧮 model only"
+
+
 def render_pick_table(rows: list[MatchRow], mkt: str) -> list[str]:
-    thr = CONFIG["THRESHOLDS"][mkt]["p"]
     L = []
     if not rows:
         L.append("_No match met the criteria today._")
         return L
     if mkt == "O25":
-        L.append(f"| # | Kick-off ({TZL}) | Competition | Match | Model | Market (odds) | Final | Rating | Last-10 form | Model xG |")
-        L.append("|---|---|---|---|---|---|---|---|---|---|")
+        L.append(f"| # | Kick-off ({TZL}) | Competition | Match | Final | Rating | Market (odds) | Model | Basis | Last-10 form | Exp. goals |")
+        L.append("|---|---|---|---|---|---|---|---|---|---|---|")
         for i, r in enumerate(rows, 1):
-            L.append(f"| {i} | {ko(r)} | {comp(r)} | **{r.label}** | {pct(r.p['O25'])} | {market_str(r)} | "
-                     f"**{pct(r.p_final['O25'])}** | {stars(r.p_final['O25'], thr)} | {form_str(r, mkt)} | "
+            L.append(f"| {i} | {ko(r)} | {comp(r)} | **{r.label}** | **{pct(r.p_final['O25'])}** | {stars(r.p_final['O25'], mkt)} | "
+                     f"{market_str(r)} | {pct(r.p_model['O25'])} | {basis_str(r)} | {form_str(r, mkt)} | "
                      f"{r.lam_h:.1f} – {r.lam_a:.1f} |")
     else:
-        L.append(f"| # | Kick-off ({TZL}) | Competition | Match | Model | Rating | Last-10 form | Model xG |")
-        L.append("|---|---|---|---|---|---|---|---|")
+        L.append(f"| # | Kick-off ({TZL}) | Competition | Match | Final | Rating | Model | Basis | Last-10 form | Exp. goals |")
+        L.append("|---|---|---|---|---|---|---|---|---|---|")
         for i, r in enumerate(rows, 1):
             L.append(f"| {i} | {ko(r)} | {comp(r)} | **{r.label}** | **{pct(r.p_final[mkt])}** | "
-                     f"{stars(r.p_final[mkt], thr)} | {form_str(r, mkt)} | {r.lam_h:.1f} – {r.lam_a:.1f} |")
+                     f"{stars(r.p_final[mkt], mkt)} | {pct(r.p_model[mkt])} | {basis_str(r)} | {form_str(r, mkt)} | "
+                     f"{r.lam_h:.1f} – {r.lam_a:.1f} |")
     return L
 
 
@@ -772,9 +847,11 @@ def render_details(r: MatchRow) -> list[str]:
     L = [f"<details><summary><b>{html.escape(r.label)}</b> — {html.escape(comp(r))}, {ko(r)} · "
          f"O2.5 {pct(r.p_final['O25'])} · BTTS {pct(r.p_final['BTTS'])}"
          f"{'' if r.data_ok else ' · ⚠️ low data'}</summary>", ""]
-    L.append(f"* Model expected goals: **{r.lam_h:.2f} – {r.lam_a:.2f}** (total {r.lam_h + r.lam_a:.2f}) · "
-             f"P(O1.5) {pct(r.p['O15'])} · P(O2.5) {pct(r.p['O25'])} · P(O3.5) {pct(r.p['O35'])} · "
-             f"P(BTTS) {pct(r.p['BTTS'])}")
+    L.append(f"* Final expected goals: **{r.lam_h:.2f} – {r.lam_a:.2f}** (total {r.lam_h + r.lam_a:.2f}, {r.basis}) · "
+             f"P(O1.5) **{pct(r.p_final['O15'])}** · P(O2.5) **{pct(r.p_final['O25'])}** · P(O3.5) {pct(r.p_final['O35'])} · "
+             f"P(BTTS) **{pct(r.p_final['BTTS'])}**")
+    L.append(f"* Team-form model alone: {r.mod_h:.2f} – {r.mod_a:.2f} · P(O2.5) {pct(r.p_model['O25'])} · P(BTTS) {pct(r.p_model['BTTS'])}"
+             + (f" · Market-implied: {r.mkt_h:.2f} – {r.mkt_a:.2f}" if not math.isnan(r.mkt_h) else ""))
     if not math.isnan(r.p_market_o25):
         L.append(f"* Market: Over 2.5 @ {r.fx['odds_over']:.2f} / Under 2.5 @ {r.fx['odds_under']:.2f} "
                  f"(implied O2.5 {pct(r.p_market_o25)}) · 1X2 {f2(r.fx['odds_h'])} / {f2(r.fx['odds_d'])} / {f2(r.fx['odds_a'])}")
@@ -814,7 +891,8 @@ def render_report(ctx: dict, rows: list[MatchRow], picks: dict, summary: dict, n
     for mkt, name in MARKETS.items():
         thr = CONFIG["THRESHOLDS"][mkt]
         L.append(f"### {name} — {len(picks.get(mkt, []))} pick(s)")
-        L.append(f"_Criteria: final probability ≥ {pct(thr['p'])} and both teams' average {name} hit-rate ≥ {pct(thr['hist'])}._")
+        L.append(f"_Rule: final probability ≥ {pct(thr['p'])} (⭐⭐ ≥ {pct(thr['tiers'][0])}, ⭐⭐⭐ ≥ {pct(thr['tiers'][1])}). "
+                 f"Backtest 2025/26–26/27: {CONFIG['BACKTEST'][mkt]}._")
         L.append("")
         L += render_pick_table(picks.get(mkt, []), mkt)
         L.append("")
@@ -822,13 +900,13 @@ def render_report(ctx: dict, rows: list[MatchRow], picks: dict, summary: dict, n
     L.append("## 📊 Full scan — every fixture, ranked by Over 2.5 probability")
     L.append("")
     if rows:
-        L.append(f"| Kick-off ({TZL}) | Competition | Match | Model xG | O1.5 | O2.5 | BTTS | Market O2.5 | O2.5 final | O2.5 last-10 form | Data |")
-        L.append("|---|---|---|---|---|---|---|---|---|---|---|")
+        L.append(f"| Kick-off ({TZL}) | Competition | Match | Exp. goals | O1.5 | O2.5 | BTTS | Market O2.5 (odds) | Model O2.5 | Basis | O2.5 last-10 form | Data |")
+        L.append("|---|---|---|---|---|---|---|---|---|---|---|---|")
         for r in sorted(rows, key=lambda r: r.p_final["O25"], reverse=True):
             flag = "✅" if r.data_ok else f"⚠️ {r.home.n}/{r.away.n} games"
-            L.append(f"| {ko(r)} | {comp(r)} | {r.label} | {r.lam_h:.1f} – {r.lam_a:.1f} | {pct(r.p['O15'])} | "
-                     f"{pct(r.p['O25'])} | {pct(r.p['BTTS'])} | {market_str(r)} | **{pct(r.p_final['O25'])}** | "
-                     f"{form_str(r, 'O25')} | {flag} |")
+            L.append(f"| {ko(r)} | {comp(r)} | {r.label} | {r.lam_h:.1f} – {r.lam_a:.1f} | {pct(r.p_final['O15'])} | "
+                     f"**{pct(r.p_final['O25'])}** | {pct(r.p_final['BTTS'])} | {market_str(r)} | {pct(r.p_model['O25'])} | "
+                     f"{basis_str(r)} | {form_str(r, 'O25')} | {flag} |")
     else:
         L.append("_No fixtures found in the scan window._")
     L.append("")
@@ -849,13 +927,19 @@ def render_report(ctx: dict, rows: list[MatchRow], picks: dict, summary: dict, n
     L.append("## ℹ️ Method")
     L.append("")
     L += [
-        "* Team attack/defence strengths come from goals scored and conceded in the last two seasons, "
-        f"normalised by league averages, time-weighted (half-life {CONFIG['HALF_LIFE_DAYS']} days), "
-        "blended with home/away-specific form and shrunk towards league average for small samples.",
-        "* Expected goals for each side = league average × attack strength × opponent defence strength; "
-        "probabilities come from a Poisson model on those expected goals.",
-        f"* For Over 2.5 the model probability is blended with the bookmaker-implied probability "
-        f"({int(CONFIG['MARKET_WEIGHT'] * 100)}% market weight) whenever odds are published in the feed.",
+        "* **Team-form model:** attack/defence strengths from goals scored and conceded over the last two seasons, "
+        f"normalised by league averages, time-weighted (half-life {CONFIG['HALF_LIFE_DAYS']} days) and strongly "
+        f"shrunk towards league average (K={CONFIG['SHRINK_K']:g} matches — goal form is noisy; the backtest showed "
+        "weak shrinkage made the old model over-confident by 5-10 points).",
+        "* **Market-implied expected goals:** where the feed publishes odds, the Over/Under 2.5 price fixes the expected "
+        "total and the 1X2 prices fix the home/away split. The final expected goals are "
+        f"{int(CONFIG['MARKET_XG_WEIGHT'] * 100)}% market / {int((1 - CONFIG['MARKET_XG_WEIGHT']) * 100)}% model "
+        "(📈 market+model). Without odds the model is used alone (🧮 model only).",
+        f"* Probabilities for every market come from a Dixon-Coles adjusted Poisson score matrix (ρ={CONFIG['DC_RHO']:g}).",
+        "* **Backtest (52,000 matches, 2023-26, no look-ahead):** final probabilities are calibrated to within ±3 points; "
+        "the model alone beats league averages but never beats the market, and when the model is more bullish than the "
+        "market those matches under-deliver — so 'Model' above is information, not a value signal. "
+        "Full results: `backtest/RESULTS.md`.",
         f"* Data: football-data.co.uk. All times are {TZL} ({CONFIG['TIMEZONE']}). ⚠️ marks teams with too little history "
         "(typically newly promoted from a division not covered) — they are never shortlisted.",
         "* This is statistical information, not advice. Past hit-rates do not guarantee future results.",
@@ -878,7 +962,7 @@ def render_readme_block(ctx: dict, rows: list[MatchRow], picks: dict, summary: d
             L.append("|---|---|---|---|---|")
             for r in sel[:8]:
                 L.append(f"| {ko(r)} | **{r.label}** | {comp(r)} | {pct(r.p_final[mkt])} | "
-                         f"{stars(r.p_final[mkt], CONFIG['THRESHOLDS'][mkt]['p'])} |")
+                         f"{stars(r.p_final[mkt], mkt)} |")
             if len(sel) > 8:
                 L.append(f"| … | _{len(sel) - 8} more in the full report_ | | | |")
         else:
@@ -910,14 +994,18 @@ def rows_to_csv(rows: list[MatchRow], path: Path) -> None:
         recs.append({
             "kickoff_uk": fx["kickoff"].strftime("%Y-%m-%d %H:%M"), "country": fx["country"],
             "competition": fx["league"], "div": fx["div"], "home": fx["home"], "away": fx["away"],
-            "xg_home_model": round(r.lam_h, 3), "xg_away_model": round(r.lam_a, 3),
-            "p_over15": round(r.p["O15"], 3), "p_over25": round(r.p["O25"], 3),
-            "p_over35": round(r.p["O35"], 3), "p_btts": round(r.p["BTTS"], 3),
+            "xg_home_final": round(r.lam_h, 3), "xg_away_final": round(r.lam_a, 3),
+            "xg_home_model": round(r.mod_h, 3), "xg_away_model": round(r.mod_a, 3),
+            "xg_home_market": None if math.isnan(r.mkt_h) else round(r.mkt_h, 3),
+            "xg_away_market": None if math.isnan(r.mkt_a) else round(r.mkt_a, 3),
+            "basis": r.basis,
+            "p_over15": round(r.p_final["O15"], 3), "p_over25": round(r.p_final["O25"], 3),
+            "p_over35": round(r.p_final["O35"], 3), "p_btts": round(r.p_final["BTTS"], 3),
+            "p_model_over15": round(r.p_model["O15"], 3), "p_model_over25": round(r.p_model["O25"], 3),
+            "p_model_btts": round(r.p_model["BTTS"], 3),
             "odds_over25_avg": fx["odds_over"], "odds_under25_avg": fx["odds_under"],
             "odds_over25_b365": fx["b365_over"], "odds_under25_b365": fx["b365_under"],
             "p_market_over25": None if math.isnan(r.p_market_o25) else round(r.p_market_o25, 3),
-            "p_final_over15": round(r.p_final["O15"], 3), "p_final_over25": round(r.p_final["O25"], 3),
-            "p_final_btts": round(r.p_final["BTTS"], 3),
             "odds_home": fx["odds_h"], "odds_draw": fx["odds_d"], "odds_away": fx["odds_a"],
             "home_matches": r.home.n, "home_gf": r.home.gf, "home_ga": r.home.ga,
             "home_att": r.home.att, "home_def": r.home.dfc, "home_o15_rate": r.home.rate_o15,
@@ -950,7 +1038,7 @@ def telegram_text(ctx: dict, rows: list[MatchRow], picks: dict, report_url: str 
             L.append("none today")
         for r in sel[:8]:
             L.append(f"• {r.fx['kickoff']:%H:%M} {html.escape(r.label)} — {html.escape(r.fx['league'])} — "
-                     f"<b>{pct(r.p_final[mkt])}</b>")
+                     f"<b>{pct(r.p_final[mkt])}</b> {stars(r.p_final[mkt], mkt)}")
         if len(sel) > 8:
             L.append(f"… +{len(sel) - 8} more")
     if report_url:

@@ -23,7 +23,7 @@ jobs:
       WINDOW_HOURS: "24"    # scan matches kicking off within the next 24 hours
       MIN_P_O15: "0.84"     # shortlist thresholds (final probability)
       MIN_P_O25: "0.60"
-      MIN_P_BTTS: "0.62"
+      MIN_P_BTTS: "0.60"
       MAX_PICKS: "15"
       # LEAGUES: "E0,SP1,I1,D1,F1"   # uncomment to restrict competitions
       TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}   # optional

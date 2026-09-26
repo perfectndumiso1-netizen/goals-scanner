@@ -1,64 +1,63 @@
 # ⚽ Goals Scanner
 
 Automatic daily scan of football fixtures for the **goals markets** — Over 1.5, Over 2.5 and Both Teams To Score.
-Every morning a GitHub Actions job downloads the day's fixtures and two seasons of results, builds a
-goals model for every match, shortlists the strongest candidates and commits a report to this repo.
+Every morning a GitHub Actions job downloads the day's fixtures and two seasons of results, combines a
+backtested team-form model with market-implied expected goals for every match, shortlists the strongest
+candidates and commits a report to this repo.
 No servers, no API keys — it runs even when your computer is off.
 
 <!-- SCAN:START -->
-### Latest scan — Saturday 26 September 2026 (13:10 SAST)
+### Latest scan — Saturday 26 September 2026 (07:00 SAST)
 
-48 fixtures scanned · window Sat 13:05 → Sun 13:10 SAST · [open full report](reports/2026-09-26.md)
+48 fixtures scanned · window Sat 06:55 → Sun 07:00 SAST · [open full report](reports/2026-09-26.md)
 
-**Over 1.5 goals** — 10 pick(s)
+**Over 1.5 goals** — 7 pick(s)
 
 | Kick-off | Match | Competition | Final prob. | Rating |
 |---|---|---|---|---|
-| Sun 27 Sep 01:30 | **Philadelphia Union v Orlando City** | USA · MLS | 94% | ⭐⭐ |
-| Sat 26 Sep 16:00 | **Solihull v Boreham Wood** | England · National League | 90% | ⭐⭐ |
-| Sun 27 Sep 02:30 | **Seattle Sounders v Minnesota United** | USA · MLS | 88% | ⭐ |
-| Sat 26 Sep 16:00 | **Southend v Barrow** | England · National League | 88% | ⭐ |
-| Sat 26 Sep 16:00 | **Stockport v Peterboro** | England · League One | 87% | ⭐ |
-| Sun 27 Sep 01:30 | **Charlotte v Chicago Fire** | USA · MLS | 86% | ⭐ |
-| Sun 27 Sep 04:30 | **San Jose Earthquakes v Portland Timbers** | USA · MLS | 86% | ⭐ |
-| Sat 26 Sep 16:00 | **Boston Utd v Fylde** | England · National League | 85% | ⭐ |
-| … | _2 more in the full report_ | | | |
+| Sun 27 Sep 01:30 | **Philadelphia Union v Orlando City** | USA · MLS | 88% | ⭐⭐ |
+| Sat 26 Sep 16:00 | **Solihull v Boreham Wood** | England · National League | 87% | ⭐⭐ |
+| Sat 26 Sep 16:00 | **Stockport v Peterboro** | England · League One | 86% | ⭐ |
+| Sun 27 Sep 01:30 | **CF Montreal v FC Cincinnati** | USA · MLS | 85% | ⭐ |
+| Sun 27 Sep 04:30 | **San Jose Earthquakes v Portland Timbers** | USA · MLS | 85% | ⭐ |
+| Sun 27 Sep 01:30 | **Charlotte v Chicago Fire** | USA · MLS | 84% | ⭐ |
+| Sun 27 Sep 02:30 | **Seattle Sounders v Minnesota United** | USA · MLS | 84% | ⭐ |
 
 **Over 2.5 goals** — 14 pick(s)
 
 | Kick-off | Match | Competition | Final prob. | Rating |
 |---|---|---|---|---|
-| Sun 27 Sep 01:30 | **Philadelphia Union v Orlando City** | USA · MLS | 82% | ⭐⭐⭐ |
-| Sat 26 Sep 16:00 | **Solihull v Boreham Wood** | England · National League | 72% | ⭐⭐⭐ |
-| Sun 27 Sep 02:30 | **Seattle Sounders v Minnesota United** | USA · MLS | 71% | ⭐⭐⭐ |
-| Sat 26 Sep 16:00 | **Stockport v Peterboro** | England · League One | 69% | ⭐⭐ |
-| Sun 27 Sep 01:30 | **Charlotte v Chicago Fire** | USA · MLS | 68% | ⭐⭐ |
-| Sun 27 Sep 04:30 | **San Jose Earthquakes v Portland Timbers** | USA · MLS | 67% | ⭐⭐ |
-| Sun 27 Sep 01:30 | **CF Montreal v FC Cincinnati** | USA · MLS | 66% | ⭐⭐ |
-| Sat 26 Sep 16:00 | **Southend v Barrow** | England · National League | 65% | ⭐⭐ |
+| Sun 27 Sep 01:30 | **Philadelphia Union v Orlando City** | USA · MLS | 70% | ⭐⭐⭐ |
+| Sat 26 Sep 16:00 | **Solihull v Boreham Wood** | England · National League | 69% | ⭐⭐⭐ |
+| Sat 26 Sep 16:00 | **Stockport v Peterboro** | England · League One | 67% | ⭐⭐ |
+| Sun 27 Sep 01:30 | **CF Montreal v FC Cincinnati** | USA · MLS | 65% | ⭐⭐ |
+| Sun 27 Sep 04:30 | **San Jose Earthquakes v Portland Timbers** | USA · MLS | 64% | ⭐⭐ |
+| Sun 27 Sep 01:30 | **Charlotte v Chicago Fire** | USA · MLS | 64% | ⭐ |
+| Sun 27 Sep 02:30 | **Seattle Sounders v Minnesota United** | USA · MLS | 63% | ⭐ |
+| Sat 26 Sep 16:00 | **Boston Utd v Fylde** | England · National League | 62% | ⭐ |
 | … | _6 more in the full report_ | | | |
 
-**Both teams to score** — 9 pick(s)
+**Both teams to score** — 14 pick(s)
 
 | Kick-off | Match | Competition | Final prob. | Rating |
 |---|---|---|---|---|
-| Sun 27 Sep 01:30 | **Philadelphia Union v Orlando City** | USA · MLS | 71% | ⭐⭐ |
-| Sun 27 Sep 02:30 | **Seattle Sounders v Minnesota United** | USA · MLS | 70% | ⭐⭐ |
-| Sun 27 Sep 04:30 | **San Jose Earthquakes v Portland Timbers** | USA · MLS | 68% | ⭐⭐ |
-| Sun 27 Sep 01:30 | **CF Montreal v FC Cincinnati** | USA · MLS | 67% | ⭐ |
-| Sat 26 Sep 16:00 | **Solihull v Boreham Wood** | England · National League | 66% | ⭐ |
-| Sun 27 Sep 01:30 | **Charlotte v Chicago Fire** | USA · MLS | 66% | ⭐ |
-| Sat 26 Sep 16:00 | **Boston Utd v Fylde** | England · National League | 65% | ⭐ |
-| Sat 26 Sep 16:00 | **Aldershot v Tamworth** | England · National League | 63% | ⭐ |
-| … | _1 more in the full report_ | | | |
+| Sun 27 Sep 01:30 | **Philadelphia Union v Orlando City** | USA · MLS | 68% | ⭐⭐⭐ |
+| Sun 27 Sep 01:30 | **CF Montreal v FC Cincinnati** | USA · MLS | 66% | ⭐⭐⭐ |
+| Sat 26 Sep 16:00 | **Solihull v Boreham Wood** | England · National League | 66% | ⭐⭐⭐ |
+| Sun 27 Sep 04:30 | **San Jose Earthquakes v Portland Timbers** | USA · MLS | 65% | ⭐⭐ |
+| Sun 27 Sep 02:30 | **Seattle Sounders v Minnesota United** | USA · MLS | 65% | ⭐⭐ |
+| Sat 26 Sep 16:00 | **Boston Utd v Fylde** | England · National League | 64% | ⭐⭐ |
+| Sun 27 Sep 01:30 | **Charlotte v Chicago Fire** | USA · MLS | 64% | ⭐⭐ |
+| Sat 26 Sep 16:00 | **Aldershot v Tamworth** | England · National League | 64% | ⭐⭐ |
+| … | _6 more in the full report_ | | | |
 
 **Tracker**
 
 | Market | Settled | Hits | Hit rate | Last 30 days | Pending | Avg odds | Flat-stake return |
 |---|---|---|---|---|---|---|---|
 | Over 1.5 goals | 0 | 0 | – | – | 10 | – | – |
-| Over 2.5 goals | 0 | 0 | – | – | 14 | – | – |
-| Both teams to score | 0 | 0 | – | – | 9 | – | – |
+| Over 2.5 goals | 0 | 0 | – | – | 16 | – | – |
+| Both teams to score | 0 | 0 | – | – | 14 | – | – |
 
 <!-- SCAN:END -->
 
@@ -68,10 +67,11 @@ No servers, no API keys — it runs even when your computer is off.
 
 | File | Contents |
 |---|---|
-| `reports/YYYY-MM-DD.md` | Full report: shortlists per market, a ranked table of **every** fixture, and expandable per-match stats (goals for/against, home/away splits, O1.5/O2.5/O3.5 & BTTS rates, clean sheets, xG and shots on target where available, last 5 results, head-to-head, league context, bookmaker odds) |
+| `reports/YYYY-MM-DD.md` | Full report: shortlists per market, a ranked table of **every** fixture, and expandable per-match stats (model / market / final expected goals, goals for/against, home/away splits, O1.5/O2.5/O3.5 & BTTS rates, clean sheets, xG and shots on target where available, last 5 results, head-to-head, league context, bookmaker odds) |
 | `reports/YYYY-MM-DD.csv` | Same data as a spreadsheet — every fixture, every number |
 | `reports/latest.md` | Always the newest report |
 | `data/tracker.csv` | Every shortlisted match, automatically settled once the result is in (hit / miss), so you can see the real hit-rate over time |
+| `backtest/` | The backtest engine and its results (`RESULTS.md`) — the evidence behind every threshold |
 | `README.md` | This page — the block at the top is refreshed with the latest shortlist |
 
 ## Coverage
@@ -86,25 +86,43 @@ No servers, no API keys — it runs even when your computer is off.
 * **Extra leagues** (no over/under odds in the feed, model only): Argentina, Austria, Brazil, China, Denmark,
   Finland, Ireland, Japan, Mexico, Norway, Poland, Romania, Russia, Sweden, Switzerland, USA (MLS)
 
-## How the model works (short version)
+## How it works (v2 — backtested)
 
-1. For each team, goals scored and conceded over the last two seasons are normalised by the league
-   average, time-weighted (a match 120 days ago counts half), blended with home/away-specific form, and
-   shrunk towards average when the sample is small.
-2. Expected goals per side = league average × attack strength × opponent's defence strength.
-3. A Poisson model turns expected goals into P(Over 1.5), P(Over 2.5), P(Over 3.5) and P(BTTS).
-4. For Over 2.5, when bookmaker odds exist, the model probability is blended 60/40 with the market-implied
-   probability (the market is a strong independent signal).
-5. A match is shortlisted when the final probability clears the threshold **and** both teams' actual
-   hit-rate for that market backs it up (and neither team is more than 10 points below the floor on its own):
+1. **Team-form model.** Goals scored/conceded over the last two seasons, normalised by league average,
+   time-weighted (a match 120 days ago counts half) and *strongly* shrunk towards league average
+   (K = 40 matches). The backtest showed weak shrinkage made the old model over-confident by 5–10 points:
+   recent goal form is mostly noise.
+2. **Market-implied expected goals.** Where the feed publishes odds (the 22 main leagues), the Over/Under 2.5
+   price fixes the expected total and the 1X2 prices fix the home/away split. Final expected goals are
+   **90% market / 10% model** (📈 market+model). In the 16 leagues without odds the model is used alone
+   (🧮 model only).
+3. **Probabilities** for Over 1.5 / Over 2.5 / BTTS come from a Dixon-Coles-adjusted Poisson score matrix.
+4. **Shortlist rule:** final probability ≥ threshold, ranked, max 15 per market. Team hit-rate floors and
+   "model disagrees with market" filters were tested and added nothing, so they were removed.
 
-   | Market | Final probability ≥ | Teams' average hit-rate ≥ |
-   |---|---|---|
-   | Over 1.5 | 84% | 75% |
-   | Over 2.5 | 60% | 50% |
-   | BTTS | 62% | 50% |
+| Market | Shortlist ≥ | ⭐⭐ ≥ | ⭐⭐⭐ ≥ | Backtest hit-rate 2025/26–26/27 (picks) |
+|---|---|---|---|---|
+| Over 1.5 | 84% | 87% | 90% | 87% · ⭐⭐ 88% · ⭐⭐⭐ 95% (903) |
+| Over 2.5 | 60% | 64% | 68% | 67% · ⭐⭐ 71% · ⭐⭐⭐ 77% (1,675) |
+| BTTS | 60% | 63% | 66% | 64% · ⭐⭐ 65% · ⭐⭐⭐ 71% (1,831) |
 
-   Ratings: ⭐ meets threshold · ⭐⭐ ≥ threshold + 5 pts · ⭐⭐⭐ ≥ threshold + 10 pts.
+## What the backtest says (be honest with yourself)
+
+52,000 matches, Aug 2023 – Sep 2026, replayed day by day with no look-ahead — `backtest/RESULTS.md` has every table.
+
+* **The probabilities are calibrated.** When the scanner says 65%, about 65–68% of those matches go over.
+  The old version said 68% and delivered 63%.
+* **The market is the best predictor.** The team-form model alone beats league averages (especially in the
+  odds-free leagues) but never beats bookmaker odds, at any blend weight. That is why the market dominates
+  where odds exist.
+* **Model optimism is not a value signal.** When the model was more bullish than the market, those matches
+  under-delivered (ROI −7% to −20%). The "Model" column is context, not an edge.
+* **Shortlisting by probability does not beat the bookmaker margin.** Backing every Over 2.5 pick at the
+  published odds returned about −2% to −5% over the test period. Use this as a research and shortlisting
+  tool, not a money machine.
+
+Re-run it yourself: `python backtest/backtest.py` (≈1 minute after the first data download; `--grid` and
+`--rho` re-tune the parameters).
 
 ## Setup (once, ~5 minutes)
 
@@ -135,7 +153,7 @@ Edit the `env:` block in `.github/workflows/daily-scan.yml` (no code changes nee
 |---|---|---|
 | `TIMEZONE` / `TZ_LABEL` | `Africa/Johannesburg` / `SAST` | Timezone for all displayed times and the scan window (feed times are converted from UK time) |
 | `WINDOW_HOURS` | `24` | Scan matches kicking off within this many hours of the run |
-| `MIN_P_O15` / `MIN_P_O25` / `MIN_P_BTTS` | `0.84` / `0.60` / `0.62` | Shortlist probability thresholds |
+| `MIN_P_O15` / `MIN_P_O25` / `MIN_P_BTTS` | `0.84` / `0.60` / `0.60` | Shortlist probability thresholds |
 | `MAX_PICKS` | `15` | Max picks per market |
 | `LEAGUES` | _(all)_ | Restrict to some competitions, e.g. `E0,SP1,I1,D1,F1` (codes in `scanner.py`) |
 
