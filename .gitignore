@@ -6,3 +6,10 @@ backtest/cache/
 backtest/*.pkl
 backtest/grid.csv
 reports/pdf/
+android/.gradle/
+android/build/
+android/app/build/
+android/local.properties
+android/.idea/
+*.jks
+*.p12

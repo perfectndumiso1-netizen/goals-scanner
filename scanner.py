@@ -51,6 +51,8 @@ import markets
 import news as news_mod
 import parlays as parlay_mod
 import sporty
+import livescore
+import appdata
 
 try:
     import pdfgen
@@ -63,6 +65,7 @@ REPORTS_DIR = ROOT / "reports"
 DATA_DIR = ROOT / "data"
 TRACKER_FILE = DATA_DIR / "tracker.csv"
 PARLAY_FILE = DATA_DIR / "parlays.csv"
+APP_FILE = DATA_DIR / "app" / "latest.json"
 PDF_DIR = REPORTS_DIR / "pdf"
 README_FILE = ROOT / "README.md"
 
@@ -123,6 +126,7 @@ CONFIG = {
     "SPORTYBET": os.getenv("SPORTYBET", "1") != "0",
     "NEWS": os.getenv("NEWS", "1") != "0",
     "PDF": os.getenv("PDF", "1") != "0",
+    "LIVESCORE": os.getenv("LIVESCORE", "1") != "0",   # Livescore.com ids for the app's live tab
     "REQUEST_TIMEOUT": 30,
     "USER_AGENT": "Mozilla/5.0 (compatible; GoalsScanner/1.0)",
     # optional: restrict to some competitions, e.g. LEAGUES="E0,SP1,I1,D1,F1,BRA"
@@ -1795,6 +1799,23 @@ def main() -> None:
     dossier_md = render_dossier(ctx, pr, parlay_ids, rows_by_key, headlines)
     (REPORTS_DIR / f"{today_str}-parlays.md").write_text(dossier_md, encoding="utf-8")
     rows_to_csv(rows, REPORTS_DIR / f"{today_str}.csv")
+    # ---- structured export for the Android app (+ Livescore ids so the app can follow chosen matches live)
+    ls_map = {}
+    if CONFIG["LIVESCORE"] and rows:
+        try:
+            ls_map = livescore.match_fixtures(todays, now, int(now.utcoffset().total_seconds() // 3600))
+        except Exception as exc:  # noqa: BLE001
+            log.warning("Livescore matching failed: %s", exc)
+    try:
+        ctx["parlay_band"] = CONFIG["PARLAY_ODDS"]
+        appdata.export(APP_FILE, ctx=ctx, rows=rows, picks=picks, pr=pr, parlay_ids=parlay_ids, ledger=ledger,
+                       tracker_summary=summary, notes=notes, headlines=headlines, ls_map=ls_map,
+                       helpers={"render_details": render_details, "stars": stars, "comp": comp, "sb_price": sb_price},
+                       reports_dir=REPORTS_DIR, tz_label=TZL, thresholds=CONFIG["THRESHOLDS"],
+                       backtest=CONFIG["BACKTEST"], repo=os.getenv("GITHUB_REPOSITORY", "perfectndumiso1-netizen/goals-scanner"))
+        log.info("App data: %s", APP_FILE)
+    except Exception as exc:  # noqa: BLE001 - never lose the run because of the app export
+        log.warning("App data export failed: %s", exc)
     update_readme(render_readme_block(ctx, rows, picks, summary, f"reports/{today_str}.md"))
 
     pdf_report = pdf_dossier = None

@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="light dark">
+<title>Goals Scanner</title>
+<link rel="stylesheet" href="app.css">
+</head>
+<body>
+<header id="top">
+  <div class="brand">
+    <div class="title">⚽ Goals Scanner</div>
+    <div class="sub" id="status-line">loading…</div>
+  </div>
+  <button class="icon-btn" id="btn-refresh" title="Refresh" aria-label="Refresh">⟳</button>
+  <button class="icon-btn" id="btn-settings" title="Settings" aria-label="Settings">⚙</button>
+</header>
+
+<main id="view"></main>
+
+<nav id="tabs">
+  <button data-tab="today" class="active"><span class="ic">📋</span>Today</button>
+  <button data-tab="live"><span class="ic">🔴</span>Live</button>
+  <button data-tab="fixtures"><span class="ic">📊</span>Fixtures</button>
+  <button data-tab="reports"><span class="ic">📄</span>Reports</button>
+  <button data-tab="ledger"><span class="ic">🎟️</span>Ledger</button>
+</nav>
+
+<div id="toast"></div>
+
+<script src="marked.min.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
