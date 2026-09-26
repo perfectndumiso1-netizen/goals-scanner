@@ -15,9 +15,9 @@ Every run:
   headlines for every parlay match); Markdown + CSV committed here; a weekly performance digest on Mondays.
 
 <!-- SCAN:START -->
-### Latest scan — Saturday 26 September 2026 (14:59 SAST)
+### Latest scan — Saturday 26 September 2026 (15:05 SAST)
 
-48 fixtures scanned · window Sat 14:54 → Sun 14:59 SAST · [open full report](reports/2026-09-26.md)
+48 fixtures scanned · window Sat 15:00 → Sun 15:05 SAST · [open full report](reports/2026-09-26.md)
 
 **Over 1.5 goals** — 7 pick(s)
 
@@ -59,11 +59,11 @@ Every run:
 | Sat 26 Sep 16:00 | **Aldershot v Tamworth** | England · National League | 64% | ⭐⭐ |
 | … | _6 more in the full report_ | | | |
 
-**Parlays (run manual, avg market)** — see [dossier](reports/2026-09-26-parlays.md)
+**Parlays (run manual, Sportybet)** — see [dossier](reports/2026-09-26-parlays.md)
 
-1. @ **2.73** (P 34%): Southend v Barrow — Over 2.5 goals @ 1.59; Bristol Rvs v Exeter — Home win @ 1.72
-2. @ **2.86** (P 32%): Plymouth v Burton — Home win @ 1.59; Newport County v Grimsby — Away win @ 1.80
-3. @ **3.11** (P 29%): Boston Utd v Fylde — Over 2.5 goals @ 1.48; Rotherham v Crewe — Home win @ 2.10
+1. @ **3.47** (P 30%): York v Gillingham — Home win @ 1.80; Newport County v Grimsby — Away win @ 1.93
+2. @ **3.45** (P 28%): Wycombe v Reading — Home win @ 2.85; Solihull v Boreham Wood — Draw or away (X2) @ 1.21
+3. @ **3.50** (P 27%): Boston Utd v Fylde — Over 2.5 goals @ 1.52; Granada v Andorra — Home win @ 2.30
 
 **Tracker**
 
