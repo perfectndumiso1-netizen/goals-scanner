@@ -162,6 +162,10 @@ window.PR = (function () {
     if (!state.data && !(state.stack.length && state.stack[state.stack.length - 1].type === 'settings')) return;
     closeMenu();
     const top = state.stack[state.stack.length - 1];
+    if (state.data && (state.data.version || 1) < 2 && !(top && top.type === 'settings')) {
+      $('#view').innerHTML = `<div class="card empty">This version of PlayReport needs the new analysis format.<br>It arrives with the next scheduled analysis — pull down to refresh later.</div>`;
+      return;
+    }
     if (top) return PR.pages[top.type](top);
     PR.views[state.tab]();
   }
