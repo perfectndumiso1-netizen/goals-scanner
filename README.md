@@ -6,9 +6,9 @@ goals model for every match, shortlists the strongest candidates and commits a r
 No servers, no API keys — it runs even when your computer is off.
 
 <!-- SCAN:START -->
-### Latest scan — Saturday 26 September 2026 (12:03 UK)
+### Latest scan — Saturday 26 September 2026 (12:09 UK)
 
-48 fixtures scanned · window Sat 11:58 → Sun 12:03 UK · [open full report](reports/2026-09-26.md)
+48 fixtures scanned · window Sat 12:04 → Sun 12:09 UK · [open full report](reports/2026-09-26.md)
 
 **Over 1.5 goals** — 10 pick(s)
 
