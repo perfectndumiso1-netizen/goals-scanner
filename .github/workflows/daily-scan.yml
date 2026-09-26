@@ -1,0 +1,56 @@
+name: Daily goals scan
+
+on:
+  schedule:
+    # 06:00 UTC every day = 07:00 UK in summer (BST), 06:00 UK in winter (GMT). GitHub cron is UTC only.
+    - cron: "0 6 * * *"
+  workflow_dispatch:        # lets you run it manually from the Actions tab at any time
+
+permissions:
+  contents: write           # needed so the job can commit the reports back to the repo
+
+concurrency:
+  group: daily-scan
+  cancel-in-progress: false
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      WINDOW_HOURS: "24"    # scan matches kicking off within the next 24 hours
+      MIN_P_O15: "0.84"     # shortlist thresholds (final probability)
+      MIN_P_O25: "0.60"
+      MIN_P_BTTS: "0.62"
+      MAX_PICKS: "15"
+      # LEAGUES: "E0,SP1,I1,D1,F1"   # uncomment to restrict competitions
+      TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}   # optional
+      TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}       # optional
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run scanner
+        run: python scanner.py
+
+      - name: Commit and push results
+        run: |
+          git config user.name "goals-scanner-bot"
+          git config user.email "goals-scanner-bot@users.noreply.github.com"
+          git add -A reports data README.md
+          if git diff --cached --quiet; then
+            echo "Nothing new to commit"
+            exit 0
+          fi
+          git commit -m "Daily goals scan $(date -u +'%Y-%m-%d %H:%M UTC')"
+          git pull --rebase --autostash origin "${GITHUB_REF_NAME}" || true
+          git push
