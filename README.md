@@ -15,55 +15,53 @@ Every run:
   headlines for every parlay match); Markdown + CSV committed here; a weekly performance digest on Mondays.
 
 <!-- SCAN:START -->
-### Latest scan — Saturday 26 September 2026 (15:37 SAST)
+### Latest scan — Saturday 26 September 2026 (16:28 SAST)
 
-48 fixtures scanned · window Sat 15:32 → Sun 15:37 SAST · [open full report](reports/2026-09-26.md)
+23 fixtures scanned · window Sat 16:23 → Sun 16:28 SAST · [open full report](reports/2026-09-26.md)
 
-**Over 1.5 goals** — 7 pick(s)
+**Over 1.5 goals** — 5 pick(s)
 
 | Kick-off | Match | Competition | Final prob. | Rating |
 |---|---|---|---|---|
 | Sun 27 Sep 01:30 | **Philadelphia Union v Orlando City** | USA · MLS | 88% | ⭐⭐ |
-| Sat 26 Sep 16:00 | **Solihull v Boreham Wood** | England · National League | 87% | ⭐⭐ |
-| Sat 26 Sep 16:00 | **Stockport v Peterboro** | England · League One | 86% | ⭐ |
 | Sun 27 Sep 01:30 | **CF Montreal v FC Cincinnati** | USA · MLS | 85% | ⭐ |
 | Sun 27 Sep 04:30 | **San Jose Earthquakes v Portland Timbers** | USA · MLS | 85% | ⭐ |
 | Sun 27 Sep 01:30 | **Charlotte v Chicago Fire** | USA · MLS | 84% | ⭐ |
 | Sun 27 Sep 02:30 | **Seattle Sounders v Minnesota United** | USA · MLS | 84% | ⭐ |
 
-**Over 2.5 goals** — 14 pick(s)
+**Over 2.5 goals** — 10 pick(s)
 
 | Kick-off | Match | Competition | Final prob. | Rating |
 |---|---|---|---|---|
 | Sun 27 Sep 01:30 | **Philadelphia Union v Orlando City** | USA · MLS | 70% | ⭐⭐⭐ |
-| Sat 26 Sep 16:00 | **Solihull v Boreham Wood** | England · National League | 69% | ⭐⭐⭐ |
-| Sat 26 Sep 16:00 | **Stockport v Peterboro** | England · League One | 67% | ⭐⭐ |
 | Sun 27 Sep 01:30 | **CF Montreal v FC Cincinnati** | USA · MLS | 65% | ⭐⭐ |
 | Sun 27 Sep 04:30 | **San Jose Earthquakes v Portland Timbers** | USA · MLS | 64% | ⭐⭐ |
 | Sun 27 Sep 01:30 | **Charlotte v Chicago Fire** | USA · MLS | 64% | ⭐ |
 | Sun 27 Sep 02:30 | **Seattle Sounders v Minnesota United** | USA · MLS | 63% | ⭐ |
-| Sat 26 Sep 16:00 | **Boston Utd v Fylde** | England · National League | 62% | ⭐ |
-| … | _6 more in the full report_ | | | |
+| Sun 27 Sep 02:30 | **Nashville SC v Toronto FC** | USA · MLS | 62% | ⭐ |
+| Sun 27 Sep 01:30 | **New York Red Bulls v St. Louis City** | USA · MLS | 60% | ⭐ |
+| Sun 27 Sep 03:30 | **Real Salt Lake v New England Revolution** | USA · MLS | 60% | ⭐ |
+| … | _2 more in the full report_ | | | |
 
-**Both teams to score** — 14 pick(s)
+**Both teams to score** — 10 pick(s)
 
 | Kick-off | Match | Competition | Final prob. | Rating |
 |---|---|---|---|---|
 | Sun 27 Sep 01:30 | **Philadelphia Union v Orlando City** | USA · MLS | 68% | ⭐⭐⭐ |
 | Sun 27 Sep 01:30 | **CF Montreal v FC Cincinnati** | USA · MLS | 66% | ⭐⭐⭐ |
-| Sat 26 Sep 16:00 | **Solihull v Boreham Wood** | England · National League | 66% | ⭐⭐⭐ |
 | Sun 27 Sep 04:30 | **San Jose Earthquakes v Portland Timbers** | USA · MLS | 65% | ⭐⭐ |
 | Sun 27 Sep 02:30 | **Seattle Sounders v Minnesota United** | USA · MLS | 65% | ⭐⭐ |
-| Sat 26 Sep 16:00 | **Boston Utd v Fylde** | England · National League | 64% | ⭐⭐ |
 | Sun 27 Sep 01:30 | **Charlotte v Chicago Fire** | USA · MLS | 64% | ⭐⭐ |
-| Sat 26 Sep 16:00 | **Aldershot v Tamworth** | England · National League | 64% | ⭐⭐ |
-| … | _6 more in the full report_ | | | |
+| Sun 27 Sep 01:30 | **New York Red Bulls v St. Louis City** | USA · MLS | 63% | ⭐ |
+| Sun 27 Sep 03:30 | **Real Salt Lake v New England Revolution** | USA · MLS | 63% | ⭐ |
+| Sun 27 Sep 02:30 | **FC Dallas v Los Angeles FC** | USA · MLS | 63% | ⭐ |
+| … | _2 more in the full report_ | | | |
 
-**Parlays (manual run 15:37, Sportybet)** — see [dossier](reports/2026-09-26-parlays.md)
+**Parlays (run 17:00, Sportybet)** — see [dossier](reports/2026-09-26-parlays.md)
 
-1. @ **2.99** (P 35%): York v Gillingham — Home win @ 1.73; Solihull v Boreham Wood — Away win @ 1.73
-2. @ **3.07** (P 32%): Cambridge v AFC Wimbledon — Under 2.5 goals @ 2.05; Boston Utd v Fylde — Over 2.5 goals @ 1.50
-3. @ **3.42** (P 28%): Newport County v Grimsby — Away win @ 1.93; Bristol Rvs v Exeter — Home win @ 1.77
+1. @ **3.45** (P 29%): Charlotte v Chicago Fire — Home win @ 2.30; Philadelphia Union v Orlando City — Home win @ 1.50
+2. @ **3.22** (P 31%): Guadalajara Chivas v Queretaro — Home or draw (1X) @ 1.17; CF Montreal v FC Cincinnati — Home win @ 2.75
+3. @ **3.48** (P 28%): Houston Dynamo v Sporting Kansas City — Home or draw (1X) @ 1.18; Real Salt Lake v New England Revolution — Away win @ 2.95
 
 **Tracker**
 
@@ -75,7 +73,7 @@ Every run:
 
 ### Parlay ledger
 
-_No settled parlays yet — 9 pending (graded automatically once the results are in)._
+_No settled parlays yet — 12 pending (graded automatically once the results are in)._
 
 <!-- SCAN:END -->
 
