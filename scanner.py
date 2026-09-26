@@ -1265,7 +1265,9 @@ def render_parlay_history(psum: dict, rec: list[dict]) -> list[str]:
     L = ["### Parlay ledger", ""]
     a = psum.get("all", {})
     if not a.get("n") and not rec:
-        L.append("_No parlays recorded yet._")
+        pend = psum.get("pending", 0)
+        L.append(f"_No settled parlays yet — {pend} pending (graded automatically once the results are in)._"
+                 if pend else "_No parlays recorded yet._")
         L.append("")
         return L
     L.append("| Scope | Settled | Won | Hit rate | Expected | Avg odds | Flat-stake return |")
