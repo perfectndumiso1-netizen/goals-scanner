@@ -53,6 +53,9 @@ import parlays as parlay_mod
 import sporty
 import livescore
 import appdata
+import safe as safe_mod
+import history as history_mod
+import teamstats
 
 try:
     import pdfgen
@@ -66,6 +69,10 @@ DATA_DIR = ROOT / "data"
 TRACKER_FILE = DATA_DIR / "tracker.csv"
 PARLAY_FILE = DATA_DIR / "parlays.csv"
 APP_FILE = DATA_DIR / "app" / "latest.json"
+DAYS_DIR = DATA_DIR / "app" / "days"
+TEAMS_DIR = DATA_DIR / "app" / "teams"
+SAFE_BETS_FILE = DATA_DIR / "safe_bets.csv"
+SAFE_ACCAS_FILE = DATA_DIR / "safe_accas.csv"
 PDF_DIR = REPORTS_DIR / "pdf"
 README_FILE = ROOT / "README.md"
 
@@ -288,6 +295,7 @@ def probs_from_matrix(M: np.ndarray) -> dict:
     g = np.arange(MAXG + 1)
     tot = g[:, None] + g[None, :]
     return {"O15": float(M[tot >= 2].sum()), "O25": float(M[tot >= 3].sum()), "O35": float(M[tot >= 4].sum()),
+            "O05": float(M[tot >= 1].sum()), "O45": float(M[tot >= 5].sum()), "O55": float(M[tot >= 6].sum()),
             "BTTS": float(M[1:, 1:].sum()),
             "HW": float(M[g[:, None] > g[None, :]].sum()), "AW": float(M[g[:, None] < g[None, :]].sum())}
 
@@ -1217,6 +1225,55 @@ def render_parlays(ctx: dict, pr: dict, ids: list[str], psum: dict) -> list[str]
     return L
 
 
+def render_safest(ctx: dict) -> list[str]:
+    sf = ctx.get("safe") or {}
+    if not sf:
+        return []
+    L = [f"## 🔒 Safest bets — {run_desc(ctx['run'])}", ""]
+    L.append(f"_Selections across every modelled market whose probability is at least {pct(sf['min_p'])} on **both** views "
+             f"(calibrated model and the de-margined Sportybet price) at a Sportybet price of {sf['min_odds']:.2f} or more. "
+             f"Three trebles are built from that pool — one leg per match, no match repeated — ranked by probability. "
+             f"{'Legs from the whole 24 h window (too few before the next run). ' if sf.get('extended') else ''}"
+             f"Both lists are graded automatically (`data/safe_bets.csv`, `data/safe_accas.csv`)._")
+    L.append("")
+    trebles, ids = sf.get("trebles") or [], sf.get("ids") or []
+    if not trebles:
+        L.append("_No treble possible: fewer than three priced matches met the safety rules._")
+    for i, legs in enumerate(trebles):
+        odds, p = safe_mod.acca_odds(legs), safe_mod.acca_p(legs)
+        aid = ids[i] if i < len(ids) else ""
+        L.append(f"### Safest treble {i + 1} — odds **{odds:.2f}** · win probability **{pct(p)}** · id `{aid}`")
+        L.append("")
+        L.append("| Kick-off | Match | Competition | Selection | Price | Probability |")
+        L.append("|---|---|---|---|---|---|")
+        for l in legs:
+            L.append(f"| {l.kickoff[5:]} | **{l.home} v {l.away}** | {l.league} | **{l.label}** | **{l.odds:.2f}** | {pct(l.p)} |")
+        L.append("")
+    bets = sf.get("bets") or []
+    L.append(f"### Safest single bets — top {min(len(bets), 15)} of {len(bets)}")
+    L.append("")
+    if bets:
+        L.append("| Kick-off | Match | Competition | Selection | Price | Probability | Model | Sportybet |")
+        L.append("|---|---|---|---|---|---|---|---|")
+        for b in bets[:15]:
+            L.append(f"| {b.kickoff[5:]} | {b.home} v {b.away} | {b.league} | **{b.label}** | **{b.odds:.2f}** | **{pct(b.p)}** | "
+                     f"{pct(b.p_model)} | {pct(b.p_sb) if b.p_sb is not None else '–'} |")
+    else:
+        L.append("_Nothing priced met the rules in this window._")
+    L.append("")
+    ss = ctx.get("safe_summary") or {}
+    if ss:
+        b, a = ss.get("bets", {}), ss.get("accas", {})
+        ba, aa = b.get("all") or {}, a.get("all") or {}
+        if ba.get("n") or aa.get("n"):
+            L.append(f"_Track record — safest bets: {ba.get('won', 0)}/{ba.get('n', 0)} hit"
+                     f"{' (' + pct(ba['rate']) + ', expected ' + pct(ba['exp_rate']) + ')' if ba.get('n') else ''}; "
+                     f"trebles: {aa.get('won', 0)}/{aa.get('n', 0)} won"
+                     f"{' (' + pct(aa['rate']) + ', expected ' + pct(aa['exp_rate']) + ')' if aa.get('n') else ''}._")
+            L.append("")
+    return L
+
+
 def render_value_check(picks: dict, sb_ok: bool) -> list[str]:
     L = ["## 💰 Sportybet price check — shortlisted picks", ""]
     if not sb_ok:
@@ -1316,6 +1373,7 @@ def render_report(ctx: dict, rows: list[MatchRow], picks: dict, summary: dict, n
     if ctx.get("digest"):
         L += ctx["digest"]
     L += render_parlays(ctx, ctx["parlays"], ctx["parlay_ids"], ctx["parlay_summary"])
+    L += render_safest(ctx)
 
     L.append("## 🎯 Shortlist")
     L.append("")
@@ -1642,6 +1700,14 @@ def telegram_text(ctx: dict, rows: list[MatchRow], picks: dict, report_url: str 
             L.append(f"<b>#{i} @ {odds:.2f}</b> · P(win) {pct(p)} · EV {100 * (p * odds - 1):+.0f}%")
             for l in pl:
                 L.append(f"   • {l.kickoff[11:]} {html.escape(l.match)} — {html.escape(l.label)} @ {l.odds:.2f}")
+    sf = ctx.get("safe") or {}
+    if sf.get("trebles"):
+        L.append("")
+        L.append(f"🔒 <b>Safest trebles</b> (≥{pct(sf['min_p'])} on both views, price ≥ {sf['min_odds']:.2f})")
+        for i, legs in enumerate(sf["trebles"], 1):
+            L.append(f"<b>#{i} @ {safe_mod.acca_odds(legs):.2f}</b> · P(win) {pct(safe_mod.acca_p(legs))}")
+            for l in legs:
+                L.append(f"   • {l.kickoff[11:]} {html.escape(l.home)} v {html.escape(l.away)} — {html.escape(l.label)} @ {l.odds:.2f}")
     for mkt, name in MARKETS.items():
         sel = picks.get(mkt, [])
         L.append("")
@@ -1682,6 +1748,18 @@ def send_telegram(text: str) -> None:
 
 
 # ----------------------------------------------------------------------------- main
+def all_sels(r: MatchRow) -> list[dict]:
+    """Every modelled selection of a match as plain dicts (probability views + Sportybet price), best first."""
+    sels = sorted(safe_mod.selections(r), key=lambda s: (-s.p, -(s.odds or 0)))
+    return [safe_mod.sel_dict(s, r.fx["home"], r.fx["away"]) for s in sels]
+
+
+def top_sels(r: MatchRow) -> list[dict]:
+    """The three best priced selections (for the day history)."""
+    out = [d for d in all_sels(r) if d["odds"] and d["odds"] >= safe_mod.MIN_ODDS and not d["diff"]]
+    return [{"sel": d["sel"], "label": d["label"], "p": d["p"], "odds": d["odds"]} for d in out[:3]]
+
+
 def main() -> None:
     tz = ZoneInfo(CONFIG["TIMEZONE"])
     override = os.getenv("SCAN_NOW")  # e.g. "2026-09-26 07:00" for testing
@@ -1743,15 +1821,50 @@ def main() -> None:
     attach_prices(rows, sbmap, todays)
     picks = select_picks(rows)
 
+    # ---- Livescore ids (so the app can follow matches live) + day history with late scores
+    ls_map = {}
+    if CONFIG["LIVESCORE"] and rows:
+        try:
+            ls_map = livescore.match_fixtures(todays, now, int(now.utcoffset().total_seconds() // 3600))
+        except Exception as exc:  # noqa: BLE001
+            log.warning("Livescore matching failed: %s", exc)
+    days = None
+    results_s = results
+    try:
+        days = history_mod.Days(DAYS_DIR, now)
+        days.upsert(rows, comp, ls_map, top_sels)
+        extra = days.fill_scores(results)
+        if not extra.empty:
+            results_s = pd.concat([results, extra], ignore_index=True)
+            log.info("History: %d late score(s) from Livescore added for settlement", len(extra))
+    except Exception as exc:  # noqa: BLE001
+        log.warning("Day history failed: %s", exc)
+
     # ---- parlays
     pr = build_run_parlays(rows, now, window_end, sb_ok and bool(sbmap))
-    ledger = parlay_mod.settle(ledger, results, now)
+    ledger = parlay_mod.settle(ledger, results_s, now)
     ledger, parlay_ids = parlay_mod.add_parlays(ledger, pr["parlays"], now, run_label, window_end, pr["source"])
     ledger.to_csv(PARLAY_FILE, index=False)
     ctx.update({"parlays": pr, "parlay_ids": parlay_ids, "parlay_summary": parlay_mod.summary(ledger, now),
                 "parlay_recent": parlay_mod.recent(ledger, 12)})
     log.info("Parlays: %d built from %d legs (%s%s)", len(pr["parlays"]), len(pr["legs"]), pr["source"],
              ", extended window" if pr["extended"] else "")
+
+    # ---- safest bets & safest trebles (all markets, both views agree, price >= 1.30)
+    safe_res = safe_mod.safest(rows, now, window_end)
+    bets_df = safe_mod.load_csv(SAFE_BETS_FILE, safe_mod.SAFE_BET_COLS)
+    accas_df = safe_mod.load_csv(SAFE_ACCAS_FILE, safe_mod.ACCA_COLS)
+    bets_df = safe_mod.settle_bets(bets_df, results_s, now)
+    accas_df = safe_mod.settle_accas(accas_df, results_s, now)
+    bets_df = safe_mod.add_bets(bets_df, safe_res["bets"], now, run_label)
+    accas_df, acca_ids = safe_mod.add_accas(accas_df, safe_res["trebles"], now, run_label, window_end)
+    bets_df.to_csv(SAFE_BETS_FILE, index=False)
+    accas_df.to_csv(SAFE_ACCAS_FILE, index=False)
+    safe_res["ids"] = acca_ids
+    ctx["safe"] = safe_res
+    ctx["safe_summary"] = safe_mod.summary(bets_df, accas_df, now)
+    log.info("Safest: %d bets, %d trebles%s", len(safe_res["bets"]), len(safe_res["trebles"]),
+             " (extended window)" if safe_res["extended"] else "")
 
     # ---- dossier inputs: full Sportybet markets (corners / cards) + headlines for the parlay matches
     rows_by_key = {(r.fx["date"].strftime("%Y-%m-%d"), r.fx["country"], r.fx["home"], r.fx["away"]): r for r in rows}
@@ -1783,10 +1896,24 @@ def main() -> None:
                      else "Sportybet prices unavailable this run — average market prices shown instead.")
 
     today_str = now.strftime("%Y-%m-%d")
-    tracker = settle_tracker(tracker, results, now)
+    tracker = settle_tracker(tracker, results_s, now)
     tracker = add_picks(tracker, picks, now)
     tracker.to_csv(TRACKER_FILE, index=False)
     summary = tracker_summary(tracker, now)
+
+    # ---- day history files + team pages for the app
+    days_index = []
+    if days is not None:
+        try:
+            days.annotate(tracker, ledger, accas_df, bets_df)
+            days_index = days.summarise()
+            log.info("History: %d day file(s) written", days.write())
+        except Exception as exc:  # noqa: BLE001
+            log.warning("Day history write failed: %s", exc)
+    try:
+        log.info("Team pages: %d division file(s)", len(teamstats.export(results, now, TEAMS_DIR)))
+    except Exception as exc:  # noqa: BLE001
+        log.warning("Team pages failed: %s", exc)
 
     digest_lines = []
     if now.weekday() == 0 and run_label == f"{CONFIG['RUN_HOURS'][0]:02d}:00":
@@ -1799,20 +1926,16 @@ def main() -> None:
     dossier_md = render_dossier(ctx, pr, parlay_ids, rows_by_key, headlines)
     (REPORTS_DIR / f"{today_str}-parlays.md").write_text(dossier_md, encoding="utf-8")
     rows_to_csv(rows, REPORTS_DIR / f"{today_str}.csv")
-    # ---- structured export for the Android app (+ Livescore ids so the app can follow chosen matches live)
-    ls_map = {}
-    if CONFIG["LIVESCORE"] and rows:
-        try:
-            ls_map = livescore.match_fixtures(todays, now, int(now.utcoffset().total_seconds() // 3600))
-        except Exception as exc:  # noqa: BLE001
-            log.warning("Livescore matching failed: %s", exc)
+    # ---- structured export for the Android app
     try:
         ctx["parlay_band"] = CONFIG["PARLAY_ODDS"]
         appdata.export(APP_FILE, ctx=ctx, rows=rows, picks=picks, pr=pr, parlay_ids=parlay_ids, ledger=ledger,
                        tracker_summary=summary, notes=notes, headlines=headlines, ls_map=ls_map,
-                       helpers={"render_details": render_details, "stars": stars, "comp": comp, "sb_price": sb_price},
+                       helpers={"render_details": render_details, "stars": stars, "comp": comp, "sb_price": sb_price,
+                                "selections": all_sels},
                        reports_dir=REPORTS_DIR, tz_label=TZL, thresholds=CONFIG["THRESHOLDS"],
-                       backtest=CONFIG["BACKTEST"], repo=os.getenv("GITHUB_REPOSITORY", "perfectndumiso1-netizen/goals-scanner"))
+                       backtest=CONFIG["BACKTEST"], repo=os.getenv("GITHUB_REPOSITORY", "perfectndumiso1-netizen/goals-scanner"),
+                       days_index=days_index, safe_summary=ctx["safe_summary"])
         log.info("App data: %s", APP_FILE)
     except Exception as exc:  # noqa: BLE001 - never lose the run because of the app export
         log.warning("App data export failed: %s", exc)

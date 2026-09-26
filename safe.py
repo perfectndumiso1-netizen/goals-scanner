@@ -1,0 +1,464 @@
+"""Safest bets & safest trebles (v4).
+
+Every fixture gets a list of *selections* across all modelled markets (match result, double chance, goals lines,
+BTTS, team goals, corners, cards) with two probability views: the calibrated model probability and the probability
+implied by the Sportybet price (de-margined). The probability used for ranking is the average of the two views
+where a price exists (the same rule the parlay legs use) — a bet is only "safe" when both the model and the
+bookmaker think so.
+
+"Safest bets"   = priced selections with probability >= MIN_P and price >= MIN_ODDS, ranked by probability.
+"Safest trebles" = three 3-leg accumulators from that pool, one leg per match, no match repeated across the three,
+                  ranked by combined probability (treble 1 = the three safest legs, and so on).
+Both are written to their own ledgers (data/safe_bets.csv, data/safe_accas.csv) and auto-settled from results.
+"""
+from __future__ import annotations
+
+import json
+import math
+from dataclasses import dataclass
+from datetime import datetime, timedelta
+from pathlib import Path
+
+import pandas as pd
+
+import markets
+
+MIN_ODDS = 1.30      # user decision: a "safe" price must be at least 1.30
+MIN_P = 0.70         # ... and the probability at least 70%
+TREBLES = 3
+LEGS = 3
+MAX_BETS = 40
+DIFF_FLAG = 0.12     # model and Sportybet views differ by more than this -> flag
+
+GROUPS = {"result": "Match result", "dc": "Double chance", "goals": "Total goals", "btts": "Both teams to score",
+          "team": "Team goals", "corners": "Corners", "cards": "Cards"}
+
+SAFE_BET_COLS = ["match_date", "kickoff", "country", "div", "league", "home", "away", "sel", "label", "p", "p_model",
+                 "p_sb", "odds", "status", "score", "settled_on", "run", "report_date"]
+ACCA_COLS = ["acca_id", "created", "run", "window_end", "n_legs", "legs", "odds", "p", "status", "settled_on", "note"]
+
+
+# ----------------------------------------------------------------------------- selection codes
+def _line(code: str) -> float:
+    """'O25' -> 2.5, 'CU105' -> 10.5"""
+    digits = "".join(ch for ch in code if ch.isdigit())
+    return int(digits) / 10.0
+
+
+def label(sel: str, home: str = "Home", away: str = "Away") -> str:
+    if sel in ("H", "D", "A"):
+        return {"H": f"{home} to win", "D": "Draw", "A": f"{away} to win"}[sel]
+    if sel in ("1X", "12", "X2"):
+        return {"1X": f"{home} or draw", "12": f"{home} or {away}", "X2": f"Draw or {away}"}[sel]
+    if sel == "BTTS":
+        return "Both teams to score"
+    if sel == "NBTTS":
+        return "Not both teams to score"
+    if sel[0] in "OU" and sel[1:].isdigit():
+        return f"{'Over' if sel[0] == 'O' else 'Under'} {_line(sel):.1f} goals"
+    if sel[0] in "HA" and sel[1] in "OU":
+        team = home if sel[0] == "H" else away
+        return f"{team} {'over' if sel[1] == 'O' else 'under'} {_line(sel):.1f} goals"
+    if sel[0] == "C":
+        return f"{'Over' if sel[1] == 'O' else 'Under'} {_line(sel):.1f} corners"
+    if sel[0] == "K":
+        return f"{'Over' if sel[1] == 'O' else 'Under'} {_line(sel):.1f} cards"
+    return sel
+
+
+def group(sel: str) -> str:
+    if sel in ("H", "D", "A"):
+        return "result"
+    if sel in ("1X", "12", "X2"):
+        return "dc"
+    if sel in ("BTTS", "NBTTS"):
+        return "btts"
+    if sel[0] in "OU":
+        return "goals"
+    if sel[0] in "HA":
+        return "team"
+    if sel[0] == "C":
+        return "corners"
+    return "cards"
+
+
+def settle(sel: str, hg, ag, hc=None, ac=None, hcards=None, acards=None) -> bool | None:
+    """True / False, or None when the selection cannot be graded from the available result data."""
+    if hg is None or ag is None or _nan(hg) or _nan(ag):
+        return None
+    hg, ag = int(hg), int(ag)
+    tot = hg + ag
+    if sel in ("H", "D", "A", "1X", "12", "X2"):
+        return {"H": hg > ag, "D": hg == ag, "A": ag > hg, "1X": hg >= ag, "12": hg != ag, "X2": ag >= hg}[sel]
+    if sel == "BTTS":
+        return hg > 0 and ag > 0
+    if sel == "NBTTS":
+        return not (hg > 0 and ag > 0)
+    if sel[0] in "OU" and sel[1:].isdigit():
+        return tot > _line(sel) if sel[0] == "O" else tot < _line(sel)
+    if sel[0] in "HA" and sel[1] in "OU":
+        g = hg if sel[0] == "H" else ag
+        return g > _line(sel) if sel[1] == "O" else g < _line(sel)
+    if sel[0] == "C":
+        if hc is None or ac is None or _nan(hc) or _nan(ac):
+            return None
+        c = int(hc) + int(ac)
+        return c > _line(sel) if sel[1] == "O" else c < _line(sel)
+    if sel[0] == "K":
+        if hcards is None or acards is None or _nan(hcards) or _nan(acards):
+            return None
+        k = int(hcards) + int(acards)
+        return k > _line(sel) if sel[1] == "O" else k < _line(sel)
+    return None
+
+
+def _nan(x) -> bool:
+    try:
+        return isinstance(x, float) and math.isnan(x)
+    except TypeError:
+        return False
+
+
+# ----------------------------------------------------------------------------- selections per fixture
+def _two_way(o1, o2) -> float | None:
+    if not o1 or not o2 or o1 <= 1 or o2 <= 1:
+        return None
+    return (1 / o1) / (1 / o1 + 1 / o2)
+
+
+def _valid(p) -> bool:
+    return p is not None and not (isinstance(p, float) and math.isnan(p)) and 0 < p < 1
+
+
+@dataclass
+class Sel:
+    sel: str
+    p_model: float
+    p_sb: float | None
+    odds: float | None
+
+    @property
+    def p(self) -> float:
+        return (self.p_model + self.p_sb) / 2 if self.p_sb is not None else self.p_model
+
+    @property
+    def group(self) -> str:
+        return group(self.sel)
+
+    @property
+    def priced(self) -> bool:
+        return self.odds is not None and self.odds > 1
+
+    @property
+    def diff(self) -> bool:
+        return self.p_sb is not None and abs(self.p_model - self.p_sb) > DIFF_FLAG
+
+
+def selections(r) -> list[Sel]:
+    """All modelled selections of a MatchRow with model / Sportybet probabilities and the Sportybet price."""
+    sb = r.sb or {}
+    out: list[Sel] = []
+
+    def add(code, p_model, p_sb=None, odds=None):
+        if _valid(p_model):
+            out.append(Sel(code, float(p_model), float(p_sb) if _valid(p_sb) else None,
+                           float(odds) if odds and odds > 1 else None))
+
+    # match result / double chance
+    x12 = r.extra.x12 or {}
+    h, d, a = sb.get("1X2") or (None, None, None)
+    m = markets.power_demargin([h, d, a]) if all(o and o > 1 for o in (h, d, a)) else None
+    for code, o, idx in (("H", h, 0), ("D", d, 1), ("A", a, 2)):
+        add(code, x12.get(code), m[idx] if m else None, o)
+    dc = sb.get("DC") or {}
+    for code, pair in (("1X", (0, 1)), ("12", (0, 2)), ("X2", (1, 2))):
+        add(code, x12.get(code), (m[pair[0]] + m[pair[1]]) if m else None, dc.get(code))
+    # total goals
+    ou = sb.get("OU") or {}
+    for line, key in ((0.5, "O05"), (1.5, "O15"), (2.5, "O25"), (3.5, "O35"), (4.5, "O45"), (5.5, "O55")):
+        po = r.p_final.get(key)
+        if not _valid(po):
+            continue
+        over, under = ou.get(line) or (None, None)
+        p_sb_over = _two_way(over, under)
+        add(key, po, p_sb_over, over)
+        if line >= 1.5:
+            add("U" + key[1:], 1 - po, (1 - p_sb_over) if p_sb_over is not None else None, under)
+    # both teams to score
+    pb = r.p_final.get("BTTS")
+    yes, no = sb.get("BTTS") or (None, None)
+    p_sb_b = _two_way(yes, no)
+    add("BTTS", pb, p_sb_b, yes)
+    add("NBTTS", 1 - pb if _valid(pb) else None, (1 - p_sb_b) if p_sb_b is not None else None, no)
+    # team goals
+    tg = r.extra.tg or {}
+    for side, key in (("H", "TGH"), ("A", "TGA")):
+        lines = sb.get(key) or {}
+        for line, pk in ((0.5, f"{side}_o05"), (1.5, f"{side}_o15")):
+            po = tg.get(pk)
+            if not _valid(po):
+                continue
+            over, under = lines.get(line) or (None, None)
+            p_sb_over = _two_way(over, under)
+            add(f"{side}O{int(line * 10):02d}", po, p_sb_over, over)
+            if line >= 1.5:
+                add(f"{side}U{int(line * 10):02d}", 1 - po, (1 - p_sb_over) if p_sb_over is not None else None, under)
+    # corners / cards (model; prices only when the full market list was fetched)
+    full = r.sb_full or {}
+    for prefix, probs, key in (("C", (r.extra.corner_p or {}).get("total"), "CORN"),
+                               ("K", (r.extra.card_p or {}).get("total"), "CARDS")):
+        if not probs:
+            continue
+        lines = full.get(key) or {}
+        for line, po in probs.items():
+            if not _valid(po):
+                continue
+            over, under = lines.get(float(line)) or (None, None)
+            p_sb_over = _two_way(over, under)
+            code = f"{int(float(line) * 10):03d}" if float(line) >= 10 else f"{int(float(line) * 10):02d}"
+            add(f"{prefix}O{code}", po, p_sb_over, over)
+            add(f"{prefix}U{code}", 1 - po, (1 - p_sb_over) if p_sb_over is not None else None, under)
+    return out
+
+
+def sel_dict(s: Sel, home: str, away: str) -> dict:
+    return {"sel": s.sel, "group": s.group, "label": label(s.sel, home, away), "p": round(s.p, 3),
+            "p_model": round(s.p_model, 3), "p_sb": round(s.p_sb, 3) if s.p_sb is not None else None,
+            "odds": round(s.odds, 2) if s.odds else None, "fair": round(1 / s.p, 2) if s.p > 0 else None,
+            "diff": s.diff}
+
+
+# ----------------------------------------------------------------------------- safest bets / trebles
+@dataclass
+class Bet:
+    key: tuple           # (date, country, home, away)
+    div: str
+    league: str
+    home: str
+    away: str
+    kickoff: str
+    sel: str
+    p: float
+    p_model: float
+    p_sb: float | None
+    odds: float
+
+    @property
+    def label(self) -> str:
+        return label(self.sel, self.home, self.away)
+
+    @property
+    def group(self) -> str:
+        return group(self.sel)
+
+
+def safest(rows: list, now: datetime, window_end: datetime, min_odds: float = MIN_ODDS, min_p: float = MIN_P) -> dict:
+    start = now + timedelta(minutes=10)
+    bets: list[Bet] = []
+    for r in rows:
+        if not r.data_ok or r.fx["kickoff"] < start:
+            continue
+        fx = r.fx
+        key = (fx["date"].strftime("%Y-%m-%d"), fx["country"], fx["home"], fx["away"])
+        for s in selections(r):
+            if not s.priced or s.odds < min_odds or s.p < min_p or s.diff:
+                continue
+            bets.append(Bet(key, fx["div"], fx["league"], fx["home"], fx["away"], fx["kickoff"].strftime("%Y-%m-%d %H:%M"),
+                            s.sel, s.p, s.p_model, s.p_sb, s.odds))
+    bets.sort(key=lambda b: (-b.p, -b.odds))
+    bets = bets[:MAX_BETS]
+
+    def pool_for(cands):
+        best: dict[tuple, Bet] = {}
+        for b in cands:
+            if b.key not in best or (b.p, b.odds) > (best[b.key].p, best[b.key].odds):
+                best[b.key] = b
+        return sorted(best.values(), key=lambda b: (-b.p, -b.odds))
+
+    short = [b for b in bets if datetime.strptime(b.kickoff, "%Y-%m-%d %H:%M") <= window_end.replace(tzinfo=None)]
+    pool = pool_for(short)
+    extended = False
+    if len(pool) < TREBLES * LEGS:
+        pool = pool_for(bets)
+        extended = True
+    trebles = []
+    for i in range(TREBLES):
+        chunk = pool[i * LEGS:(i + 1) * LEGS]
+        if len(chunk) < LEGS:
+            break
+        trebles.append(sorted(chunk, key=lambda b: b.kickoff))
+    return {"bets": bets, "trebles": trebles, "extended": extended, "min_odds": min_odds, "min_p": min_p}
+
+
+def acca_odds(legs: list[Bet]) -> float:
+    o = 1.0
+    for l in legs:
+        o *= l.odds
+    return o
+
+
+def acca_p(legs: list[Bet]) -> float:
+    p = 1.0
+    for l in legs:
+        p *= l.p
+    return p
+
+
+# ----------------------------------------------------------------------------- ledgers
+def load_csv(path: Path, cols: list[str]) -> pd.DataFrame:
+    if path.exists():
+        df = pd.read_csv(path, dtype=str, keep_default_na=False)
+        for c in cols:
+            if c not in df.columns:
+                df[c] = ""
+        return df[cols]
+    return pd.DataFrame(columns=cols)
+
+
+def add_bets(df: pd.DataFrame, bets: list[Bet], now: datetime, run: str) -> pd.DataFrame:
+    existing = set(zip(df["match_date"], df["home"], df["away"], df["sel"]))
+    new = []
+    for b in bets:
+        k = (b.key[0], b.home, b.away, b.sel)
+        if k in existing:
+            continue
+        existing.add(k)
+        new.append({"match_date": b.key[0], "kickoff": b.kickoff, "country": b.key[1], "div": b.div, "league": b.league,
+                    "home": b.home, "away": b.away, "sel": b.sel, "label": b.label, "p": f"{b.p:.3f}",
+                    "p_model": f"{b.p_model:.3f}", "p_sb": f"{b.p_sb:.3f}" if b.p_sb is not None else "",
+                    "odds": f"{b.odds:.2f}", "status": "pending", "score": "", "settled_on": "", "run": run,
+                    "report_date": now.strftime("%Y-%m-%d")})
+    if new:
+        df = pd.concat([df, pd.DataFrame(new, columns=SAFE_BET_COLS)], ignore_index=True)
+    return df
+
+
+def legs_json(legs: list[Bet]) -> str:
+    return json.dumps([{"date": l.key[0], "country": l.key[1], "league": l.league, "home": l.home, "away": l.away,
+                        "kickoff": l.kickoff, "sel": l.sel, "odds": round(l.odds, 2), "p": round(l.p, 4)} for l in legs])
+
+
+def add_accas(df: pd.DataFrame, trebles: list[list[Bet]], now: datetime, run: str, window_end: datetime) -> tuple[pd.DataFrame, list[str]]:
+    def key_of(legs):
+        return "|".join(sorted(f"{l['date']}:{l['home']}:{l['away']}:{l['sel']}" for l in legs))
+    existing = {}
+    for r in df.itertuples():
+        try:
+            existing[key_of(json.loads(r.legs))] = r.acca_id
+        except (TypeError, ValueError):
+            continue
+    day = now.strftime("%Y%m%d")
+    seq = sum(1 for x in df["acca_id"] if str(x).startswith(f"S{day}-"))
+    ids, new = [], []
+    for legs in trebles:
+        lj = json.loads(legs_json(legs))
+        k = key_of(lj)
+        if k in existing:
+            ids.append(existing[k])
+            continue
+        seq += 1
+        aid = f"S{day}-{seq:02d}"
+        ids.append(aid)
+        existing[k] = aid
+        new.append({"acca_id": aid, "created": now.strftime("%Y-%m-%d %H:%M"), "run": run,
+                    "window_end": window_end.strftime("%Y-%m-%d %H:%M"), "n_legs": str(len(legs)),
+                    "legs": json.dumps(lj), "odds": f"{acca_odds(legs):.2f}", "p": f"{acca_p(legs):.3f}",
+                    "status": "pending", "settled_on": "", "note": ""})
+    if new:
+        df = pd.concat([df, pd.DataFrame(new, columns=ACCA_COLS)], ignore_index=True)
+    return df, ids
+
+
+def _lookup(results: pd.DataFrame, country: str, home: str, away: str, date: str):
+    if results is None or results.empty:
+        return None
+    try:
+        mdate = pd.Timestamp(date)
+    except (ValueError, TypeError):
+        return None
+    m = results[(results["home"] == home) & (results["away"] == away) & (results["country"] == country) &
+                ((results["date"] - mdate).abs() <= pd.Timedelta(days=3))]
+    return None if m.empty else m.iloc[0]
+
+
+def _cards(row, side: str):
+    y, r = row.get(f"{side}y"), row.get(f"{side}r")
+    if y is None or _nan(y):
+        return None
+    return float(y) + (0.0 if r is None or _nan(r) else float(r))
+
+
+def settle_bets(df: pd.DataFrame, results: pd.DataFrame, today: datetime) -> pd.DataFrame:
+    if df.empty:
+        return df
+    df = df.copy()
+    for i, r in df[df["status"] == "pending"].iterrows():
+        row = _lookup(results, r["country"], r["home"], r["away"], r["match_date"])
+        if row is not None:
+            ok = settle(r["sel"], row["hg"], row["ag"], row.get("hc"), row.get("ac"), _cards(row, "h"), _cards(row, "a"))
+            if ok is not None:
+                df.loc[i, ["status", "score", "settled_on"]] = ["hit" if ok else "miss", f"{int(row['hg'])}-{int(row['ag'])}",
+                                                                today.strftime("%Y-%m-%d")]
+                continue
+        if (pd.Timestamp(today.date()) - pd.Timestamp(r["match_date"])).days > 21:
+            df.loc[i, ["status", "settled_on"]] = ["void", today.strftime("%Y-%m-%d")]
+    return df
+
+
+def settle_accas(df: pd.DataFrame, results: pd.DataFrame, today: datetime) -> pd.DataFrame:
+    if df.empty:
+        return df
+    df = df.copy()
+    for i, r in df[df["status"] == "pending"].iterrows():
+        try:
+            legs = json.loads(r["legs"])
+        except (TypeError, ValueError):
+            continue
+        outcomes = []
+        for l in legs:
+            row = _lookup(results, l["country"], l["home"], l["away"], l["date"])
+            ok = None
+            if row is not None:
+                ok = settle(l["sel"], row["hg"], row["ag"], row.get("hc"), row.get("ac"), _cards(row, "h"), _cards(row, "a"))
+                l["score"] = f"{int(row['hg'])}-{int(row['ag'])}"
+            l["result"] = None if ok is None else ("won" if ok else "lost")
+            outcomes.append(ok)
+        if any(o is False for o in outcomes):
+            status = "lost"
+        elif all(o is True for o in outcomes):
+            status = "won"
+        else:
+            oldest = min(pd.Timestamp(l["date"]) for l in legs)
+            status = "void" if (pd.Timestamp(today.date()) - oldest).days > 21 else "pending"
+        if status != "pending":
+            df.loc[i, ["status", "settled_on", "legs"]] = [status, today.strftime("%Y-%m-%d"), json.dumps(legs)]
+        else:
+            df.loc[i, "legs"] = json.dumps(legs)
+    return df
+
+
+def _stats(df: pd.DataFrame, won_label: str) -> dict:
+    settled = df[df["status"].isin([won_label, "lost" if won_label == "won" else "miss"])]
+    n = len(settled)
+    won = int((settled["status"] == won_label).sum())
+    odds = pd.to_numeric(settled["odds"], errors="coerce")
+    p = pd.to_numeric(settled["p"], errors="coerce")
+    ret = float(((odds * (settled["status"] == won_label)).sum() - n) / n) if n else None
+    return {"n": n, "won": won, "rate": (won / n) if n else None, "exp_rate": float(p.mean()) if n else None,
+            "avg_odds": float(odds.mean()) if n else None, "roi": ret}
+
+
+def summary(bets: pd.DataFrame, accas: pd.DataFrame, today: datetime) -> dict:
+    cut = (today - timedelta(days=30)).strftime("%Y-%m-%d")
+    out = {"bets": {"all": _stats(bets, "hit"), "30d": _stats(bets[bets["match_date"] >= cut], "hit"),
+                    "pending": int((bets["status"] == "pending").sum()) if not bets.empty else 0},
+           "accas": {"all": _stats(accas, "won"), "30d": _stats(accas[accas["created"] >= cut], "won"),
+                     "pending": int((accas["status"] == "pending").sum()) if not accas.empty else 0}}
+    by_group = {}
+    if not bets.empty:
+        for g in GROUPS:
+            sub = bets[bets["sel"].map(group) == g]
+            if len(sub):
+                by_group[g] = _stats(sub, "hit")
+    out["bets"]["by_group"] = by_group
+    return out

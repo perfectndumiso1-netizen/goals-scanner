@@ -86,13 +86,17 @@ _No settled parlays yet — 15 pending (graded automatically once the results ar
 installed, uninstall it first (PlayReport is a new package). From then on the app updates itself: it checks for new
 versions, downloads them and asks for one confirmation tap to install.
 
-The app has no server of its own: it reads `data/app/latest.json`, the reports and the ledger published by each scan,
-so it always shows exactly what the last scan produced. Tabs: **Today** (parlays, shortlists, tracker),
-**Live** (scores, minute and scorers for parlay legs and shortlisted picks, from Livescore.com's public feed, with a
-live verdict per leg), **Fixtures** (every match with a full data sheet, Sportybet prices, corners and cards),
-**Analysis** (the full report and the parlay dossier rendered in-app, with an archive of earlier days),
-**Ledger** (graded parlays and performance). Notifications: new analysis after each run, goals in tracked matches
-(with the scorer — within ~15 min when the app is closed, instantly while the Live tab is open) and app updates.
+The app has no server of its own: it reads `data/app/latest.json`, the day files (`data/app/days/`), the team files
+(`data/app/teams/`), the reports and the ledgers published by each scan, so it always shows exactly what the last scan
+produced. Tabs: **Home** (the three safest trebles, top safest bets, shortlists, next kick-offs), **Bets** (safest
+bets with probability / price / market filters, trebles, every market at ≥ 70 %, parlays, shortlists), **Live**
+(scores, minute and scorers for every tracked match from Livescore.com's public feed, with a live verdict per bet),
+**Matches** (search + sort; tap any match for a Sofascore-style page: overview, every market with model vs Sportybet
+view, side-by-side team stats, season table position, head-to-head; tap any team name for its season page with splits,
+last matches and the league table) and **Days** (60 days of history: every match with the final score and how the
+picks, safest bets, trebles and parlays did). Menu: full analysis, parlay dossier, performance ledgers, settings.
+Notifications: new analysis after each run, goals in tracked matches (with the scorer — within ~15 min when the app is
+closed, instantly while the app is open) and app updates.
 Every push to `android/` rebuilds the APK on GitHub Actions and publishes it on the Releases page.
 
 ## What you get every run
@@ -105,6 +109,8 @@ Every push to `android/` rebuilds the APK on GitHub Actions and publishes it on 
 | `reports/latest.md` | Always the newest report |
 | `data/tracker.csv` | Every shortlisted match, auto-settled once the result is in |
 | `data/parlays.csv` | Every parlay proposed, auto-graded (won / lost / void) with the legs, odds and model probability |
+| `data/safe_bets.csv`, `data/safe_accas.csv` | Every safest bet (≥ 70 % on both the model and the de-margined Sportybet view, price ≥ 1.30) and every safest treble, auto-graded |
+| `data/app/days/`, `data/app/teams/` | Day-by-day history (60 days: scores, bets, grades) and season stats per league (table, splits, form) for the app |
 | Telegram | Summary message, the full report as PDF, the parlay dossier as PDF, Monday weekly digest |
 | `backtest/` | The evidence: `RESULTS.md` (goals model), `MARKETS_RESULTS.md` (corners, cards, 1X2, value finder), `PARLAY_EXPERIMENT.md` (parlay construction) |
 

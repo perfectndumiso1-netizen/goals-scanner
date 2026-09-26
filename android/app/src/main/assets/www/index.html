@@ -9,29 +9,39 @@
 </head>
 <body>
 <header id="top">
-  <div class="logo" aria-hidden="true"><svg viewBox="0 0 40 40" width="34" height="34"><rect x="6" y="5" width="24" height="30" rx="4" fill="#fff"/><rect x="10" y="24" width="4" height="7" fill="#1a3d6d"/><rect x="16" y="19" width="4" height="12" fill="#1a3d6d"/><rect x="22" y="14" width="4" height="17" fill="#1a3d6d"/><path d="M26 6l9 5-9 5z" fill="#3ccf91"/></svg></div>
+  <div class="logo" aria-hidden="true"><svg viewBox="0 0 40 40" width="30" height="30"><rect x="6" y="5" width="24" height="30" rx="4" fill="#fff"/><rect x="10" y="24" width="4" height="7" fill="#1a3d6d"/><rect x="16" y="19" width="4" height="12" fill="#1a3d6d"/><rect x="22" y="14" width="4" height="17" fill="#1a3d6d"/><path d="M26 6l9 5-9 5z" fill="#3ccf91"/></svg></div>
   <div class="brand">
     <div class="title">PlayReport</div>
     <div class="sub" id="status-line">Football analysis · loading…</div>
   </div>
   <button class="icon-btn" id="btn-refresh" title="Refresh" aria-label="Refresh">⟳</button>
-  <button class="icon-btn" id="btn-settings" title="Settings" aria-label="Settings">⚙</button>
+  <button class="icon-btn" id="btn-menu" title="Menu" aria-label="Menu">⋮</button>
+  <div id="menu" class="menu">
+    <button data-page="analysis"><span class="ic">📄</span>Full analysis</button>
+    <button data-page="dossier"><span class="ic">🎟️</span>Parlay dossier</button>
+    <button data-page="performance"><span class="ic">📊</span>Performance</button>
+    <button data-page="settings"><span class="ic">⚙️</span>Settings</button>
+    <button data-contact="1"><span class="ic">💬</span>Contact on WhatsApp</button>
+  </div>
 </header>
 
 <div id="banner"></div>
 <main id="view"></main>
 
 <nav id="tabs">
-  <button data-tab="today" class="active"><span class="ic">📋</span>Today</button>
+  <button data-tab="home" class="active"><span class="ic">🏠</span>Home</button>
+  <button data-tab="bets"><span class="ic">🎯</span>Bets</button>
   <button data-tab="live"><span class="ic">🔴</span>Live</button>
-  <button data-tab="fixtures"><span class="ic">📊</span>Fixtures</button>
-  <button data-tab="analysis"><span class="ic">📄</span>Analysis</button>
-  <button data-tab="ledger"><span class="ic">🎟️</span>Ledger</button>
+  <button data-tab="matches"><span class="ic">📅</span>Matches</button>
+  <button data-tab="days"><span class="ic">📆</span>Days</button>
 </nav>
 
 <div id="toast"></div>
 
 <script src="marked.min.js"></script>
+<script src="core.js"></script>
+<script src="views.js"></script>
+<script src="pages.js"></script>
 <script src="app.js"></script>
 </body>
 </html>

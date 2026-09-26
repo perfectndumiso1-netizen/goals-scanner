@@ -12,7 +12,7 @@ import java.time.format.DateTimeFormatter
 /**
  * Runs every ~15 minutes in the background (WorkManager):
  *  1. new analysis published  -> notification
- *  2. goals in tracked matches (parlay legs, shortlisted picks) -> notification with the scorer
+ *  2. goals in tracked matches (safest bets, trebles, parlay legs, shortlisted picks) -> notification with the scorer
  *  3. newer app version       -> notification (every 6 h at most)
  */
 class CheckWorker(ctx: Context, params: WorkerParameters) : Worker(ctx, params) {
@@ -39,9 +39,12 @@ class CheckWorker(ctx: Context, params: WorkerParameters) : Worker(ctx, params) 
                 val n15 = picks?.optJSONArray("O15")?.length() ?: 0
                 val n25 = picks?.optJSONArray("O25")?.length() ?: 0
                 val nb = picks?.optJSONArray("BTTS")?.length() ?: 0
+                val safe = data.optJSONObject("safe")
+                val nSafe = safe?.optJSONArray("bets")?.length() ?: 0
+                val nTrebles = safe?.optJSONArray("trebles")?.length() ?: 0
                 val run = meta.optString("run").let { if (it.startsWith("manual")) "update" else "$it run" }
                 Notifier.notify(ctx, Notifier.CH_REPORTS, 1001, "New PlayReport analysis ($run)",
-                    "$parlays parlays · picks: Over 1.5 $n15 · Over 2.5 $n25 · BTTS $nb · ${meta.optInt("fixtures")} fixtures analysed", "today")
+                    "$nTrebles safest trebles · $nSafe safest bets · $parlays parlays · shortlist O1.5 $n15 / O2.5 $n25 / BTTS $nb · ${meta.optInt("fixtures")} fixtures", "home")
             }
         }
 
@@ -57,7 +60,7 @@ class CheckWorker(ctx: Context, params: WorkerParameters) : Worker(ctx, params) 
                 prefs.getString("update_notified", "") != info.version) {
                 prefs.edit().putString("update_notified", info.version).apply()
                 Notifier.notify(ctx, Notifier.CH_UPDATES, 1002, "PlayReport ${info.version} is available",
-                    "Open the app to install the update.", "today")
+                    "Open the app to install the update.", "home")
             }
         }
         return Result.success()

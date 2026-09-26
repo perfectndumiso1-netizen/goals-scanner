@@ -9,7 +9,7 @@ from pathlib import Path
 
 import pandas as pd
 
-VERSION = 1
+VERSION = 2
 
 
 def _f(x, nd=3):
@@ -62,18 +62,24 @@ def _sheet(lines: list[str]) -> str:
 
 
 def _profile(t) -> dict:
-    return {"name": t.name, "n": int(t.n), "venue_n": int(t.venue_n), "gf": _f(t.gf, 2), "ga": _f(t.ga, 2),
+    return {"name": t.name, "n": int(t.n), "n_eff": _f(t.n_eff, 1), "venue_n": int(t.venue_n), "gf": _f(t.gf, 2), "ga": _f(t.ga, 2),
             "venue_gf": _f(t.venue_gf, 2), "venue_ga": _f(t.venue_ga, 2), "att": _f(t.att, 2), "def": _f(t.dfc, 2),
             "o15": _f(t.rate_o15), "o25": _f(t.rate_o25), "o35": _f(t.rate_o35), "btts": _f(t.rate_btts),
             "cs": _f(t.rate_cs), "fts": _f(t.rate_fts), "last_n": int(t.last_n), "last_o15": int(t.last_o15),
             "last_o25": int(t.last_o25), "last_btts": int(t.last_btts), "form5_goals": _f(t.form5_goals, 2),
-            "xg_for": _f(t.xg_for, 2), "xg_against": _f(t.xg_against, 2)}
+            "xg_for": _f(t.xg_for, 2), "xg_against": _f(t.xg_against, 2),
+            "sot_for": _f(t.sot_for, 2), "sot_against": _f(t.sot_against, 2),
+            "last5": [{"date": m["date"].strftime("%Y-%m-%d") if hasattr(m["date"], "strftime") else str(m["date"]),
+                       "venue": m["venue"], "opp": m["opp"], "gf": m["gf"], "ga": m["ga"], "league": m.get("league")}
+                      for m in (t.last5 or [])]}
 
 
 def export(path: Path, *, ctx: dict, rows: list, picks: dict, pr: dict, parlay_ids: list, ledger: pd.DataFrame,
            tracker_summary: dict, notes: list[str], headlines: dict, ls_map: dict, helpers: dict,
-           reports_dir: Path, tz_label: str, thresholds: dict, backtest: dict, repo: str | None) -> Path:
+           reports_dir: Path, tz_label: str, thresholds: dict, backtest: dict, repo: str | None,
+           days_index: list | None = None, safe_summary: dict | None = None) -> Path:
     render_details, stars, comp = helpers["render_details"], helpers["stars"], helpers["comp"]
+    selections = helpers.get("selections") or (lambda r: [])
     now: datetime = ctx["now"]
     tracked = set()
     fixtures = []
@@ -115,7 +121,8 @@ def export(path: Path, *, ctx: dict, rows: list, picks: dict, pr: dict, parlay_i
                            "o25": _f(r.div_avg.o25_rate)},
             "h2h": [{"date": m["date"].strftime("%Y-%m-%d") if hasattr(m["date"], "strftime") else str(m["date"]),
                      "home": m["home"], "away": m["away"], "hg": int(m["hg"]), "ag": int(m["ag"])} for m in r.h2h[:5]],
-            "sheet_md": _sheet(render_details(r)),
+            "league_ctx": {"btts": _f(getattr(r.div_avg, "btts_rate", None))},
+            "sels": [[d["sel"], d["p"], d["p_model"], d["p_sb"], d["odds"], 1 if d["diff"] else 0] for d in selections(r)],
         })
     # shortlists
     picks_out = {}
@@ -144,6 +151,30 @@ def export(path: Path, *, ctx: dict, rows: list, picks: dict, pr: dict, parlay_i
                              "edge": _f(l.p * l.odds - 1), "source": l.source})
         parlays_out.append({"id": pid, "odds": round(odds, 2), "p": round(p, 3), "ev": round(p * odds - 1, 3),
                             "legs": legs_out, "source": pr["source"], "extended": bool(pr["extended"])})
+    # safest bets & trebles of this run
+    sf = ctx.get("safe") or {}
+    safe_out = {"min_odds": sf.get("min_odds"), "min_p": sf.get("min_p"), "extended": bool(sf.get("extended")),
+                "bets": [], "trebles": [], "summary": safe_summary or {}}
+    for b in sf.get("bets") or []:
+        fid = ids_by_key.get(b.key) or fixture_id(*b.key)
+        tracked.add(fid)
+        safe_out["bets"].append({"fixture": fid, "home": b.home, "away": b.away, "kickoff": b.kickoff, "league": b.league,
+                                 "sel": b.sel, "group": b.group, "label": b.label, "p": _f(b.p), "p_model": _f(b.p_model),
+                                 "p_sb": _f(b.p_sb), "odds": _f(b.odds, 2), "fair": _f(1 / b.p, 2) if b.p else None})
+    for i, legs in enumerate(sf.get("trebles") or []):
+        odds = p = 1.0
+        legs_out = []
+        for l in legs:
+            odds *= l.odds
+            p *= l.p
+            fid = ids_by_key.get(l.key) or fixture_id(*l.key)
+            tracked.add(fid)
+            legs_out.append({"fixture": fid, "home": l.home, "away": l.away, "kickoff": l.kickoff, "league": l.league,
+                             "sel": l.sel, "group": l.group, "label": l.label, "odds": _f(l.odds, 2), "p": _f(l.p)})
+        ids = sf.get("ids") or []
+        safe_out["trebles"].append({"id": ids[i] if i < len(ids) else None, "odds": round(odds, 2), "p": round(p, 3),
+                                    "legs": legs_out})
+
     # ledger (all rows, newest first, legs parsed)
     ledger_out = []
     if ledger is not None and not ledger.empty:
@@ -178,10 +209,12 @@ def export(path: Path, *, ctx: dict, rows: list, picks: dict, pr: dict, parlay_i
             "csv": f"reports/{now:%Y-%m-%d}.csv", "thresholds": {m: t["p"] for m, t in thresholds.items()},
             "backtest": backtest,
             "parlay_band": list(ctx.get("parlay_band", [])),
+            "next_run": ctx["window_end"].strftime("%Y-%m-%d %H:%M"),
         },
         "fixtures": fixtures,
         "picks": picks_out,
         "parlays": parlays_out,
+        "safe": safe_out,
         "parlay_summary": {"all": _st(ps.get("all")), "30d": _st(ps.get("30d")),
                            "by_run": {k: _st(v) for k, v in (ps.get("by_run") or {}).items()},
                            "pending": ps.get("pending", 0)},
@@ -190,7 +223,7 @@ def export(path: Path, *, ctx: dict, rows: list, picks: dict, pr: dict, parlay_i
         "tracked": sorted(tracked),
         "headlines": {team: [{"title": h.get("title"), "source": h.get("source"), "when": h.get("when"),
                               "link": h.get("link")} for h in items] for team, items in (headlines or {}).items()},
-        "history": {"reports": reports},
+        "history": {"reports": reports, "days": days_index or []},
     }
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(data, ensure_ascii=False, separators=(",", ":"), default=str), encoding="utf-8")

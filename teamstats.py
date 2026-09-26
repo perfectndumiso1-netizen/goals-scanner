@@ -1,0 +1,148 @@
+"""Team pages for the app: data/app/teams/<div>.json — league table, per-team season stats, home/away splits,
+goal-market rates and the last 10 results. Built from the same results pool the model uses (football-data.co.uk)."""
+from __future__ import annotations
+
+import json
+import math
+import re
+from datetime import datetime
+from pathlib import Path
+
+import pandas as pd
+
+CALENDAR_YEAR = {"USA", "Brazil", "Argentina", "Japan", "China", "Norway", "Sweden", "Finland", "Ireland"}
+
+
+def slug(div: str) -> str:
+    return re.sub(r"[^A-Za-z0-9]+", "_", str(div)).strip("_")
+
+
+def season_start(country: str, now: datetime) -> pd.Timestamp:
+    if country in CALENDAR_YEAR:
+        return pd.Timestamp(year=now.year, month=1, day=1)
+    year = now.year if now.month >= 7 else now.year - 1
+    return pd.Timestamp(year=year, month=7, day=1)
+
+
+def _f(x, nd=2):
+    try:
+        if x is None or (isinstance(x, float) and math.isnan(x)):
+            return None
+        return round(float(x), nd)
+    except (TypeError, ValueError):
+        return None
+
+
+def _mean(s: pd.Series, nd=2):
+    s = pd.to_numeric(s, errors="coerce").dropna()
+    return round(float(s.mean()), nd) if len(s) else None
+
+
+def _rate(mask: pd.Series):
+    return round(float(mask.mean()), 3) if len(mask) else None
+
+
+def _long(df: pd.DataFrame) -> pd.DataFrame:
+    """One row per team per match."""
+    h = pd.DataFrame({"date": df["date"], "league": df["league"], "div": df["div"], "team": df["home"], "opp": df["away"],
+                      "venue": "H", "gf": df["hg"], "ga": df["ag"], "xgf": df.get("hxg"), "xga": df.get("axg"),
+                      "sotf": df.get("hst"), "sota": df.get("ast"), "cf": df.get("hc"), "ca": df.get("ac"),
+                      "kf": df.get("hy", 0).fillna(0) + df.get("hr", 0).fillna(0) if "hy" in df else None,
+                      "ka": df.get("ay", 0).fillna(0) + df.get("ar", 0).fillna(0) if "ay" in df else None})
+    a = pd.DataFrame({"date": df["date"], "league": df["league"], "div": df["div"], "team": df["away"], "opp": df["home"],
+                      "venue": "A", "gf": df["ag"], "ga": df["hg"], "xgf": df.get("axg"), "xga": df.get("hxg"),
+                      "sotf": df.get("ast"), "sota": df.get("hst"), "cf": df.get("ac"), "ca": df.get("hc"),
+                      "kf": df.get("ay", 0).fillna(0) + df.get("ar", 0).fillna(0) if "ay" in df else None,
+                      "ka": df.get("hy", 0).fillna(0) + df.get("hr", 0).fillna(0) if "hy" in df else None})
+    if "hy" in df:   # cards unknown where yellow cards are not published
+        h.loc[df["hy"].isna().to_numpy(), ["kf", "ka"]] = float("nan")
+        a.loc[df["ay"].isna().to_numpy(), ["kf", "ka"]] = float("nan")
+    lg = pd.concat([h, a], ignore_index=True)
+    lg["res"] = lg.apply(lambda r: "W" if r.gf > r.ga else ("L" if r.gf < r.ga else "D"), axis=1)
+    lg["pts"] = lg["res"].map({"W": 3, "D": 1, "L": 0})
+    return lg.sort_values("date", ascending=False).reset_index(drop=True)
+
+
+def _split(g: pd.DataFrame) -> dict:
+    n = len(g)
+    return {"p": n, "w": int((g["res"] == "W").sum()), "d": int((g["res"] == "D").sum()), "l": int((g["res"] == "L").sum()),
+            "gf": int(g["gf"].sum()), "ga": int(g["ga"].sum()), "pts": int(g["pts"].sum()),
+            "ppg": round(float(g["pts"].mean()), 2) if n else None,
+            "gf_avg": _mean(g["gf"]), "ga_avg": _mean(g["ga"]),
+            "o15": _rate(g["gf"] + g["ga"] >= 2), "o25": _rate(g["gf"] + g["ga"] >= 3), "o35": _rate(g["gf"] + g["ga"] >= 4),
+            "btts": _rate((g["gf"] > 0) & (g["ga"] > 0)), "cs": _rate(g["ga"] == 0), "fts": _rate(g["gf"] == 0),
+            "win": _rate(g["res"] == "W")}
+
+
+def team_record(lg_team: pd.DataFrame, season: pd.DataFrame, name: str, country: str, league: str, div: str,
+                since: pd.Timestamp) -> dict:
+    rec = {"name": name, "country": country, "league": league, "div": div, "season_from": since.strftime("%Y-%m-%d"),
+           "all": _split(season), "home": _split(season[season["venue"] == "H"]),
+           "away": _split(season[season["venue"] == "A"]),
+           "avg": {"xg_for": _mean(season["xgf"]), "xg_against": _mean(season["xga"]),
+                   "sot_for": _mean(season["sotf"]), "sot_against": _mean(season["sota"]),
+                   "corners_for": _mean(season["cf"]), "corners_against": _mean(season["ca"]),
+                   "cards_for": _mean(season["kf"]), "cards_against": _mean(season["ka"])},
+           "form": "".join(season.head(5)["res"].tolist()[::-1]),
+           "last": [{"date": r.date.strftime("%Y-%m-%d"), "venue": r.venue, "opp": r.opp, "gf": int(r.gf), "ga": int(r.ga),
+                     "r": r.res, "league": r.league} for r in lg_team.head(10).itertuples()]}
+    # streaks (current)
+    seq = season["res"].tolist()
+    if seq:
+        cur = seq[0]
+        n = 0
+        for x in seq:
+            if x != cur:
+                break
+            n += 1
+        rec["streak"] = f"{n}{cur}"
+    # scoring streaks
+    rec["scored_in_last"] = int(sum(1 for g in season.head(10)["gf"] if g > 0))
+    rec["conceded_in_last"] = int(sum(1 for g in season.head(10)["ga"] if g > 0))
+    return rec
+
+
+def export(results: pd.DataFrame, now: datetime, out_dir: Path) -> list[str]:
+    """Write one JSON per division; returns the list of div slugs written."""
+    if results is None or results.empty:
+        return []
+    out_dir.mkdir(parents=True, exist_ok=True)
+    written = []
+    lg_all = _long(results)
+    for (country, div), df in results.groupby(["country", "div"]):
+        league = str(df["league"].iloc[0])
+        since = season_start(country, now)
+        season_df = df[df["date"] >= since]
+        if season_df.empty:
+            # season not started in the feed yet: fall back to the last 180 days so the page is never empty
+            since = pd.Timestamp(now.date()) - pd.Timedelta(days=180)
+            season_df = df[df["date"] >= since]
+        lg_season = _long(season_df) if not season_df.empty else lg_all.iloc[0:0]
+        teams = sorted(set(season_df["home"]) | set(season_df["away"]))
+        table = []
+        records = {}
+        lg_country = lg_all[lg_all["team"].isin(teams)]
+        for t in teams:
+            s = lg_season[lg_season["team"] == t]
+            rec = team_record(lg_country[lg_country["team"] == t], s, t, country, league, div, since)
+            records[t] = rec
+            a = rec["all"]
+            table.append({"team": t, "p": a["p"], "w": a["w"], "d": a["d"], "l": a["l"], "gf": a["gf"], "ga": a["ga"],
+                          "gd": a["gf"] - a["ga"], "pts": a["pts"], "form": rec["form"]})
+        table.sort(key=lambda r: (-r["pts"], -r["gd"], -r["gf"], r["team"]))
+        for i, r in enumerate(table, 1):
+            r["pos"] = i
+            records[r["team"]]["pos"] = i
+            records[r["team"]]["teams_in_league"] = len(table)
+        data = {"div": div, "country": country, "league": league, "season_from": since.strftime("%Y-%m-%d"),
+                "updated": now.strftime("%Y-%m-%d"), "matches": int(len(season_df)),
+                "avg_goals": _mean(season_df["hg"] + season_df["ag"]),
+                "o25_rate": _rate(season_df["hg"] + season_df["ag"] >= 3) if len(season_df) else None,
+                "btts_rate": _rate((season_df["hg"] > 0) & (season_df["ag"] > 0)) if len(season_df) else None,
+                "table": table, "teams": records}
+        path = out_dir / f"{slug(div)}.json"
+        body = json.dumps(data, ensure_ascii=False, separators=(",", ":"), default=str)
+        if not path.exists() or path.read_text(encoding="utf-8") != body:
+            path.write_text(body, encoding="utf-8")
+        written.append(slug(div))
+    return written
