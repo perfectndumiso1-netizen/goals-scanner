@@ -1,116 +1,116 @@
 # ⚽ Goals Scanner — Saturday 26 September 2026
 
-**Scan window:** Sat 26 Sep 12:04 → Sun 27 Sep 12:09 (UK time) · **48 fixtures** across **6 competitions** · generated 12:09 UK
+**Scan window:** Sat 26 Sep 13:05 → Sun 27 Sep 13:10 (SAST) · **48 fixtures** across **6 competitions** · generated 13:10 SAST
 
 ## 🎯 Shortlist
 
 ### Over 1.5 goals — 10 pick(s)
 _Criteria: final probability ≥ 84% and both teams' average Over 1.5 goals hit-rate ≥ 75%._
 
-| # | Kick-off (UK) | Competition | Match | Model | Rating | Last-10 form | Model xG |
+| # | Kick-off (SAST) | Competition | Match | Model | Rating | Last-10 form | Model xG |
 |---|---|---|---|---|---|---|---|
-| 1 | Sun 27 Sep 00:30 | USA · MLS | **Philadelphia Union v Orlando City** | **94%** | ⭐⭐ | H 9/10 · A 8/10 | 3.1 – 1.4 |
-| 2 | Sat 26 Sep 15:00 | England · National League | **Solihull v Boreham Wood** | **90%** | ⭐⭐ | H 9/10 · A 9/10 | 1.3 – 2.6 |
-| 3 | Sun 27 Sep 01:30 | USA · MLS | **Seattle Sounders v Minnesota United** | **88%** | ⭐ | H 8/10 · A 9/10 | 1.8 – 1.8 |
-| 4 | Sat 26 Sep 15:00 | England · National League | **Southend v Barrow** | **88%** | ⭐ | H 9/10 · A 8/10 | 2.5 – 1.1 |
-| 5 | Sat 26 Sep 15:00 | England · League One | **Stockport v Peterboro** | **87%** | ⭐ | H 9/10 · A 8/10 | 2.4 – 1.1 |
-| 6 | Sun 27 Sep 00:30 | USA · MLS | **Charlotte v Chicago Fire** | **86%** | ⭐ | H 9/10 · A 10/10 | 2.1 – 1.4 |
-| 7 | Sun 27 Sep 03:30 | USA · MLS | **San Jose Earthquakes v Portland Timbers** | **86%** | ⭐ | H 7/10 · A 9/10 | 1.7 – 1.7 |
-| 8 | Sat 26 Sep 15:00 | England · National League | **Boston Utd v Fylde** | **85%** | ⭐ | H 8/10 · A 9/9 | 1.3 – 2.1 |
-| 9 | Sun 27 Sep 00:30 | USA · MLS | **CF Montreal v FC Cincinnati** | **85%** | ⭐ | H 8/10 · A 10/10 | 1.8 – 1.6 |
-| 10 | Sat 26 Sep 15:00 | England · League Two | **York v Gillingham** | **85%** | ⭐ | H 9/10 · A 8/10 | 2.5 – 0.9 |
+| 1 | Sun 27 Sep 01:30 | USA · MLS | **Philadelphia Union v Orlando City** | **94%** | ⭐⭐ | H 9/10 · A 8/10 | 3.1 – 1.4 |
+| 2 | Sat 26 Sep 16:00 | England · National League | **Solihull v Boreham Wood** | **90%** | ⭐⭐ | H 9/10 · A 9/10 | 1.3 – 2.6 |
+| 3 | Sun 27 Sep 02:30 | USA · MLS | **Seattle Sounders v Minnesota United** | **88%** | ⭐ | H 8/10 · A 9/10 | 1.8 – 1.8 |
+| 4 | Sat 26 Sep 16:00 | England · National League | **Southend v Barrow** | **88%** | ⭐ | H 9/10 · A 8/10 | 2.5 – 1.1 |
+| 5 | Sat 26 Sep 16:00 | England · League One | **Stockport v Peterboro** | **87%** | ⭐ | H 9/10 · A 8/10 | 2.4 – 1.1 |
+| 6 | Sun 27 Sep 01:30 | USA · MLS | **Charlotte v Chicago Fire** | **86%** | ⭐ | H 9/10 · A 10/10 | 2.1 – 1.4 |
+| 7 | Sun 27 Sep 04:30 | USA · MLS | **San Jose Earthquakes v Portland Timbers** | **86%** | ⭐ | H 7/10 · A 9/10 | 1.7 – 1.7 |
+| 8 | Sat 26 Sep 16:00 | England · National League | **Boston Utd v Fylde** | **85%** | ⭐ | H 8/10 · A 9/9 | 1.3 – 2.1 |
+| 9 | Sun 27 Sep 01:30 | USA · MLS | **CF Montreal v FC Cincinnati** | **85%** | ⭐ | H 8/10 · A 10/10 | 1.8 – 1.6 |
+| 10 | Sat 26 Sep 16:00 | England · League Two | **York v Gillingham** | **85%** | ⭐ | H 9/10 · A 8/10 | 2.5 – 0.9 |
 
 ### Over 2.5 goals — 14 pick(s)
 _Criteria: final probability ≥ 60% and both teams' average Over 2.5 goals hit-rate ≥ 50%._
 
-| # | Kick-off (UK) | Competition | Match | Model | Market (odds) | Final | Rating | Last-10 form | Model xG |
+| # | Kick-off (SAST) | Competition | Match | Model | Market (odds) | Final | Rating | Last-10 form | Model xG |
 |---|---|---|---|---|---|---|---|---|---|
-| 1 | Sun 27 Sep 00:30 | USA · MLS | **Philadelphia Union v Orlando City** | 82% | – | **82%** | ⭐⭐⭐ | H 7/10 · A 7/10 | 3.1 – 1.4 |
-| 2 | Sat 26 Sep 15:00 | England · National League | **Solihull v Boreham Wood** | 74% | 1.33 (70%) | **72%** | ⭐⭐⭐ | H 7/10 · A 8/10 | 1.3 – 2.6 |
-| 3 | Sun 27 Sep 01:30 | USA · MLS | **Seattle Sounders v Minnesota United** | 71% | – | **71%** | ⭐⭐⭐ | H 4/10 · A 7/10 | 1.8 – 1.8 |
-| 4 | Sat 26 Sep 15:00 | England · League One | **Stockport v Peterboro** | 69% | 1.37 (68%) | **69%** | ⭐⭐ | H 8/10 · A 5/10 | 2.4 – 1.1 |
-| 5 | Sun 27 Sep 00:30 | USA · MLS | **Charlotte v Chicago Fire** | 68% | – | **68%** | ⭐⭐ | H 7/10 · A 8/10 | 2.1 – 1.4 |
-| 6 | Sun 27 Sep 03:30 | USA · MLS | **San Jose Earthquakes v Portland Timbers** | 67% | – | **67%** | ⭐⭐ | H 5/10 · A 8/10 | 1.7 – 1.7 |
-| 7 | Sun 27 Sep 00:30 | USA · MLS | **CF Montreal v FC Cincinnati** | 66% | – | **66%** | ⭐⭐ | H 5/10 · A 8/10 | 1.8 – 1.6 |
-| 8 | Sat 26 Sep 15:00 | England · National League | **Southend v Barrow** | 70% | 1.59 (58%) | **65%** | ⭐⭐ | H 8/10 · A 6/10 | 2.5 – 1.1 |
-| 9 | Sat 26 Sep 15:00 | England · National League | **Boston Utd v Fylde** | 66% | 1.48 (63%) | **65%** | ⭐ | H 6/10 · A 8/9 | 1.3 – 2.1 |
-| 10 | Sun 27 Sep 01:30 | USA · MLS | **Nashville SC v Toronto FC** | 64% | – | **64%** | ⭐ | H 7/10 · A 8/10 | 2.5 – 0.8 |
-| 11 | Sat 26 Sep 15:00 | England · League Two | **York v Gillingham** | 65% | 1.57 (59%) | **63%** | ⭐ | H 5/10 · A 5/10 | 2.5 – 0.9 |
-| 12 | Sun 27 Sep 02:30 | USA · MLS | **Real Salt Lake v New England Revolution** | 62% | – | **62%** | ⭐ | H 5/10 · A 8/10 | 1.3 – 1.9 |
-| 13 | Sat 26 Sep 15:00 | England · National League | **Aldershot v Tamworth** | 63% | 1.50 (62%) | **62%** | ⭐ | H 2/10 · A 10/10 | 1.8 – 1.4 |
-| 14 | Sun 27 Sep 00:30 | USA · MLS | **New York Red Bulls v St. Louis City** | 61% | – | **61%** | ⭐ | H 3/10 · A 7/10 | 1.2 – 1.9 |
+| 1 | Sun 27 Sep 01:30 | USA · MLS | **Philadelphia Union v Orlando City** | 82% | – | **82%** | ⭐⭐⭐ | H 7/10 · A 7/10 | 3.1 – 1.4 |
+| 2 | Sat 26 Sep 16:00 | England · National League | **Solihull v Boreham Wood** | 74% | 1.33 (70%) | **72%** | ⭐⭐⭐ | H 7/10 · A 8/10 | 1.3 – 2.6 |
+| 3 | Sun 27 Sep 02:30 | USA · MLS | **Seattle Sounders v Minnesota United** | 71% | – | **71%** | ⭐⭐⭐ | H 4/10 · A 7/10 | 1.8 – 1.8 |
+| 4 | Sat 26 Sep 16:00 | England · League One | **Stockport v Peterboro** | 69% | 1.37 (68%) | **69%** | ⭐⭐ | H 8/10 · A 5/10 | 2.4 – 1.1 |
+| 5 | Sun 27 Sep 01:30 | USA · MLS | **Charlotte v Chicago Fire** | 68% | – | **68%** | ⭐⭐ | H 7/10 · A 8/10 | 2.1 – 1.4 |
+| 6 | Sun 27 Sep 04:30 | USA · MLS | **San Jose Earthquakes v Portland Timbers** | 67% | – | **67%** | ⭐⭐ | H 5/10 · A 8/10 | 1.7 – 1.7 |
+| 7 | Sun 27 Sep 01:30 | USA · MLS | **CF Montreal v FC Cincinnati** | 66% | – | **66%** | ⭐⭐ | H 5/10 · A 8/10 | 1.8 – 1.6 |
+| 8 | Sat 26 Sep 16:00 | England · National League | **Southend v Barrow** | 70% | 1.59 (58%) | **65%** | ⭐⭐ | H 8/10 · A 6/10 | 2.5 – 1.1 |
+| 9 | Sat 26 Sep 16:00 | England · National League | **Boston Utd v Fylde** | 66% | 1.48 (63%) | **65%** | ⭐ | H 6/10 · A 8/9 | 1.3 – 2.1 |
+| 10 | Sun 27 Sep 02:30 | USA · MLS | **Nashville SC v Toronto FC** | 64% | – | **64%** | ⭐ | H 7/10 · A 8/10 | 2.5 – 0.8 |
+| 11 | Sat 26 Sep 16:00 | England · League Two | **York v Gillingham** | 65% | 1.57 (59%) | **63%** | ⭐ | H 5/10 · A 5/10 | 2.5 – 0.9 |
+| 12 | Sun 27 Sep 03:30 | USA · MLS | **Real Salt Lake v New England Revolution** | 62% | – | **62%** | ⭐ | H 5/10 · A 8/10 | 1.3 – 1.9 |
+| 13 | Sat 26 Sep 16:00 | England · National League | **Aldershot v Tamworth** | 63% | 1.50 (62%) | **62%** | ⭐ | H 2/10 · A 10/10 | 1.8 – 1.4 |
+| 14 | Sun 27 Sep 01:30 | USA · MLS | **New York Red Bulls v St. Louis City** | 61% | – | **61%** | ⭐ | H 3/10 · A 7/10 | 1.2 – 1.9 |
 
 ### Both teams to score — 9 pick(s)
 _Criteria: final probability ≥ 62% and both teams' average Both teams to score hit-rate ≥ 50%._
 
-| # | Kick-off (UK) | Competition | Match | Model | Rating | Last-10 form | Model xG |
+| # | Kick-off (SAST) | Competition | Match | Model | Rating | Last-10 form | Model xG |
 |---|---|---|---|---|---|---|---|
-| 1 | Sun 27 Sep 00:30 | USA · MLS | **Philadelphia Union v Orlando City** | **71%** | ⭐⭐ | H 6/10 · A 7/10 | 3.1 – 1.4 |
-| 2 | Sun 27 Sep 01:30 | USA · MLS | **Seattle Sounders v Minnesota United** | **70%** | ⭐⭐ | H 6/10 · A 9/10 | 1.8 – 1.8 |
-| 3 | Sun 27 Sep 03:30 | USA · MLS | **San Jose Earthquakes v Portland Timbers** | **68%** | ⭐⭐ | H 7/10 · A 9/10 | 1.7 – 1.7 |
-| 4 | Sun 27 Sep 00:30 | USA · MLS | **CF Montreal v FC Cincinnati** | **67%** | ⭐ | H 6/10 · A 8/10 | 1.8 – 1.6 |
-| 5 | Sat 26 Sep 15:00 | England · National League | **Solihull v Boreham Wood** | **66%** | ⭐ | H 8/10 · A 8/10 | 1.3 – 2.6 |
-| 6 | Sun 27 Sep 00:30 | USA · MLS | **Charlotte v Chicago Fire** | **66%** | ⭐ | H 7/10 · A 9/10 | 2.1 – 1.4 |
-| 7 | Sat 26 Sep 15:00 | England · National League | **Boston Utd v Fylde** | **65%** | ⭐ | H 7/10 · A 8/9 | 1.3 – 2.1 |
-| 8 | Sat 26 Sep 15:00 | England · National League | **Aldershot v Tamworth** | **63%** | ⭐ | H 5/10 · A 10/10 | 1.8 – 1.4 |
-| 9 | Sun 27 Sep 02:30 | USA · MLS | **Real Salt Lake v New England Revolution** | **62%** | ⭐ | H 6/10 · A 8/10 | 1.3 – 1.9 |
+| 1 | Sun 27 Sep 01:30 | USA · MLS | **Philadelphia Union v Orlando City** | **71%** | ⭐⭐ | H 6/10 · A 7/10 | 3.1 – 1.4 |
+| 2 | Sun 27 Sep 02:30 | USA · MLS | **Seattle Sounders v Minnesota United** | **70%** | ⭐⭐ | H 6/10 · A 9/10 | 1.8 – 1.8 |
+| 3 | Sun 27 Sep 04:30 | USA · MLS | **San Jose Earthquakes v Portland Timbers** | **68%** | ⭐⭐ | H 7/10 · A 9/10 | 1.7 – 1.7 |
+| 4 | Sun 27 Sep 01:30 | USA · MLS | **CF Montreal v FC Cincinnati** | **67%** | ⭐ | H 6/10 · A 8/10 | 1.8 – 1.6 |
+| 5 | Sat 26 Sep 16:00 | England · National League | **Solihull v Boreham Wood** | **66%** | ⭐ | H 8/10 · A 8/10 | 1.3 – 2.6 |
+| 6 | Sun 27 Sep 01:30 | USA · MLS | **Charlotte v Chicago Fire** | **66%** | ⭐ | H 7/10 · A 9/10 | 2.1 – 1.4 |
+| 7 | Sat 26 Sep 16:00 | England · National League | **Boston Utd v Fylde** | **65%** | ⭐ | H 7/10 · A 8/9 | 1.3 – 2.1 |
+| 8 | Sat 26 Sep 16:00 | England · National League | **Aldershot v Tamworth** | **63%** | ⭐ | H 5/10 · A 10/10 | 1.8 – 1.4 |
+| 9 | Sun 27 Sep 03:30 | USA · MLS | **Real Salt Lake v New England Revolution** | **62%** | ⭐ | H 6/10 · A 8/10 | 1.3 – 1.9 |
 
 ## 📊 Full scan — every fixture, ranked by Over 2.5 probability
 
-| Kick-off (UK) | Competition | Match | Model xG | O1.5 | O2.5 | BTTS | Market O2.5 | O2.5 final | O2.5 last-10 form | Data |
+| Kick-off (SAST) | Competition | Match | Model xG | O1.5 | O2.5 | BTTS | Market O2.5 | O2.5 final | O2.5 last-10 form | Data |
 |---|---|---|---|---|---|---|---|---|---|---|
-| Sun 27 Sep 00:30 | USA · MLS | Philadelphia Union v Orlando City | 3.1 – 1.4 | 94% | 82% | 71% | – | **82%** | H 7/10 · A 7/10 | ✅ |
-| Sat 26 Sep 15:00 | England · National League | Solihull v Boreham Wood | 1.3 – 2.6 | 90% | 74% | 66% | 1.33 (70%) | **72%** | H 7/10 · A 8/10 | ✅ |
-| Sun 27 Sep 01:30 | USA · MLS | Seattle Sounders v Minnesota United | 1.8 – 1.8 | 88% | 71% | 70% | – | **71%** | H 4/10 · A 7/10 | ✅ |
-| Sat 26 Sep 15:00 | England · League One | Stockport v Peterboro | 2.4 – 1.1 | 87% | 69% | 62% | 1.37 (68%) | **69%** | H 8/10 · A 5/10 | ✅ |
-| Sun 27 Sep 00:30 | USA · MLS | Charlotte v Chicago Fire | 2.1 – 1.4 | 86% | 68% | 66% | – | **68%** | H 7/10 · A 8/10 | ✅ |
-| Sun 27 Sep 03:30 | USA · MLS | San Jose Earthquakes v Portland Timbers | 1.7 – 1.7 | 86% | 67% | 68% | – | **67%** | H 5/10 · A 8/10 | ✅ |
-| Sun 27 Sep 00:30 | USA · MLS | CF Montreal v FC Cincinnati | 1.8 – 1.6 | 85% | 66% | 67% | – | **66%** | H 5/10 · A 8/10 | ✅ |
-| Sat 26 Sep 15:00 | England · National League | Southend v Barrow | 2.5 – 1.1 | 88% | 70% | 61% | 1.59 (58%) | **65%** | H 8/10 · A 6/10 | ✅ |
-| Sat 26 Sep 15:00 | England · National League | Boston Utd v Fylde | 1.3 – 2.1 | 85% | 66% | 65% | 1.48 (63%) | **65%** | H 6/10 · A 8/9 | ✅ |
-| Sun 27 Sep 01:30 | USA · MLS | Nashville SC v Toronto FC | 2.5 – 0.8 | 84% | 64% | 49% | – | **64%** | H 7/10 · A 8/10 | ✅ |
-| Sat 26 Sep 15:00 | England · League Two | York v Gillingham | 2.5 – 0.9 | 85% | 65% | 53% | 1.57 (59%) | **63%** | H 5/10 · A 5/10 | ✅ |
-| Sun 27 Sep 02:30 | USA · MLS | Real Salt Lake v New England Revolution | 1.3 – 1.9 | 83% | 62% | 62% | – | **62%** | H 5/10 · A 8/10 | ✅ |
-| Sat 26 Sep 15:00 | England · National League | Aldershot v Tamworth | 1.8 – 1.4 | 83% | 63% | 63% | 1.50 (62%) | **62%** | H 2/10 · A 10/10 | ✅ |
-| Sun 27 Sep 00:30 | USA · MLS | New York Red Bulls v St. Louis City | 1.2 – 1.9 | 82% | 61% | 60% | – | **61%** | H 3/10 · A 7/10 | ✅ |
-| Sun 27 Sep 01:30 | USA · MLS | FC Dallas v Los Angeles FC | 1.6 – 1.5 | 81% | 59% | 61% | – | **59%** | H 7/10 · A 4/10 | ✅ |
-| Sat 26 Sep 15:00 | England · League One | Plymouth v Burton | 2.0 – 1.1 | 81% | 59% | 57% | 1.64 (57%) | **58%** | H 6/10 · A 7/10 | ✅ |
-| Sat 26 Sep 15:00 | England · League Two | Cheltenham v Chesterfield | 1.4 – 1.7 | 81% | 60% | 61% | 1.66 (56%) | **58%** | H 9/10 · A 4/10 | ✅ |
-| Sun 27 Sep 01:30 | USA · MLS | Houston Dynamo v Sporting Kansas City | 2.2 – 0.8 | 80% | 58% | 47% | – | **58%** | H 3/10 · A 7/10 | ✅ |
-| Sat 26 Sep 15:00 | England · National League | Harrogate v Eastleigh | 1.7 – 1.3 | 80% | 58% | 60% | 1.64 (56%) | **57%** | H 9/10 · A 4/10 | ✅ |
-| Sat 26 Sep 15:00 | England · League One | Wycombe v Reading | 1.6 – 1.4 | 80% | 57% | 60% | 1.65 (56%) | **57%** | H 6/10 · A 5/10 | ✅ |
-| Sat 26 Sep 15:00 | England · National League | Wealdstone v Gateshead | 1.9 – 1.0 | 79% | 55% | 53% | 1.63 (57%) | **56%** | H 6/10 · A 6/10 | ✅ |
-| Sun 27 Sep 03:30 | USA · MLS | Vancouver Whitecaps v DC United | 2.0 – 0.9 | 79% | 56% | 51% | – | **56%** | H 6/10 · A 6/10 | ✅ |
-| Sat 26 Sep 15:00 | England · National League | Carlisle v Woking | 1.7 – 1.1 | 77% | 53% | 54% | 1.56 (59%) | **56%** | H 6/10 · A 3/10 | ✅ |
-| Sat 26 Sep 15:00 | England · League Two | Swindon v Accrington | 1.9 – 1.0 | 80% | 57% | 55% | 1.77 (53%) | **55%** | H 8/10 · A 8/10 | ✅ |
-| Sat 26 Sep 15:00 | England · National League | Worthing v Halifax | 1.5 – 1.3 | 76% | 52% | 56% | 1.56 (59%) | **55%** | H 7/9 · A 5/10 | ✅ |
-| Sat 26 Sep 15:00 | England · League One | Cambridge v AFC Wimbledon | 2.1 – 0.8 | 79% | 56% | 49% | 2.01 (46%) | **52%** | H 7/10 · A 4/10 | ✅ |
-| Sat 26 Sep 15:00 | England · National League | Altrincham v Hornchurch | 1.6 – 1.1 | 75% | 51% | 53% | 1.69 (55%) | **52%** | H 8/10 · A 5/9 | ✅ |
-| Sat 26 Sep 13:00 | Spain · Segunda División | Ceuta v Sociedad B | 1.1 – 1.6 | 75% | 50% | 53% | 1.73 (54%) | **52%** | H 4/10 · A 6/10 | ✅ |
-| Sat 26 Sep 15:00 | England · League Two | Newport County v Grimsby | 1.2 – 1.5 | 75% | 50% | 54% | 1.79 (52%) | **51%** | H 6/10 · A 5/10 | ✅ |
-| Sat 26 Sep 15:15 | Spain · Segunda División | Granada v Andorra | 1.5 – 1.3 | 77% | 53% | 56% | 1.96 (47%) | **50%** | H 5/10 · A 6/10 | ✅ |
-| Sat 26 Sep 15:00 | England · National League | Scunthorpe v Hartlepool | 1.5 – 1.0 | 72% | 47% | 50% | 1.68 (55%) | **50%** | H 4/10 · A 4/10 | ✅ |
-| Sat 26 Sep 15:00 | England · League Two | Bristol Rvs v Exeter | 1.8 – 0.8 | 72% | 47% | 45% | 1.78 (52%) | **49%** | H 5/10 · A 3/10 | ✅ |
-| Sun 27 Sep 04:10 | Mexico · Liga MX | Tigres UANL v Puebla | 1.8 – 0.8 | 74% | 49% | 47% | – | **49%** | H 4/10 · A 4/10 | ✅ |
-| Sat 26 Sep 15:00 | England · League Two | Tranmere v Walsall | 1.1 – 1.5 | 73% | 47% | 51% | 1.86 (50%) | **48%** | H 4/10 · A 5/10 | ✅ |
-| Sat 26 Sep 17:30 | England · League Two | Oldham v Salford | 1.5 – 0.9 | 70% | 44% | 47% | 1.71 (54%) | **48%** | H 6/10 · A 4/10 | ✅ |
-| Sat 26 Sep 23:50 | Mexico · Liga MX | Cruz Azul v Toluca | 1.3 – 1.3 | 73% | 48% | 53% | – | **48%** | H 7/10 · A 6/10 | ✅ |
-| Sat 26 Sep 15:00 | England · National League | Sutton v Forest Green | 1.1 – 1.4 | 70% | 44% | 49% | 1.82 (51%) | **47%** | H 4/10 · A 7/10 | ✅ |
-| Sun 27 Sep 00:30 | USA · MLS | Atlanta Utd v New York City | 1.1 – 1.4 | 72% | 47% | 51% | – | **47%** | H 7/10 · A 4/10 | ✅ |
-| Sun 27 Sep 01:30 | USA · MLS | Austin FC v San Diego FC | 1.4 – 1.1 | 71% | 46% | 51% | – | **46%** | H 5/10 · A 6/10 | ✅ |
-| Sun 27 Sep 00:07 | Mexico · Liga MX | Guadalajara Chivas v Queretaro | 1.7 – 0.8 | 71% | 46% | 46% | – | **46%** | H 5/10 · A 5/10 | ✅ |
-| Sat 26 Sep 15:00 | England · League Two | Rotherham v Crewe | 1.0 – 1.2 | 66% | 40% | 46% | 1.69 (55%) | **46%** | H 5/10 · A 2/10 | ✅ |
-| Sat 26 Sep 17:30 | Spain · Segunda División | Tenerife v Cadiz | 1.7 – 0.9 | 73% | 48% | 49% | 2.33 (40%) | **45%** | H 2/6 · A 5/10 | ✅ |
-| Sat 26 Sep 17:30 | Spain · Segunda División | Celta B v Sabadell | 1.1 – 1.2 | 68% | 41% | 47% | 1.96 (47%) | **44%** | H 3/6 · A 2/6 | ✅ |
-| Sat 26 Sep 15:00 | England · National League | Kidderminster v Yeovil | 1.5 – 0.7 | 66% | 39% | 41% | 1.82 (51%) | **44%** | H 3/9 · A 7/10 | ✅ |
-| Sat 26 Sep 15:00 | England · League Two | Shrewsbury v Colchester | 1.1 – 1.1 | 65% | 39% | 45% | 1.98 (47%) | **42%** | H 3/10 · A 4/10 | ✅ |
-| Sat 26 Sep 15:00 | England · League Two | Fleetwood Town v Rochdale | 1.1 – 1.0 | 60% | 33% | 41% | 1.86 (50%) | **40%** | H 3/10 · A 6/10 | ✅ |
-| Sun 27 Sep 03:30 | USA · MLS | Los Angeles Galaxy v Colorado Rapids | 1.3 – 0.9 | 65% | 38% | 43% | – | **38%** | H 5/10 · A 3/10 | ✅ |
-| Sun 27 Sep 04:05 | Mexico · Liga MX | Santos Laguna v Pachuca | 0.8 – 1.4 | 65% | 38% | 42% | – | **38%** | H 6/10 · A 5/10 | ✅ |
+| Sun 27 Sep 01:30 | USA · MLS | Philadelphia Union v Orlando City | 3.1 – 1.4 | 94% | 82% | 71% | – | **82%** | H 7/10 · A 7/10 | ✅ |
+| Sat 26 Sep 16:00 | England · National League | Solihull v Boreham Wood | 1.3 – 2.6 | 90% | 74% | 66% | 1.33 (70%) | **72%** | H 7/10 · A 8/10 | ✅ |
+| Sun 27 Sep 02:30 | USA · MLS | Seattle Sounders v Minnesota United | 1.8 – 1.8 | 88% | 71% | 70% | – | **71%** | H 4/10 · A 7/10 | ✅ |
+| Sat 26 Sep 16:00 | England · League One | Stockport v Peterboro | 2.4 – 1.1 | 87% | 69% | 62% | 1.37 (68%) | **69%** | H 8/10 · A 5/10 | ✅ |
+| Sun 27 Sep 01:30 | USA · MLS | Charlotte v Chicago Fire | 2.1 – 1.4 | 86% | 68% | 66% | – | **68%** | H 7/10 · A 8/10 | ✅ |
+| Sun 27 Sep 04:30 | USA · MLS | San Jose Earthquakes v Portland Timbers | 1.7 – 1.7 | 86% | 67% | 68% | – | **67%** | H 5/10 · A 8/10 | ✅ |
+| Sun 27 Sep 01:30 | USA · MLS | CF Montreal v FC Cincinnati | 1.8 – 1.6 | 85% | 66% | 67% | – | **66%** | H 5/10 · A 8/10 | ✅ |
+| Sat 26 Sep 16:00 | England · National League | Southend v Barrow | 2.5 – 1.1 | 88% | 70% | 61% | 1.59 (58%) | **65%** | H 8/10 · A 6/10 | ✅ |
+| Sat 26 Sep 16:00 | England · National League | Boston Utd v Fylde | 1.3 – 2.1 | 85% | 66% | 65% | 1.48 (63%) | **65%** | H 6/10 · A 8/9 | ✅ |
+| Sun 27 Sep 02:30 | USA · MLS | Nashville SC v Toronto FC | 2.5 – 0.8 | 84% | 64% | 49% | – | **64%** | H 7/10 · A 8/10 | ✅ |
+| Sat 26 Sep 16:00 | England · League Two | York v Gillingham | 2.5 – 0.9 | 85% | 65% | 53% | 1.57 (59%) | **63%** | H 5/10 · A 5/10 | ✅ |
+| Sun 27 Sep 03:30 | USA · MLS | Real Salt Lake v New England Revolution | 1.3 – 1.9 | 83% | 62% | 62% | – | **62%** | H 5/10 · A 8/10 | ✅ |
+| Sat 26 Sep 16:00 | England · National League | Aldershot v Tamworth | 1.8 – 1.4 | 83% | 63% | 63% | 1.50 (62%) | **62%** | H 2/10 · A 10/10 | ✅ |
+| Sun 27 Sep 01:30 | USA · MLS | New York Red Bulls v St. Louis City | 1.2 – 1.9 | 82% | 61% | 60% | – | **61%** | H 3/10 · A 7/10 | ✅ |
+| Sun 27 Sep 02:30 | USA · MLS | FC Dallas v Los Angeles FC | 1.6 – 1.5 | 81% | 59% | 61% | – | **59%** | H 7/10 · A 4/10 | ✅ |
+| Sat 26 Sep 16:00 | England · League One | Plymouth v Burton | 2.0 – 1.1 | 81% | 59% | 57% | 1.64 (57%) | **58%** | H 6/10 · A 7/10 | ✅ |
+| Sat 26 Sep 16:00 | England · League Two | Cheltenham v Chesterfield | 1.4 – 1.7 | 81% | 60% | 61% | 1.66 (56%) | **58%** | H 9/10 · A 4/10 | ✅ |
+| Sun 27 Sep 02:30 | USA · MLS | Houston Dynamo v Sporting Kansas City | 2.2 – 0.8 | 80% | 58% | 47% | – | **58%** | H 3/10 · A 7/10 | ✅ |
+| Sat 26 Sep 16:00 | England · National League | Harrogate v Eastleigh | 1.7 – 1.3 | 80% | 58% | 60% | 1.64 (56%) | **57%** | H 9/10 · A 4/10 | ✅ |
+| Sat 26 Sep 16:00 | England · League One | Wycombe v Reading | 1.6 – 1.4 | 80% | 57% | 60% | 1.65 (56%) | **57%** | H 6/10 · A 5/10 | ✅ |
+| Sat 26 Sep 16:00 | England · National League | Wealdstone v Gateshead | 1.9 – 1.0 | 79% | 55% | 53% | 1.63 (57%) | **56%** | H 6/10 · A 6/10 | ✅ |
+| Sun 27 Sep 04:30 | USA · MLS | Vancouver Whitecaps v DC United | 2.0 – 0.9 | 79% | 56% | 51% | – | **56%** | H 6/10 · A 6/10 | ✅ |
+| Sat 26 Sep 16:00 | England · National League | Carlisle v Woking | 1.7 – 1.1 | 77% | 53% | 54% | 1.56 (59%) | **56%** | H 6/10 · A 3/10 | ✅ |
+| Sat 26 Sep 16:00 | England · League Two | Swindon v Accrington | 1.9 – 1.0 | 80% | 57% | 55% | 1.77 (53%) | **55%** | H 8/10 · A 8/10 | ✅ |
+| Sat 26 Sep 16:00 | England · National League | Worthing v Halifax | 1.5 – 1.3 | 76% | 52% | 56% | 1.56 (59%) | **55%** | H 7/9 · A 5/10 | ✅ |
+| Sat 26 Sep 16:00 | England · League One | Cambridge v AFC Wimbledon | 2.1 – 0.8 | 79% | 56% | 49% | 2.01 (46%) | **52%** | H 7/10 · A 4/10 | ✅ |
+| Sat 26 Sep 16:00 | England · National League | Altrincham v Hornchurch | 1.6 – 1.1 | 75% | 51% | 53% | 1.69 (55%) | **52%** | H 8/10 · A 5/9 | ✅ |
+| Sat 26 Sep 14:00 | Spain · Segunda División | Ceuta v Sociedad B | 1.1 – 1.6 | 75% | 50% | 53% | 1.73 (54%) | **52%** | H 4/10 · A 6/10 | ✅ |
+| Sat 26 Sep 16:00 | England · League Two | Newport County v Grimsby | 1.2 – 1.5 | 75% | 50% | 54% | 1.79 (52%) | **51%** | H 6/10 · A 5/10 | ✅ |
+| Sat 26 Sep 16:15 | Spain · Segunda División | Granada v Andorra | 1.5 – 1.3 | 77% | 53% | 56% | 1.96 (47%) | **50%** | H 5/10 · A 6/10 | ✅ |
+| Sat 26 Sep 16:00 | England · National League | Scunthorpe v Hartlepool | 1.5 – 1.0 | 72% | 47% | 50% | 1.68 (55%) | **50%** | H 4/10 · A 4/10 | ✅ |
+| Sat 26 Sep 16:00 | England · League Two | Bristol Rvs v Exeter | 1.8 – 0.8 | 72% | 47% | 45% | 1.78 (52%) | **49%** | H 5/10 · A 3/10 | ✅ |
+| Sun 27 Sep 05:10 | Mexico · Liga MX | Tigres UANL v Puebla | 1.8 – 0.8 | 74% | 49% | 47% | – | **49%** | H 4/10 · A 4/10 | ✅ |
+| Sat 26 Sep 16:00 | England · League Two | Tranmere v Walsall | 1.1 – 1.5 | 73% | 47% | 51% | 1.86 (50%) | **48%** | H 4/10 · A 5/10 | ✅ |
+| Sat 26 Sep 18:30 | England · League Two | Oldham v Salford | 1.5 – 0.9 | 70% | 44% | 47% | 1.71 (54%) | **48%** | H 6/10 · A 4/10 | ✅ |
+| Sun 27 Sep 00:50 | Mexico · Liga MX | Cruz Azul v Toluca | 1.3 – 1.3 | 73% | 48% | 53% | – | **48%** | H 7/10 · A 6/10 | ✅ |
+| Sat 26 Sep 16:00 | England · National League | Sutton v Forest Green | 1.1 – 1.4 | 70% | 44% | 49% | 1.82 (51%) | **47%** | H 4/10 · A 7/10 | ✅ |
+| Sun 27 Sep 01:30 | USA · MLS | Atlanta Utd v New York City | 1.1 – 1.4 | 72% | 47% | 51% | – | **47%** | H 7/10 · A 4/10 | ✅ |
+| Sun 27 Sep 02:30 | USA · MLS | Austin FC v San Diego FC | 1.4 – 1.1 | 71% | 46% | 51% | – | **46%** | H 5/10 · A 6/10 | ✅ |
+| Sun 27 Sep 01:07 | Mexico · Liga MX | Guadalajara Chivas v Queretaro | 1.7 – 0.8 | 71% | 46% | 46% | – | **46%** | H 5/10 · A 5/10 | ✅ |
+| Sat 26 Sep 16:00 | England · League Two | Rotherham v Crewe | 1.0 – 1.2 | 66% | 40% | 46% | 1.69 (55%) | **46%** | H 5/10 · A 2/10 | ✅ |
+| Sat 26 Sep 18:30 | Spain · Segunda División | Tenerife v Cadiz | 1.7 – 0.9 | 73% | 48% | 49% | 2.33 (40%) | **45%** | H 2/6 · A 5/10 | ✅ |
+| Sat 26 Sep 18:30 | Spain · Segunda División | Celta B v Sabadell | 1.1 – 1.2 | 68% | 41% | 47% | 1.96 (47%) | **44%** | H 3/6 · A 2/6 | ✅ |
+| Sat 26 Sep 16:00 | England · National League | Kidderminster v Yeovil | 1.5 – 0.7 | 66% | 39% | 41% | 1.82 (51%) | **44%** | H 3/9 · A 7/10 | ✅ |
+| Sat 26 Sep 16:00 | England · League Two | Shrewsbury v Colchester | 1.1 – 1.1 | 65% | 39% | 45% | 1.98 (47%) | **42%** | H 3/10 · A 4/10 | ✅ |
+| Sat 26 Sep 16:00 | England · League Two | Fleetwood Town v Rochdale | 1.1 – 1.0 | 60% | 33% | 41% | 1.86 (50%) | **40%** | H 3/10 · A 6/10 | ✅ |
+| Sun 27 Sep 04:30 | USA · MLS | Los Angeles Galaxy v Colorado Rapids | 1.3 – 0.9 | 65% | 38% | 43% | – | **38%** | H 5/10 · A 3/10 | ✅ |
+| Sun 27 Sep 05:05 | Mexico · Liga MX | Santos Laguna v Pachuca | 0.8 – 1.4 | 65% | 38% | 42% | – | **38%** | H 6/10 · A 5/10 | ✅ |
 
 ## 🔍 Match details (click to expand)
 
-<details><summary><b>Ceuta v Sociedad B</b> — Spain · Segunda División, Sat 26 Sep 13:00 · O2.5 52% · BTTS 53%</summary>
+<details><summary><b>Ceuta v Sociedad B</b> — Spain · Segunda División, Sat 26 Sep 14:00 · O2.5 52% · BTTS 53%</summary>
 
 * Model expected goals: **1.09 – 1.60** (total 2.69) · P(O1.5) 75% · P(O2.5) 50% · P(O3.5) 28% · P(BTTS) 53%
 * Market: Over 2.5 @ 1.73 / Under 2.5 @ 2.00 (implied O2.5 54%) · 1X2 2.16 / 3.42 / 2.96
@@ -151,7 +151,7 @@ _Criteria: final probability ≥ 62% and both teams' average Both teams to score
 
 </details>
 
-<details><summary><b>Cambridge v AFC Wimbledon</b> — England · League One, Sat 26 Sep 15:00 · O2.5 52% · BTTS 49%</summary>
+<details><summary><b>Cambridge v AFC Wimbledon</b> — England · League One, Sat 26 Sep 16:00 · O2.5 52% · BTTS 49%</summary>
 
 * Model expected goals: **2.15 – 0.80** (total 2.95) · P(O1.5) 79% · P(O2.5) 56% · P(O3.5) 34% · P(BTTS) 49%
 * Market: Over 2.5 @ 2.01 / Under 2.5 @ 1.74 (implied O2.5 46%) · 1X2 1.82 / 3.50 / 4.27
@@ -191,7 +191,7 @@ _No head-to-head data in the last two seasons._
 
 </details>
 
-<details><summary><b>Plymouth v Burton</b> — England · League One, Sat 26 Sep 15:00 · O2.5 58% · BTTS 57%</summary>
+<details><summary><b>Plymouth v Burton</b> — England · League One, Sat 26 Sep 16:00 · O2.5 58% · BTTS 57%</summary>
 
 * Model expected goals: **1.99 – 1.08** (total 3.07) · P(O1.5) 81% · P(O2.5) 59% · P(O3.5) 37% · P(BTTS) 57%
 * Market: Over 2.5 @ 1.64 / Under 2.5 @ 2.16 (implied O2.5 57%) · 1X2 1.59 / 4.11 / 5.06
@@ -232,7 +232,7 @@ _No head-to-head data in the last two seasons._
 
 </details>
 
-<details><summary><b>Stockport v Peterboro</b> — England · League One, Sat 26 Sep 15:00 · O2.5 69% · BTTS 62%</summary>
+<details><summary><b>Stockport v Peterboro</b> — England · League One, Sat 26 Sep 16:00 · O2.5 69% · BTTS 62%</summary>
 
 * Model expected goals: **2.42 – 1.12** (total 3.55) · P(O1.5) 87% · P(O2.5) 69% · P(O3.5) 47% · P(BTTS) 62%
 * Market: Over 2.5 @ 1.37 / Under 2.5 @ 2.92 (implied O2.5 68%) · 1X2 1.35 / 5.21 / 6.95
@@ -273,7 +273,7 @@ _No head-to-head data in the last two seasons._
 
 </details>
 
-<details><summary><b>Wycombe v Reading</b> — England · League One, Sat 26 Sep 15:00 · O2.5 57% · BTTS 60%</summary>
+<details><summary><b>Wycombe v Reading</b> — England · League One, Sat 26 Sep 16:00 · O2.5 57% · BTTS 60%</summary>
 
 * Model expected goals: **1.56 – 1.42** (total 2.98) · P(O1.5) 80% · P(O2.5) 57% · P(O3.5) 35% · P(BTTS) 60%
 * Market: Over 2.5 @ 1.65 / Under 2.5 @ 2.14 (implied O2.5 56%) · 1X2 2.52 / 3.61 / 2.53
@@ -314,7 +314,7 @@ _No head-to-head data in the last two seasons._
 
 </details>
 
-<details><summary><b>Bristol Rvs v Exeter</b> — England · League Two, Sat 26 Sep 15:00 · O2.5 49% · BTTS 45%</summary>
+<details><summary><b>Bristol Rvs v Exeter</b> — England · League Two, Sat 26 Sep 16:00 · O2.5 49% · BTTS 45%</summary>
 
 * Model expected goals: **1.76 – 0.78** (total 2.54) · P(O1.5) 72% · P(O2.5) 47% · P(O3.5) 25% · P(BTTS) 45%
 * Market: Over 2.5 @ 1.78 / Under 2.5 @ 1.95 (implied O2.5 52%) · 1X2 1.72 / 3.79 / 4.41
@@ -354,7 +354,7 @@ _No head-to-head data in the last two seasons._
 
 </details>
 
-<details><summary><b>Cheltenham v Chesterfield</b> — England · League Two, Sat 26 Sep 15:00 · O2.5 58% · BTTS 61%</summary>
+<details><summary><b>Cheltenham v Chesterfield</b> — England · League Two, Sat 26 Sep 16:00 · O2.5 58% · BTTS 61%</summary>
 
 * Model expected goals: **1.39 – 1.70** (total 3.09) · P(O1.5) 81% · P(O2.5) 60% · P(O3.5) 37% · P(BTTS) 61%
 * Market: Over 2.5 @ 1.66 / Under 2.5 @ 2.11 (implied O2.5 56%) · 1X2 3.03 / 3.65 / 2.13
@@ -395,7 +395,7 @@ _No head-to-head data in the last two seasons._
 
 </details>
 
-<details><summary><b>Fleetwood Town v Rochdale</b> — England · League Two, Sat 26 Sep 15:00 · O2.5 40% · BTTS 41%</summary>
+<details><summary><b>Fleetwood Town v Rochdale</b> — England · League Two, Sat 26 Sep 16:00 · O2.5 40% · BTTS 41%</summary>
 
 * Model expected goals: **1.08 – 0.96** (total 2.04) · P(O1.5) 60% · P(O2.5) 33% · P(O3.5) 15% · P(BTTS) 41%
 * Market: Over 2.5 @ 1.86 / Under 2.5 @ 1.85 (implied O2.5 50%) · 1X2 1.88 / 3.58 / 3.87
@@ -435,7 +435,7 @@ _No head-to-head data in the last two seasons._
 
 </details>
 
-<details><summary><b>Newport County v Grimsby</b> — England · League Two, Sat 26 Sep 15:00 · O2.5 51% · BTTS 54%</summary>
+<details><summary><b>Newport County v Grimsby</b> — England · League Two, Sat 26 Sep 16:00 · O2.5 51% · BTTS 54%</summary>
 
 * Model expected goals: **1.18 – 1.50** (total 2.68) · P(O1.5) 75% · P(O2.5) 50% · P(O3.5) 28% · P(BTTS) 54%
 * Market: Over 2.5 @ 1.79 / Under 2.5 @ 1.94 (implied O2.5 52%) · 1X2 4.10 / 3.67 / 1.80
@@ -476,7 +476,7 @@ _No head-to-head data in the last two seasons._
 
 </details>
 
-<details><summary><b>Rotherham v Crewe</b> — England · League Two, Sat 26 Sep 15:00 · O2.5 46% · BTTS 46%</summary>
+<details><summary><b>Rotherham v Crewe</b> — England · League Two, Sat 26 Sep 16:00 · O2.5 46% · BTTS 46%</summary>
 
 * Model expected goals: **1.03 – 1.24** (total 2.27) · P(O1.5) 66% · P(O2.5) 40% · P(O3.5) 19% · P(BTTS) 46%
 * Market: Over 2.5 @ 1.69 / Under 2.5 @ 2.07 (implied O2.5 55%) · 1X2 2.10 / 3.63 / 3.11
@@ -516,7 +516,7 @@ _No head-to-head data in the last two seasons._
 
 </details>
 
-<details><summary><b>Shrewsbury v Colchester</b> — England · League Two, Sat 26 Sep 15:00 · O2.5 42% · BTTS 45%</summary>
+<details><summary><b>Shrewsbury v Colchester</b> — England · League Two, Sat 26 Sep 16:00 · O2.5 42% · BTTS 45%</summary>
 
 * Model expected goals: **1.13 – 1.10** (total 2.23) · P(O1.5) 65% · P(O2.5) 39% · P(O3.5) 19% · P(BTTS) 45%
 * Market: Over 2.5 @ 1.98 / Under 2.5 @ 1.76 (implied O2.5 47%) · 1X2 2.55 / 3.29 / 2.67
@@ -557,7 +557,7 @@ _No head-to-head data in the last two seasons._
 
 </details>
 
-<details><summary><b>Swindon v Accrington</b> — England · League Two, Sat 26 Sep 15:00 · O2.5 55% · BTTS 55%</summary>
+<details><summary><b>Swindon v Accrington</b> — England · League Two, Sat 26 Sep 16:00 · O2.5 55% · BTTS 55%</summary>
 
 * Model expected goals: **1.94 – 1.03** (total 2.97) · P(O1.5) 80% · P(O2.5) 57% · P(O3.5) 35% · P(BTTS) 55%
 * Market: Over 2.5 @ 1.77 / Under 2.5 @ 1.96 (implied O2.5 53%) · 1X2 2.17 / 3.50 / 3.06
@@ -598,7 +598,7 @@ _No head-to-head data in the last two seasons._
 
 </details>
 
-<details><summary><b>Tranmere v Walsall</b> — England · League Two, Sat 26 Sep 15:00 · O2.5 48% · BTTS 51%</summary>
+<details><summary><b>Tranmere v Walsall</b> — England · League Two, Sat 26 Sep 16:00 · O2.5 48% · BTTS 51%</summary>
 
 * Model expected goals: **1.06 – 1.51** (total 2.56) · P(O1.5) 73% · P(O2.5) 47% · P(O3.5) 26% · P(BTTS) 51%
 * Market: Over 2.5 @ 1.86 / Under 2.5 @ 1.86 (implied O2.5 50%) · 1X2 2.48 / 3.31 / 2.72
@@ -639,7 +639,7 @@ _No head-to-head data in the last two seasons._
 
 </details>
 
-<details><summary><b>York v Gillingham</b> — England · League Two, Sat 26 Sep 15:00 · O2.5 63% · BTTS 53%</summary>
+<details><summary><b>York v Gillingham</b> — England · League Two, Sat 26 Sep 16:00 · O2.5 63% · BTTS 53%</summary>
 
 * Model expected goals: **2.47 – 0.88** (total 3.35) · P(O1.5) 85% · P(O2.5) 65% · P(O3.5) 43% · P(BTTS) 53%
 * Market: Over 2.5 @ 1.57 / Under 2.5 @ 2.28 (implied O2.5 59%) · 1X2 1.51 / 4.41 / 5.49
@@ -679,7 +679,7 @@ _No head-to-head data in the last two seasons._
 
 </details>
 
-<details><summary><b>Aldershot v Tamworth</b> — England · National League, Sat 26 Sep 15:00 · O2.5 62% · BTTS 63%</summary>
+<details><summary><b>Aldershot v Tamworth</b> — England · National League, Sat 26 Sep 16:00 · O2.5 62% · BTTS 63%</summary>
 
 * Model expected goals: **1.83 – 1.40** (total 3.24) · P(O1.5) 83% · P(O2.5) 63% · P(O3.5) 41% · P(BTTS) 63%
 * Market: Over 2.5 @ 1.50 / Under 2.5 @ 2.41 (implied O2.5 62%) · 1X2 2.36 / 3.60 / 2.49
@@ -718,7 +718,7 @@ _No head-to-head data in the last two seasons._
 
 </details>
 
-<details><summary><b>Altrincham v Hornchurch</b> — England · National League, Sat 26 Sep 15:00 · O2.5 52% · BTTS 53%</summary>
+<details><summary><b>Altrincham v Hornchurch</b> — England · National League, Sat 26 Sep 16:00 · O2.5 52% · BTTS 53%</summary>
 
 * Model expected goals: **1.62 – 1.08** (total 2.70) · P(O1.5) 75% · P(O2.5) 51% · P(O3.5) 29% · P(BTTS) 53%
 * Market: Over 2.5 @ 1.69 / Under 2.5 @ 2.05 (implied O2.5 55%) · 1X2 2.08 / 3.49 / 2.98
@@ -756,7 +756,7 @@ _No head-to-head data in the last two seasons._
 
 </details>
 
-<details><summary><b>Boston Utd v Fylde</b> — England · National League, Sat 26 Sep 15:00 · O2.5 65% · BTTS 65%</summary>
+<details><summary><b>Boston Utd v Fylde</b> — England · National League, Sat 26 Sep 16:00 · O2.5 65% · BTTS 65%</summary>
 
 * Model expected goals: **1.35 – 2.07** (total 3.41) · P(O1.5) 85% · P(O2.5) 66% · P(O3.5) 44% · P(BTTS) 65%
 * Market: Over 2.5 @ 1.48 / Under 2.5 @ 2.48 (implied O2.5 63%) · 1X2 2.47 / 3.62 / 2.37
@@ -794,7 +794,7 @@ _No head-to-head data in the last two seasons._
 
 </details>
 
-<details><summary><b>Carlisle v Woking</b> — England · National League, Sat 26 Sep 15:00 · O2.5 56% · BTTS 54%</summary>
+<details><summary><b>Carlisle v Woking</b> — England · National League, Sat 26 Sep 16:00 · O2.5 56% · BTTS 54%</summary>
 
 * Model expected goals: **1.74 – 1.08** (total 2.82) · P(O1.5) 77% · P(O2.5) 53% · P(O3.5) 31% · P(BTTS) 54%
 * Market: Over 2.5 @ 1.56 / Under 2.5 @ 2.27 (implied O2.5 59%) · 1X2 1.62 / 3.94 / 4.38
@@ -833,7 +833,7 @@ _No head-to-head data in the last two seasons._
 
 </details>
 
-<details><summary><b>Harrogate v Eastleigh</b> — England · National League, Sat 26 Sep 15:00 · O2.5 57% · BTTS 60%</summary>
+<details><summary><b>Harrogate v Eastleigh</b> — England · National League, Sat 26 Sep 16:00 · O2.5 57% · BTTS 60%</summary>
 
 * Model expected goals: **1.66 – 1.34** (total 3.00) · P(O1.5) 80% · P(O2.5) 58% · P(O3.5) 35% · P(BTTS) 60%
 * Market: Over 2.5 @ 1.64 / Under 2.5 @ 2.13 (implied O2.5 56%) · 1X2 1.56 / 3.96 / 4.81
@@ -871,7 +871,7 @@ _No head-to-head data in the last two seasons._
 
 </details>
 
-<details><summary><b>Kidderminster v Yeovil</b> — England · National League, Sat 26 Sep 15:00 · O2.5 44% · BTTS 41%</summary>
+<details><summary><b>Kidderminster v Yeovil</b> — England · National League, Sat 26 Sep 16:00 · O2.5 44% · BTTS 41%</summary>
 
 * Model expected goals: **1.50 – 0.75** (total 2.24) · P(O1.5) 66% · P(O2.5) 39% · P(O3.5) 19% · P(BTTS) 41%
 * Market: Over 2.5 @ 1.82 / Under 2.5 @ 1.88 (implied O2.5 51%) · 1X2 1.96 / 3.39 / 3.35
@@ -909,7 +909,7 @@ _No head-to-head data in the last two seasons._
 
 </details>
 
-<details><summary><b>Scunthorpe v Hartlepool</b> — England · National League, Sat 26 Sep 15:00 · O2.5 50% · BTTS 50%</summary>
+<details><summary><b>Scunthorpe v Hartlepool</b> — England · National League, Sat 26 Sep 16:00 · O2.5 50% · BTTS 50%</summary>
 
 * Model expected goals: **1.51 – 1.04** (total 2.55) · P(O1.5) 72% · P(O2.5) 47% · P(O3.5) 25% · P(BTTS) 50%
 * Market: Over 2.5 @ 1.68 / Under 2.5 @ 2.06 (implied O2.5 55%) · 1X2 2.02 / 3.49 / 3.14
@@ -948,7 +948,7 @@ _No head-to-head data in the last two seasons._
 
 </details>
 
-<details><summary><b>Solihull v Boreham Wood</b> — England · National League, Sat 26 Sep 15:00 · O2.5 72% · BTTS 66%</summary>
+<details><summary><b>Solihull v Boreham Wood</b> — England · National League, Sat 26 Sep 16:00 · O2.5 72% · BTTS 66%</summary>
 
 * Model expected goals: **1.25 – 2.59** (total 3.84) · P(O1.5) 90% · P(O2.5) 74% · P(O3.5) 53% · P(BTTS) 66%
 * Market: Over 2.5 @ 1.33 / Under 2.5 @ 3.05 (implied O2.5 70%) · 1X2 4.41 / 4.29 / 1.56
@@ -987,7 +987,7 @@ _No head-to-head data in the last two seasons._
 
 </details>
 
-<details><summary><b>Southend v Barrow</b> — England · National League, Sat 26 Sep 15:00 · O2.5 65% · BTTS 61%</summary>
+<details><summary><b>Southend v Barrow</b> — England · National League, Sat 26 Sep 16:00 · O2.5 65% · BTTS 61%</summary>
 
 * Model expected goals: **2.53 – 1.09** (total 3.62) · P(O1.5) 88% · P(O2.5) 70% · P(O3.5) 49% · P(BTTS) 61%
 * Market: Over 2.5 @ 1.59 / Under 2.5 @ 2.23 (implied O2.5 58%) · 1X2 1.71 / 3.81 / 3.97
@@ -1025,7 +1025,7 @@ _No head-to-head data in the last two seasons._
 
 </details>
 
-<details><summary><b>Sutton v Forest Green</b> — England · National League, Sat 26 Sep 15:00 · O2.5 47% · BTTS 49%</summary>
+<details><summary><b>Sutton v Forest Green</b> — England · National League, Sat 26 Sep 16:00 · O2.5 47% · BTTS 49%</summary>
 
 * Model expected goals: **1.07 – 1.37** (total 2.44) · P(O1.5) 70% · P(O2.5) 44% · P(O3.5) 23% · P(BTTS) 49%
 * Market: Over 2.5 @ 1.82 / Under 2.5 @ 1.89 (implied O2.5 51%) · 1X2 2.62 / 3.26 / 2.42
@@ -1064,7 +1064,7 @@ _No head-to-head data in the last two seasons._
 
 </details>
 
-<details><summary><b>Wealdstone v Gateshead</b> — England · National League, Sat 26 Sep 15:00 · O2.5 56% · BTTS 53%</summary>
+<details><summary><b>Wealdstone v Gateshead</b> — England · National League, Sat 26 Sep 16:00 · O2.5 56% · BTTS 53%</summary>
 
 * Model expected goals: **1.92 – 0.98** (total 2.90) · P(O1.5) 79% · P(O2.5) 55% · P(O3.5) 33% · P(BTTS) 53%
 * Market: Over 2.5 @ 1.63 / Under 2.5 @ 2.14 (implied O2.5 57%) · 1X2 1.67 / 3.78 / 4.26
@@ -1103,7 +1103,7 @@ _No head-to-head data in the last two seasons._
 
 </details>
 
-<details><summary><b>Worthing v Halifax</b> — England · National League, Sat 26 Sep 15:00 · O2.5 55% · BTTS 56%</summary>
+<details><summary><b>Worthing v Halifax</b> — England · National League, Sat 26 Sep 16:00 · O2.5 55% · BTTS 56%</summary>
 
 * Model expected goals: **1.47 – 1.30** (total 2.77) · P(O1.5) 76% · P(O2.5) 52% · P(O3.5) 30% · P(BTTS) 56%
 * Market: Over 2.5 @ 1.56 / Under 2.5 @ 2.27 (implied O2.5 59%) · 1X2 2.11 / 3.56 / 2.89
@@ -1141,7 +1141,7 @@ _No head-to-head data in the last two seasons._
 
 </details>
 
-<details><summary><b>Granada v Andorra</b> — Spain · Segunda División, Sat 26 Sep 15:15 · O2.5 50% · BTTS 56%</summary>
+<details><summary><b>Granada v Andorra</b> — Spain · Segunda División, Sat 26 Sep 16:15 · O2.5 50% · BTTS 56%</summary>
 
 * Model expected goals: **1.52 – 1.26** (total 2.78) · P(O1.5) 77% · P(O2.5) 53% · P(O3.5) 30% · P(BTTS) 56%
 * Market: Over 2.5 @ 1.96 / Under 2.5 @ 1.76 (implied O2.5 47%) · 1X2 2.16 / 3.26 / 3.14
@@ -1182,7 +1182,7 @@ _No head-to-head data in the last two seasons._
 
 </details>
 
-<details><summary><b>Oldham v Salford</b> — England · League Two, Sat 26 Sep 17:30 · O2.5 48% · BTTS 47%</summary>
+<details><summary><b>Oldham v Salford</b> — England · League Two, Sat 26 Sep 18:30 · O2.5 48% · BTTS 47%</summary>
 
 * Model expected goals: **1.55 – 0.90** (total 2.45) · P(O1.5) 70% · P(O2.5) 44% · P(O3.5) 23% · P(BTTS) 47%
 * Market: Over 2.5 @ 1.71 / Under 2.5 @ 2.04 (implied O2.5 54%) · 1X2 2.44 / 3.49 / 2.66
@@ -1223,7 +1223,7 @@ _No head-to-head data in the last two seasons._
 
 </details>
 
-<details><summary><b>Celta B v Sabadell</b> — Spain · Segunda División, Sat 26 Sep 17:30 · O2.5 44% · BTTS 47%</summary>
+<details><summary><b>Celta B v Sabadell</b> — Spain · Segunda División, Sat 26 Sep 18:30 · O2.5 44% · BTTS 47%</summary>
 
 * Model expected goals: **1.09 – 1.25** (total 2.33) · P(O1.5) 68% · P(O2.5) 41% · P(O3.5) 21% · P(BTTS) 47%
 * Market: Over 2.5 @ 1.96 / Under 2.5 @ 1.76 (implied O2.5 47%) · 1X2 2.95 / 3.26 / 2.24
@@ -1263,7 +1263,7 @@ _No head-to-head data in the last two seasons._
 
 </details>
 
-<details><summary><b>Tenerife v Cadiz</b> — Spain · Segunda División, Sat 26 Sep 17:30 · O2.5 45% · BTTS 49%</summary>
+<details><summary><b>Tenerife v Cadiz</b> — Spain · Segunda División, Sat 26 Sep 18:30 · O2.5 45% · BTTS 49%</summary>
 
 * Model expected goals: **1.65 – 0.94** (total 2.59) · P(O1.5) 73% · P(O2.5) 48% · P(O3.5) 26% · P(BTTS) 49%
 * Market: Over 2.5 @ 2.33 / Under 2.5 @ 1.54 (implied O2.5 40%) · 1X2 1.90 / 3.14 / 4.02
@@ -1303,7 +1303,7 @@ _No head-to-head data in the last two seasons._
 
 </details>
 
-<details><summary><b>Cruz Azul v Toluca</b> — Mexico · Liga MX, Sat 26 Sep 23:50 · O2.5 48% · BTTS 53%</summary>
+<details><summary><b>Cruz Azul v Toluca</b> — Mexico · Liga MX, Sun 27 Sep 00:50 · O2.5 48% · BTTS 53%</summary>
 
 * Model expected goals: **1.27 – 1.33** (total 2.60) · P(O1.5) 73% · P(O2.5) 48% · P(O3.5) 26% · P(BTTS) 53%
 * Market 1X2: 2.53 / 3.43 / 2.49 (no O/U odds published in feed)
@@ -1340,7 +1340,7 @@ _No head-to-head data in the last two seasons._
 
 </details>
 
-<details><summary><b>Guadalajara Chivas v Queretaro</b> — Mexico · Liga MX, Sun 27 Sep 00:07 · O2.5 46% · BTTS 46%</summary>
+<details><summary><b>Guadalajara Chivas v Queretaro</b> — Mexico · Liga MX, Sun 27 Sep 01:07 · O2.5 46% · BTTS 46%</summary>
 
 * Model expected goals: **1.69 – 0.82** (total 2.51) · P(O1.5) 71% · P(O2.5) 46% · P(O3.5) 24% · P(BTTS) 46%
 * Market 1X2: 1.36 / 4.77 / 6.87 (no O/U odds published in feed)
@@ -1377,7 +1377,7 @@ _No head-to-head data in the last two seasons._
 
 </details>
 
-<details><summary><b>Atlanta Utd v New York City</b> — USA · MLS, Sun 27 Sep 00:30 · O2.5 47% · BTTS 51%</summary>
+<details><summary><b>Atlanta Utd v New York City</b> — USA · MLS, Sun 27 Sep 01:30 · O2.5 47% · BTTS 51%</summary>
 
 * Model expected goals: **1.12 – 1.42** (total 2.53) · P(O1.5) 72% · P(O2.5) 47% · P(O3.5) 25% · P(BTTS) 51%
 * Market 1X2: 2.18 / 3.50 / 2.95 (no O/U odds published in feed)
@@ -1413,7 +1413,7 @@ _No head-to-head data in the last two seasons._
 
 </details>
 
-<details><summary><b>CF Montreal v FC Cincinnati</b> — USA · MLS, Sun 27 Sep 00:30 · O2.5 66% · BTTS 67%</summary>
+<details><summary><b>CF Montreal v FC Cincinnati</b> — USA · MLS, Sun 27 Sep 01:30 · O2.5 66% · BTTS 67%</summary>
 
 * Model expected goals: **1.82 – 1.60** (total 3.41) · P(O1.5) 85% · P(O2.5) 66% · P(O3.5) 44% · P(BTTS) 67%
 * Market 1X2: 2.54 / 3.79 / 2.35 (no O/U odds published in feed)
@@ -1450,7 +1450,7 @@ _No head-to-head data in the last two seasons._
 
 </details>
 
-<details><summary><b>Charlotte v Chicago Fire</b> — USA · MLS, Sun 27 Sep 00:30 · O2.5 68% · BTTS 66%</summary>
+<details><summary><b>Charlotte v Chicago Fire</b> — USA · MLS, Sun 27 Sep 01:30 · O2.5 68% · BTTS 66%</summary>
 
 * Model expected goals: **2.12 – 1.38** (total 3.49) · P(O1.5) 86% · P(O2.5) 68% · P(O3.5) 46% · P(BTTS) 66%
 * Market 1X2: 2.10 / 3.78 / 2.92 (no O/U odds published in feed)
@@ -1487,7 +1487,7 @@ _No head-to-head data in the last two seasons._
 
 </details>
 
-<details><summary><b>New York Red Bulls v St. Louis City</b> — USA · MLS, Sun 27 Sep 00:30 · O2.5 61% · BTTS 60%</summary>
+<details><summary><b>New York Red Bulls v St. Louis City</b> — USA · MLS, Sun 27 Sep 01:30 · O2.5 61% · BTTS 60%</summary>
 
 * Model expected goals: **1.20 – 1.95** (total 3.15) · P(O1.5) 82% · P(O2.5) 61% · P(O3.5) 39% · P(BTTS) 60%
 * Market 1X2: 3.16 / 3.90 / 1.96 (no O/U odds published in feed)
@@ -1523,7 +1523,7 @@ _No head-to-head data in the last two seasons._
 
 </details>
 
-<details><summary><b>Philadelphia Union v Orlando City</b> — USA · MLS, Sun 27 Sep 00:30 · O2.5 82% · BTTS 71%</summary>
+<details><summary><b>Philadelphia Union v Orlando City</b> — USA · MLS, Sun 27 Sep 01:30 · O2.5 82% · BTTS 71%</summary>
 
 * Model expected goals: **3.08 – 1.37** (total 4.45) · P(O1.5) 94% · P(O2.5) 82% · P(O3.5) 65% · P(BTTS) 71%
 * Market 1X2: 1.40 / 5.03 / 5.82 (no O/U odds published in feed)
@@ -1560,7 +1560,7 @@ _No head-to-head data in the last two seasons._
 
 </details>
 
-<details><summary><b>Austin FC v San Diego FC</b> — USA · MLS, Sun 27 Sep 01:30 · O2.5 46% · BTTS 51%</summary>
+<details><summary><b>Austin FC v San Diego FC</b> — USA · MLS, Sun 27 Sep 02:30 · O2.5 46% · BTTS 51%</summary>
 
 * Model expected goals: **1.39 – 1.12** (total 2.51) · P(O1.5) 71% · P(O2.5) 46% · P(O3.5) 24% · P(BTTS) 51%
 * Market 1X2: 2.34 / 3.59 / 2.66 (no O/U odds published in feed)
@@ -1597,7 +1597,7 @@ _No head-to-head data in the last two seasons._
 
 </details>
 
-<details><summary><b>FC Dallas v Los Angeles FC</b> — USA · MLS, Sun 27 Sep 01:30 · O2.5 59% · BTTS 61%</summary>
+<details><summary><b>FC Dallas v Los Angeles FC</b> — USA · MLS, Sun 27 Sep 02:30 · O2.5 59% · BTTS 61%</summary>
 
 * Model expected goals: **1.57 – 1.47** (total 3.04) · P(O1.5) 81% · P(O2.5) 59% · P(O3.5) 36% · P(BTTS) 61%
 * Market 1X2: 2.25 / 3.61 / 2.76 (no O/U odds published in feed)
@@ -1634,7 +1634,7 @@ _No head-to-head data in the last two seasons._
 
 </details>
 
-<details><summary><b>Houston Dynamo v Sporting Kansas City</b> — USA · MLS, Sun 27 Sep 01:30 · O2.5 58% · BTTS 47%</summary>
+<details><summary><b>Houston Dynamo v Sporting Kansas City</b> — USA · MLS, Sun 27 Sep 02:30 · O2.5 58% · BTTS 47%</summary>
 
 * Model expected goals: **2.24 – 0.76** (total 3.00) · P(O1.5) 80% · P(O2.5) 58% · P(O3.5) 35% · P(BTTS) 47%
 * Market 1X2: 1.48 / 4.37 / 5.66 (no O/U odds published in feed)
@@ -1671,7 +1671,7 @@ _No head-to-head data in the last two seasons._
 
 </details>
 
-<details><summary><b>Nashville SC v Toronto FC</b> — USA · MLS, Sun 27 Sep 01:30 · O2.5 64% · BTTS 49%</summary>
+<details><summary><b>Nashville SC v Toronto FC</b> — USA · MLS, Sun 27 Sep 02:30 · O2.5 64% · BTTS 49%</summary>
 
 * Model expected goals: **2.54 – 0.75** (total 3.29) · P(O1.5) 84% · P(O2.5) 64% · P(O3.5) 42% · P(BTTS) 49%
 * Market 1X2: 1.43 / 4.61 / 6.01 (no O/U odds published in feed)
@@ -1708,7 +1708,7 @@ _No head-to-head data in the last two seasons._
 
 </details>
 
-<details><summary><b>Seattle Sounders v Minnesota United</b> — USA · MLS, Sun 27 Sep 01:30 · O2.5 71% · BTTS 70%</summary>
+<details><summary><b>Seattle Sounders v Minnesota United</b> — USA · MLS, Sun 27 Sep 02:30 · O2.5 71% · BTTS 70%</summary>
 
 * Model expected goals: **1.83 – 1.83** (total 3.66) · P(O1.5) 88% · P(O2.5) 71% · P(O3.5) 50% · P(BTTS) 70%
 * Market 1X2: 2.19 / 3.66 / 2.84 (no O/U odds published in feed)
@@ -1745,7 +1745,7 @@ _No head-to-head data in the last two seasons._
 
 </details>
 
-<details><summary><b>Real Salt Lake v New England Revolution</b> — USA · MLS, Sun 27 Sep 02:30 · O2.5 62% · BTTS 62%</summary>
+<details><summary><b>Real Salt Lake v New England Revolution</b> — USA · MLS, Sun 27 Sep 03:30 · O2.5 62% · BTTS 62%</summary>
 
 * Model expected goals: **1.32 – 1.90** (total 3.22) · P(O1.5) 83% · P(O2.5) 62% · P(O3.5) 40% · P(BTTS) 62%
 * Market 1X2: 2.26 / 3.63 / 2.74 (no O/U odds published in feed)
@@ -1781,7 +1781,7 @@ _No head-to-head data in the last two seasons._
 
 </details>
 
-<details><summary><b>Los Angeles Galaxy v Colorado Rapids</b> — USA · MLS, Sun 27 Sep 03:30 · O2.5 38% · BTTS 43%</summary>
+<details><summary><b>Los Angeles Galaxy v Colorado Rapids</b> — USA · MLS, Sun 27 Sep 04:30 · O2.5 38% · BTTS 43%</summary>
 
 * Model expected goals: **1.33 – 0.88** (total 2.21) · P(O1.5) 65% · P(O2.5) 38% · P(O3.5) 18% · P(BTTS) 43%
 * Market 1X2: 2.15 / 3.72 / 2.86 (no O/U odds published in feed)
@@ -1818,7 +1818,7 @@ _No head-to-head data in the last two seasons._
 
 </details>
 
-<details><summary><b>San Jose Earthquakes v Portland Timbers</b> — USA · MLS, Sun 27 Sep 03:30 · O2.5 67% · BTTS 68%</summary>
+<details><summary><b>San Jose Earthquakes v Portland Timbers</b> — USA · MLS, Sun 27 Sep 04:30 · O2.5 67% · BTTS 68%</summary>
 
 * Model expected goals: **1.74 – 1.71** (total 3.45) · P(O1.5) 86% · P(O2.5) 67% · P(O3.5) 45% · P(BTTS) 68%
 * Market 1X2: 2.02 / 3.84 / 3.07 (no O/U odds published in feed)
@@ -1855,7 +1855,7 @@ _No head-to-head data in the last two seasons._
 
 </details>
 
-<details><summary><b>Vancouver Whitecaps v DC United</b> — USA · MLS, Sun 27 Sep 03:30 · O2.5 56% · BTTS 51%</summary>
+<details><summary><b>Vancouver Whitecaps v DC United</b> — USA · MLS, Sun 27 Sep 04:30 · O2.5 56% · BTTS 51%</summary>
 
 * Model expected goals: **2.04 – 0.88** (total 2.92) · P(O1.5) 79% · P(O2.5) 56% · P(O3.5) 34% · P(BTTS) 51%
 * Market 1X2: 1.24 / 6.07 / 8.97 (no O/U odds published in feed)
@@ -1891,7 +1891,7 @@ _No head-to-head data in the last two seasons._
 
 </details>
 
-<details><summary><b>Santos Laguna v Pachuca</b> — Mexico · Liga MX, Sun 27 Sep 04:05 · O2.5 38% · BTTS 42%</summary>
+<details><summary><b>Santos Laguna v Pachuca</b> — Mexico · Liga MX, Sun 27 Sep 05:05 · O2.5 38% · BTTS 42%</summary>
 
 * Model expected goals: **0.84 – 1.36** (total 2.20) · P(O1.5) 65% · P(O2.5) 38% · P(O3.5) 18% · P(BTTS) 42%
 * Market 1X2: 2.94 / 3.56 / 2.12 (no O/U odds published in feed)
@@ -1928,7 +1928,7 @@ _No head-to-head data in the last two seasons._
 
 </details>
 
-<details><summary><b>Tigres UANL v Puebla</b> — Mexico · Liga MX, Sun 27 Sep 04:10 · O2.5 49% · BTTS 47%</summary>
+<details><summary><b>Tigres UANL v Puebla</b> — Mexico · Liga MX, Sun 27 Sep 05:10 · O2.5 49% · BTTS 47%</summary>
 
 * Model expected goals: **1.79 – 0.83** (total 2.62) · P(O1.5) 74% · P(O2.5) 49% · P(O3.5) 27% · P(BTTS) 47%
 * Market 1X2: 1.52 / 4.12 / 5.27 (no O/U odds published in feed)
@@ -1980,5 +1980,5 @@ _Flat-stake return is for model evaluation only: 1 unit on every Over 2.5 pick a
 * Team attack/defence strengths come from goals scored and conceded in the last two seasons, normalised by league averages, time-weighted (half-life 120 days), blended with home/away-specific form and shrunk towards league average for small samples.
 * Expected goals for each side = league average × attack strength × opponent defence strength; probabilities come from a Poisson model on those expected goals.
 * For Over 2.5 the model probability is blended with the bookmaker-implied probability (40% market weight) whenever odds are published in the feed.
-* Data: football-data.co.uk. Kick-off times are UK time. ⚠️ marks teams with too little history (typically newly promoted from a division not covered) — they are never shortlisted.
+* Data: football-data.co.uk. All times are SAST (Africa/Johannesburg). ⚠️ marks teams with too little history (typically newly promoted from a division not covered) — they are never shortlisted.
 * This is statistical information, not advice. Past hit-rates do not guarantee future results.
