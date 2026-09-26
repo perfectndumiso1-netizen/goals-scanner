@@ -32,3 +32,10 @@ match_date,kickoff,country,div,league,home,away,market,p_model,p_market,p_final,
 2026-09-26,2026-09-26 15:00,England,EC,National League,Boston Utd,Fylde,BTTS,0.646,,0.646,,pending,,,,2026-09-26
 2026-09-26,2026-09-26 15:00,England,EC,National League,Aldershot,Tamworth,BTTS,0.633,,0.633,,pending,,,,2026-09-26
 2026-09-27,2026-09-27 02:30,USA,USA:MLS,MLS,Real Salt Lake,New England Revolution,BTTS,0.623,,0.623,,pending,,,,2026-09-26
+2026-09-27,2026-09-27 02:30,USA,USA:MLS,MLS,FC Dallas,Los Angeles FC,O25,0.602,,0.602,,pending,,,,2026-09-26
+2026-09-27,2026-09-27 04:30,USA,USA:MLS,MLS,Vancouver Whitecaps,DC United,O25,0.601,,0.601,,pending,,,,2026-09-26
+2026-09-27,2026-09-27 01:30,USA,USA:MLS,MLS,New York Red Bulls,St. Louis City,BTTS,0.629,,0.629,,pending,,,,2026-09-26
+2026-09-27,2026-09-27 02:30,USA,USA:MLS,MLS,FC Dallas,Los Angeles FC,BTTS,0.625,,0.625,,pending,,,,2026-09-26
+2026-09-26,2026-09-26 16:00,England,EC,National League,Worthing,Halifax,BTTS,0.599,,0.616,,pending,,,,2026-09-26
+2026-09-27,2026-09-27 02:30,USA,USA:MLS,MLS,Nashville SC,Toronto FC,BTTS,0.604,,0.604,,pending,,,,2026-09-26
+2026-09-27,2026-09-27 02:30,USA,USA:MLS,MLS,Austin FC,San Diego FC,BTTS,0.604,,0.604,,pending,,,,2026-09-26

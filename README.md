@@ -7,9 +7,9 @@ candidates and commits a report to this repo.
 No servers, no API keys — it runs even when your computer is off.
 
 <!-- SCAN:START -->
-### Latest scan — Saturday 26 September 2026 (07:00 SAST)
+### Latest scan — Saturday 26 September 2026 (13:51 SAST)
 
-48 fixtures scanned · window Sat 06:55 → Sun 07:00 SAST · [open full report](reports/2026-09-26.md)
+48 fixtures scanned · window Sat 13:46 → Sun 13:51 SAST · [open full report](reports/2026-09-26.md)
 
 **Over 1.5 goals** — 7 pick(s)
 

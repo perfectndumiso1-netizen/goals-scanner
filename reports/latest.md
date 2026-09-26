@@ -1,118 +1,121 @@
 # ⚽ Goals Scanner — Saturday 26 September 2026
 
-**Scan window:** Sat 26 Sep 13:05 → Sun 27 Sep 13:10 (SAST) · **48 fixtures** across **6 competitions** · generated 13:10 SAST
+**Scan window:** Sat 26 Sep 13:46 → Sun 27 Sep 13:51 (SAST) · **48 fixtures** across **6 competitions** · generated 13:51 SAST
 
 ## 🎯 Shortlist
 
-### Over 1.5 goals — 10 pick(s)
-_Criteria: final probability ≥ 84% and both teams' average Over 1.5 goals hit-rate ≥ 75%._
+### Over 1.5 goals — 7 pick(s)
+_Rule: final probability ≥ 84% (⭐⭐ ≥ 87%, ⭐⭐⭐ ≥ 90%). Backtest 2025/26–26/27: 87% of shortlisted matches (⭐⭐ 88%, ⭐⭐⭐ 95%) over 900 picks._
 
-| # | Kick-off (SAST) | Competition | Match | Model | Rating | Last-10 form | Model xG |
-|---|---|---|---|---|---|---|---|
-| 1 | Sun 27 Sep 01:30 | USA · MLS | **Philadelphia Union v Orlando City** | **94%** | ⭐⭐ | H 9/10 · A 8/10 | 3.1 – 1.4 |
-| 2 | Sat 26 Sep 16:00 | England · National League | **Solihull v Boreham Wood** | **90%** | ⭐⭐ | H 9/10 · A 9/10 | 1.3 – 2.6 |
-| 3 | Sun 27 Sep 02:30 | USA · MLS | **Seattle Sounders v Minnesota United** | **88%** | ⭐ | H 8/10 · A 9/10 | 1.8 – 1.8 |
-| 4 | Sat 26 Sep 16:00 | England · National League | **Southend v Barrow** | **88%** | ⭐ | H 9/10 · A 8/10 | 2.5 – 1.1 |
-| 5 | Sat 26 Sep 16:00 | England · League One | **Stockport v Peterboro** | **87%** | ⭐ | H 9/10 · A 8/10 | 2.4 – 1.1 |
-| 6 | Sun 27 Sep 01:30 | USA · MLS | **Charlotte v Chicago Fire** | **86%** | ⭐ | H 9/10 · A 10/10 | 2.1 – 1.4 |
-| 7 | Sun 27 Sep 04:30 | USA · MLS | **San Jose Earthquakes v Portland Timbers** | **86%** | ⭐ | H 7/10 · A 9/10 | 1.7 – 1.7 |
-| 8 | Sat 26 Sep 16:00 | England · National League | **Boston Utd v Fylde** | **85%** | ⭐ | H 8/10 · A 9/9 | 1.3 – 2.1 |
-| 9 | Sun 27 Sep 01:30 | USA · MLS | **CF Montreal v FC Cincinnati** | **85%** | ⭐ | H 8/10 · A 10/10 | 1.8 – 1.6 |
-| 10 | Sat 26 Sep 16:00 | England · League Two | **York v Gillingham** | **85%** | ⭐ | H 9/10 · A 8/10 | 2.5 – 0.9 |
+| # | Kick-off (SAST) | Competition | Match | Final | Rating | Model | Basis | Last-10 form | Exp. goals |
+|---|---|---|---|---|---|---|---|---|---|
+| 1 | Sun 27 Sep 01:30 | USA · MLS | **Philadelphia Union v Orlando City** | **88%** | ⭐⭐ | 88% | 🧮 model only | H 9/10 · A 8/10 | 2.2 – 1.4 |
+| 2 | Sat 26 Sep 16:00 | England · National League | **Solihull v Boreham Wood** | **87%** | ⭐⭐ | 84% | 📈 market+model | H 9/10 · A 9/10 | 1.3 – 2.2 |
+| 3 | Sat 26 Sep 16:00 | England · League One | **Stockport v Peterboro** | **86%** | ⭐ | 80% | 📈 market+model | H 9/10 · A 8/10 | 2.4 – 1.0 |
+| 4 | Sun 27 Sep 01:30 | USA · MLS | **CF Montreal v FC Cincinnati** | **85%** | ⭐ | 85% | 🧮 model only | H 8/10 · A 10/10 | 1.8 – 1.5 |
+| 5 | Sun 27 Sep 04:30 | USA · MLS | **San Jose Earthquakes v Portland Timbers** | **85%** | ⭐ | 85% | 🧮 model only | H 7/10 · A 9/10 | 1.8 – 1.5 |
+| 6 | Sun 27 Sep 01:30 | USA · MLS | **Charlotte v Chicago Fire** | **84%** | ⭐ | 84% | 🧮 model only | H 9/10 · A 10/10 | 1.9 – 1.4 |
+| 7 | Sun 27 Sep 02:30 | USA · MLS | **Seattle Sounders v Minnesota United** | **84%** | ⭐ | 84% | 🧮 model only | H 8/10 · A 9/10 | 1.8 – 1.5 |
 
 ### Over 2.5 goals — 14 pick(s)
-_Criteria: final probability ≥ 60% and both teams' average Over 2.5 goals hit-rate ≥ 50%._
+_Rule: final probability ≥ 60% (⭐⭐ ≥ 64%, ⭐⭐⭐ ≥ 68%). Backtest 2025/26–26/27: 67% of shortlisted matches (⭐⭐ 71%, ⭐⭐⭐ 77%) over 1,675 picks._
 
-| # | Kick-off (SAST) | Competition | Match | Model | Market (odds) | Final | Rating | Last-10 form | Model xG |
+| # | Kick-off (SAST) | Competition | Match | Final | Rating | Market (odds) | Model | Basis | Last-10 form | Exp. goals |
+|---|---|---|---|---|---|---|---|---|---|---|
+| 1 | Sun 27 Sep 01:30 | USA · MLS | **Philadelphia Union v Orlando City** | **70%** | ⭐⭐⭐ | – | 70% | 🧮 model only | H 7/10 · A 7/10 | 2.2 – 1.4 |
+| 2 | Sat 26 Sep 16:00 | England · National League | **Solihull v Boreham Wood** | **69%** | ⭐⭐⭐ | 1.33 (70%) | 63% | 📈 market+model | H 7/10 · A 8/10 | 1.3 – 2.2 |
+| 3 | Sat 26 Sep 16:00 | England · League One | **Stockport v Peterboro** | **67%** | ⭐⭐ | 1.37 (68%) | 57% | 📈 market+model | H 8/10 · A 5/10 | 2.4 – 1.0 |
+| 4 | Sun 27 Sep 01:30 | USA · MLS | **CF Montreal v FC Cincinnati** | **65%** | ⭐⭐ | – | 65% | 🧮 model only | H 5/10 · A 8/10 | 1.8 – 1.5 |
+| 5 | Sun 27 Sep 04:30 | USA · MLS | **San Jose Earthquakes v Portland Timbers** | **64%** | ⭐⭐ | – | 64% | 🧮 model only | H 5/10 · A 8/10 | 1.8 – 1.5 |
+| 6 | Sun 27 Sep 01:30 | USA · MLS | **Charlotte v Chicago Fire** | **64%** | ⭐ | – | 64% | 🧮 model only | H 7/10 · A 8/10 | 1.9 – 1.4 |
+| 7 | Sun 27 Sep 02:30 | USA · MLS | **Seattle Sounders v Minnesota United** | **63%** | ⭐ | – | 63% | 🧮 model only | H 4/10 · A 7/10 | 1.8 – 1.5 |
+| 8 | Sat 26 Sep 16:00 | England · National League | **Boston Utd v Fylde** | **62%** | ⭐ | 1.48 (63%) | 59% | 📈 market+model | H 6/10 · A 8/9 | 1.6 – 1.6 |
+| 9 | Sun 27 Sep 02:30 | USA · MLS | **Nashville SC v Toronto FC** | **62%** | ⭐ | – | 62% | 🧮 model only | H 7/10 · A 8/10 | 2.0 – 1.2 |
+| 10 | Sat 26 Sep 16:00 | England · National League | **Aldershot v Tamworth** | **61%** | ⭐ | 1.50 (62%) | 59% | 📈 market+model | H 2/10 · A 10/10 | 1.6 – 1.5 |
+| 11 | Sun 27 Sep 01:30 | USA · MLS | **New York Red Bulls v St. Louis City** | **60%** | ⭐ | – | 60% | 🧮 model only | H 3/10 · A 7/10 | 1.6 – 1.6 |
+| 12 | Sun 27 Sep 03:30 | USA · MLS | **Real Salt Lake v New England Revolution** | **60%** | ⭐ | – | 60% | 🧮 model only | H 5/10 · A 8/10 | 1.6 – 1.6 |
+| 13 | Sun 27 Sep 02:30 | USA · MLS | **FC Dallas v Los Angeles FC** | **60%** | ⭐ | – | 60% | 🧮 model only | H 7/10 · A 4/10 | 1.7 – 1.4 |
+| 14 | Sun 27 Sep 04:30 | USA · MLS | **Vancouver Whitecaps v DC United** | **60%** | ⭐ | – | 60% | 🧮 model only | H 6/10 · A 6/10 | 1.9 – 1.2 |
+
+### Both teams to score — 14 pick(s)
+_Rule: final probability ≥ 60% (⭐⭐ ≥ 63%, ⭐⭐⭐ ≥ 66%). Backtest 2025/26–26/27: 64% of shortlisted matches (⭐⭐ 65%, ⭐⭐⭐ 71%) over 1,800 picks._
+
+| # | Kick-off (SAST) | Competition | Match | Final | Rating | Model | Basis | Last-10 form | Exp. goals |
 |---|---|---|---|---|---|---|---|---|---|
-| 1 | Sun 27 Sep 01:30 | USA · MLS | **Philadelphia Union v Orlando City** | 82% | – | **82%** | ⭐⭐⭐ | H 7/10 · A 7/10 | 3.1 – 1.4 |
-| 2 | Sat 26 Sep 16:00 | England · National League | **Solihull v Boreham Wood** | 74% | 1.33 (70%) | **72%** | ⭐⭐⭐ | H 7/10 · A 8/10 | 1.3 – 2.6 |
-| 3 | Sun 27 Sep 02:30 | USA · MLS | **Seattle Sounders v Minnesota United** | 71% | – | **71%** | ⭐⭐⭐ | H 4/10 · A 7/10 | 1.8 – 1.8 |
-| 4 | Sat 26 Sep 16:00 | England · League One | **Stockport v Peterboro** | 69% | 1.37 (68%) | **69%** | ⭐⭐ | H 8/10 · A 5/10 | 2.4 – 1.1 |
-| 5 | Sun 27 Sep 01:30 | USA · MLS | **Charlotte v Chicago Fire** | 68% | – | **68%** | ⭐⭐ | H 7/10 · A 8/10 | 2.1 – 1.4 |
-| 6 | Sun 27 Sep 04:30 | USA · MLS | **San Jose Earthquakes v Portland Timbers** | 67% | – | **67%** | ⭐⭐ | H 5/10 · A 8/10 | 1.7 – 1.7 |
-| 7 | Sun 27 Sep 01:30 | USA · MLS | **CF Montreal v FC Cincinnati** | 66% | – | **66%** | ⭐⭐ | H 5/10 · A 8/10 | 1.8 – 1.6 |
-| 8 | Sat 26 Sep 16:00 | England · National League | **Southend v Barrow** | 70% | 1.59 (58%) | **65%** | ⭐⭐ | H 8/10 · A 6/10 | 2.5 – 1.1 |
-| 9 | Sat 26 Sep 16:00 | England · National League | **Boston Utd v Fylde** | 66% | 1.48 (63%) | **65%** | ⭐ | H 6/10 · A 8/9 | 1.3 – 2.1 |
-| 10 | Sun 27 Sep 02:30 | USA · MLS | **Nashville SC v Toronto FC** | 64% | – | **64%** | ⭐ | H 7/10 · A 8/10 | 2.5 – 0.8 |
-| 11 | Sat 26 Sep 16:00 | England · League Two | **York v Gillingham** | 65% | 1.57 (59%) | **63%** | ⭐ | H 5/10 · A 5/10 | 2.5 – 0.9 |
-| 12 | Sun 27 Sep 03:30 | USA · MLS | **Real Salt Lake v New England Revolution** | 62% | – | **62%** | ⭐ | H 5/10 · A 8/10 | 1.3 – 1.9 |
-| 13 | Sat 26 Sep 16:00 | England · National League | **Aldershot v Tamworth** | 63% | 1.50 (62%) | **62%** | ⭐ | H 2/10 · A 10/10 | 1.8 – 1.4 |
-| 14 | Sun 27 Sep 01:30 | USA · MLS | **New York Red Bulls v St. Louis City** | 61% | – | **61%** | ⭐ | H 3/10 · A 7/10 | 1.2 – 1.9 |
-
-### Both teams to score — 9 pick(s)
-_Criteria: final probability ≥ 62% and both teams' average Both teams to score hit-rate ≥ 50%._
-
-| # | Kick-off (SAST) | Competition | Match | Model | Rating | Last-10 form | Model xG |
-|---|---|---|---|---|---|---|---|
-| 1 | Sun 27 Sep 01:30 | USA · MLS | **Philadelphia Union v Orlando City** | **71%** | ⭐⭐ | H 6/10 · A 7/10 | 3.1 – 1.4 |
-| 2 | Sun 27 Sep 02:30 | USA · MLS | **Seattle Sounders v Minnesota United** | **70%** | ⭐⭐ | H 6/10 · A 9/10 | 1.8 – 1.8 |
-| 3 | Sun 27 Sep 04:30 | USA · MLS | **San Jose Earthquakes v Portland Timbers** | **68%** | ⭐⭐ | H 7/10 · A 9/10 | 1.7 – 1.7 |
-| 4 | Sun 27 Sep 01:30 | USA · MLS | **CF Montreal v FC Cincinnati** | **67%** | ⭐ | H 6/10 · A 8/10 | 1.8 – 1.6 |
-| 5 | Sat 26 Sep 16:00 | England · National League | **Solihull v Boreham Wood** | **66%** | ⭐ | H 8/10 · A 8/10 | 1.3 – 2.6 |
-| 6 | Sun 27 Sep 01:30 | USA · MLS | **Charlotte v Chicago Fire** | **66%** | ⭐ | H 7/10 · A 9/10 | 2.1 – 1.4 |
-| 7 | Sat 26 Sep 16:00 | England · National League | **Boston Utd v Fylde** | **65%** | ⭐ | H 7/10 · A 8/9 | 1.3 – 2.1 |
-| 8 | Sat 26 Sep 16:00 | England · National League | **Aldershot v Tamworth** | **63%** | ⭐ | H 5/10 · A 10/10 | 1.8 – 1.4 |
-| 9 | Sun 27 Sep 03:30 | USA · MLS | **Real Salt Lake v New England Revolution** | **62%** | ⭐ | H 6/10 · A 8/10 | 1.3 – 1.9 |
+| 1 | Sun 27 Sep 01:30 | USA · MLS | **Philadelphia Union v Orlando City** | **68%** | ⭐⭐⭐ | 68% | 🧮 model only | H 6/10 · A 7/10 | 2.2 – 1.4 |
+| 2 | Sun 27 Sep 01:30 | USA · MLS | **CF Montreal v FC Cincinnati** | **66%** | ⭐⭐⭐ | 66% | 🧮 model only | H 6/10 · A 8/10 | 1.8 – 1.5 |
+| 3 | Sat 26 Sep 16:00 | England · National League | **Solihull v Boreham Wood** | **66%** | ⭐⭐⭐ | 65% | 📈 market+model | H 8/10 · A 8/10 | 1.3 – 2.2 |
+| 4 | Sun 27 Sep 04:30 | USA · MLS | **San Jose Earthquakes v Portland Timbers** | **65%** | ⭐⭐ | 65% | 🧮 model only | H 7/10 · A 9/10 | 1.8 – 1.5 |
+| 5 | Sun 27 Sep 02:30 | USA · MLS | **Seattle Sounders v Minnesota United** | **65%** | ⭐⭐ | 65% | 🧮 model only | H 6/10 · A 9/10 | 1.8 – 1.5 |
+| 6 | Sat 26 Sep 16:00 | England · National League | **Boston Utd v Fylde** | **64%** | ⭐⭐ | 62% | 📈 market+model | H 7/10 · A 8/9 | 1.6 – 1.6 |
+| 7 | Sun 27 Sep 01:30 | USA · MLS | **Charlotte v Chicago Fire** | **64%** | ⭐⭐ | 64% | 🧮 model only | H 7/10 · A 9/10 | 1.9 – 1.4 |
+| 8 | Sat 26 Sep 16:00 | England · National League | **Aldershot v Tamworth** | **64%** | ⭐⭐ | 61% | 📈 market+model | H 5/10 · A 10/10 | 1.6 – 1.5 |
+| 9 | Sun 27 Sep 01:30 | USA · MLS | **New York Red Bulls v St. Louis City** | **63%** | ⭐ | 63% | 🧮 model only | H 4/10 · A 9/10 | 1.6 – 1.6 |
+| 10 | Sun 27 Sep 03:30 | USA · MLS | **Real Salt Lake v New England Revolution** | **63%** | ⭐ | 63% | 🧮 model only | H 6/10 · A 8/10 | 1.6 – 1.6 |
+| 11 | Sun 27 Sep 02:30 | USA · MLS | **FC Dallas v Los Angeles FC** | **63%** | ⭐ | 63% | 🧮 model only | H 6/10 · A 5/10 | 1.7 – 1.4 |
+| 12 | Sat 26 Sep 16:00 | England · National League | **Worthing v Halifax** | **62%** | ⭐ | 60% | 📈 market+model | H 7/9 · A 5/10 | 1.7 – 1.4 |
+| 13 | Sun 27 Sep 02:30 | USA · MLS | **Nashville SC v Toronto FC** | **60%** | ⭐ | 60% | 🧮 model only | H 5/10 · A 9/10 | 2.0 – 1.2 |
+| 14 | Sun 27 Sep 02:30 | USA · MLS | **Austin FC v San Diego FC** | **60%** | ⭐ | 60% | 🧮 model only | H 7/10 · A 5/10 | 1.7 – 1.3 |
 
 ## 📊 Full scan — every fixture, ranked by Over 2.5 probability
 
-| Kick-off (SAST) | Competition | Match | Model xG | O1.5 | O2.5 | BTTS | Market O2.5 | O2.5 final | O2.5 last-10 form | Data |
-|---|---|---|---|---|---|---|---|---|---|---|
-| Sun 27 Sep 01:30 | USA · MLS | Philadelphia Union v Orlando City | 3.1 – 1.4 | 94% | 82% | 71% | – | **82%** | H 7/10 · A 7/10 | ✅ |
-| Sat 26 Sep 16:00 | England · National League | Solihull v Boreham Wood | 1.3 – 2.6 | 90% | 74% | 66% | 1.33 (70%) | **72%** | H 7/10 · A 8/10 | ✅ |
-| Sun 27 Sep 02:30 | USA · MLS | Seattle Sounders v Minnesota United | 1.8 – 1.8 | 88% | 71% | 70% | – | **71%** | H 4/10 · A 7/10 | ✅ |
-| Sat 26 Sep 16:00 | England · League One | Stockport v Peterboro | 2.4 – 1.1 | 87% | 69% | 62% | 1.37 (68%) | **69%** | H 8/10 · A 5/10 | ✅ |
-| Sun 27 Sep 01:30 | USA · MLS | Charlotte v Chicago Fire | 2.1 – 1.4 | 86% | 68% | 66% | – | **68%** | H 7/10 · A 8/10 | ✅ |
-| Sun 27 Sep 04:30 | USA · MLS | San Jose Earthquakes v Portland Timbers | 1.7 – 1.7 | 86% | 67% | 68% | – | **67%** | H 5/10 · A 8/10 | ✅ |
-| Sun 27 Sep 01:30 | USA · MLS | CF Montreal v FC Cincinnati | 1.8 – 1.6 | 85% | 66% | 67% | – | **66%** | H 5/10 · A 8/10 | ✅ |
-| Sat 26 Sep 16:00 | England · National League | Southend v Barrow | 2.5 – 1.1 | 88% | 70% | 61% | 1.59 (58%) | **65%** | H 8/10 · A 6/10 | ✅ |
-| Sat 26 Sep 16:00 | England · National League | Boston Utd v Fylde | 1.3 – 2.1 | 85% | 66% | 65% | 1.48 (63%) | **65%** | H 6/10 · A 8/9 | ✅ |
-| Sun 27 Sep 02:30 | USA · MLS | Nashville SC v Toronto FC | 2.5 – 0.8 | 84% | 64% | 49% | – | **64%** | H 7/10 · A 8/10 | ✅ |
-| Sat 26 Sep 16:00 | England · League Two | York v Gillingham | 2.5 – 0.9 | 85% | 65% | 53% | 1.57 (59%) | **63%** | H 5/10 · A 5/10 | ✅ |
-| Sun 27 Sep 03:30 | USA · MLS | Real Salt Lake v New England Revolution | 1.3 – 1.9 | 83% | 62% | 62% | – | **62%** | H 5/10 · A 8/10 | ✅ |
-| Sat 26 Sep 16:00 | England · National League | Aldershot v Tamworth | 1.8 – 1.4 | 83% | 63% | 63% | 1.50 (62%) | **62%** | H 2/10 · A 10/10 | ✅ |
-| Sun 27 Sep 01:30 | USA · MLS | New York Red Bulls v St. Louis City | 1.2 – 1.9 | 82% | 61% | 60% | – | **61%** | H 3/10 · A 7/10 | ✅ |
-| Sun 27 Sep 02:30 | USA · MLS | FC Dallas v Los Angeles FC | 1.6 – 1.5 | 81% | 59% | 61% | – | **59%** | H 7/10 · A 4/10 | ✅ |
-| Sat 26 Sep 16:00 | England · League One | Plymouth v Burton | 2.0 – 1.1 | 81% | 59% | 57% | 1.64 (57%) | **58%** | H 6/10 · A 7/10 | ✅ |
-| Sat 26 Sep 16:00 | England · League Two | Cheltenham v Chesterfield | 1.4 – 1.7 | 81% | 60% | 61% | 1.66 (56%) | **58%** | H 9/10 · A 4/10 | ✅ |
-| Sun 27 Sep 02:30 | USA · MLS | Houston Dynamo v Sporting Kansas City | 2.2 – 0.8 | 80% | 58% | 47% | – | **58%** | H 3/10 · A 7/10 | ✅ |
-| Sat 26 Sep 16:00 | England · National League | Harrogate v Eastleigh | 1.7 – 1.3 | 80% | 58% | 60% | 1.64 (56%) | **57%** | H 9/10 · A 4/10 | ✅ |
-| Sat 26 Sep 16:00 | England · League One | Wycombe v Reading | 1.6 – 1.4 | 80% | 57% | 60% | 1.65 (56%) | **57%** | H 6/10 · A 5/10 | ✅ |
-| Sat 26 Sep 16:00 | England · National League | Wealdstone v Gateshead | 1.9 – 1.0 | 79% | 55% | 53% | 1.63 (57%) | **56%** | H 6/10 · A 6/10 | ✅ |
-| Sun 27 Sep 04:30 | USA · MLS | Vancouver Whitecaps v DC United | 2.0 – 0.9 | 79% | 56% | 51% | – | **56%** | H 6/10 · A 6/10 | ✅ |
-| Sat 26 Sep 16:00 | England · National League | Carlisle v Woking | 1.7 – 1.1 | 77% | 53% | 54% | 1.56 (59%) | **56%** | H 6/10 · A 3/10 | ✅ |
-| Sat 26 Sep 16:00 | England · League Two | Swindon v Accrington | 1.9 – 1.0 | 80% | 57% | 55% | 1.77 (53%) | **55%** | H 8/10 · A 8/10 | ✅ |
-| Sat 26 Sep 16:00 | England · National League | Worthing v Halifax | 1.5 – 1.3 | 76% | 52% | 56% | 1.56 (59%) | **55%** | H 7/9 · A 5/10 | ✅ |
-| Sat 26 Sep 16:00 | England · League One | Cambridge v AFC Wimbledon | 2.1 – 0.8 | 79% | 56% | 49% | 2.01 (46%) | **52%** | H 7/10 · A 4/10 | ✅ |
-| Sat 26 Sep 16:00 | England · National League | Altrincham v Hornchurch | 1.6 – 1.1 | 75% | 51% | 53% | 1.69 (55%) | **52%** | H 8/10 · A 5/9 | ✅ |
-| Sat 26 Sep 14:00 | Spain · Segunda División | Ceuta v Sociedad B | 1.1 – 1.6 | 75% | 50% | 53% | 1.73 (54%) | **52%** | H 4/10 · A 6/10 | ✅ |
-| Sat 26 Sep 16:00 | England · League Two | Newport County v Grimsby | 1.2 – 1.5 | 75% | 50% | 54% | 1.79 (52%) | **51%** | H 6/10 · A 5/10 | ✅ |
-| Sat 26 Sep 16:15 | Spain · Segunda División | Granada v Andorra | 1.5 – 1.3 | 77% | 53% | 56% | 1.96 (47%) | **50%** | H 5/10 · A 6/10 | ✅ |
-| Sat 26 Sep 16:00 | England · National League | Scunthorpe v Hartlepool | 1.5 – 1.0 | 72% | 47% | 50% | 1.68 (55%) | **50%** | H 4/10 · A 4/10 | ✅ |
-| Sat 26 Sep 16:00 | England · League Two | Bristol Rvs v Exeter | 1.8 – 0.8 | 72% | 47% | 45% | 1.78 (52%) | **49%** | H 5/10 · A 3/10 | ✅ |
-| Sun 27 Sep 05:10 | Mexico · Liga MX | Tigres UANL v Puebla | 1.8 – 0.8 | 74% | 49% | 47% | – | **49%** | H 4/10 · A 4/10 | ✅ |
-| Sat 26 Sep 16:00 | England · League Two | Tranmere v Walsall | 1.1 – 1.5 | 73% | 47% | 51% | 1.86 (50%) | **48%** | H 4/10 · A 5/10 | ✅ |
-| Sat 26 Sep 18:30 | England · League Two | Oldham v Salford | 1.5 – 0.9 | 70% | 44% | 47% | 1.71 (54%) | **48%** | H 6/10 · A 4/10 | ✅ |
-| Sun 27 Sep 00:50 | Mexico · Liga MX | Cruz Azul v Toluca | 1.3 – 1.3 | 73% | 48% | 53% | – | **48%** | H 7/10 · A 6/10 | ✅ |
-| Sat 26 Sep 16:00 | England · National League | Sutton v Forest Green | 1.1 – 1.4 | 70% | 44% | 49% | 1.82 (51%) | **47%** | H 4/10 · A 7/10 | ✅ |
-| Sun 27 Sep 01:30 | USA · MLS | Atlanta Utd v New York City | 1.1 – 1.4 | 72% | 47% | 51% | – | **47%** | H 7/10 · A 4/10 | ✅ |
-| Sun 27 Sep 02:30 | USA · MLS | Austin FC v San Diego FC | 1.4 – 1.1 | 71% | 46% | 51% | – | **46%** | H 5/10 · A 6/10 | ✅ |
-| Sun 27 Sep 01:07 | Mexico · Liga MX | Guadalajara Chivas v Queretaro | 1.7 – 0.8 | 71% | 46% | 46% | – | **46%** | H 5/10 · A 5/10 | ✅ |
-| Sat 26 Sep 16:00 | England · League Two | Rotherham v Crewe | 1.0 – 1.2 | 66% | 40% | 46% | 1.69 (55%) | **46%** | H 5/10 · A 2/10 | ✅ |
-| Sat 26 Sep 18:30 | Spain · Segunda División | Tenerife v Cadiz | 1.7 – 0.9 | 73% | 48% | 49% | 2.33 (40%) | **45%** | H 2/6 · A 5/10 | ✅ |
-| Sat 26 Sep 18:30 | Spain · Segunda División | Celta B v Sabadell | 1.1 – 1.2 | 68% | 41% | 47% | 1.96 (47%) | **44%** | H 3/6 · A 2/6 | ✅ |
-| Sat 26 Sep 16:00 | England · National League | Kidderminster v Yeovil | 1.5 – 0.7 | 66% | 39% | 41% | 1.82 (51%) | **44%** | H 3/9 · A 7/10 | ✅ |
-| Sat 26 Sep 16:00 | England · League Two | Shrewsbury v Colchester | 1.1 – 1.1 | 65% | 39% | 45% | 1.98 (47%) | **42%** | H 3/10 · A 4/10 | ✅ |
-| Sat 26 Sep 16:00 | England · League Two | Fleetwood Town v Rochdale | 1.1 – 1.0 | 60% | 33% | 41% | 1.86 (50%) | **40%** | H 3/10 · A 6/10 | ✅ |
-| Sun 27 Sep 04:30 | USA · MLS | Los Angeles Galaxy v Colorado Rapids | 1.3 – 0.9 | 65% | 38% | 43% | – | **38%** | H 5/10 · A 3/10 | ✅ |
-| Sun 27 Sep 05:05 | Mexico · Liga MX | Santos Laguna v Pachuca | 0.8 – 1.4 | 65% | 38% | 42% | – | **38%** | H 6/10 · A 5/10 | ✅ |
+| Kick-off (SAST) | Competition | Match | Exp. goals | O1.5 | O2.5 | BTTS | Market O2.5 (odds) | Model O2.5 | Basis | O2.5 last-10 form | Data |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| Sun 27 Sep 01:30 | USA · MLS | Philadelphia Union v Orlando City | 2.2 – 1.4 | 88% | **70%** | 68% | – | 70% | 🧮 model only | H 7/10 · A 7/10 | ✅ |
+| Sat 26 Sep 16:00 | England · National League | Solihull v Boreham Wood | 1.3 – 2.2 | 87% | **69%** | 66% | 1.33 (70%) | 63% | 📈 market+model | H 7/10 · A 8/10 | ✅ |
+| Sat 26 Sep 16:00 | England · League One | Stockport v Peterboro | 2.4 – 1.0 | 86% | **67%** | 59% | 1.37 (68%) | 57% | 📈 market+model | H 8/10 · A 5/10 | ✅ |
+| Sun 27 Sep 01:30 | USA · MLS | CF Montreal v FC Cincinnati | 1.8 – 1.5 | 85% | **65%** | 66% | – | 65% | 🧮 model only | H 5/10 · A 8/10 | ✅ |
+| Sun 27 Sep 04:30 | USA · MLS | San Jose Earthquakes v Portland Timbers | 1.8 – 1.5 | 85% | **64%** | 65% | – | 64% | 🧮 model only | H 5/10 · A 8/10 | ✅ |
+| Sun 27 Sep 01:30 | USA · MLS | Charlotte v Chicago Fire | 1.9 – 1.4 | 84% | **64%** | 64% | – | 64% | 🧮 model only | H 7/10 · A 8/10 | ✅ |
+| Sun 27 Sep 02:30 | USA · MLS | Seattle Sounders v Minnesota United | 1.8 – 1.5 | 84% | **63%** | 65% | – | 63% | 🧮 model only | H 4/10 · A 7/10 | ✅ |
+| Sat 26 Sep 16:00 | England · National League | Boston Utd v Fylde | 1.6 – 1.6 | 84% | **62%** | 64% | 1.48 (63%) | 59% | 📈 market+model | H 6/10 · A 8/9 | ✅ |
+| Sun 27 Sep 02:30 | USA · MLS | Nashville SC v Toronto FC | 2.0 – 1.2 | 83% | **62%** | 60% | – | 62% | 🧮 model only | H 7/10 · A 8/10 | ✅ |
+| Sat 26 Sep 16:00 | England · National League | Aldershot v Tamworth | 1.6 – 1.5 | 83% | **61%** | 64% | 1.50 (62%) | 59% | 📈 market+model | H 2/10 · A 10/10 | ✅ |
+| Sun 27 Sep 01:30 | USA · MLS | New York Red Bulls v St. Louis City | 1.6 – 1.6 | 82% | **60%** | 63% | – | 60% | 🧮 model only | H 3/10 · A 7/10 | ✅ |
+| Sun 27 Sep 03:30 | USA · MLS | Real Salt Lake v New England Revolution | 1.6 – 1.6 | 82% | **60%** | 63% | – | 60% | 🧮 model only | H 5/10 · A 8/10 | ✅ |
+| Sun 27 Sep 02:30 | USA · MLS | FC Dallas v Los Angeles FC | 1.7 – 1.4 | 82% | **60%** | 63% | – | 60% | 🧮 model only | H 7/10 · A 4/10 | ✅ |
+| Sun 27 Sep 04:30 | USA · MLS | Vancouver Whitecaps v DC United | 1.9 – 1.2 | 82% | **60%** | 60% | – | 60% | 🧮 model only | H 6/10 · A 6/10 | ✅ |
+| Sun 27 Sep 02:30 | USA · MLS | Houston Dynamo v Sporting Kansas City | 1.9 – 1.2 | 82% | **60%** | 59% | – | 60% | 🧮 model only | H 3/10 · A 7/10 | ✅ |
+| Sat 26 Sep 16:00 | England · National League | Worthing v Halifax | 1.7 – 1.4 | 82% | **59%** | 62% | 1.56 (59%) | 57% | 📈 market+model | H 7/9 · A 5/10 | ✅ |
+| Sat 26 Sep 16:00 | England · National League | Carlisle v Woking | 1.9 – 1.1 | 81% | **59%** | 58% | 1.56 (59%) | 56% | 📈 market+model | H 6/10 · A 3/10 | ✅ |
+| Sat 26 Sep 16:00 | England · National League | Southend v Barrow | 1.9 – 1.2 | 81% | **59%** | 59% | 1.59 (58%) | 62% | 📈 market+model | H 8/10 · A 6/10 | ✅ |
+| Sat 26 Sep 16:00 | England · League Two | York v Gillingham | 2.0 – 1.0 | 81% | **59%** | 56% | 1.57 (59%) | 53% | 📈 market+model | H 5/10 · A 5/10 | ✅ |
+| Sun 27 Sep 02:30 | USA · MLS | Austin FC v San Diego FC | 1.7 – 1.3 | 81% | **58%** | 60% | – | 58% | 🧮 model only | H 5/10 · A 6/10 | ✅ |
+| Sat 26 Sep 16:00 | England · National League | Wealdstone v Gateshead | 1.8 – 1.1 | 80% | **57%** | 57% | 1.63 (57%) | 57% | 📈 market+model | H 6/10 · A 6/10 | ✅ |
+| Sat 26 Sep 16:00 | England · League One | Plymouth v Burton | 1.9 – 1.0 | 80% | **57%** | 55% | 1.64 (57%) | 56% | 📈 market+model | H 6/10 · A 7/10 | ✅ |
+| Sat 26 Sep 16:00 | England · National League | Harrogate v Eastleigh | 1.9 – 1.1 | 80% | **57%** | 56% | 1.64 (56%) | 58% | 📈 market+model | H 9/10 · A 4/10 | ✅ |
+| Sat 26 Sep 16:00 | England · League One | Wycombe v Reading | 1.5 – 1.5 | 80% | **56%** | 60% | 1.65 (56%) | 56% | 📈 market+model | H 6/10 · A 5/10 | ✅ |
+| Sun 27 Sep 01:30 | USA · MLS | Atlanta Utd v New York City | 1.5 – 1.4 | 79% | **56%** | 59% | – | 56% | 🧮 model only | H 7/10 · A 4/10 | ✅ |
+| Sat 26 Sep 16:00 | England · League Two | Cheltenham v Chesterfield | 1.3 – 1.6 | 79% | **56%** | 59% | 1.66 (56%) | 52% | 📈 market+model | H 9/10 · A 4/10 | ✅ |
+| Sat 26 Sep 16:00 | England · National League | Scunthorpe v Hartlepool | 1.6 – 1.3 | 79% | **55%** | 58% | 1.68 (55%) | 54% | 📈 market+model | H 4/10 · A 4/10 | ✅ |
+| Sat 26 Sep 16:00 | England · National League | Altrincham v Hornchurch | 1.6 – 1.3 | 79% | **55%** | 58% | 1.69 (55%) | 54% | 📈 market+model | H 8/10 · A 5/9 | ✅ |
+| Sat 26 Sep 16:00 | England · League Two | Rotherham v Crewe | 1.6 – 1.3 | 78% | **54%** | 58% | 1.69 (55%) | 45% | 📈 market+model | H 5/10 · A 2/10 | ✅ |
+| Sun 27 Sep 04:30 | USA · MLS | Los Angeles Galaxy v Colorado Rapids | 1.6 – 1.3 | 78% | **54%** | 57% | – | 54% | 🧮 model only | H 5/10 · A 3/10 | ✅ |
+| Sun 27 Sep 00:50 | Mexico · Liga MX | Cruz Azul v Toluca | 1.6 – 1.3 | 78% | **54%** | 58% | – | 54% | 🧮 model only | H 7/10 · A 6/10 | ✅ |
+| Sat 26 Sep 18:30 | England · League Two | Oldham v Salford | 1.5 – 1.4 | 78% | **54%** | 58% | 1.71 (54%) | 46% | 📈 market+model | H 6/10 · A 4/10 | ✅ |
+| Sat 26 Sep 14:00 | Spain · Segunda División | Ceuta v Sociedad B | 1.5 – 1.3 | 78% | **53%** | 57% | 1.73 (54%) | 50% | 📈 market+model | H 4/10 · A 6/10 | ✅ |
+| Sat 26 Sep 16:00 | England · League Two | Swindon v Accrington | 1.5 – 1.2 | 77% | **52%** | 56% | 1.77 (53%) | 50% | 📈 market+model | H 8/10 · A 8/10 | ✅ |
+| Sun 27 Sep 01:07 | Mexico · Liga MX | Guadalajara Chivas v Queretaro | 1.7 – 1.1 | 77% | **52%** | 54% | – | 52% | 🧮 model only | H 5/10 · A 5/10 | ✅ |
+| Sat 26 Sep 16:00 | England · League Two | Bristol Rvs v Exeter | 1.7 – 1.0 | 76% | **52%** | 53% | 1.78 (52%) | 46% | 📈 market+model | H 5/10 · A 3/10 | ✅ |
+| Sat 26 Sep 16:00 | England · League Two | Newport County v Grimsby | 1.1 – 1.7 | 76% | **52%** | 54% | 1.79 (52%) | 48% | 📈 market+model | H 6/10 · A 5/10 | ✅ |
+| Sat 26 Sep 16:00 | England · National League | Sutton v Forest Green | 1.3 – 1.4 | 76% | **51%** | 56% | 1.82 (51%) | 54% | 📈 market+model | H 4/10 · A 7/10 | ✅ |
+| Sat 26 Sep 16:00 | England · National League | Kidderminster v Yeovil | 1.6 – 1.2 | 76% | **51%** | 55% | 1.82 (51%) | 54% | 📈 market+model | H 3/9 · A 7/10 | ✅ |
+| Sun 27 Sep 05:10 | Mexico · Liga MX | Tigres UANL v Puebla | 1.6 – 1.1 | 76% | **51%** | 54% | – | 51% | 🧮 model only | H 4/10 · A 4/10 | ✅ |
+| Sun 27 Sep 05:05 | Mexico · Liga MX | Santos Laguna v Pachuca | 1.4 – 1.3 | 76% | **50%** | 55% | – | 50% | 🧮 model only | H 6/10 · A 5/10 | ✅ |
+| Sat 26 Sep 16:00 | England · League Two | Tranmere v Walsall | 1.4 – 1.3 | 75% | **50%** | 55% | 1.86 (50%) | 46% | 📈 market+model | H 4/10 · A 5/10 | ✅ |
+| Sat 26 Sep 16:00 | England · League Two | Fleetwood Town v Rochdale | 1.6 – 1.1 | 75% | **49%** | 53% | 1.86 (50%) | 44% | 📈 market+model | H 3/10 · A 6/10 | ✅ |
+| Sat 26 Sep 16:15 | Spain · Segunda División | Granada v Andorra | 1.4 – 1.2 | 74% | **48%** | 53% | 1.96 (47%) | 51% | 📈 market+model | H 5/10 · A 6/10 | ✅ |
+| Sat 26 Sep 18:30 | Spain · Segunda División | Celta B v Sabadell | 1.2 – 1.4 | 73% | **47%** | 53% | 1.96 (47%) | 48% | 📈 market+model | H 3/6 · A 2/6 | ✅ |
+| Sat 26 Sep 16:00 | England · League One | Cambridge v AFC Wimbledon | 1.6 – 1.0 | 73% | **47%** | 50% | 2.01 (46%) | 51% | 📈 market+model | H 7/10 · A 4/10 | ✅ |
+| Sat 26 Sep 16:00 | England · League Two | Shrewsbury v Colchester | 1.3 – 1.2 | 73% | **47%** | 52% | 1.98 (47%) | 44% | 📈 market+model | H 3/10 · A 4/10 | ✅ |
+| Sat 26 Sep 18:30 | Spain · Segunda División | Tenerife v Cadiz | 1.4 – 0.9 | 68% | **41%** | 46% | 2.33 (40%) | 50% | 📈 market+model | H 2/6 · A 5/10 | ✅ |
 
 ## 🔍 Match details (click to expand)
 
-<details><summary><b>Ceuta v Sociedad B</b> — Spain · Segunda División, Sat 26 Sep 14:00 · O2.5 52% · BTTS 53%</summary>
+<details><summary><b>Ceuta v Sociedad B</b> — Spain · Segunda División, Sat 26 Sep 14:00 · O2.5 53% · BTTS 57%</summary>
 
-* Model expected goals: **1.09 – 1.60** (total 2.69) · P(O1.5) 75% · P(O2.5) 50% · P(O3.5) 28% · P(BTTS) 53%
+* Final expected goals: **1.52 – 1.29** (total 2.81, market+model) · P(O1.5) **78%** · P(O2.5) **53%** · P(O3.5) 31% · P(BTTS) **57%**
+* Team-form model alone: 1.34 – 1.32 · P(O2.5) 50% · P(BTTS) 55% · Market-implied: 1.54 – 1.28
 * Market: Over 2.5 @ 1.73 / Under 2.5 @ 2.00 (implied O2.5 54%) · 1X2 2.16 / 3.42 / 2.96
 * League context: avg 1.45 home + 1.19 away goals · O2.5 in 50% · BTTS in 52% of matches
 
@@ -122,7 +125,7 @@ _Criteria: final probability ≥ 62% and both teams' average Both teams to score
 |---|---|
 | Goals for / against per game | 0.99 / 1.91 |
 | Home goals for / against | 0.96 / 1.38 |
-| Attack / defence strength (1.00 = league avg) | 0.76 / 1.21 |
+| Attack / defence strength (1.00 = league avg) | 0.93 / 1.09 |
 | Over 1.5 / 2.5 / 3.5 rate | 86% / 54% / 29% |
 | BTTS rate | 56% |
 | Clean sheets / failed to score | 18% / 32% |
@@ -137,7 +140,7 @@ _Criteria: final probability ≥ 62% and both teams' average Both teams to score
 |---|---|
 | Goals for / against per game | 1.21 / 1.32 |
 | Away goals for / against | 1.52 / 1.40 |
-| Attack / defence strength (1.00 = league avg) | 1.11 / 0.98 |
+| Attack / defence strength (1.00 = league avg) | 1.01 / 1.00 |
 | Over 1.5 / 2.5 / 3.5 rate | 68% / 45% / 30% |
 | BTTS rate | 57% |
 | Clean sheets / failed to score | 15% / 35% |
@@ -151,9 +154,10 @@ _Criteria: final probability ≥ 62% and both teams' average Both teams to score
 
 </details>
 
-<details><summary><b>Cambridge v AFC Wimbledon</b> — England · League One, Sat 26 Sep 16:00 · O2.5 52% · BTTS 49%</summary>
+<details><summary><b>Cambridge v AFC Wimbledon</b> — England · League One, Sat 26 Sep 16:00 · O2.5 47% · BTTS 50%</summary>
 
-* Model expected goals: **2.15 – 0.80** (total 2.95) · P(O1.5) 79% · P(O2.5) 56% · P(O3.5) 34% · P(BTTS) 49%
+* Final expected goals: **1.59 – 0.96** (total 2.55, market+model) · P(O1.5) **73%** · P(O2.5) **47%** · P(O3.5) 25% · P(BTTS) **50%**
+* Team-form model alone: 1.65 – 1.07 · P(O2.5) 51% · P(BTTS) 54% · Market-implied: 1.58 – 0.95
 * Market: Over 2.5 @ 2.01 / Under 2.5 @ 1.74 (implied O2.5 46%) · 1X2 1.82 / 3.50 / 4.27
 * League context: avg 1.51 home + 1.27 away goals · O2.5 in 53% · BTTS in 56% of matches
 
@@ -163,7 +167,7 @@ _Criteria: final probability ≥ 62% and both teams' average Both teams to score
 |---|---|
 | Goals for / against per game | 1.60 / 0.92 |
 | Home goals for / against | 2.06 / 1.00 |
-| Attack / defence strength (1.00 = league avg) | 1.24 / 0.82 |
+| Attack / defence strength (1.00 = league avg) | 1.07 / 0.93 |
 | Over 1.5 / 2.5 / 3.5 rate | 83% / 50% / 19% |
 | BTTS rate | 65% |
 | Clean sheets / failed to score | 31% / 13% |
@@ -178,7 +182,7 @@ _Criteria: final probability ≥ 62% and both teams' average Both teams to score
 |---|---|
 | Goals for / against per game | 0.87 / 1.46 |
 | Away goals for / against | 0.97 / 1.96 |
-| Attack / defence strength (1.00 = league avg) | 0.77 / 1.15 |
+| Attack / defence strength (1.00 = league avg) | 0.91 / 1.03 |
 | Over 1.5 / 2.5 / 3.5 rate | 54% / 40% / 29% |
 | BTTS rate | 30% |
 | Clean sheets / failed to score | 38% / 46% |
@@ -191,9 +195,10 @@ _No head-to-head data in the last two seasons._
 
 </details>
 
-<details><summary><b>Plymouth v Burton</b> — England · League One, Sat 26 Sep 16:00 · O2.5 58% · BTTS 57%</summary>
+<details><summary><b>Plymouth v Burton</b> — England · League One, Sat 26 Sep 16:00 · O2.5 57% · BTTS 55%</summary>
 
-* Model expected goals: **1.99 – 1.08** (total 3.07) · P(O1.5) 81% · P(O2.5) 59% · P(O3.5) 37% · P(BTTS) 57%
+* Final expected goals: **1.93 – 1.03** (total 2.96, market+model) · P(O1.5) **80%** · P(O2.5) **57%** · P(O3.5) 34% · P(BTTS) **55%**
+* Team-form model alone: 1.70 – 1.22 · P(O2.5) 56% · P(BTTS) 58% · Market-implied: 1.95 – 1.01
 * Market: Over 2.5 @ 1.64 / Under 2.5 @ 2.16 (implied O2.5 57%) · 1X2 1.59 / 4.11 / 5.06
 * League context: avg 1.51 home + 1.27 away goals · O2.5 in 53% · BTTS in 56% of matches
 
@@ -203,7 +208,7 @@ _No head-to-head data in the last two seasons._
 |---|---|
 | Goals for / against per game | 1.96 / 1.28 |
 | Home goals for / against | 1.82 / 1.23 |
-| Attack / defence strength (1.00 = league avg) | 1.24 / 0.96 |
+| Attack / defence strength (1.00 = league avg) | 1.10 / 0.98 |
 | Over 1.5 / 2.5 / 3.5 rate | 88% / 63% / 41% |
 | BTTS rate | 60% |
 | Clean sheets / failed to score | 29% / 11% |
@@ -218,7 +223,7 @@ _No head-to-head data in the last two seasons._
 |---|---|
 | Goals for / against per game | 1.39 / 1.46 |
 | Away goals for / against | 0.97 / 1.66 |
-| Attack / defence strength (1.00 = league avg) | 0.88 / 1.06 |
+| Attack / defence strength (1.00 = league avg) | 0.98 / 1.02 |
 | Over 1.5 / 2.5 / 3.5 rate | 85% / 64% / 31% |
 | BTTS rate | 68% |
 | Clean sheets / failed to score | 13% / 23% |
@@ -232,9 +237,10 @@ _No head-to-head data in the last two seasons._
 
 </details>
 
-<details><summary><b>Stockport v Peterboro</b> — England · League One, Sat 26 Sep 16:00 · O2.5 69% · BTTS 62%</summary>
+<details><summary><b>Stockport v Peterboro</b> — England · League One, Sat 26 Sep 16:00 · O2.5 67% · BTTS 59%</summary>
 
-* Model expected goals: **2.42 – 1.12** (total 3.55) · P(O1.5) 87% · P(O2.5) 69% · P(O3.5) 47% · P(BTTS) 62%
+* Final expected goals: **2.41 – 1.04** (total 3.45, market+model) · P(O1.5) **86%** · P(O2.5) **67%** · P(O3.5) 45% · P(BTTS) **59%**
+* Team-form model alone: 1.76 – 1.21 · P(O2.5) 57% · P(BTTS) 59% · Market-implied: 2.48 – 1.03
 * Market: Over 2.5 @ 1.37 / Under 2.5 @ 2.92 (implied O2.5 68%) · 1X2 1.35 / 5.21 / 6.95
 * League context: avg 1.51 home + 1.27 away goals · O2.5 in 53% · BTTS in 56% of matches
 
@@ -244,7 +250,7 @@ _No head-to-head data in the last two seasons._
 |---|---|
 | Goals for / against per game | 1.90 / 1.36 |
 | Home goals for / against | 2.30 / 1.63 |
-| Attack / defence strength (1.00 = league avg) | 1.36 / 1.13 |
+| Attack / defence strength (1.00 = league avg) | 1.11 / 1.02 |
 | Over 1.5 / 2.5 / 3.5 rate | 83% / 69% / 41% |
 | BTTS rate | 58% |
 | Clean sheets / failed to score | 26% / 25% |
@@ -259,7 +265,7 @@ _No head-to-head data in the last two seasons._
 |---|---|
 | Goals for / against per game | 1.14 / 1.59 |
 | Away goals for / against | 0.85 / 1.94 |
-| Attack / defence strength (1.00 = league avg) | 0.78 / 1.18 |
+| Attack / defence strength (1.00 = league avg) | 0.94 / 1.05 |
 | Over 1.5 / 2.5 / 3.5 rate | 85% / 52% / 28% |
 | BTTS rate | 58% |
 | Clean sheets / failed to score | 18% / 32% |
@@ -273,9 +279,10 @@ _No head-to-head data in the last two seasons._
 
 </details>
 
-<details><summary><b>Wycombe v Reading</b> — England · League One, Sat 26 Sep 16:00 · O2.5 57% · BTTS 60%</summary>
+<details><summary><b>Wycombe v Reading</b> — England · League One, Sat 26 Sep 16:00 · O2.5 56% · BTTS 60%</summary>
 
-* Model expected goals: **1.56 – 1.42** (total 2.98) · P(O1.5) 80% · P(O2.5) 57% · P(O3.5) 35% · P(BTTS) 60%
+* Final expected goals: **1.48 – 1.46** (total 2.94, market+model) · P(O1.5) **80%** · P(O2.5) **56%** · P(O3.5) 34% · P(BTTS) **60%**
+* Team-form model alone: 1.54 – 1.37 · P(O2.5) 56% · P(BTTS) 59% · Market-implied: 1.47 – 1.47
 * Market: Over 2.5 @ 1.65 / Under 2.5 @ 2.14 (implied O2.5 56%) · 1X2 2.52 / 3.61 / 2.53
 * League context: avg 1.51 home + 1.27 away goals · O2.5 in 53% · BTTS in 56% of matches
 
@@ -285,7 +292,7 @@ _No head-to-head data in the last two seasons._
 |---|---|
 | Goals for / against per game | 1.64 / 1.64 |
 | Home goals for / against | 1.93 / 1.38 |
-| Attack / defence strength (1.00 = league avg) | 1.19 / 1.09 |
+| Attack / defence strength (1.00 = league avg) | 1.06 / 1.04 |
 | Over 1.5 / 2.5 / 3.5 rate | 84% / 58% / 39% |
 | BTTS rate | 64% |
 | Clean sheets / failed to score | 25% / 16% |
@@ -300,7 +307,7 @@ _No head-to-head data in the last two seasons._
 |---|---|
 | Goals for / against per game | 1.76 / 1.23 |
 | Away goals for / against | 1.11 / 1.19 |
-| Attack / defence strength (1.00 = league avg) | 1.02 / 0.87 |
+| Attack / defence strength (1.00 = league avg) | 1.04 / 0.97 |
 | Over 1.5 / 2.5 / 3.5 rate | 81% / 56% / 36% |
 | BTTS rate | 60% |
 | Clean sheets / failed to score | 29% / 17% |
@@ -314,9 +321,10 @@ _No head-to-head data in the last two seasons._
 
 </details>
 
-<details><summary><b>Bristol Rvs v Exeter</b> — England · League Two, Sat 26 Sep 16:00 · O2.5 49% · BTTS 45%</summary>
+<details><summary><b>Bristol Rvs v Exeter</b> — England · League Two, Sat 26 Sep 16:00 · O2.5 52% · BTTS 53%</summary>
 
-* Model expected goals: **1.76 – 0.78** (total 2.54) · P(O1.5) 72% · P(O2.5) 47% · P(O3.5) 25% · P(BTTS) 45%
+* Final expected goals: **1.73 – 1.01** (total 2.74, market+model) · P(O1.5) **76%** · P(O2.5) **52%** · P(O3.5) 30% · P(BTTS) **53%**
+* Team-form model alone: 1.52 – 1.01 · P(O2.5) 46% · P(BTTS) 50% · Market-implied: 1.75 – 1.01
 * Market: Over 2.5 @ 1.78 / Under 2.5 @ 1.95 (implied O2.5 52%) · 1X2 1.72 / 3.79 / 4.41
 * League context: avg 1.47 home + 1.12 away goals · O2.5 in 47% · BTTS in 51% of matches
 
@@ -326,7 +334,7 @@ _No head-to-head data in the last two seasons._
 |---|---|
 | Goals for / against per game | 1.53 / 1.33 |
 | Home goals for / against | 2.10 / 0.92 |
-| Attack / defence strength (1.00 = league avg) | 1.25 / 0.92 |
+| Attack / defence strength (1.00 = league avg) | 1.06 / 0.99 |
 | Over 1.5 / 2.5 / 3.5 rate | 79% / 46% / 28% |
 | BTTS rate | 37% |
 | Clean sheets / failed to score | 34% / 30% |
@@ -341,7 +349,7 @@ _No head-to-head data in the last two seasons._
 |---|---|
 | Goals for / against per game | 0.94 / 1.20 |
 | Away goals for / against | 0.88 / 1.50 |
-| Attack / defence strength (1.00 = league avg) | 0.76 / 0.96 |
+| Attack / defence strength (1.00 = league avg) | 0.91 / 0.97 |
 | Over 1.5 / 2.5 / 3.5 rate | 60% / 38% / 20% |
 | BTTS rate | 42% |
 | Clean sheets / failed to score | 34% / 42% |
@@ -354,9 +362,10 @@ _No head-to-head data in the last two seasons._
 
 </details>
 
-<details><summary><b>Cheltenham v Chesterfield</b> — England · League Two, Sat 26 Sep 16:00 · O2.5 58% · BTTS 61%</summary>
+<details><summary><b>Cheltenham v Chesterfield</b> — England · League Two, Sat 26 Sep 16:00 · O2.5 56% · BTTS 59%</summary>
 
-* Model expected goals: **1.39 – 1.70** (total 3.09) · P(O1.5) 81% · P(O2.5) 60% · P(O3.5) 37% · P(BTTS) 61%
+* Final expected goals: **1.33 – 1.58** (total 2.91, market+model) · P(O1.5) **79%** · P(O2.5) **56%** · P(O3.5) 33% · P(BTTS) **59%**
+* Team-form model alone: 1.49 – 1.28 · P(O2.5) 52% · P(BTTS) 56% · Market-implied: 1.32 – 1.61
 * Market: Over 2.5 @ 1.66 / Under 2.5 @ 2.11 (implied O2.5 56%) · 1X2 3.03 / 3.65 / 2.13
 * League context: avg 1.47 home + 1.12 away goals · O2.5 in 47% · BTTS in 51% of matches
 
@@ -366,7 +375,7 @@ _No head-to-head data in the last two seasons._
 |---|---|
 | Goals for / against per game | 1.61 / 1.65 |
 | Home goals for / against | 1.74 / 1.64 |
-| Attack / defence strength (1.00 = league avg) | 1.17 / 1.31 |
+| Attack / defence strength (1.00 = league avg) | 1.07 / 1.09 |
 | Over 1.5 / 2.5 / 3.5 rate | 90% / 68% / 49% |
 | BTTS rate | 77% |
 | Clean sheets / failed to score | 14% / 11% |
@@ -381,7 +390,7 @@ _No head-to-head data in the last two seasons._
 |---|---|
 | Goals for / against per game | 1.45 / 1.08 |
 | Away goals for / against | 1.39 / 1.01 |
-| Attack / defence strength (1.00 = league avg) | 1.15 / 0.81 |
+| Attack / defence strength (1.00 = league avg) | 1.04 / 0.95 |
 | Over 1.5 / 2.5 / 3.5 rate | 71% / 43% / 18% |
 | BTTS rate | 57% |
 | Clean sheets / failed to score | 33% / 12% |
@@ -395,9 +404,10 @@ _No head-to-head data in the last two seasons._
 
 </details>
 
-<details><summary><b>Fleetwood Town v Rochdale</b> — England · League Two, Sat 26 Sep 16:00 · O2.5 40% · BTTS 41%</summary>
+<details><summary><b>Fleetwood Town v Rochdale</b> — England · League Two, Sat 26 Sep 16:00 · O2.5 49% · BTTS 53%</summary>
 
-* Model expected goals: **1.08 – 0.96** (total 2.04) · P(O1.5) 60% · P(O2.5) 33% · P(O3.5) 15% · P(BTTS) 41%
+* Final expected goals: **1.59 – 1.06** (total 2.65, market+model) · P(O1.5) **75%** · P(O2.5) **49%** · P(O3.5) 27% · P(BTTS) **53%**
+* Team-form model alone: 1.36 – 1.08 · P(O2.5) 44% · P(BTTS) 50% · Market-implied: 1.61 – 1.05
 * Market: Over 2.5 @ 1.86 / Under 2.5 @ 1.85 (implied O2.5 50%) · 1X2 1.88 / 3.58 / 3.87
 * League context: avg 1.47 home + 1.12 away goals · O2.5 in 47% · BTTS in 51% of matches
 
@@ -407,7 +417,7 @@ _No head-to-head data in the last two seasons._
 |---|---|
 | Goals for / against per game | 1.14 / 1.14 |
 | Home goals for / against | 1.16 / 1.02 |
-| Attack / defence strength (1.00 = league avg) | 0.87 / 0.92 |
+| Attack / defence strength (1.00 = league avg) | 0.97 / 0.97 |
 | Over 1.5 / 2.5 / 3.5 rate | 70% / 37% / 22% |
 | BTTS rate | 63% |
 | Clean sheets / failed to score | 29% / 18% |
@@ -422,7 +432,7 @@ _No head-to-head data in the last two seasons._
 |---|---|
 | Goals for / against per game | 1.52 / 1.20 |
 | Away goals for / against | 1.13 / 1.13 |
-| Attack / defence strength (1.00 = league avg) | 0.93 / 0.84 |
+| Attack / defence strength (1.00 = league avg) | 0.99 / 0.96 |
 | Over 1.5 / 2.5 / 3.5 rate | 78% / 59% / 25% |
 | BTTS rate | 51% |
 | Clean sheets / failed to score | 38% / 20% |
@@ -435,9 +445,10 @@ _No head-to-head data in the last two seasons._
 
 </details>
 
-<details><summary><b>Newport County v Grimsby</b> — England · League Two, Sat 26 Sep 16:00 · O2.5 51% · BTTS 54%</summary>
+<details><summary><b>Newport County v Grimsby</b> — England · League Two, Sat 26 Sep 16:00 · O2.5 52% · BTTS 54%</summary>
 
-* Model expected goals: **1.18 – 1.50** (total 2.68) · P(O1.5) 75% · P(O2.5) 50% · P(O3.5) 28% · P(BTTS) 54%
+* Final expected goals: **1.08 – 1.66** (total 2.74, market+model) · P(O1.5) **76%** · P(O2.5) **52%** · P(O3.5) 30% · P(BTTS) **54%**
+* Team-form model alone: 1.35 – 1.25 · P(O2.5) 48% · P(BTTS) 54% · Market-implied: 1.05 – 1.70
 * Market: Over 2.5 @ 1.79 / Under 2.5 @ 1.94 (implied O2.5 52%) · 1X2 4.10 / 3.67 / 1.80
 * League context: avg 1.47 home + 1.12 away goals · O2.5 in 47% · BTTS in 51% of matches
 
@@ -447,7 +458,7 @@ _No head-to-head data in the last two seasons._
 |---|---|
 | Goals for / against per game | 1.22 / 1.56 |
 | Home goals for / against | 1.48 / 1.28 |
-| Attack / defence strength (1.00 = league avg) | 0.99 / 1.13 |
+| Attack / defence strength (1.00 = league avg) | 0.99 / 1.05 |
 | Over 1.5 / 2.5 / 3.5 rate | 73% / 58% / 28% |
 | BTTS rate | 55% |
 | Clean sheets / failed to score | 21% / 35% |
@@ -462,7 +473,7 @@ _No head-to-head data in the last two seasons._
 |---|---|
 | Goals for / against per game | 1.62 / 0.95 |
 | Away goals for / against | 1.39 / 1.15 |
-| Attack / defence strength (1.00 = league avg) | 1.19 / 0.81 |
+| Attack / defence strength (1.00 = league avg) | 1.07 / 0.93 |
 | Over 1.5 / 2.5 / 3.5 rate | 71% / 46% / 40% |
 | BTTS rate | 47% |
 | Clean sheets / failed to score | 47% / 14% |
@@ -476,9 +487,10 @@ _No head-to-head data in the last two seasons._
 
 </details>
 
-<details><summary><b>Rotherham v Crewe</b> — England · League Two, Sat 26 Sep 16:00 · O2.5 46% · BTTS 46%</summary>
+<details><summary><b>Rotherham v Crewe</b> — England · League Two, Sat 26 Sep 16:00 · O2.5 54% · BTTS 58%</summary>
 
-* Model expected goals: **1.03 – 1.24** (total 2.27) · P(O1.5) 66% · P(O2.5) 40% · P(O3.5) 19% · P(BTTS) 46%
+* Final expected goals: **1.58 – 1.27** (total 2.84, market+model) · P(O1.5) **78%** · P(O2.5) **54%** · P(O3.5) 32% · P(BTTS) **58%**
+* Team-form model alone: 1.32 – 1.16 · P(O2.5) 45% · P(BTTS) 51% · Market-implied: 1.60 – 1.28
 * Market: Over 2.5 @ 1.69 / Under 2.5 @ 2.07 (implied O2.5 55%) · 1X2 2.10 / 3.63 / 3.11
 * League context: avg 1.47 home + 1.12 away goals · O2.5 in 47% · BTTS in 51% of matches
 
@@ -488,7 +500,7 @@ _No head-to-head data in the last two seasons._
 |---|---|
 | Goals for / against per game | 1.06 / 1.59 |
 | Home goals for / against | 1.28 / 1.58 |
-| Attack / defence strength (1.00 = league avg) | 0.87 / 1.20 |
+| Attack / defence strength (1.00 = league avg) | 0.95 / 1.06 |
 | Over 1.5 / 2.5 / 3.5 rate | 71% / 52% / 28% |
 | BTTS rate | 51% |
 | Clean sheets / failed to score | 19% / 36% |
@@ -503,7 +515,7 @@ _No head-to-head data in the last two seasons._
 |---|---|
 | Goals for / against per game | 1.18 / 1.06 |
 | Away goals for / against | 1.01 / 1.01 |
-| Attack / defence strength (1.00 = league avg) | 0.92 / 0.81 |
+| Attack / defence strength (1.00 = league avg) | 0.97 / 0.95 |
 | Over 1.5 / 2.5 / 3.5 rate | 67% / 35% / 24% |
 | BTTS rate | 56% |
 | Clean sheets / failed to score | 30% / 23% |
@@ -516,9 +528,10 @@ _No head-to-head data in the last two seasons._
 
 </details>
 
-<details><summary><b>Shrewsbury v Colchester</b> — England · League Two, Sat 26 Sep 16:00 · O2.5 42% · BTTS 45%</summary>
+<details><summary><b>Shrewsbury v Colchester</b> — England · League Two, Sat 26 Sep 16:00 · O2.5 47% · BTTS 52%</summary>
 
-* Model expected goals: **1.13 – 1.10** (total 2.23) · P(O1.5) 65% · P(O2.5) 39% · P(O3.5) 19% · P(BTTS) 45%
+* Final expected goals: **1.30 – 1.25** (total 2.54, market+model) · P(O1.5) **73%** · P(O2.5) **47%** · P(O3.5) 25% · P(BTTS) **52%**
+* Team-form model alone: 1.31 – 1.12 · P(O2.5) 44% · P(BTTS) 50% · Market-implied: 1.30 – 1.26
 * Market: Over 2.5 @ 1.98 / Under 2.5 @ 1.76 (implied O2.5 47%) · 1X2 2.55 / 3.29 / 2.67
 * League context: avg 1.47 home + 1.12 away goals · O2.5 in 47% · BTTS in 51% of matches
 
@@ -528,7 +541,7 @@ _No head-to-head data in the last two seasons._
 |---|---|
 | Goals for / against per game | 0.85 / 1.46 |
 | Home goals for / against | 1.17 / 1.15 |
-| Attack / defence strength (1.00 = league avg) | 0.79 / 1.04 |
+| Attack / defence strength (1.00 = league avg) | 0.91 / 1.02 |
 | Over 1.5 / 2.5 / 3.5 rate | 69% / 37% / 22% |
 | BTTS rate | 36% |
 | Clean sheets / failed to score | 27% / 40% |
@@ -543,7 +556,7 @@ _No head-to-head data in the last two seasons._
 |---|---|
 | Goals for / against per game | 1.19 / 1.14 |
 | Away goals for / against | 1.05 / 1.52 |
-| Attack / defence strength (1.00 = league avg) | 0.94 / 0.97 |
+| Attack / defence strength (1.00 = league avg) | 0.98 / 0.98 |
 | Over 1.5 / 2.5 / 3.5 rate | 68% / 38% / 22% |
 | BTTS rate | 53% |
 | Clean sheets / failed to score | 22% / 30% |
@@ -557,9 +570,10 @@ _No head-to-head data in the last two seasons._
 
 </details>
 
-<details><summary><b>Swindon v Accrington</b> — England · League Two, Sat 26 Sep 16:00 · O2.5 55% · BTTS 55%</summary>
+<details><summary><b>Swindon v Accrington</b> — England · League Two, Sat 26 Sep 16:00 · O2.5 52% · BTTS 56%</summary>
 
-* Model expected goals: **1.94 – 1.03** (total 2.97) · P(O1.5) 80% · P(O2.5) 57% · P(O3.5) 35% · P(BTTS) 55%
+* Final expected goals: **1.53 – 1.24** (total 2.77, market+model) · P(O1.5) **77%** · P(O2.5) **52%** · P(O3.5) 30% · P(BTTS) **56%**
+* Team-form model alone: 1.57 – 1.10 · P(O2.5) 50% · P(BTTS) 54% · Market-implied: 1.53 – 1.25
 * Market: Over 2.5 @ 1.77 / Under 2.5 @ 1.96 (implied O2.5 53%) · 1X2 2.17 / 3.50 / 3.06
 * League context: avg 1.47 home + 1.12 away goals · O2.5 in 47% · BTTS in 51% of matches
 
@@ -569,7 +583,7 @@ _No head-to-head data in the last two seasons._
 |---|---|
 | Goals for / against per game | 1.27 / 1.45 |
 | Home goals for / against | 1.96 / 1.14 |
-| Attack / defence strength (1.00 = league avg) | 1.13 / 1.04 |
+| Attack / defence strength (1.00 = league avg) | 1.01 / 1.02 |
 | Over 1.5 / 2.5 / 3.5 rate | 79% / 65% / 31% |
 | BTTS rate | 53% |
 | Clean sheets / failed to score | 21% / 32% |
@@ -584,7 +598,7 @@ _No head-to-head data in the last two seasons._
 |---|---|
 | Goals for / against per game | 1.17 / 1.57 |
 | Away goals for / against | 0.93 / 1.76 |
-| Attack / defence strength (1.00 = league avg) | 0.88 / 1.16 |
+| Attack / defence strength (1.00 = league avg) | 0.96 / 1.06 |
 | Over 1.5 / 2.5 / 3.5 rate | 75% / 53% / 35% |
 | BTTS rate | 52% |
 | Clean sheets / failed to score | 21% / 37% |
@@ -598,9 +612,10 @@ _No head-to-head data in the last two seasons._
 
 </details>
 
-<details><summary><b>Tranmere v Walsall</b> — England · League Two, Sat 26 Sep 16:00 · O2.5 48% · BTTS 51%</summary>
+<details><summary><b>Tranmere v Walsall</b> — England · League Two, Sat 26 Sep 16:00 · O2.5 50% · BTTS 55%</summary>
 
-* Model expected goals: **1.06 – 1.51** (total 2.56) · P(O1.5) 73% · P(O2.5) 47% · P(O3.5) 26% · P(BTTS) 51%
+* Final expected goals: **1.37 – 1.29** (total 2.66, market+model) · P(O1.5) **75%** · P(O2.5) **50%** · P(O3.5) 28% · P(BTTS) **55%**
+* Team-form model alone: 1.33 – 1.20 · P(O2.5) 46% · P(BTTS) 52% · Market-implied: 1.37 – 1.30
 * Market: Over 2.5 @ 1.86 / Under 2.5 @ 1.86 (implied O2.5 50%) · 1X2 2.48 / 3.31 / 2.72
 * League context: avg 1.47 home + 1.12 away goals · O2.5 in 47% · BTTS in 51% of matches
 
@@ -610,7 +625,7 @@ _No head-to-head data in the last two seasons._
 |---|---|
 | Goals for / against per game | 1.04 / 1.48 |
 | Home goals for / against | 1.22 / 1.38 |
-| Attack / defence strength (1.00 = league avg) | 0.86 / 1.15 |
+| Attack / defence strength (1.00 = league avg) | 0.95 / 1.04 |
 | Over 1.5 / 2.5 / 3.5 rate | 80% / 44% / 29% |
 | BTTS rate | 48% |
 | Clean sheets / failed to score | 25% / 35% |
@@ -625,7 +640,7 @@ _No head-to-head data in the last two seasons._
 |---|---|
 | Goals for / against per game | 1.23 / 1.08 |
 | Away goals for / against | 1.53 / 1.10 |
-| Attack / defence strength (1.00 = league avg) | 1.17 / 0.84 |
+| Attack / defence strength (1.00 = league avg) | 1.02 / 0.95 |
 | Over 1.5 / 2.5 / 3.5 rate | 68% / 48% / 31% |
 | BTTS rate | 42% |
 | Clean sheets / failed to score | 42% / 41% |
@@ -639,9 +654,10 @@ _No head-to-head data in the last two seasons._
 
 </details>
 
-<details><summary><b>York v Gillingham</b> — England · League Two, Sat 26 Sep 16:00 · O2.5 63% · BTTS 53%</summary>
+<details><summary><b>York v Gillingham</b> — England · League Two, Sat 26 Sep 16:00 · O2.5 59% · BTTS 56%</summary>
 
-* Model expected goals: **2.47 – 0.88** (total 3.35) · P(O1.5) 85% · P(O2.5) 65% · P(O3.5) 43% · P(BTTS) 53%
+* Final expected goals: **2.04 – 1.00** (total 3.04, market+model) · P(O1.5) **81%** · P(O2.5) **59%** · P(O3.5) 36% · P(BTTS) **56%**
+* Team-form model alone: 1.78 – 1.04 · P(O2.5) 53% · P(BTTS) 54% · Market-implied: 2.07 – 1.00
 * Market: Over 2.5 @ 1.57 / Under 2.5 @ 2.28 (implied O2.5 59%) · 1X2 1.51 / 4.41 / 5.49
 * League context: avg 1.47 home + 1.12 away goals · O2.5 in 47% · BTTS in 51% of matches
 
@@ -651,7 +667,7 @@ _No head-to-head data in the last two seasons._
 |---|---|
 | Goals for / against per game | 2.20 / 1.06 |
 | Home goals for / against | 3.01 / 0.85 |
-| Attack / defence strength (1.00 = league avg) | 1.60 / 0.77 |
+| Attack / defence strength (1.00 = league avg) | 1.17 / 0.93 |
 | Over 1.5 / 2.5 / 3.5 rate | 91% / 65% / 42% |
 | BTTS rate | 59% |
 | Clean sheets / failed to score | 34% / 7% |
@@ -666,7 +682,7 @@ _No head-to-head data in the last two seasons._
 |---|---|
 | Goals for / against per game | 1.27 / 1.47 |
 | Away goals for / against | 1.17 / 1.44 |
-| Attack / defence strength (1.00 = league avg) | 1.01 / 1.05 |
+| Attack / defence strength (1.00 = league avg) | 1.00 / 1.03 |
 | Over 1.5 / 2.5 / 3.5 rate | 80% / 48% / 24% |
 | BTTS rate | 48% |
 | Clean sheets / failed to score | 31% / 29% |
@@ -679,9 +695,10 @@ _No head-to-head data in the last two seasons._
 
 </details>
 
-<details><summary><b>Aldershot v Tamworth</b> — England · National League, Sat 26 Sep 16:00 · O2.5 62% · BTTS 63%</summary>
+<details><summary><b>Aldershot v Tamworth</b> — England · National League, Sat 26 Sep 16:00 · O2.5 61% · BTTS 64%</summary>
 
-* Model expected goals: **1.83 – 1.40** (total 3.24) · P(O1.5) 83% · P(O2.5) 63% · P(O3.5) 41% · P(BTTS) 63%
+* Final expected goals: **1.62 – 1.55** (total 3.17, market+model) · P(O1.5) **83%** · P(O2.5) **61%** · P(O3.5) 39% · P(BTTS) **64%**
+* Team-form model alone: 1.69 – 1.36 · P(O2.5) 59% · P(BTTS) 61% · Market-implied: 1.61 – 1.57
 * Market: Over 2.5 @ 1.50 / Under 2.5 @ 2.41 (implied O2.5 62%) · 1X2 2.36 / 3.60 / 2.49
 * League context: avg 1.60 home + 1.36 away goals · O2.5 in 59% · BTTS in 61% of matches
 
@@ -691,7 +708,7 @@ _No head-to-head data in the last two seasons._
 |---|---|
 | Goals for / against per game | 1.18 / 1.29 |
 | Home goals for / against | 1.16 / 1.45 |
-| Attack / defence strength (1.00 = league avg) | 0.80 / 1.00 |
+| Attack / defence strength (1.00 = league avg) | 0.94 / 0.98 |
 | Over 1.5 / 2.5 / 3.5 rate | 74% / 44% / 19% |
 | BTTS rate | 56% |
 | Clean sheets / failed to score | 16% / 29% |
@@ -705,7 +722,7 @@ _No head-to-head data in the last two seasons._
 |---|---|
 | Goals for / against per game | 1.62 / 2.02 |
 | Away goals for / against | 1.38 / 2.64 |
-| Attack / defence strength (1.00 = league avg) | 1.03 / 1.42 |
+| Attack / defence strength (1.00 = league avg) | 1.02 / 1.12 |
 | Over 1.5 / 2.5 / 3.5 rate | 85% / 76% / 59% |
 | BTTS rate | 82% |
 | Clean sheets / failed to score | 10% / 11% |
@@ -718,9 +735,10 @@ _No head-to-head data in the last two seasons._
 
 </details>
 
-<details><summary><b>Altrincham v Hornchurch</b> — England · National League, Sat 26 Sep 16:00 · O2.5 52% · BTTS 53%</summary>
+<details><summary><b>Altrincham v Hornchurch</b> — England · National League, Sat 26 Sep 16:00 · O2.5 55% · BTTS 58%</summary>
 
-* Model expected goals: **1.62 – 1.08** (total 2.70) · P(O1.5) 75% · P(O2.5) 51% · P(O3.5) 29% · P(BTTS) 53%
+* Final expected goals: **1.58 – 1.29** (total 2.87, market+model) · P(O1.5) **79%** · P(O2.5) **55%** · P(O3.5) 32% · P(BTTS) **58%**
+* Team-form model alone: 1.54 – 1.29 · P(O2.5) 54% · P(BTTS) 58% · Market-implied: 1.58 – 1.29
 * Market: Over 2.5 @ 1.69 / Under 2.5 @ 2.05 (implied O2.5 55%) · 1X2 2.08 / 3.49 / 2.98
 * League context: avg 1.60 home + 1.36 away goals · O2.5 in 59% · BTTS in 61% of matches
 
@@ -730,7 +748,7 @@ _No head-to-head data in the last two seasons._
 |---|---|
 | Goals for / against per game | 1.30 / 1.46 |
 | Home goals for / against | 1.60 / 1.11 |
-| Attack / defence strength (1.00 = league avg) | 0.96 / 0.90 |
+| Attack / defence strength (1.00 = league avg) | 0.97 / 0.98 |
 | Over 1.5 / 2.5 / 3.5 rate | 74% / 65% / 21% |
 | BTTS rate | 68% |
 | Clean sheets / failed to score | 13% / 21% |
@@ -744,7 +762,7 @@ _No head-to-head data in the last two seasons._
 |---|---|
 | Goals for / against per game | 1.16 / 1.33 |
 | Away goals for / against | 1.15 / 2.19 |
-| Attack / defence strength (1.00 = league avg) | 0.88 / 1.06 |
+| Attack / defence strength (1.00 = league avg) | 0.97 / 0.99 |
 | Over 1.5 / 2.5 / 3.5 rate | 53% / 53% / 22% |
 | BTTS rate | 32% |
 | Clean sheets / failed to score | 33% / 35% |
@@ -756,9 +774,10 @@ _No head-to-head data in the last two seasons._
 
 </details>
 
-<details><summary><b>Boston Utd v Fylde</b> — England · National League, Sat 26 Sep 16:00 · O2.5 65% · BTTS 65%</summary>
+<details><summary><b>Boston Utd v Fylde</b> — England · National League, Sat 26 Sep 16:00 · O2.5 62% · BTTS 64%</summary>
 
-* Model expected goals: **1.35 – 2.07** (total 3.41) · P(O1.5) 85% · P(O2.5) 66% · P(O3.5) 44% · P(BTTS) 65%
+* Final expected goals: **1.59 – 1.62** (total 3.21, market+model) · P(O1.5) **84%** · P(O2.5) **62%** · P(O3.5) 40% · P(BTTS) **64%**
+* Team-form model alone: 1.57 – 1.50 · P(O2.5) 59% · P(BTTS) 62% · Market-implied: 1.60 – 1.63
 * Market: Over 2.5 @ 1.48 / Under 2.5 @ 2.48 (implied O2.5 63%) · 1X2 2.47 / 3.62 / 2.37
 * League context: avg 1.60 home + 1.36 away goals · O2.5 in 59% · BTTS in 61% of matches
 
@@ -768,7 +787,7 @@ _No head-to-head data in the last two seasons._
 |---|---|
 | Goals for / against per game | 1.54 / 1.44 |
 | Home goals for / against | 1.18 / 1.45 |
-| Attack / defence strength (1.00 = league avg) | 0.89 / 1.03 |
+| Attack / defence strength (1.00 = league avg) | 0.99 / 1.00 |
 | Over 1.5 / 2.5 / 3.5 rate | 76% / 58% / 40% |
 | BTTS rate | 66% |
 | Clean sheets / failed to score | 23% / 14% |
@@ -782,7 +801,7 @@ _No head-to-head data in the last two seasons._
 |---|---|
 | Goals for / against per game | 2.22 / 1.44 |
 | Away goals for / against | 2.63 / 1.38 |
-| Attack / defence strength (1.00 = league avg) | 1.48 / 0.95 |
+| Attack / defence strength (1.00 = league avg) | 1.10 / 0.99 |
 | Over 1.5 / 2.5 / 3.5 rate | 100% / 89% / 55% |
 | BTTS rate | 89% |
 | Clean sheets / failed to score | 11% / 0% |
@@ -794,9 +813,10 @@ _No head-to-head data in the last two seasons._
 
 </details>
 
-<details><summary><b>Carlisle v Woking</b> — England · National League, Sat 26 Sep 16:00 · O2.5 56% · BTTS 54%</summary>
+<details><summary><b>Carlisle v Woking</b> — England · National League, Sat 26 Sep 16:00 · O2.5 59% · BTTS 58%</summary>
 
-* Model expected goals: **1.74 – 1.08** (total 2.82) · P(O1.5) 77% · P(O2.5) 53% · P(O3.5) 31% · P(BTTS) 54%
+* Final expected goals: **1.92 – 1.13** (total 3.06, market+model) · P(O1.5) **81%** · P(O2.5) **59%** · P(O3.5) 37% · P(BTTS) **58%**
+* Team-form model alone: 1.64 – 1.27 · P(O2.5) 56% · P(BTTS) 59% · Market-implied: 1.95 – 1.12
 * Market: Over 2.5 @ 1.56 / Under 2.5 @ 2.27 (implied O2.5 59%) · 1X2 1.62 / 3.94 / 4.38
 * League context: avg 1.60 home + 1.36 away goals · O2.5 in 59% · BTTS in 61% of matches
 
@@ -806,7 +826,7 @@ _No head-to-head data in the last two seasons._
 |---|---|
 | Goals for / against per game | 1.84 / 1.29 |
 | Home goals for / against | 2.44 / 1.37 |
-| Attack / defence strength (1.00 = league avg) | 1.32 / 0.97 |
+| Attack / defence strength (1.00 = league avg) | 1.09 / 0.98 |
 | Over 1.5 / 2.5 / 3.5 rate | 84% / 61% / 37% |
 | BTTS rate | 69% |
 | Clean sheets / failed to score | 20% / 13% |
@@ -820,7 +840,7 @@ _No head-to-head data in the last two seasons._
 |---|---|
 | Goals for / against per game | 1.40 / 1.20 |
 | Away goals for / against | 0.92 / 1.20 |
-| Attack / defence strength (1.00 = league avg) | 0.82 / 0.82 |
+| Attack / defence strength (1.00 = league avg) | 0.96 / 0.94 |
 | Over 1.5 / 2.5 / 3.5 rate | 68% / 42% / 29% |
 | BTTS rate | 50% |
 | Clean sheets / failed to score | 21% / 41% |
@@ -833,9 +853,10 @@ _No head-to-head data in the last two seasons._
 
 </details>
 
-<details><summary><b>Harrogate v Eastleigh</b> — England · National League, Sat 26 Sep 16:00 · O2.5 57% · BTTS 60%</summary>
+<details><summary><b>Harrogate v Eastleigh</b> — England · National League, Sat 26 Sep 16:00 · O2.5 57% · BTTS 56%</summary>
 
-* Model expected goals: **1.66 – 1.34** (total 3.00) · P(O1.5) 80% · P(O2.5) 58% · P(O3.5) 35% · P(BTTS) 60%
+* Final expected goals: **1.90 – 1.05** (total 2.95, market+model) · P(O1.5) **80%** · P(O2.5) **57%** · P(O3.5) 34% · P(BTTS) **56%**
+* Team-form model alone: 1.64 – 1.36 · P(O2.5) 58% · P(BTTS) 61% · Market-implied: 1.93 – 1.02
 * Market: Over 2.5 @ 1.64 / Under 2.5 @ 2.13 (implied O2.5 56%) · 1X2 1.56 / 3.96 / 4.81
 * League context: avg 1.60 home + 1.36 away goals · O2.5 in 59% · BTTS in 61% of matches
 
@@ -845,7 +866,7 @@ _No head-to-head data in the last two seasons._
 |---|---|
 | Goals for / against per game | 1.49 / 1.58 |
 | Home goals for / against | 1.58 / 1.62 |
-| Attack / defence strength (1.00 = league avg) | 1.02 / 1.21 |
+| Attack / defence strength (1.00 = league avg) | 1.01 / 1.06 |
 | Over 1.5 / 2.5 / 3.5 rate | 85% / 61% / 39% |
 | BTTS rate | 65% |
 | Clean sheets / failed to score | 16% / 21% |
@@ -859,7 +880,7 @@ _No head-to-head data in the last two seasons._
 |---|---|
 | Goals for / against per game | 1.26 / 1.55 |
 | Away goals for / against | 0.99 / 1.58 |
-| Attack / defence strength (1.00 = league avg) | 0.82 / 1.01 |
+| Attack / defence strength (1.00 = league avg) | 0.94 / 1.01 |
 | Over 1.5 / 2.5 / 3.5 rate | 77% / 56% / 27% |
 | BTTS rate | 71% |
 | Clean sheets / failed to score | 14% / 15% |
@@ -871,9 +892,10 @@ _No head-to-head data in the last two seasons._
 
 </details>
 
-<details><summary><b>Kidderminster v Yeovil</b> — England · National League, Sat 26 Sep 16:00 · O2.5 44% · BTTS 41%</summary>
+<details><summary><b>Kidderminster v Yeovil</b> — England · National League, Sat 26 Sep 16:00 · O2.5 51% · BTTS 55%</summary>
 
-* Model expected goals: **1.50 – 0.75** (total 2.24) · P(O1.5) 66% · P(O2.5) 39% · P(O3.5) 19% · P(BTTS) 41%
+* Final expected goals: **1.57 – 1.15** (total 2.72, market+model) · P(O1.5) **76%** · P(O2.5) **51%** · P(O3.5) 29% · P(BTTS) **55%**
+* Team-form model alone: 1.61 – 1.22 · P(O2.5) 54% · P(BTTS) 57% · Market-implied: 1.56 – 1.14
 * Market: Over 2.5 @ 1.82 / Under 2.5 @ 1.88 (implied O2.5 51%) · 1X2 1.96 / 3.39 / 3.35
 * League context: avg 1.60 home + 1.36 away goals · O2.5 in 59% · BTTS in 61% of matches
 
@@ -883,7 +905,7 @@ _No head-to-head data in the last two seasons._
 |---|---|
 | Goals for / against per game | 1.46 / 0.73 |
 | Home goals for / against | 1.21 / 0.39 |
-| Attack / defence strength (1.00 = league avg) | 0.92 / 0.60 |
+| Attack / defence strength (1.00 = league avg) | 0.99 / 0.91 |
 | Over 1.5 / 2.5 / 3.5 rate | 65% / 32% / 22% |
 | BTTS rate | 44% |
 | Clean sheets / failed to score | 46% / 22% |
@@ -897,7 +919,7 @@ _No head-to-head data in the last two seasons._
 |---|---|
 | Goals for / against per game | 1.50 / 1.57 |
 | Away goals for / against | 1.13 / 1.57 |
-| Attack / defence strength (1.00 = league avg) | 0.92 / 1.01 |
+| Attack / defence strength (1.00 = league avg) | 0.99 / 1.01 |
 | Over 1.5 / 2.5 / 3.5 rate | 87% / 61% / 32% |
 | BTTS rate | 69% |
 | Clean sheets / failed to score | 17% / 17% |
@@ -909,9 +931,10 @@ _No head-to-head data in the last two seasons._
 
 </details>
 
-<details><summary><b>Scunthorpe v Hartlepool</b> — England · National League, Sat 26 Sep 16:00 · O2.5 50% · BTTS 50%</summary>
+<details><summary><b>Scunthorpe v Hartlepool</b> — England · National League, Sat 26 Sep 16:00 · O2.5 55% · BTTS 58%</summary>
 
-* Model expected goals: **1.51 – 1.04** (total 2.55) · P(O1.5) 72% · P(O2.5) 47% · P(O3.5) 25% · P(BTTS) 50%
+* Final expected goals: **1.62 – 1.26** (total 2.88, market+model) · P(O1.5) **79%** · P(O2.5) **55%** · P(O3.5) 33% · P(BTTS) **58%**
+* Team-form model alone: 1.57 – 1.26 · P(O2.5) 54% · P(BTTS) 57% · Market-implied: 1.62 – 1.26
 * Market: Over 2.5 @ 1.68 / Under 2.5 @ 2.06 (implied O2.5 55%) · 1X2 2.02 / 3.49 / 3.14
 * League context: avg 1.60 home + 1.36 away goals · O2.5 in 59% · BTTS in 61% of matches
 
@@ -921,7 +944,7 @@ _No head-to-head data in the last two seasons._
 |---|---|
 | Goals for / against per game | 1.41 / 1.60 |
 | Home goals for / against | 1.35 / 1.50 |
-| Attack / defence strength (1.00 = league avg) | 0.91 / 1.08 |
+| Attack / defence strength (1.00 = league avg) | 0.98 / 1.02 |
 | Over 1.5 / 2.5 / 3.5 rate | 80% / 55% / 33% |
 | BTTS rate | 60% |
 | Clean sheets / failed to score | 16% / 26% |
@@ -935,7 +958,7 @@ _No head-to-head data in the last two seasons._
 |---|---|
 | Goals for / against per game | 1.00 / 1.46 |
 | Away goals for / against | 0.84 / 1.74 |
-| Attack / defence strength (1.00 = league avg) | 0.71 / 1.04 |
+| Attack / defence strength (1.00 = league avg) | 0.90 / 1.00 |
 | Over 1.5 / 2.5 / 3.5 rate | 63% / 44% / 23% |
 | BTTS rate | 40% |
 | Clean sheets / failed to score | 31% / 36% |
@@ -948,9 +971,10 @@ _No head-to-head data in the last two seasons._
 
 </details>
 
-<details><summary><b>Solihull v Boreham Wood</b> — England · National League, Sat 26 Sep 16:00 · O2.5 72% · BTTS 66%</summary>
+<details><summary><b>Solihull v Boreham Wood</b> — England · National League, Sat 26 Sep 16:00 · O2.5 69% · BTTS 66%</summary>
 
-* Model expected goals: **1.25 – 2.59** (total 3.84) · P(O1.5) 90% · P(O2.5) 74% · P(O3.5) 53% · P(BTTS) 66%
+* Final expected goals: **1.33 – 2.22** (total 3.56, market+model) · P(O1.5) **87%** · P(O2.5) **69%** · P(O3.5) 48% · P(BTTS) **66%**
+* Team-form model alone: 1.48 – 1.76 · P(O2.5) 63% · P(BTTS) 65% · Market-implied: 1.32 – 2.28
 * Market: Over 2.5 @ 1.33 / Under 2.5 @ 3.05 (implied O2.5 70%) · 1X2 4.41 / 4.29 / 1.56
 * League context: avg 1.60 home + 1.36 away goals · O2.5 in 59% · BTTS in 61% of matches
 
@@ -960,7 +984,7 @@ _No head-to-head data in the last two seasons._
 |---|---|
 | Goals for / against per game | 1.32 / 2.00 |
 | Home goals for / against | 1.37 / 1.89 |
-| Attack / defence strength (1.00 = league avg) | 0.89 / 1.30 |
+| Attack / defence strength (1.00 = league avg) | 0.97 / 1.10 |
 | Over 1.5 / 2.5 / 3.5 rate | 82% / 60% / 45% |
 | BTTS rate | 65% |
 | Clean sheets / failed to score | 19% / 23% |
@@ -974,7 +998,7 @@ _No head-to-head data in the last two seasons._
 |---|---|
 | Goals for / against per game | 2.35 / 1.30 |
 | Away goals for / against | 2.14 / 1.31 |
-| Attack / defence strength (1.00 = league avg) | 1.46 / 0.87 |
+| Attack / defence strength (1.00 = league avg) | 1.17 / 0.96 |
 | Over 1.5 / 2.5 / 3.5 rate | 94% / 84% / 45% |
 | BTTS rate | 76% |
 | Clean sheets / failed to score | 24% / 2% |
@@ -987,9 +1011,10 @@ _No head-to-head data in the last two seasons._
 
 </details>
 
-<details><summary><b>Southend v Barrow</b> — England · National League, Sat 26 Sep 16:00 · O2.5 65% · BTTS 61%</summary>
+<details><summary><b>Southend v Barrow</b> — England · National League, Sat 26 Sep 16:00 · O2.5 59% · BTTS 59%</summary>
 
-* Model expected goals: **2.53 – 1.09** (total 3.62) · P(O1.5) 88% · P(O2.5) 70% · P(O3.5) 49% · P(BTTS) 61%
+* Final expected goals: **1.88 – 1.17** (total 3.05, market+model) · P(O1.5) **81%** · P(O2.5) **59%** · P(O3.5) 36% · P(BTTS) **59%**
+* Team-form model alone: 1.95 – 1.24 · P(O2.5) 62% · P(BTTS) 61% · Market-implied: 1.87 – 1.16
 * Market: Over 2.5 @ 1.59 / Under 2.5 @ 2.23 (implied O2.5 58%) · 1X2 1.71 / 3.81 / 3.97
 * League context: avg 1.60 home + 1.36 away goals · O2.5 in 59% · BTTS in 61% of matches
 
@@ -999,7 +1024,7 @@ _No head-to-head data in the last two seasons._
 |---|---|
 | Goals for / against per game | 2.27 / 1.26 |
 | Home goals for / against | 1.96 / 1.23 |
-| Attack / defence strength (1.00 = league avg) | 1.29 / 0.91 |
+| Attack / defence strength (1.00 = league avg) | 1.14 / 0.96 |
 | Over 1.5 / 2.5 / 3.5 rate | 86% / 67% / 52% |
 | BTTS rate | 75% |
 | Clean sheets / failed to score | 20% / 8% |
@@ -1013,7 +1038,7 @@ _No head-to-head data in the last two seasons._
 |---|---|
 | Goals for / against per game | 1.09 / 1.66 |
 | Away goals for / against | 1.08 / 2.02 |
-| Attack / defence strength (1.00 = league avg) | 0.88 / 1.23 |
+| Attack / defence strength (1.00 = league avg) | 0.95 / 1.07 |
 | Over 1.5 / 2.5 / 3.5 rate | 76% / 63% / 32% |
 | BTTS rate | 57% |
 | Clean sheets / failed to score | 17% / 30% |
@@ -1025,9 +1050,10 @@ _No head-to-head data in the last two seasons._
 
 </details>
 
-<details><summary><b>Sutton v Forest Green</b> — England · National League, Sat 26 Sep 16:00 · O2.5 47% · BTTS 49%</summary>
+<details><summary><b>Sutton v Forest Green</b> — England · National League, Sat 26 Sep 16:00 · O2.5 51% · BTTS 56%</summary>
 
-* Model expected goals: **1.07 – 1.37** (total 2.44) · P(O1.5) 70% · P(O2.5) 44% · P(O3.5) 23% · P(BTTS) 49%
+* Final expected goals: **1.34 – 1.39** (total 2.72, market+model) · P(O1.5) **76%** · P(O2.5) **51%** · P(O3.5) 29% · P(BTTS) **56%**
+* Team-form model alone: 1.45 – 1.38 · P(O2.5) 54% · P(BTTS) 58% · Market-implied: 1.33 – 1.39
 * Market: Over 2.5 @ 1.82 / Under 2.5 @ 1.89 (implied O2.5 51%) · 1X2 2.62 / 3.26 / 2.42
 * League context: avg 1.60 home + 1.36 away goals · O2.5 in 59% · BTTS in 61% of matches
 
@@ -1037,7 +1063,7 @@ _No head-to-head data in the last two seasons._
 |---|---|
 | Goals for / against per game | 1.15 / 1.42 |
 | Home goals for / against | 1.05 / 1.50 |
-| Attack / defence strength (1.00 = league avg) | 0.76 / 1.04 |
+| Attack / defence strength (1.00 = league avg) | 0.93 / 1.00 |
 | Over 1.5 / 2.5 / 3.5 rate | 82% / 53% / 13% |
 | BTTS rate | 45% |
 | Clean sheets / failed to score | 24% / 32% |
@@ -1051,7 +1077,7 @@ _No head-to-head data in the last two seasons._
 |---|---|
 | Goals for / against per game | 1.70 / 1.40 |
 | Away goals for / against | 1.15 / 1.23 |
-| Attack / defence strength (1.00 = league avg) | 0.97 / 0.88 |
+| Attack / defence strength (1.00 = league avg) | 1.01 / 0.97 |
 | Over 1.5 / 2.5 / 3.5 rate | 91% / 62% / 36% |
 | BTTS rate | 63% |
 | Clean sheets / failed to score | 21% / 16% |
@@ -1064,9 +1090,10 @@ _No head-to-head data in the last two seasons._
 
 </details>
 
-<details><summary><b>Wealdstone v Gateshead</b> — England · National League, Sat 26 Sep 16:00 · O2.5 56% · BTTS 53%</summary>
+<details><summary><b>Wealdstone v Gateshead</b> — England · National League, Sat 26 Sep 16:00 · O2.5 57% · BTTS 57%</summary>
 
-* Model expected goals: **1.92 – 0.98** (total 2.90) · P(O1.5) 79% · P(O2.5) 55% · P(O3.5) 33% · P(BTTS) 53%
+* Final expected goals: **1.85 – 1.11** (total 2.96, market+model) · P(O1.5) **80%** · P(O2.5) **57%** · P(O3.5) 34% · P(BTTS) **57%**
+* Team-form model alone: 1.73 – 1.25 · P(O2.5) 57% · P(BTTS) 59% · Market-implied: 1.86 – 1.10
 * Market: Over 2.5 @ 1.63 / Under 2.5 @ 2.14 (implied O2.5 57%) · 1X2 1.67 / 3.78 / 4.26
 * League context: avg 1.60 home + 1.36 away goals · O2.5 in 59% · BTTS in 61% of matches
 
@@ -1076,7 +1103,7 @@ _No head-to-head data in the last two seasons._
 |---|---|
 | Goals for / against per game | 1.41 / 1.68 |
 | Home goals for / against | 1.53 / 1.74 |
-| Attack / defence strength (1.00 = league avg) | 0.96 / 1.18 |
+| Attack / defence strength (1.00 = league avg) | 0.99 / 1.05 |
 | Over 1.5 / 2.5 / 3.5 rate | 83% / 57% / 39% |
 | BTTS rate | 61% |
 | Clean sheets / failed to score | 13% / 26% |
@@ -1090,7 +1117,7 @@ _No head-to-head data in the last two seasons._
 |---|---|
 | Goals for / against per game | 0.87 / 1.98 |
 | Away goals for / against | 0.65 / 2.07 |
-| Attack / defence strength (1.00 = league avg) | 0.61 / 1.25 |
+| Attack / defence strength (1.00 = league avg) | 0.87 / 1.09 |
 | Over 1.5 / 2.5 / 3.5 rate | 79% / 57% / 24% |
 | BTTS rate | 48% |
 | Clean sheets / failed to score | 16% / 39% |
@@ -1103,9 +1130,10 @@ _No head-to-head data in the last two seasons._
 
 </details>
 
-<details><summary><b>Worthing v Halifax</b> — England · National League, Sat 26 Sep 16:00 · O2.5 55% · BTTS 56%</summary>
+<details><summary><b>Worthing v Halifax</b> — England · National League, Sat 26 Sep 16:00 · O2.5 59% · BTTS 62%</summary>
 
-* Model expected goals: **1.47 – 1.30** (total 2.77) · P(O1.5) 76% · P(O2.5) 52% · P(O3.5) 30% · P(BTTS) 56%
+* Final expected goals: **1.66 – 1.40** (total 3.06, market+model) · P(O1.5) **82%** · P(O2.5) **59%** · P(O3.5) 37% · P(BTTS) **62%**
+* Team-form model alone: 1.59 – 1.36 · P(O2.5) 57% · P(BTTS) 60% · Market-implied: 1.67 – 1.40
 * Market: Over 2.5 @ 1.56 / Under 2.5 @ 2.27 (implied O2.5 59%) · 1X2 2.11 / 3.56 / 2.89
 * League context: avg 1.60 home + 1.36 away goals · O2.5 in 59% · BTTS in 61% of matches
 
@@ -1115,7 +1143,7 @@ _No head-to-head data in the last two seasons._
 |---|---|
 | Goals for / against per game | 1.89 / 1.64 |
 | Home goals for / against | 1.41 / 1.39 |
-| Attack / defence strength (1.00 = league avg) | 1.07 / 1.05 |
+| Attack / defence strength (1.00 = league avg) | 1.04 / 1.02 |
 | Over 1.5 / 2.5 / 3.5 rate | 77% / 77% / 67% |
 | BTTS rate | 77% |
 | Clean sheets / failed to score | 23% / 0% |
@@ -1129,7 +1157,7 @@ _No head-to-head data in the last two seasons._
 |---|---|
 | Goals for / against per game | 1.51 / 1.30 |
 | Away goals for / against | 1.11 / 1.24 |
-| Attack / defence strength (1.00 = league avg) | 0.91 / 0.86 |
+| Attack / defence strength (1.00 = league avg) | 0.99 / 0.96 |
 | Over 1.5 / 2.5 / 3.5 rate | 68% / 56% / 33% |
 | BTTS rate | 54% |
 | Clean sheets / failed to score | 35% / 13% |
@@ -1141,9 +1169,10 @@ _No head-to-head data in the last two seasons._
 
 </details>
 
-<details><summary><b>Granada v Andorra</b> — Spain · Segunda División, Sat 26 Sep 16:15 · O2.5 50% · BTTS 56%</summary>
+<details><summary><b>Granada v Andorra</b> — Spain · Segunda División, Sat 26 Sep 16:15 · O2.5 48% · BTTS 53%</summary>
 
-* Model expected goals: **1.52 – 1.26** (total 2.78) · P(O1.5) 77% · P(O2.5) 53% · P(O3.5) 30% · P(BTTS) 56%
+* Final expected goals: **1.43 – 1.15** (total 2.58, market+model) · P(O1.5) **74%** · P(O2.5) **48%** · P(O3.5) 26% · P(BTTS) **53%**
+* Team-form model alone: 1.50 – 1.24 · P(O2.5) 51% · P(BTTS) 56% · Market-implied: 1.42 – 1.14
 * Market: Over 2.5 @ 1.96 / Under 2.5 @ 1.76 (implied O2.5 47%) · 1X2 2.16 / 3.26 / 3.14
 * League context: avg 1.45 home + 1.19 away goals · O2.5 in 50% · BTTS in 52% of matches
 
@@ -1153,7 +1182,7 @@ _No head-to-head data in the last two seasons._
 |---|---|
 | Goals for / against per game | 1.23 / 1.38 |
 | Home goals for / against | 1.34 / 0.98 |
-| Attack / defence strength (1.00 = league avg) | 0.95 / 0.93 |
+| Attack / defence strength (1.00 = league avg) | 0.98 / 0.99 |
 | Over 1.5 / 2.5 / 3.5 rate | 69% / 45% / 31% |
 | BTTS rate | 51% |
 | Clean sheets / failed to score | 29% / 31% |
@@ -1168,7 +1197,7 @@ _No head-to-head data in the last two seasons._
 |---|---|
 | Goals for / against per game | 1.54 / 1.56 |
 | Away goals for / against | 1.43 / 1.54 |
-| Attack / defence strength (1.00 = league avg) | 1.14 / 1.10 |
+| Attack / defence strength (1.00 = league avg) | 1.05 / 1.05 |
 | Over 1.5 / 2.5 / 3.5 rate | 67% / 55% / 43% |
 | BTTS rate | 56% |
 | Clean sheets / failed to score | 17% / 29% |
@@ -1182,9 +1211,10 @@ _No head-to-head data in the last two seasons._
 
 </details>
 
-<details><summary><b>Oldham v Salford</b> — England · League Two, Sat 26 Sep 18:30 · O2.5 48% · BTTS 47%</summary>
+<details><summary><b>Oldham v Salford</b> — England · League Two, Sat 26 Sep 18:30 · O2.5 54% · BTTS 58%</summary>
 
-* Model expected goals: **1.55 – 0.90** (total 2.45) · P(O1.5) 70% · P(O2.5) 44% · P(O3.5) 23% · P(BTTS) 47%
+* Final expected goals: **1.46 – 1.36** (total 2.82, market+model) · P(O1.5) **78%** · P(O2.5) **54%** · P(O3.5) 31% · P(BTTS) **58%**
+* Team-form model alone: 1.45 – 1.06 · P(O2.5) 46% · P(BTTS) 51% · Market-implied: 1.46 – 1.39
 * Market: Over 2.5 @ 1.71 / Under 2.5 @ 2.04 (implied O2.5 54%) · 1X2 2.44 / 3.49 / 2.66
 * League context: avg 1.47 home + 1.12 away goals · O2.5 in 47% · BTTS in 51% of matches
 
@@ -1194,7 +1224,7 @@ _No head-to-head data in the last two seasons._
 |---|---|
 | Goals for / against per game | 1.39 / 1.17 |
 | Home goals for / against | 1.71 / 0.72 |
-| Attack / defence strength (1.00 = league avg) | 1.10 / 0.79 |
+| Attack / defence strength (1.00 = league avg) | 1.03 / 0.95 |
 | Over 1.5 / 2.5 / 3.5 rate | 85% / 53% / 15% |
 | BTTS rate | 45% |
 | Clean sheets / failed to score | 34% / 25% |
@@ -1209,7 +1239,7 @@ _No head-to-head data in the last two seasons._
 |---|---|
 | Goals for / against per game | 1.22 / 1.07 |
 | Away goals for / against | 1.20 / 1.54 |
-| Attack / defence strength (1.00 = league avg) | 1.02 / 0.96 |
+| Attack / defence strength (1.00 = league avg) | 0.99 / 0.96 |
 | Over 1.5 / 2.5 / 3.5 rate | 49% / 40% / 25% |
 | BTTS rate | 41% |
 | Clean sheets / failed to score | 38% / 29% |
@@ -1223,9 +1253,10 @@ _No head-to-head data in the last two seasons._
 
 </details>
 
-<details><summary><b>Celta B v Sabadell</b> — Spain · Segunda División, Sat 26 Sep 18:30 · O2.5 44% · BTTS 47%</summary>
+<details><summary><b>Celta B v Sabadell</b> — Spain · Segunda División, Sat 26 Sep 18:30 · O2.5 47% · BTTS 53%</summary>
 
-* Model expected goals: **1.09 – 1.25** (total 2.33) · P(O1.5) 68% · P(O2.5) 41% · P(O3.5) 21% · P(BTTS) 47%
+* Final expected goals: **1.20 – 1.37** (total 2.57, market+model) · P(O1.5) **73%** · P(O2.5) **47%** · P(O3.5) 26% · P(BTTS) **53%**
+* Team-form model alone: 1.37 – 1.22 · P(O2.5) 48% · P(BTTS) 53% · Market-implied: 1.18 – 1.39
 * Market: Over 2.5 @ 1.96 / Under 2.5 @ 1.76 (implied O2.5 47%) · 1X2 2.95 / 3.26 / 2.24
 * League context: avg 1.45 home + 1.19 away goals · O2.5 in 50% · BTTS in 52% of matches
 
@@ -1235,7 +1266,7 @@ _No head-to-head data in the last two seasons._
 |---|---|
 | Goals for / against per game | 1.13 / 1.72 |
 | Home goals for / against | 1.59 / 2.71 |
-| Attack / defence strength (1.00 = league avg) | 0.96 / 1.39 |
+| Attack / defence strength (1.00 = league avg) | 0.98 / 1.06 |
 | Over 1.5 / 2.5 / 3.5 rate | 85% / 50% / 33% |
 | BTTS rate | 32% |
 | Clean sheets / failed to score | 32% / 51% |
@@ -1250,7 +1281,7 @@ _No head-to-head data in the last two seasons._
 |---|---|
 | Goals for / against per game | 1.22 / 0.88 |
 | Away goals for / against | 0.00 / 0.73 |
-| Attack / defence strength (1.00 = league avg) | 0.75 / 0.79 |
+| Attack / defence strength (1.00 = league avg) | 0.97 / 0.96 |
 | Over 1.5 / 2.5 / 3.5 rate | 53% / 35% / 35% |
 | BTTS rate | 35% |
 | Clean sheets / failed to score | 47% / 48% |
@@ -1263,9 +1294,10 @@ _No head-to-head data in the last two seasons._
 
 </details>
 
-<details><summary><b>Tenerife v Cadiz</b> — Spain · Segunda División, Sat 26 Sep 18:30 · O2.5 45% · BTTS 49%</summary>
+<details><summary><b>Tenerife v Cadiz</b> — Spain · Segunda División, Sat 26 Sep 18:30 · O2.5 41% · BTTS 46%</summary>
 
-* Model expected goals: **1.65 – 0.94** (total 2.59) · P(O1.5) 73% · P(O2.5) 48% · P(O3.5) 26% · P(BTTS) 49%
+* Final expected goals: **1.41 – 0.90** (total 2.32, market+model) · P(O1.5) **68%** · P(O2.5) **41%** · P(O3.5) 20% · P(BTTS) **46%**
+* Team-form model alone: 1.54 – 1.12 · P(O2.5) 50% · P(BTTS) 53% · Market-implied: 1.40 – 0.88
 * Market: Over 2.5 @ 2.33 / Under 2.5 @ 1.54 (implied O2.5 40%) · 1X2 1.90 / 3.14 / 4.02
 * League context: avg 1.45 home + 1.19 away goals · O2.5 in 50% · BTTS in 52% of matches
 
@@ -1275,7 +1307,7 @@ _No head-to-head data in the last two seasons._
 |---|---|
 | Goals for / against per game | 1.13 / 1.40 |
 | Home goals for / against | 1.03 / 0.33 |
-| Attack / defence strength (1.00 = league avg) | 0.90 / 0.86 |
+| Attack / defence strength (1.00 = league avg) | 0.98 / 0.99 |
 | Over 1.5 / 2.5 / 3.5 rate | 68% / 33% / 33% |
 | BTTS rate | 32% |
 | Clean sheets / failed to score | 33% / 35% |
@@ -1290,7 +1322,7 @@ _No head-to-head data in the last two seasons._
 |---|---|
 | Goals for / against per game | 0.97 / 1.66 |
 | Away goals for / against | 1.20 / 2.04 |
-| Attack / defence strength (1.00 = league avg) | 0.92 / 1.27 |
+| Attack / defence strength (1.00 = league avg) | 0.95 / 1.08 |
 | Over 1.5 / 2.5 / 3.5 rate | 74% / 58% / 27% |
 | BTTS rate | 57% |
 | Clean sheets / failed to score | 16% / 36% |
@@ -1303,9 +1335,10 @@ _No head-to-head data in the last two seasons._
 
 </details>
 
-<details><summary><b>Cruz Azul v Toluca</b> — Mexico · Liga MX, Sun 27 Sep 00:50 · O2.5 48% · BTTS 53%</summary>
+<details><summary><b>Cruz Azul v Toluca</b> — Mexico · Liga MX, Sun 27 Sep 00:50 · O2.5 54% · BTTS 58%</summary>
 
-* Model expected goals: **1.27 – 1.33** (total 2.60) · P(O1.5) 73% · P(O2.5) 48% · P(O3.5) 26% · P(BTTS) 53%
+* Final expected goals: **1.55 – 1.29** (total 2.84, model only) · P(O1.5) **78%** · P(O2.5) **54%** · P(O3.5) 32% · P(BTTS) **58%**
+* Team-form model alone: 1.55 – 1.29 · P(O2.5) 54% · P(BTTS) 58%
 * Market 1X2: 2.53 / 3.43 / 2.49 (no O/U odds published in feed)
 * League context: avg 1.59 home + 1.23 away goals · O2.5 in 53% · BTTS in 58% of matches
 
@@ -1315,7 +1348,7 @@ _No head-to-head data in the last two seasons._
 |---|---|
 | Goals for / against per game | 1.74 / 1.30 |
 | Home goals for / against | 1.77 / 1.31 |
-| Attack / defence strength (1.00 = league avg) | 1.13 / 1.02 |
+| Attack / defence strength (1.00 = league avg) | 1.06 / 0.99 |
 | Over 1.5 / 2.5 / 3.5 rate | 81% / 58% / 32% |
 | BTTS rate | 69% |
 | Clean sheets / failed to score | 20% / 15% |
@@ -1328,7 +1361,7 @@ _No head-to-head data in the last two seasons._
 |---|---|
 | Goals for / against per game | 1.86 / 1.05 |
 | Away goals for / against | 1.17 / 0.84 |
-| Attack / defence strength (1.00 = league avg) | 1.06 / 0.70 |
+| Attack / defence strength (1.00 = league avg) | 1.05 / 0.92 |
 | Over 1.5 / 2.5 / 3.5 rate | 72% / 53% / 37% |
 | BTTS rate | 54% |
 | Clean sheets / failed to score | 36% / 22% |
@@ -1340,9 +1373,10 @@ _No head-to-head data in the last two seasons._
 
 </details>
 
-<details><summary><b>Guadalajara Chivas v Queretaro</b> — Mexico · Liga MX, Sun 27 Sep 01:07 · O2.5 46% · BTTS 46%</summary>
+<details><summary><b>Guadalajara Chivas v Queretaro</b> — Mexico · Liga MX, Sun 27 Sep 01:07 · O2.5 52% · BTTS 54%</summary>
 
-* Model expected goals: **1.69 – 0.82** (total 2.51) · P(O1.5) 71% · P(O2.5) 46% · P(O3.5) 24% · P(BTTS) 46%
+* Final expected goals: **1.67 – 1.09** (total 2.76, model only) · P(O1.5) **77%** · P(O2.5) **52%** · P(O3.5) 30% · P(BTTS) **54%**
+* Team-form model alone: 1.67 – 1.09 · P(O2.5) 52% · P(BTTS) 54%
 * Market 1X2: 1.36 / 4.77 / 6.87 (no O/U odds published in feed)
 * League context: avg 1.59 home + 1.23 away goals · O2.5 in 53% · BTTS in 58% of matches
 
@@ -1352,7 +1386,7 @@ _No head-to-head data in the last two seasons._
 |---|---|
 | Goals for / against per game | 1.91 / 1.03 |
 | Home goals for / against | 2.36 / 0.74 |
-| Attack / defence strength (1.00 = league avg) | 1.34 / 0.72 |
+| Attack / defence strength (1.00 = league avg) | 1.11 / 0.91 |
 | Over 1.5 / 2.5 / 3.5 rate | 79% / 58% / 34% |
 | BTTS rate | 49% |
 | Clean sheets / failed to score | 44% / 13% |
@@ -1365,7 +1399,7 @@ _No head-to-head data in the last two seasons._
 |---|---|
 | Goals for / against per game | 1.23 / 1.13 |
 | Away goals for / against | 1.14 / 1.04 |
-| Attack / defence strength (1.00 = league avg) | 0.93 / 0.79 |
+| Attack / defence strength (1.00 = league avg) | 0.97 / 0.94 |
 | Over 1.5 / 2.5 / 3.5 rate | 70% / 48% / 24% |
 | BTTS rate | 60% |
 | Clean sheets / failed to score | 27% / 26% |
@@ -1377,9 +1411,10 @@ _No head-to-head data in the last two seasons._
 
 </details>
 
-<details><summary><b>Atlanta Utd v New York City</b> — USA · MLS, Sun 27 Sep 01:30 · O2.5 47% · BTTS 51%</summary>
+<details><summary><b>Atlanta Utd v New York City</b> — USA · MLS, Sun 27 Sep 01:30 · O2.5 56% · BTTS 59%</summary>
 
-* Model expected goals: **1.12 – 1.42** (total 2.53) · P(O1.5) 72% · P(O2.5) 47% · P(O3.5) 25% · P(BTTS) 51%
+* Final expected goals: **1.53 – 1.38** (total 2.92, model only) · P(O1.5) **79%** · P(O2.5) **56%** · P(O3.5) 33% · P(BTTS) **59%**
+* Team-form model alone: 1.53 – 1.38 · P(O2.5) 56% · P(BTTS) 59%
 * Market 1X2: 2.18 / 3.50 / 2.95 (no O/U odds published in feed)
 * League context: avg 1.75 home + 1.41 away goals · O2.5 in 63% · BTTS in 64% of matches
 
@@ -1389,7 +1424,7 @@ _No head-to-head data in the last two seasons._
 |---|---|
 | Goals for / against per game | 1.19 / 1.62 |
 | Home goals for / against | 1.44 / 1.77 |
-| Attack / defence strength (1.00 = league avg) | 0.84 / 1.13 |
+| Attack / defence strength (1.00 = league avg) | 0.94 / 1.03 |
 | Over 1.5 / 2.5 / 3.5 rate | 78% / 58% / 35% |
 | BTTS rate | 61% |
 | Clean sheets / failed to score | 15% / 32% |
@@ -1402,7 +1437,7 @@ _No head-to-head data in the last two seasons._
 |---|---|
 | Goals for / against per game | 1.36 / 1.28 |
 | Away goals for / against | 1.22 / 1.09 |
-| Attack / defence strength (1.00 = league avg) | 0.89 / 0.76 |
+| Attack / defence strength (1.00 = league avg) | 0.96 / 0.93 |
 | Over 1.5 / 2.5 / 3.5 rate | 80% / 47% / 22% |
 | BTTS rate | 63% |
 | Clean sheets / failed to score | 22% / 21% |
@@ -1413,9 +1448,10 @@ _No head-to-head data in the last two seasons._
 
 </details>
 
-<details><summary><b>CF Montreal v FC Cincinnati</b> — USA · MLS, Sun 27 Sep 01:30 · O2.5 66% · BTTS 67%</summary>
+<details><summary><b>CF Montreal v FC Cincinnati</b> — USA · MLS, Sun 27 Sep 01:30 · O2.5 65% · BTTS 66%</summary>
 
-* Model expected goals: **1.82 – 1.60** (total 3.41) · P(O1.5) 85% · P(O2.5) 66% · P(O3.5) 44% · P(BTTS) 67%
+* Final expected goals: **1.82 – 1.54** (total 3.36, model only) · P(O1.5) **85%** · P(O2.5) **65%** · P(O3.5) 43% · P(BTTS) **66%**
+* Team-form model alone: 1.82 – 1.54 · P(O2.5) 65% · P(BTTS) 66%
 * Market 1X2: 2.54 / 3.79 / 2.35 (no O/U odds published in feed)
 * League context: avg 1.75 home + 1.41 away goals · O2.5 in 63% · BTTS in 64% of matches
 
@@ -1425,7 +1461,7 @@ _No head-to-head data in the last two seasons._
 |---|---|
 | Goals for / against per game | 1.07 / 1.98 |
 | Home goals for / against | 1.09 / 1.41 |
-| Attack / defence strength (1.00 = league avg) | 0.72 / 1.07 |
+| Attack / defence strength (1.00 = league avg) | 0.90 / 1.05 |
 | Over 1.5 / 2.5 / 3.5 rate | 79% / 54% / 31% |
 | BTTS rate | 51% |
 | Clean sheets / failed to score | 11% / 41% |
@@ -1438,7 +1474,7 @@ _No head-to-head data in the last two seasons._
 |---|---|
 | Goals for / against per game | 2.00 / 2.38 |
 | Away goals for / against | 1.36 / 2.82 |
-| Attack / defence strength (1.00 = league avg) | 1.06 / 1.45 |
+| Attack / defence strength (1.00 = league avg) | 1.05 / 1.15 |
 | Over 1.5 / 2.5 / 3.5 rate | 93% / 75% / 62% |
 | BTTS rate | 74% |
 | Clean sheets / failed to score | 7% / 19% |
@@ -1450,9 +1486,10 @@ _No head-to-head data in the last two seasons._
 
 </details>
 
-<details><summary><b>Charlotte v Chicago Fire</b> — USA · MLS, Sun 27 Sep 01:30 · O2.5 68% · BTTS 66%</summary>
+<details><summary><b>Charlotte v Chicago Fire</b> — USA · MLS, Sun 27 Sep 01:30 · O2.5 64% · BTTS 64%</summary>
 
-* Model expected goals: **2.12 – 1.38** (total 3.49) · P(O1.5) 86% · P(O2.5) 68% · P(O3.5) 46% · P(BTTS) 66%
+* Final expected goals: **1.88 – 1.40** (total 3.28, model only) · P(O1.5) **84%** · P(O2.5) **64%** · P(O3.5) 42% · P(BTTS) **64%**
+* Team-form model alone: 1.88 – 1.40 · P(O2.5) 64% · P(BTTS) 64%
 * Market 1X2: 2.10 / 3.78 / 2.92 (no O/U odds published in feed)
 * League context: avg 1.75 home + 1.41 away goals · O2.5 in 63% · BTTS in 64% of matches
 
@@ -1462,7 +1499,7 @@ _No head-to-head data in the last two seasons._
 |---|---|
 | Goals for / against per game | 1.82 / 1.35 |
 | Home goals for / against | 1.86 / 1.02 |
-| Attack / defence strength (1.00 = league avg) | 1.09 / 0.82 |
+| Attack / defence strength (1.00 = league avg) | 1.04 / 0.94 |
 | Over 1.5 / 2.5 / 3.5 rate | 81% / 68% / 41% |
 | BTTS rate | 67% |
 | Clean sheets / failed to score | 24% / 17% |
@@ -1475,7 +1512,7 @@ _No head-to-head data in the last two seasons._
 |---|---|
 | Goals for / against per game | 1.78 / 1.72 |
 | Away goals for / against | 1.83 / 2.08 |
-| Attack / defence strength (1.00 = league avg) | 1.20 / 1.11 |
+| Attack / defence strength (1.00 = league avg) | 1.06 / 1.03 |
 | Over 1.5 / 2.5 / 3.5 rate | 93% / 79% / 40% |
 | BTTS rate | 77% |
 | Clean sheets / failed to score | 16% / 10% |
@@ -1487,9 +1524,10 @@ _No head-to-head data in the last two seasons._
 
 </details>
 
-<details><summary><b>New York Red Bulls v St. Louis City</b> — USA · MLS, Sun 27 Sep 01:30 · O2.5 61% · BTTS 60%</summary>
+<details><summary><b>New York Red Bulls v St. Louis City</b> — USA · MLS, Sun 27 Sep 01:30 · O2.5 60% · BTTS 63%</summary>
 
-* Model expected goals: **1.20 – 1.95** (total 3.15) · P(O1.5) 82% · P(O2.5) 61% · P(O3.5) 39% · P(BTTS) 60%
+* Final expected goals: **1.56 – 1.56** (total 3.12, model only) · P(O1.5) **82%** · P(O2.5) **60%** · P(O3.5) 38% · P(BTTS) **63%**
+* Team-form model alone: 1.56 – 1.56 · P(O2.5) 60% · P(BTTS) 63%
 * Market 1X2: 3.16 / 3.90 / 1.96 (no O/U odds published in feed)
 * League context: avg 1.75 home + 1.41 away goals · O2.5 in 63% · BTTS in 64% of matches
 
@@ -1499,7 +1537,7 @@ _No head-to-head data in the last two seasons._
 |---|---|
 | Goals for / against per game | 1.14 / 1.66 |
 | Home goals for / against | 1.33 / 1.87 |
-| Attack / defence strength (1.00 = league avg) | 0.80 / 1.17 |
+| Attack / defence strength (1.00 = league avg) | 0.93 / 1.04 |
 | Over 1.5 / 2.5 / 3.5 rate | 73% / 47% / 34% |
 | BTTS rate | 55% |
 | Clean sheets / failed to score | 21% / 31% |
@@ -1512,7 +1550,7 @@ _No head-to-head data in the last two seasons._
 |---|---|
 | Goals for / against per game | 2.01 / 1.39 |
 | Away goals for / against | 1.69 / 1.37 |
-| Attack / defence strength (1.00 = league avg) | 1.18 / 0.86 |
+| Attack / defence strength (1.00 = league avg) | 1.07 / 0.96 |
 | Over 1.5 / 2.5 / 3.5 rate | 91% / 64% / 52% |
 | BTTS rate | 80% |
 | Clean sheets / failed to score | 11% / 9% |
@@ -1523,9 +1561,10 @@ _No head-to-head data in the last two seasons._
 
 </details>
 
-<details><summary><b>Philadelphia Union v Orlando City</b> — USA · MLS, Sun 27 Sep 01:30 · O2.5 82% · BTTS 71%</summary>
+<details><summary><b>Philadelphia Union v Orlando City</b> — USA · MLS, Sun 27 Sep 01:30 · O2.5 70% · BTTS 68%</summary>
 
-* Model expected goals: **3.08 – 1.37** (total 4.45) · P(O1.5) 94% · P(O2.5) 82% · P(O3.5) 65% · P(BTTS) 71%
+* Final expected goals: **2.17 – 1.43** (total 3.60, model only) · P(O1.5) **88%** · P(O2.5) **70%** · P(O3.5) 48% · P(BTTS) **68%**
+* Team-form model alone: 2.17 – 1.43 · P(O2.5) 70% · P(BTTS) 68%
 * Market 1X2: 1.40 / 5.03 / 5.82 (no O/U odds published in feed)
 * League context: avg 1.75 home + 1.41 away goals · O2.5 in 63% · BTTS in 64% of matches
 
@@ -1535,7 +1574,7 @@ _No head-to-head data in the last two seasons._
 |---|---|
 | Goals for / against per game | 2.28 / 1.46 |
 | Home goals for / against | 1.96 / 0.82 |
-| Attack / defence strength (1.00 = league avg) | 1.21 / 0.76 |
+| Attack / defence strength (1.00 = league avg) | 1.11 / 0.94 |
 | Over 1.5 / 2.5 / 3.5 rate | 84% / 67% / 55% |
 | BTTS rate | 60% |
 | Clean sheets / failed to score | 31% / 14% |
@@ -1548,7 +1587,7 @@ _No head-to-head data in the last two seasons._
 |---|---|
 | Goals for / against per game | 1.87 / 2.07 |
 | Away goals for / against | 2.03 / 3.06 |
-| Attack / defence strength (1.00 = league avg) | 1.28 / 1.45 |
+| Attack / defence strength (1.00 = league avg) | 1.08 / 1.11 |
 | Over 1.5 / 2.5 / 3.5 rate | 87% / 72% / 51% |
 | BTTS rate | 68% |
 | Clean sheets / failed to score | 20% / 12% |
@@ -1560,9 +1599,10 @@ _No head-to-head data in the last two seasons._
 
 </details>
 
-<details><summary><b>Austin FC v San Diego FC</b> — USA · MLS, Sun 27 Sep 02:30 · O2.5 46% · BTTS 51%</summary>
+<details><summary><b>Austin FC v San Diego FC</b> — USA · MLS, Sun 27 Sep 02:30 · O2.5 58% · BTTS 60%</summary>
 
-* Model expected goals: **1.39 – 1.12** (total 2.51) · P(O1.5) 71% · P(O2.5) 46% · P(O3.5) 24% · P(BTTS) 51%
+* Final expected goals: **1.65 – 1.35** (total 3.00, model only) · P(O1.5) **81%** · P(O2.5) **58%** · P(O3.5) 35% · P(BTTS) **60%**
+* Team-form model alone: 1.65 – 1.35 · P(O2.5) 58% · P(BTTS) 60%
 * Market 1X2: 2.34 / 3.59 / 2.66 (no O/U odds published in feed)
 * League context: avg 1.75 home + 1.41 away goals · O2.5 in 63% · BTTS in 64% of matches
 
@@ -1572,7 +1612,7 @@ _No head-to-head data in the last two seasons._
 |---|---|
 | Goals for / against per game | 1.21 / 1.57 |
 | Home goals for / against | 1.34 / 1.14 |
-| Attack / defence strength (1.00 = league avg) | 0.81 / 0.90 |
+| Attack / defence strength (1.00 = league avg) | 0.93 / 0.98 |
 | Over 1.5 / 2.5 / 3.5 rate | 85% / 63% / 24% |
 | BTTS rate | 69% |
 | Clean sheets / failed to score | 16% / 23% |
@@ -1585,7 +1625,7 @@ _No head-to-head data in the last two seasons._
 |---|---|
 | Goals for / against per game | 1.60 / 1.68 |
 | Away goals for / against | 1.09 / 1.54 |
-| Attack / defence strength (1.00 = league avg) | 0.89 / 0.97 |
+| Attack / defence strength (1.00 = league avg) | 0.98 / 1.01 |
 | Over 1.5 / 2.5 / 3.5 rate | 75% / 65% / 52% |
 | BTTS rate | 54% |
 | Clean sheets / failed to score | 26% / 21% |
@@ -1597,9 +1637,10 @@ _No head-to-head data in the last two seasons._
 
 </details>
 
-<details><summary><b>FC Dallas v Los Angeles FC</b> — USA · MLS, Sun 27 Sep 02:30 · O2.5 59% · BTTS 61%</summary>
+<details><summary><b>FC Dallas v Los Angeles FC</b> — USA · MLS, Sun 27 Sep 02:30 · O2.5 60% · BTTS 63%</summary>
 
-* Model expected goals: **1.57 – 1.47** (total 3.04) · P(O1.5) 81% · P(O2.5) 59% · P(O3.5) 36% · P(BTTS) 61%
+* Final expected goals: **1.69 – 1.43** (total 3.12, model only) · P(O1.5) **82%** · P(O2.5) **60%** · P(O3.5) 38% · P(BTTS) **63%**
+* Team-form model alone: 1.69 – 1.43 · P(O2.5) 60% · P(BTTS) 63%
 * Market 1X2: 2.25 / 3.61 / 2.76 (no O/U odds published in feed)
 * League context: avg 1.75 home + 1.41 away goals · O2.5 in 63% · BTTS in 64% of matches
 
@@ -1609,7 +1650,7 @@ _No head-to-head data in the last two seasons._
 |---|---|
 | Goals for / against per game | 1.83 / 1.65 |
 | Home goals for / against | 1.95 / 1.49 |
-| Attack / defence strength (1.00 = league avg) | 1.12 / 1.04 |
+| Attack / defence strength (1.00 = league avg) | 1.05 / 1.01 |
 | Over 1.5 / 2.5 / 3.5 rate | 79% / 71% / 46% |
 | BTTS rate | 67% |
 | Clean sheets / failed to score | 18% / 27% |
@@ -1622,7 +1663,7 @@ _No head-to-head data in the last two seasons._
 |---|---|
 | Goals for / against per game | 1.61 / 1.13 |
 | Away goals for / against | 1.41 / 1.38 |
-| Attack / defence strength (1.00 = league avg) | 1.01 / 0.80 |
+| Attack / defence strength (1.00 = league avg) | 1.01 / 0.92 |
 | Over 1.5 / 2.5 / 3.5 rate | 73% / 54% / 41% |
 | BTTS rate | 51% |
 | Clean sheets / failed to score | 39% / 19% |
@@ -1634,9 +1675,10 @@ _No head-to-head data in the last two seasons._
 
 </details>
 
-<details><summary><b>Houston Dynamo v Sporting Kansas City</b> — USA · MLS, Sun 27 Sep 02:30 · O2.5 58% · BTTS 47%</summary>
+<details><summary><b>Houston Dynamo v Sporting Kansas City</b> — USA · MLS, Sun 27 Sep 02:30 · O2.5 60% · BTTS 59%</summary>
 
-* Model expected goals: **2.24 – 0.76** (total 3.00) · P(O1.5) 80% · P(O2.5) 58% · P(O3.5) 35% · P(BTTS) 47%
+* Final expected goals: **1.93 – 1.17** (total 3.10, model only) · P(O1.5) **82%** · P(O2.5) **60%** · P(O3.5) 38% · P(BTTS) **59%**
+* Team-form model alone: 1.93 – 1.17 · P(O2.5) 60% · P(BTTS) 59%
 * Market 1X2: 1.48 / 4.37 / 5.66 (no O/U odds published in feed)
 * League context: avg 1.75 home + 1.41 away goals · O2.5 in 63% · BTTS in 64% of matches
 
@@ -1646,7 +1688,7 @@ _No head-to-head data in the last two seasons._
 |---|---|
 | Goals for / against per game | 1.25 / 1.01 |
 | Home goals for / against | 1.35 / 0.79 |
-| Attack / defence strength (1.00 = league avg) | 0.83 / 0.67 |
+| Attack / defence strength (1.00 = league avg) | 0.94 / 0.89 |
 | Over 1.5 / 2.5 / 3.5 rate | 59% / 38% / 17% |
 | BTTS rate | 39% |
 | Clean sheets / failed to score | 46% / 27% |
@@ -1659,7 +1701,7 @@ _No head-to-head data in the last two seasons._
 |---|---|
 | Goals for / against per game | 1.27 / 2.51 |
 | Away goals for / against | 1.03 / 3.11 |
-| Attack / defence strength (1.00 = league avg) | 0.81 / 1.55 |
+| Attack / defence strength (1.00 = league avg) | 0.94 / 1.17 |
 | Over 1.5 / 2.5 / 3.5 rate | 97% / 78% / 47% |
 | BTTS rate | 65% |
 | Clean sheets / failed to score | 1% / 35% |
@@ -1671,9 +1713,10 @@ _No head-to-head data in the last two seasons._
 
 </details>
 
-<details><summary><b>Nashville SC v Toronto FC</b> — USA · MLS, Sun 27 Sep 02:30 · O2.5 64% · BTTS 49%</summary>
+<details><summary><b>Nashville SC v Toronto FC</b> — USA · MLS, Sun 27 Sep 02:30 · O2.5 62% · BTTS 60%</summary>
 
-* Model expected goals: **2.54 – 0.75** (total 3.29) · P(O1.5) 84% · P(O2.5) 64% · P(O3.5) 42% · P(BTTS) 49%
+* Final expected goals: **1.99 – 1.18** (total 3.18, model only) · P(O1.5) **83%** · P(O2.5) **62%** · P(O3.5) 39% · P(BTTS) **60%**
+* Team-form model alone: 1.99 – 1.18 · P(O2.5) 62% · P(BTTS) 60%
 * Market 1X2: 1.43 / 4.61 / 6.01 (no O/U odds published in feed)
 * League context: avg 1.75 home + 1.41 away goals · O2.5 in 63% · BTTS in 64% of matches
 
@@ -1683,7 +1726,7 @@ _No head-to-head data in the last two seasons._
 |---|---|
 | Goals for / against per game | 1.97 / 0.96 |
 | Home goals for / against | 2.87 / 0.90 |
-| Attack / defence strength (1.00 = league avg) | 1.38 / 0.70 |
+| Attack / defence strength (1.00 = league avg) | 1.10 / 0.89 |
 | Over 1.5 / 2.5 / 3.5 rate | 68% / 65% / 44% |
 | BTTS rate | 49% |
 | Clean sheets / failed to score | 43% / 18% |
@@ -1696,7 +1739,7 @@ _No head-to-head data in the last two seasons._
 |---|---|
 | Goals for / against per game | 1.50 / 1.86 |
 | Away goals for / against | 0.80 / 1.70 |
-| Attack / defence strength (1.00 = league avg) | 0.76 / 1.05 |
+| Attack / defence strength (1.00 = league avg) | 0.95 / 1.04 |
 | Over 1.5 / 2.5 / 3.5 rate | 89% / 68% / 33% |
 | BTTS rate | 81% |
 | Clean sheets / failed to score | 11% / 18% |
@@ -1708,9 +1751,10 @@ _No head-to-head data in the last two seasons._
 
 </details>
 
-<details><summary><b>Seattle Sounders v Minnesota United</b> — USA · MLS, Sun 27 Sep 02:30 · O2.5 71% · BTTS 70%</summary>
+<details><summary><b>Seattle Sounders v Minnesota United</b> — USA · MLS, Sun 27 Sep 02:30 · O2.5 63% · BTTS 65%</summary>
 
-* Model expected goals: **1.83 – 1.83** (total 3.66) · P(O1.5) 88% · P(O2.5) 71% · P(O3.5) 50% · P(BTTS) 70%
+* Final expected goals: **1.77 – 1.48** (total 3.25, model only) · P(O1.5) **84%** · P(O2.5) **63%** · P(O3.5) 41% · P(BTTS) **65%**
+* Team-form model alone: 1.77 – 1.48 · P(O2.5) 63% · P(BTTS) 65%
 * Market 1X2: 2.19 / 3.66 / 2.84 (no O/U odds published in feed)
 * League context: avg 1.75 home + 1.41 away goals · O2.5 in 63% · BTTS in 64% of matches
 
@@ -1720,7 +1764,7 @@ _No head-to-head data in the last two seasons._
 |---|---|
 | Goals for / against per game | 1.26 / 1.47 |
 | Home goals for / against | 1.44 / 1.50 |
-| Attack / defence strength (1.00 = league avg) | 0.85 / 1.02 |
+| Attack / defence strength (1.00 = league avg) | 0.94 / 0.99 |
 | Over 1.5 / 2.5 / 3.5 rate | 76% / 45% / 29% |
 | BTTS rate | 61% |
 | Clean sheets / failed to score | 24% / 23% |
@@ -1733,7 +1777,7 @@ _No head-to-head data in the last two seasons._
 |---|---|
 | Goals for / against per game | 1.66 / 1.92 |
 | Away goals for / against | 2.12 / 2.35 |
-| Attack / defence strength (1.00 = league avg) | 1.28 / 1.23 |
+| Attack / defence strength (1.00 = league avg) | 1.06 / 1.07 |
 | Over 1.5 / 2.5 / 3.5 rate | 82% / 66% / 42% |
 | BTTS rate | 76% |
 | Clean sheets / failed to score | 15% / 16% |
@@ -1745,9 +1789,10 @@ _No head-to-head data in the last two seasons._
 
 </details>
 
-<details><summary><b>Real Salt Lake v New England Revolution</b> — USA · MLS, Sun 27 Sep 03:30 · O2.5 62% · BTTS 62%</summary>
+<details><summary><b>Real Salt Lake v New England Revolution</b> — USA · MLS, Sun 27 Sep 03:30 · O2.5 60% · BTTS 63%</summary>
 
-* Model expected goals: **1.32 – 1.90** (total 3.22) · P(O1.5) 83% · P(O2.5) 62% · P(O3.5) 40% · P(BTTS) 62%
+* Final expected goals: **1.56 – 1.55** (total 3.12, model only) · P(O1.5) **82%** · P(O2.5) **60%** · P(O3.5) 38% · P(BTTS) **63%**
+* Team-form model alone: 1.56 – 1.55 · P(O2.5) 60% · P(BTTS) 63%
 * Market 1X2: 2.26 / 3.63 / 2.74 (no O/U odds published in feed)
 * League context: avg 1.75 home + 1.41 away goals · O2.5 in 63% · BTTS in 64% of matches
 
@@ -1757,7 +1802,7 @@ _No head-to-head data in the last two seasons._
 |---|---|
 | Goals for / against per game | 1.23 / 1.85 |
 | Home goals for / against | 1.61 / 1.80 |
-| Attack / defence strength (1.00 = league avg) | 0.89 / 1.20 |
+| Attack / defence strength (1.00 = league avg) | 0.94 / 1.06 |
 | Over 1.5 / 2.5 / 3.5 rate | 92% / 63% / 30% |
 | BTTS rate | 66% |
 | Clean sheets / failed to score | 6% / 27% |
@@ -1770,7 +1815,7 @@ _No head-to-head data in the last two seasons._
 |---|---|
 | Goals for / against per game | 1.78 / 1.28 |
 | Away goals for / against | 1.65 / 1.44 |
-| Attack / defence strength (1.00 = league avg) | 1.13 / 0.85 |
+| Attack / defence strength (1.00 = league avg) | 1.04 / 0.95 |
 | Over 1.5 / 2.5 / 3.5 rate | 85% / 72% / 28% |
 | BTTS rate | 70% |
 | Clean sheets / failed to score | 17% / 17% |
@@ -1781,9 +1826,10 @@ _No head-to-head data in the last two seasons._
 
 </details>
 
-<details><summary><b>Los Angeles Galaxy v Colorado Rapids</b> — USA · MLS, Sun 27 Sep 04:30 · O2.5 38% · BTTS 43%</summary>
+<details><summary><b>Los Angeles Galaxy v Colorado Rapids</b> — USA · MLS, Sun 27 Sep 04:30 · O2.5 54% · BTTS 57%</summary>
 
-* Model expected goals: **1.33 – 0.88** (total 2.21) · P(O1.5) 65% · P(O2.5) 38% · P(O3.5) 18% · P(BTTS) 43%
+* Final expected goals: **1.58 – 1.26** (total 2.84, model only) · P(O1.5) **78%** · P(O2.5) **54%** · P(O3.5) 32% · P(BTTS) **57%**
+* Team-form model alone: 1.58 – 1.26 · P(O2.5) 54% · P(BTTS) 57%
 * Market 1X2: 2.15 / 3.72 / 2.86 (no O/U odds published in feed)
 * League context: avg 1.75 home + 1.41 away goals · O2.5 in 63% · BTTS in 64% of matches
 
@@ -1793,7 +1839,7 @@ _No head-to-head data in the last two seasons._
 |---|---|
 | Goals for / against per game | 1.26 / 1.57 |
 | Home goals for / against | 1.19 / 1.21 |
-| Attack / defence strength (1.00 = league avg) | 0.78 / 0.93 |
+| Attack / defence strength (1.00 = league avg) | 0.93 / 0.98 |
 | Over 1.5 / 2.5 / 3.5 rate | 86% / 63% / 29% |
 | BTTS rate | 71% |
 | Clean sheets / failed to score | 15% / 19% |
@@ -1806,7 +1852,7 @@ _No head-to-head data in the last two seasons._
 |---|---|
 | Goals for / against per game | 1.24 / 1.31 |
 | Away goals for / against | 0.69 / 1.86 |
-| Attack / defence strength (1.00 = league avg) | 0.68 / 0.97 |
+| Attack / defence strength (1.00 = league avg) | 0.91 / 0.97 |
 | Over 1.5 / 2.5 / 3.5 rate | 58% / 43% / 25% |
 | BTTS rate | 38% |
 | Clean sheets / failed to score | 38% / 27% |
@@ -1818,9 +1864,10 @@ _No head-to-head data in the last two seasons._
 
 </details>
 
-<details><summary><b>San Jose Earthquakes v Portland Timbers</b> — USA · MLS, Sun 27 Sep 04:30 · O2.5 67% · BTTS 68%</summary>
+<details><summary><b>San Jose Earthquakes v Portland Timbers</b> — USA · MLS, Sun 27 Sep 04:30 · O2.5 64% · BTTS 65%</summary>
 
-* Model expected goals: **1.74 – 1.71** (total 3.45) · P(O1.5) 86% · P(O2.5) 67% · P(O3.5) 45% · P(BTTS) 68%
+* Final expected goals: **1.80 – 1.50** (total 3.30, model only) · P(O1.5) **85%** · P(O2.5) **64%** · P(O3.5) 42% · P(BTTS) **65%**
+* Team-form model alone: 1.80 – 1.50 · P(O2.5) 64% · P(BTTS) 65%
 * Market 1X2: 2.02 / 3.84 / 3.07 (no O/U odds published in feed)
 * League context: avg 1.75 home + 1.41 away goals · O2.5 in 63% · BTTS in 64% of matches
 
@@ -1830,7 +1877,7 @@ _No head-to-head data in the last two seasons._
 |---|---|
 | Goals for / against per game | 1.58 / 1.69 |
 | Home goals for / against | 1.50 / 1.96 |
-| Attack / defence strength (1.00 = league avg) | 0.93 / 1.22 |
+| Attack / defence strength (1.00 = league avg) | 0.99 / 1.05 |
 | Over 1.5 / 2.5 / 3.5 rate | 77% / 59% / 53% |
 | BTTS rate | 66% |
 | Clean sheets / failed to score | 22% / 17% |
@@ -1843,7 +1890,7 @@ _No head-to-head data in the last two seasons._
 |---|---|
 | Goals for / against per game | 1.78 / 1.79 |
 | Away goals for / against | 1.29 / 1.78 |
-| Attack / defence strength (1.00 = league avg) | 0.99 / 1.06 |
+| Attack / defence strength (1.00 = league avg) | 1.01 / 1.04 |
 | Over 1.5 / 2.5 / 3.5 rate | 92% / 74% / 44% |
 | BTTS rate | 78% |
 | Clean sheets / failed to score | 3% / 19% |
@@ -1855,9 +1902,10 @@ _No head-to-head data in the last two seasons._
 
 </details>
 
-<details><summary><b>Vancouver Whitecaps v DC United</b> — USA · MLS, Sun 27 Sep 04:30 · O2.5 56% · BTTS 51%</summary>
+<details><summary><b>Vancouver Whitecaps v DC United</b> — USA · MLS, Sun 27 Sep 04:30 · O2.5 60% · BTTS 60%</summary>
 
-* Model expected goals: **2.04 – 0.88** (total 2.92) · P(O1.5) 79% · P(O2.5) 56% · P(O3.5) 34% · P(BTTS) 51%
+* Final expected goals: **1.92 – 1.19** (total 3.11, model only) · P(O1.5) **82%** · P(O2.5) **60%** · P(O3.5) 38% · P(BTTS) **60%**
+* Team-form model alone: 1.92 – 1.19 · P(O2.5) 60% · P(BTTS) 60%
 * Market 1X2: 1.24 / 6.07 / 8.97 (no O/U odds published in feed)
 * League context: avg 1.75 home + 1.41 away goals · O2.5 in 63% · BTTS in 64% of matches
 
@@ -1867,7 +1915,7 @@ _No head-to-head data in the last two seasons._
 |---|---|
 | Goals for / against per game | 2.19 / 0.99 |
 | Home goals for / against | 2.21 / 0.98 |
-| Attack / defence strength (1.00 = league avg) | 1.25 / 0.74 |
+| Attack / defence strength (1.00 = league avg) | 1.10 / 0.90 |
 | Over 1.5 / 2.5 / 3.5 rate | 84% / 65% / 35% |
 | BTTS rate | 46% |
 | Clean sheets / failed to score | 44% / 14% |
@@ -1880,7 +1928,7 @@ _No head-to-head data in the last two seasons._
 |---|---|
 | Goals for / against per game | 1.18 / 1.57 |
 | Away goals for / against | 1.22 / 1.42 |
-| Attack / defence strength (1.00 = league avg) | 0.85 / 0.93 |
+| Attack / defence strength (1.00 = league avg) | 0.94 / 1.00 |
 | Over 1.5 / 2.5 / 3.5 rate | 76% / 57% / 29% |
 | BTTS rate | 64% |
 | Clean sheets / failed to score | 22% / 31% |
@@ -1891,9 +1939,10 @@ _No head-to-head data in the last two seasons._
 
 </details>
 
-<details><summary><b>Santos Laguna v Pachuca</b> — Mexico · Liga MX, Sun 27 Sep 05:05 · O2.5 38% · BTTS 42%</summary>
+<details><summary><b>Santos Laguna v Pachuca</b> — Mexico · Liga MX, Sun 27 Sep 05:05 · O2.5 50% · BTTS 55%</summary>
 
-* Model expected goals: **0.84 – 1.36** (total 2.20) · P(O1.5) 65% · P(O2.5) 38% · P(O3.5) 18% · P(BTTS) 42%
+* Final expected goals: **1.37 – 1.31** (total 2.69, model only) · P(O1.5) **76%** · P(O2.5) **50%** · P(O3.5) 28% · P(BTTS) **55%**
+* Team-form model alone: 1.37 – 1.31 · P(O2.5) 50% · P(BTTS) 55%
 * Market 1X2: 2.94 / 3.56 / 2.12 (no O/U odds published in feed)
 * League context: avg 1.59 home + 1.23 away goals · O2.5 in 53% · BTTS in 58% of matches
 
@@ -1903,7 +1952,7 @@ _No head-to-head data in the last two seasons._
 |---|---|
 | Goals for / against per game | 1.12 / 1.81 |
 | Home goals for / against | 0.99 / 0.99 |
-| Attack / defence strength (1.00 = league avg) | 0.77 / 0.99 |
+| Attack / defence strength (1.00 = league avg) | 0.94 / 1.03 |
 | Over 1.5 / 2.5 / 3.5 rate | 71% / 64% / 35% |
 | BTTS rate | 54% |
 | Clean sheets / failed to score | 12% / 40% |
@@ -1916,7 +1965,7 @@ _No head-to-head data in the last two seasons._
 |---|---|
 | Goals for / against per game | 1.53 / 1.07 |
 | Away goals for / against | 1.46 / 0.77 |
-| Attack / defence strength (1.00 = league avg) | 1.12 / 0.68 |
+| Attack / defence strength (1.00 = league avg) | 1.04 / 0.92 |
 | Over 1.5 / 2.5 / 3.5 rate | 79% / 50% / 24% |
 | BTTS rate | 54% |
 | Clean sheets / failed to score | 30% / 19% |
@@ -1928,9 +1977,10 @@ _No head-to-head data in the last two seasons._
 
 </details>
 
-<details><summary><b>Tigres UANL v Puebla</b> — Mexico · Liga MX, Sun 27 Sep 05:10 · O2.5 49% · BTTS 47%</summary>
+<details><summary><b>Tigres UANL v Puebla</b> — Mexico · Liga MX, Sun 27 Sep 05:10 · O2.5 51% · BTTS 54%</summary>
 
-* Model expected goals: **1.79 – 0.83** (total 2.62) · P(O1.5) 74% · P(O2.5) 49% · P(O3.5) 27% · P(BTTS) 47%
+* Final expected goals: **1.62 – 1.10** (total 2.72, model only) · P(O1.5) **76%** · P(O2.5) **51%** · P(O3.5) 29% · P(BTTS) **54%**
+* Team-form model alone: 1.62 – 1.10 · P(O2.5) 51% · P(BTTS) 54%
 * Market 1X2: 1.52 / 4.12 / 5.27 (no O/U odds published in feed)
 * League context: avg 1.59 home + 1.23 away goals · O2.5 in 53% · BTTS in 58% of matches
 
@@ -1940,7 +1990,7 @@ _No head-to-head data in the last two seasons._
 |---|---|
 | Goals for / against per game | 1.34 / 1.23 |
 | Home goals for / against | 2.12 / 0.85 |
-| Attack / defence strength (1.00 = league avg) | 1.12 / 0.81 |
+| Attack / defence strength (1.00 = league avg) | 1.01 / 0.95 |
 | Over 1.5 / 2.5 / 3.5 rate | 75% / 47% / 30% |
 | BTTS rate | 58% |
 | Clean sheets / failed to score | 28% / 32% |
@@ -1953,7 +2003,7 @@ _No head-to-head data in the last two seasons._
 |---|---|
 | Goals for / against per game | 1.07 / 1.49 |
 | Away goals for / against | 1.00 / 1.52 |
-| Attack / defence strength (1.00 = league avg) | 0.84 / 1.00 |
+| Attack / defence strength (1.00 = league avg) | 0.94 / 1.01 |
 | Over 1.5 / 2.5 / 3.5 rate | 67% / 45% / 26% |
 | BTTS rate | 54% |
 | Clean sheets / failed to score | 20% / 33% |
@@ -1970,15 +2020,16 @@ _No head-to-head data in the last two seasons._
 | Market | Settled | Hits | Hit rate | Last 30 days | Pending | Avg odds | Flat-stake return |
 |---|---|---|---|---|---|---|---|
 | Over 1.5 goals | 0 | 0 | – | – | 10 | – | – |
-| Over 2.5 goals | 0 | 0 | – | – | 14 | – | – |
-| Both teams to score | 0 | 0 | – | – | 9 | – | – |
+| Over 2.5 goals | 0 | 0 | – | – | 16 | – | – |
+| Both teams to score | 0 | 0 | – | – | 14 | – | – |
 
 _Flat-stake return is for model evaluation only: 1 unit on every Over 2.5 pick at the average market odds._
 
 ## ℹ️ Method
 
-* Team attack/defence strengths come from goals scored and conceded in the last two seasons, normalised by league averages, time-weighted (half-life 120 days), blended with home/away-specific form and shrunk towards league average for small samples.
-* Expected goals for each side = league average × attack strength × opponent defence strength; probabilities come from a Poisson model on those expected goals.
-* For Over 2.5 the model probability is blended with the bookmaker-implied probability (40% market weight) whenever odds are published in the feed.
+* **Team-form model:** attack/defence strengths from goals scored and conceded over the last two seasons, normalised by league averages, time-weighted (half-life 120 days) and strongly shrunk towards league average (K=40 matches — goal form is noisy; the backtest showed weak shrinkage made the old model over-confident by 5-10 points).
+* **Market-implied expected goals:** where the feed publishes odds, the Over/Under 2.5 price fixes the expected total and the 1X2 prices fix the home/away split. The final expected goals are 90% market / 9% model (📈 market+model). Without odds the model is used alone (🧮 model only).
+* Probabilities for every market come from a Dixon-Coles adjusted Poisson score matrix (ρ=-0.05).
+* **Backtest (52,000 matches, 2023-26, no look-ahead):** final probabilities are calibrated to within ±3 points; the model alone beats league averages but never beats the market, and when the model is more bullish than the market those matches under-deliver — so 'Model' above is information, not a value signal. Full results: `backtest/RESULTS.md`.
 * Data: football-data.co.uk. All times are SAST (Africa/Johannesburg). ⚠️ marks teams with too little history (typically newly promoted from a division not covered) — they are never shortlisted.
 * This is statistical information, not advice. Past hit-rates do not guarantee future results.
