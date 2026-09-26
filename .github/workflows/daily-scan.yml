@@ -2,8 +2,8 @@ name: Daily goals scan
 
 on:
   schedule:
-    # 06:00 UTC every day = 07:00 UK in summer (BST), 06:00 UK in winter (GMT). GitHub cron is UTC only.
-    - cron: "0 6 * * *"
+    # 05:00 UTC every day = 07:00 South African time (SAST, no daylight saving). GitHub cron is UTC only.
+    - cron: "0 5 * * *"
   workflow_dispatch:        # lets you run it manually from the Actions tab at any time
 
 permissions:
@@ -18,6 +18,8 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     env:
+      TIMEZONE: "Africa/Johannesburg"   # timezone for all displayed times and the scan window
+      TZ_LABEL: "SAST"
       WINDOW_HOURS: "24"    # scan matches kicking off within the next 24 hours
       MIN_P_O15: "0.84"     # shortlist thresholds (final probability)
       MIN_P_O25: "0.60"

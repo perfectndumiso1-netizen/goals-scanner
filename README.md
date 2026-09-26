@@ -6,50 +6,50 @@ goals model for every match, shortlists the strongest candidates and commits a r
 No servers, no API keys — it runs even when your computer is off.
 
 <!-- SCAN:START -->
-### Latest scan — Saturday 26 September 2026 (12:09 UK)
+### Latest scan — Saturday 26 September 2026 (07:00 SAST)
 
-48 fixtures scanned · window Sat 12:04 → Sun 12:09 UK · [open full report](reports/2026-09-26.md)
+48 fixtures scanned · window Sat 06:55 → Sun 07:00 SAST · [open full report](reports/2026-09-26.md)
 
 **Over 1.5 goals** — 10 pick(s)
 
 | Kick-off | Match | Competition | Final prob. | Rating |
 |---|---|---|---|---|
-| Sun 27 Sep 00:30 | **Philadelphia Union v Orlando City** | USA · MLS | 94% | ⭐⭐ |
-| Sat 26 Sep 15:00 | **Solihull v Boreham Wood** | England · National League | 90% | ⭐⭐ |
-| Sun 27 Sep 01:30 | **Seattle Sounders v Minnesota United** | USA · MLS | 88% | ⭐ |
-| Sat 26 Sep 15:00 | **Southend v Barrow** | England · National League | 88% | ⭐ |
-| Sat 26 Sep 15:00 | **Stockport v Peterboro** | England · League One | 87% | ⭐ |
-| Sun 27 Sep 00:30 | **Charlotte v Chicago Fire** | USA · MLS | 86% | ⭐ |
-| Sun 27 Sep 03:30 | **San Jose Earthquakes v Portland Timbers** | USA · MLS | 86% | ⭐ |
-| Sat 26 Sep 15:00 | **Boston Utd v Fylde** | England · National League | 85% | ⭐ |
+| Sun 27 Sep 01:30 | **Philadelphia Union v Orlando City** | USA · MLS | 94% | ⭐⭐ |
+| Sat 26 Sep 16:00 | **Solihull v Boreham Wood** | England · National League | 90% | ⭐⭐ |
+| Sun 27 Sep 02:30 | **Seattle Sounders v Minnesota United** | USA · MLS | 88% | ⭐ |
+| Sat 26 Sep 16:00 | **Southend v Barrow** | England · National League | 88% | ⭐ |
+| Sat 26 Sep 16:00 | **Stockport v Peterboro** | England · League One | 87% | ⭐ |
+| Sun 27 Sep 01:30 | **Charlotte v Chicago Fire** | USA · MLS | 86% | ⭐ |
+| Sun 27 Sep 04:30 | **San Jose Earthquakes v Portland Timbers** | USA · MLS | 86% | ⭐ |
+| Sat 26 Sep 16:00 | **Boston Utd v Fylde** | England · National League | 85% | ⭐ |
 | … | _2 more in the full report_ | | | |
 
 **Over 2.5 goals** — 14 pick(s)
 
 | Kick-off | Match | Competition | Final prob. | Rating |
 |---|---|---|---|---|
-| Sun 27 Sep 00:30 | **Philadelphia Union v Orlando City** | USA · MLS | 82% | ⭐⭐⭐ |
-| Sat 26 Sep 15:00 | **Solihull v Boreham Wood** | England · National League | 72% | ⭐⭐⭐ |
-| Sun 27 Sep 01:30 | **Seattle Sounders v Minnesota United** | USA · MLS | 71% | ⭐⭐⭐ |
-| Sat 26 Sep 15:00 | **Stockport v Peterboro** | England · League One | 69% | ⭐⭐ |
-| Sun 27 Sep 00:30 | **Charlotte v Chicago Fire** | USA · MLS | 68% | ⭐⭐ |
-| Sun 27 Sep 03:30 | **San Jose Earthquakes v Portland Timbers** | USA · MLS | 67% | ⭐⭐ |
-| Sun 27 Sep 00:30 | **CF Montreal v FC Cincinnati** | USA · MLS | 66% | ⭐⭐ |
-| Sat 26 Sep 15:00 | **Southend v Barrow** | England · National League | 65% | ⭐⭐ |
+| Sun 27 Sep 01:30 | **Philadelphia Union v Orlando City** | USA · MLS | 82% | ⭐⭐⭐ |
+| Sat 26 Sep 16:00 | **Solihull v Boreham Wood** | England · National League | 72% | ⭐⭐⭐ |
+| Sun 27 Sep 02:30 | **Seattle Sounders v Minnesota United** | USA · MLS | 71% | ⭐⭐⭐ |
+| Sat 26 Sep 16:00 | **Stockport v Peterboro** | England · League One | 69% | ⭐⭐ |
+| Sun 27 Sep 01:30 | **Charlotte v Chicago Fire** | USA · MLS | 68% | ⭐⭐ |
+| Sun 27 Sep 04:30 | **San Jose Earthquakes v Portland Timbers** | USA · MLS | 67% | ⭐⭐ |
+| Sun 27 Sep 01:30 | **CF Montreal v FC Cincinnati** | USA · MLS | 66% | ⭐⭐ |
+| Sat 26 Sep 16:00 | **Southend v Barrow** | England · National League | 65% | ⭐⭐ |
 | … | _6 more in the full report_ | | | |
 
 **Both teams to score** — 9 pick(s)
 
 | Kick-off | Match | Competition | Final prob. | Rating |
 |---|---|---|---|---|
-| Sun 27 Sep 00:30 | **Philadelphia Union v Orlando City** | USA · MLS | 71% | ⭐⭐ |
-| Sun 27 Sep 01:30 | **Seattle Sounders v Minnesota United** | USA · MLS | 70% | ⭐⭐ |
-| Sun 27 Sep 03:30 | **San Jose Earthquakes v Portland Timbers** | USA · MLS | 68% | ⭐⭐ |
-| Sun 27 Sep 00:30 | **CF Montreal v FC Cincinnati** | USA · MLS | 67% | ⭐ |
-| Sat 26 Sep 15:00 | **Solihull v Boreham Wood** | England · National League | 66% | ⭐ |
-| Sun 27 Sep 00:30 | **Charlotte v Chicago Fire** | USA · MLS | 66% | ⭐ |
-| Sat 26 Sep 15:00 | **Boston Utd v Fylde** | England · National League | 65% | ⭐ |
-| Sat 26 Sep 15:00 | **Aldershot v Tamworth** | England · National League | 63% | ⭐ |
+| Sun 27 Sep 01:30 | **Philadelphia Union v Orlando City** | USA · MLS | 71% | ⭐⭐ |
+| Sun 27 Sep 02:30 | **Seattle Sounders v Minnesota United** | USA · MLS | 70% | ⭐⭐ |
+| Sun 27 Sep 04:30 | **San Jose Earthquakes v Portland Timbers** | USA · MLS | 68% | ⭐⭐ |
+| Sun 27 Sep 01:30 | **CF Montreal v FC Cincinnati** | USA · MLS | 67% | ⭐ |
+| Sat 26 Sep 16:00 | **Solihull v Boreham Wood** | England · National League | 66% | ⭐ |
+| Sun 27 Sep 01:30 | **Charlotte v Chicago Fire** | USA · MLS | 66% | ⭐ |
+| Sat 26 Sep 16:00 | **Boston Utd v Fylde** | England · National League | 65% | ⭐ |
+| Sat 26 Sep 16:00 | **Aldershot v Tamworth** | England · National League | 63% | ⭐ |
 | … | _1 more in the full report_ | | | |
 
 **Tracker**
@@ -112,7 +112,7 @@ No servers, no API keys — it runs even when your computer is off.
    (`scanner.py`, `requirements.txt`, `README.md`, `.github/workflows/daily-scan.yml`).
 2. Open the **Actions** tab. If GitHub asks, click **"I understand my workflows, go ahead and enable them"**.
 3. Click **Daily goals scan → Run workflow** to run it immediately and check the output.
-4. That's it — it now runs every day at 06:00 UTC (07:00 UK summer time / 06:00 UK winter time).
+4. That's it — it now runs every day at 07:00 South African time (05:00 UTC).
 
 If the commit step fails with a permissions error: **Settings → Actions → General → Workflow permissions →
 "Read and write permissions"** → Save.
@@ -133,19 +133,21 @@ Edit the `env:` block in `.github/workflows/daily-scan.yml` (no code changes nee
 
 | Variable | Default | Meaning |
 |---|---|---|
+| `TIMEZONE` / `TZ_LABEL` | `Africa/Johannesburg` / `SAST` | Timezone for all displayed times and the scan window (feed times are converted from UK time) |
 | `WINDOW_HOURS` | `24` | Scan matches kicking off within this many hours of the run |
 | `MIN_P_O15` / `MIN_P_O25` / `MIN_P_BTTS` | `0.84` / `0.60` / `0.62` | Shortlist probability thresholds |
 | `MAX_PICKS` | `15` | Max picks per market |
 | `LEAGUES` | _(all)_ | Restrict to some competitions, e.g. `E0,SP1,I1,D1,F1` (codes in `scanner.py`) |
 
-To change the run time, edit the `cron:` line (GitHub cron is always UTC).
+To change the run time, edit the `cron:` line (GitHub cron is always UTC; SAST = UTC+2 all year).
 
 Run it locally with `pip install -r requirements.txt && python scanner.py`.
 
 ## Notes & limits
 
-* Fixtures appear in the feed a few days ahead of kick-off; the scanner only lists matches kicking off
-  inside the scan window, so a 07:00 run covers that day's games plus overnight ones in the Americas.
+* All kick-off times are shown in South African time (SAST). Fixtures appear in the feed a few days ahead of
+  kick-off; the scanner only lists matches kicking off inside the scan window, so a 07:00 run covers that
+  day's games plus overnight ones in the Americas.
 * GitHub schedules can start up to ~30 minutes late at busy times. GitHub also pauses schedules in
   repositories with no activity for 60 days — the daily commits keep this one active; if it ever pauses
   you get an email with a one-click re-enable.

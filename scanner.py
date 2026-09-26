@@ -46,6 +46,7 @@ README_FILE = ROOT / "README.md"
 
 BASE = "https://www.football-data.co.uk"
 FIXTURES_URL = f"{BASE}/fixtures.csv"
+FEED_TZ = ZoneInfo("Europe/London")  # football-data.co.uk publishes kick-off times in UK time
 NEW_FIXTURES_URL = f"{BASE}/new_league_fixtures.csv"
 
 
@@ -58,7 +59,9 @@ def _env_float(name: str, default: float) -> float:
 
 # ----------------------------------------------------------------------------- config
 CONFIG = {
-    "TIMEZONE": "Europe/London",
+    # timezone used for the scan window, all displayed times and report dates
+    "TIMEZONE": os.getenv("TIMEZONE", "Africa/Johannesburg"),
+    "TZ_LABEL": os.getenv("TZ_LABEL", "SAST"),
     # matches kicking off between "now" and now + WINDOW_HOURS are scanned
     "WINDOW_HOURS": _env_float("WINDOW_HOURS", 24),
     # form weighting: a match HALF_LIFE_DAYS ago counts half as much as one played today
@@ -85,6 +88,8 @@ CONFIG = {
     # optional: restrict to some competitions, e.g. LEAGUES="E0,SP1,I1,D1,F1,BRA"
     "LEAGUES": [s.strip() for s in os.getenv("LEAGUES", "").split(",") if s.strip()],
 }
+
+TZL = CONFIG["TZ_LABEL"]
 
 MARKETS = {
     "O15": "Over 1.5 goals",
@@ -336,7 +341,7 @@ def load_fixtures(tz: ZoneInfo) -> pd.DataFrame:
             hh, mm = [int(x) for x in t.split(":")[:2]]
         except ValueError:
             hh, mm = 12, 0
-        return datetime(r["date"].year, r["date"].month, r["date"].day, hh, mm, tzinfo=tz)
+        return datetime(r["date"].year, r["date"].month, r["date"].day, hh, mm, tzinfo=FEED_TZ).astimezone(tz)
 
     fx["kickoff"] = fx.apply(kickoff, axis=1)
     fx["time_known"] = fx["time"].apply(lambda t: bool(t) and t.lower() not in ("nan", "none"))
@@ -629,7 +634,7 @@ def add_picks(t: pd.DataFrame, picks: dict[str, list[MatchRow]], today: datetime
     new = []
     for mkt, rows in picks.items():
         for r in rows:
-            key = (r.fx["kickoff"].strftime("%Y-%m-%d"), r.fx["home"], r.fx["away"], mkt)
+            key = (r.fx["date"].strftime("%Y-%m-%d"), r.fx["home"], r.fx["away"], mkt)
             if key in existing:
                 continue
             existing.add(key)
@@ -707,14 +712,14 @@ def render_pick_table(rows: list[MatchRow], mkt: str) -> list[str]:
         L.append("_No match met the criteria today._")
         return L
     if mkt == "O25":
-        L.append("| # | Kick-off (UK) | Competition | Match | Model | Market (odds) | Final | Rating | Last-10 form | Model xG |")
+        L.append(f"| # | Kick-off ({TZL}) | Competition | Match | Model | Market (odds) | Final | Rating | Last-10 form | Model xG |")
         L.append("|---|---|---|---|---|---|---|---|---|---|")
         for i, r in enumerate(rows, 1):
             L.append(f"| {i} | {ko(r)} | {comp(r)} | **{r.label}** | {pct(r.p['O25'])} | {market_str(r)} | "
                      f"**{pct(r.p_final['O25'])}** | {stars(r.p_final['O25'], thr)} | {form_str(r, mkt)} | "
                      f"{r.lam_h:.1f} – {r.lam_a:.1f} |")
     else:
-        L.append("| # | Kick-off (UK) | Competition | Match | Model | Rating | Last-10 form | Model xG |")
+        L.append(f"| # | Kick-off ({TZL}) | Competition | Match | Model | Rating | Last-10 form | Model xG |")
         L.append("|---|---|---|---|---|---|---|---|")
         for i, r in enumerate(rows, 1):
             L.append(f"| {i} | {ko(r)} | {comp(r)} | **{r.label}** | **{pct(r.p_final[mkt])}** | "
@@ -797,8 +802,8 @@ def render_report(ctx: dict, rows: list[MatchRow], picks: dict, summary: dict, n
     now = ctx["now"]
     L = [f"# ⚽ Goals Scanner — {now:%A %d %B %Y}", ""]
     comps = {comp(r) for r in rows}
-    L.append(f"**Scan window:** {ctx['start']:%a %d %b %H:%M} → {ctx['end']:%a %d %b %H:%M} (UK time) · "
-             f"**{len(rows)} fixtures** across **{len(comps)} competitions** · generated {now:%H:%M} UK")
+    L.append(f"**Scan window:** {ctx['start']:%a %d %b %H:%M} → {ctx['end']:%a %d %b %H:%M} ({TZL}) · "
+             f"**{len(rows)} fixtures** across **{len(comps)} competitions** · generated {now:%H:%M} {TZL}")
     L.append("")
     if notes:
         L.append("> " + "  \n> ".join(notes))
@@ -817,7 +822,7 @@ def render_report(ctx: dict, rows: list[MatchRow], picks: dict, summary: dict, n
     L.append("## 📊 Full scan — every fixture, ranked by Over 2.5 probability")
     L.append("")
     if rows:
-        L.append("| Kick-off (UK) | Competition | Match | Model xG | O1.5 | O2.5 | BTTS | Market O2.5 | O2.5 final | O2.5 last-10 form | Data |")
+        L.append(f"| Kick-off ({TZL}) | Competition | Match | Model xG | O1.5 | O2.5 | BTTS | Market O2.5 | O2.5 final | O2.5 last-10 form | Data |")
         L.append("|---|---|---|---|---|---|---|---|---|---|---|")
         for r in sorted(rows, key=lambda r: r.p_final["O25"], reverse=True):
             flag = "✅" if r.data_ok else f"⚠️ {r.home.n}/{r.away.n} games"
@@ -851,7 +856,7 @@ def render_report(ctx: dict, rows: list[MatchRow], picks: dict, summary: dict, n
         "probabilities come from a Poisson model on those expected goals.",
         f"* For Over 2.5 the model probability is blended with the bookmaker-implied probability "
         f"({int(CONFIG['MARKET_WEIGHT'] * 100)}% market weight) whenever odds are published in the feed.",
-        "* Data: football-data.co.uk. Kick-off times are UK time. ⚠️ marks teams with too little history "
+        f"* Data: football-data.co.uk. All times are {TZL} ({CONFIG['TIMEZONE']}). ⚠️ marks teams with too little history "
         "(typically newly promoted from a division not covered) — they are never shortlisted.",
         "* This is statistical information, not advice. Past hit-rates do not guarantee future results.",
     ]
@@ -861,8 +866,8 @@ def render_report(ctx: dict, rows: list[MatchRow], picks: dict, summary: dict, n
 
 def render_readme_block(ctx: dict, rows: list[MatchRow], picks: dict, summary: dict, report_rel: str) -> str:
     now = ctx["now"]
-    L = [f"### Latest scan — {now:%A %d %B %Y} ({now:%H:%M} UK)", "",
-         f"{len(rows)} fixtures scanned · window {ctx['start']:%a %H:%M} → {ctx['end']:%a %H:%M} UK · "
+    L = [f"### Latest scan — {now:%A %d %B %Y} ({now:%H:%M} {TZL})", "",
+         f"{len(rows)} fixtures scanned · window {ctx['start']:%a %H:%M} → {ctx['end']:%a %H:%M} {TZL} · "
          f"[open full report]({report_rel})", ""]
     for mkt, name in MARKETS.items():
         sel = picks.get(mkt, [])
@@ -936,7 +941,7 @@ def rows_to_csv(rows: list[MatchRow], path: Path) -> None:
 
 def telegram_text(ctx: dict, rows: list[MatchRow], picks: dict, report_url: str | None) -> str:
     now = ctx["now"]
-    L = [f"⚽ <b>Goals Scanner — {now:%a %d %b}</b>", f"{len(rows)} fixtures scanned"]
+    L = [f"⚽ <b>Goals Scanner — {now:%a %d %b}</b>", f"{len(rows)} fixtures scanned · times in {TZL}"]
     for mkt, name in MARKETS.items():
         sel = picks.get(mkt, [])
         L.append("")
