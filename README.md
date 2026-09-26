@@ -1,15 +1,23 @@
 # ⚽ Goals Scanner
 
-Automatic daily scan of football fixtures for the **goals markets** — Over 1.5, Over 2.5 and Both Teams To Score.
-Every morning a GitHub Actions job downloads the day's fixtures and two seasons of results, combines a
-backtested team-form model with market-implied expected goals for every match, shortlists the strongest
-candidates and commits a report to this repo.
-No servers, no API keys — it runs even when your computer is off.
+Automatic football scanner that runs **three times a day** (07:00 / 12:00 / 17:00 South African time) on GitHub
+Actions and sends everything to Telegram — no servers, no API keys, and it runs while your computer is off.
+
+Every run:
+
+* **Goals shortlists** — Over 1.5, Over 2.5, Both Teams To Score, from a backtested and calibrated model (v2).
+* **Extra markets** — 1X2 / double chance, team goals, **corners** and **cards** probabilities (backtested, v3).
+* **Sportybet prices** — real prices for every match found at Sportybet (ZA), a price check against the fair
+  price, and Sportybet corners / cards / half-time corner prices for the parlay matches.
+* **3 parlays** with combined odds between **2.70 and 3.50**, legs only from markets with real prices
+  (1X2, double chance, Over/Under 2.5), each maximising calibrated probability × price — recorded and graded.
+* **Delivery** — Telegram message + **PDF full report** + **PDF parlay dossier** (full data sheet and recent
+  headlines for every parlay match); Markdown + CSV committed here; a weekly performance digest on Mondays.
 
 <!-- SCAN:START -->
-### Latest scan — Saturday 26 September 2026 (13:51 SAST)
+### Latest scan — Saturday 26 September 2026 (14:57 SAST)
 
-48 fixtures scanned · window Sat 13:46 → Sun 13:51 SAST · [open full report](reports/2026-09-26.md)
+48 fixtures scanned · window Sat 14:52 → Sun 14:57 SAST · [open full report](reports/2026-09-26.md)
 
 **Over 1.5 goals** — 7 pick(s)
 
@@ -51,6 +59,12 @@ No servers, no API keys — it runs even when your computer is off.
 | Sat 26 Sep 16:00 | **Aldershot v Tamworth** | England · National League | 64% | ⭐⭐ |
 | … | _6 more in the full report_ | | | |
 
+**Parlays (run manual, Sportybet)** — see [dossier](reports/2026-09-26-parlays.md)
+
+1. @ **3.47** (P 30%): York v Gillingham — Home win @ 1.80; Newport County v Grimsby — Away win @ 1.93
+2. @ **3.29** (P 29%): Solihull v Boreham Wood — Away win @ 1.68; Fleetwood Town v Rochdale — Under 2.5 goals @ 1.96
+3. @ **2.89** (P 33%): Boston Utd v Fylde — Over 2.5 goals @ 1.52; Cambridge v AFC Wimbledon — Home win @ 1.90
+
 **Tracker**
 
 | Market | Settled | Hits | Hit rate | Last 30 days | Pending | Avg odds | Flat-stake return |
@@ -59,20 +73,26 @@ No servers, no API keys — it runs even when your computer is off.
 | Over 2.5 goals | 0 | 0 | – | – | 16 | – | – |
 | Both teams to score | 0 | 0 | – | – | 14 | – | – |
 
+### Parlay ledger
+
+_No parlays recorded yet._
+
 <!-- SCAN:END -->
 
 ---
 
-## What you get every day
+## What you get every run
 
 | File | Contents |
 |---|---|
-| `reports/YYYY-MM-DD.md` | Full report: shortlists per market, a ranked table of **every** fixture, and expandable per-match stats (model / market / final expected goals, goals for/against, home/away splits, O1.5/O2.5/O3.5 & BTTS rates, clean sheets, xG and shots on target where available, last 5 results, head-to-head, league context, bookmaker odds) |
-| `reports/YYYY-MM-DD.csv` | Same data as a spreadsheet — every fixture, every number |
+| `reports/YYYY-MM-DD.md` | Full report of the latest run that day: parlays, shortlists, Sportybet price check, every fixture with 1X2 / team goals / corners / cards, expandable per-match stats, trackers |
+| `reports/YYYY-MM-DD-parlays.md` | Parlay dossier: each parlay, then the complete data sheet of every match involved + recent headlines (context only) |
+| `reports/YYYY-MM-DD.csv` | Every fixture, every number (incl. corners / cards expectations and Sportybet prices) |
 | `reports/latest.md` | Always the newest report |
-| `data/tracker.csv` | Every shortlisted match, automatically settled once the result is in (hit / miss), so you can see the real hit-rate over time |
-| `backtest/` | The backtest engine and its results (`RESULTS.md`) — the evidence behind every threshold |
-| `README.md` | This page — the block at the top is refreshed with the latest shortlist |
+| `data/tracker.csv` | Every shortlisted match, auto-settled once the result is in |
+| `data/parlays.csv` | Every parlay proposed, auto-graded (won / lost / void) with the legs, odds and model probability |
+| Telegram | Summary message, the full report as PDF, the parlay dossier as PDF, Monday weekly digest |
+| `backtest/` | The evidence: `RESULTS.md` (goals model), `MARKETS_RESULTS.md` (corners, cards, 1X2, value finder), `PARLAY_EXPERIMENT.md` (parlay construction) |
 
 ## Coverage
 
@@ -83,22 +103,19 @@ No servers, no API keys — it runs even when your computer is off.
 * **Germany** Bundesliga, 2. Bundesliga · **Italy** Serie A, Serie B · **Spain** La Liga, Segunda
 * **France** Ligue 1, Ligue 2 · **Netherlands** Eredivisie · **Belgium** Pro League · **Portugal** Primeira Liga
 * **Turkey** Süper Lig · **Greece** Super League
-* **Extra leagues** (no over/under odds in the feed, model only): Argentina, Austria, Brazil, China, Denmark,
-  Finland, Ireland, Japan, Mexico, Norway, Poland, Romania, Russia, Sweden, Switzerland, USA (MLS)
+* **Extra leagues** (no over/under odds in the feed, model only; no corners / cards data): Argentina, Austria,
+  Brazil, China, Denmark, Finland, Ireland, Japan, Mexico, Norway, Poland, Romania, Russia, Sweden, Switzerland, USA (MLS)
 
-## How it works (v2 — backtested)
+## How it works
+
+### Goals model (v2 — backtested on 52,000 matches)
 
 1. **Team-form model.** Goals scored/conceded over the last two seasons, normalised by league average,
-   time-weighted (a match 120 days ago counts half) and *strongly* shrunk towards league average
-   (K = 40 matches). The backtest showed weak shrinkage made the old model over-confident by 5–10 points:
-   recent goal form is mostly noise.
-2. **Market-implied expected goals.** Where the feed publishes odds (the 22 main leagues), the Over/Under 2.5
-   price fixes the expected total and the 1X2 prices fix the home/away split. Final expected goals are
-   **90% market / 10% model** (📈 market+model). In the 16 leagues without odds the model is used alone
-   (🧮 model only).
+   time-weighted (a match 120 days ago counts half) and *strongly* shrunk towards league average (K = 40).
+2. **Market-implied expected goals.** Where the feed publishes odds, the Over/Under 2.5 price fixes the expected
+   total and the 1X2 prices fix the home/away split. Final expected goals are **90% market / 10% model**.
 3. **Probabilities** for Over 1.5 / Over 2.5 / BTTS come from a Dixon-Coles-adjusted Poisson score matrix.
-4. **Shortlist rule:** final probability ≥ threshold, ranked, max 15 per market. Team hit-rate floors and
-   "model disagrees with market" filters were tested and added nothing, so they were removed.
+4. **Shortlist rule:** final probability ≥ threshold, ranked, max 15 per market.
 
 | Market | Shortlist ≥ | ⭐⭐ ≥ | ⭐⭐⭐ ≥ | Backtest hit-rate 2025/26–26/27 (picks) |
 |---|---|---|---|---|
@@ -106,44 +123,68 @@ No servers, no API keys — it runs even when your computer is off.
 | Over 2.5 | 60% | 64% | 68% | 67% · ⭐⭐ 71% · ⭐⭐⭐ 77% (1,675) |
 | BTTS | 60% | 63% | 66% | 64% · ⭐⭐ 65% · ⭐⭐⭐ 71% (1,831) |
 
-## What the backtest says (be honest with yourself)
+### Extra markets (v3 — `backtest/MARKETS_RESULTS.md`)
 
-52,000 matches, Aug 2023 – Sep 2026, replayed day by day with no look-ahead — `backtest/RESULTS.md` has every table.
+* **1X2 / double chance:** score matrix blended 10/90 with the sharp market (Betfair Exchange, else market
+  average), de-margined with the *power* method, which fixes the favourite-longshot bias (favourites were
+  under-estimated by 3–5 points with plain proportional de-margining). Where Sportybet prices a match, the fair
+  probability is the average of the feed's reference price and Sportybet's own price, because the feed prices
+  can be a few days old.
+* **Team goals:** straight from the score matrix (calibrated within ~2 points).
+* **Corners:** team corners for/against, league-normalised, time-decayed, shrinkage K = 40, negative-binomial
+  totals. Calibrated within ~2 points on the 8.5–11.5 lines; beats the league-average baseline.
+* **Cards:** same construction (K = 20) plus a **referee factor** where the referee is published (UK leagues);
+  calibrated within ~2 points on the 3.5–5.5 lines.
+* **Half-time corners:** no free historical data exists, so there is **no model** — Sportybet's price is shown
+  for information only. **Squad values** are not used (no free, legal source; they are already priced into the odds).
 
-* **The probabilities are calibrated.** When the scanner says 65%, about 65–68% of those matches go over.
-  The old version said 68% and delivered 63%.
-* **The market is the best predictor.** The team-form model alone beats league averages (especially in the
-  odds-free leagues) but never beats bookmaker odds, at any blend weight. That is why the market dominates
-  where odds exist.
-* **Model optimism is not a value signal.** When the model was more bullish than the market, those matches
-  under-delivered (ROI −7% to −20%). The "Model" column is context, not an edge.
-* **Shortlisting by probability does not beat the bookmaker margin.** Backing every Over 2.5 pick at the
-  published odds returned about −2% to −5% over the test period. Use this as a research and shortlisting
-  tool, not a money machine.
+### Parlays (`backtest/PARLAY_EXPERIMENT.md`)
 
-Re-run it yourself: `python backtest/backtest.py` (≈1 minute after the first data download; `--grid` and
-`--rho` re-tune the parameters).
+Each run builds up to 3 parlays from matches kicking off before the next run (the whole 24 h window if fewer
+than 4 priced matches are left). Legs: 1X2, double chance, Over/Under 2.5 at **real Sportybet prices** (feed
+averages if Sportybet is unreachable). The builder maximises **calibrated probability × price** inside the
+2.70–3.50 band, 2–4 legs, distinct matches. Backtest 2023–26 on real prices:
+
+| Construction | Win rate | Return per unit |
+|---|---|---|
+| Highest-probability legs (naive) | 28–33% | −10% (train) / −24% (test) |
+| **Max expected return, power de-margin (used)** | 30–33% | **−4% (train) / −13% (test)** |
+
+**Read that twice:** a parlay at ~3.0 must win 1 in 3 just to break even, and the bookmaker margin compounds
+across legs. Expect roughly one winning parlay in three and a negative long-run return. The ledger in the report
+shows the real record. This is a research tool, not income.
+
+### Sportybet prices and value
+
+Prices come from Sportybet's public web feed (South Africa site by default, `SPORTY_CC`). They are used for
+payouts and the price check only — **they never enter the probability model**. A positive edge means Sportybet
+pays more than the fair price; in the backtest, positive edges on Over 2.5 at the best available price returned
+about +3%, at average prices −7% — so value exists but is thin. A leg flagged "price moved" means Sportybet
+disagrees strongly with the reference price: check team news before trusting it.
+
+### Headlines
+
+The parlay dossier lists up to four recent headlines per team from Google News RSS (no sign-up). They are
+context for you to read — injuries, suspensions, manager changes — and are deliberately **not** fed into the
+model, so unverifiable inputs cannot break it.
 
 ## Setup (once, ~5 minutes)
 
-1. Create a new GitHub repository (public or private) and upload these files, keeping the folder structure
-   (`scanner.py`, `requirements.txt`, `README.md`, `.github/workflows/daily-scan.yml`).
-2. Open the **Actions** tab. If GitHub asks, click **"I understand my workflows, go ahead and enable them"**.
-3. Click **Daily goals scan → Run workflow** to run it immediately and check the output.
-4. That's it — it now runs every day at 07:00 South African time (05:00 UTC).
+1. Create a GitHub repository and upload these files, keeping the folder structure.
+2. Open the **Actions** tab and enable workflows if asked.
+3. **Goals scan (3x daily) → Run workflow** to run it immediately.
+4. It now runs at 07:00, 12:00 and 17:00 South African time (05:00 / 10:00 / 15:00 UTC).
 
 If the commit step fails with a permissions error: **Settings → Actions → General → Workflow permissions →
 "Read and write permissions"** → Save.
 
-### Optional: Telegram alerts
+### Telegram
 
 1. In Telegram, message **@BotFather** → `/newbot` → copy the bot token.
-2. Message your new bot once (any text), then open
-   `https://api.telegram.org/bot<TOKEN>/getUpdates` in a browser and copy the `"chat":{"id":…}` number.
-3. In the repo: **Settings → Secrets and variables → Actions → New repository secret** — add
-   `TELEGRAM_BOT_TOKEN` and `TELEGRAM_CHAT_ID`.
+2. Message your new bot once, then open `https://api.telegram.org/bot<TOKEN>/getUpdates` and copy the chat id.
+3. Repo **Settings → Secrets and variables → Actions** — add `TELEGRAM_BOT_TOKEN` and `TELEGRAM_CHAT_ID`.
 
-The next run will send the shortlist to you automatically.
+Each run then sends the summary message, the PDF report and the PDF parlay dossier.
 
 ## Customising
 
@@ -151,24 +192,28 @@ Edit the `env:` block in `.github/workflows/daily-scan.yml` (no code changes nee
 
 | Variable | Default | Meaning |
 |---|---|---|
-| `TIMEZONE` / `TZ_LABEL` | `Africa/Johannesburg` / `SAST` | Timezone for all displayed times and the scan window (feed times are converted from UK time) |
+| `TIMEZONE` / `TZ_LABEL` | `Africa/Johannesburg` / `SAST` | Timezone for all displayed times and the scan window |
+| `RUN_HOURS` | `7,12,17` | Scheduled run hours (local) — keep in sync with the `cron:` line (UTC = SAST − 2) |
 | `WINDOW_HOURS` | `24` | Scan matches kicking off within this many hours of the run |
 | `MIN_P_O15` / `MIN_P_O25` / `MIN_P_BTTS` | `0.84` / `0.60` / `0.60` | Shortlist probability thresholds |
 | `MAX_PICKS` | `15` | Max picks per market |
-| `LEAGUES` | _(all)_ | Restrict to some competitions, e.g. `E0,SP1,I1,D1,F1` (codes in `scanner.py`) |
+| `PARLAYS_PER_RUN` | `3` | Parlays built per run |
+| `PARLAY_MIN_ODDS` / `PARLAY_MAX_ODDS` | `2.70` / `3.50` | Combined-odds band |
+| `SPORTY_CC` | `za` | Sportybet country site (`za`, `ng`, `gh`, `ke`, `ug`, `tz`, `zm`) |
+| `SPORTYBET` / `NEWS` / `PDF` | `1` | Set to `0` to switch a feature off |
+| `LEAGUES` | _(all)_ | Restrict to some competitions, e.g. `E0,SP1,I1,D1,F1` |
 
-To change the run time, edit the `cron:` line (GitHub cron is always UTC; SAST = UTC+2 all year).
-
-Run it locally with `pip install -r requirements.txt && python scanner.py`.
+Run it locally with `pip install -r requirements.txt && python scanner.py` (`SCAN_NOW="2026-09-26 12:00"`
+simulates a run time).
 
 ## Notes & limits
 
-* All kick-off times are shown in South African time (SAST). Fixtures appear in the feed a few days ahead of
-  kick-off; the scanner only lists matches kicking off inside the scan window, so a 07:00 run covers that
-  day's games plus overnight ones in the Americas.
-* GitHub schedules can start up to ~30 minutes late at busy times. GitHub also pauses schedules in
-  repositories with no activity for 60 days — the daily commits keep this one active; if it ever pauses
-  you get an email with a one-click re-enable.
-* Teams with too little history (usually newly promoted from a division outside the feed) are shown with
-  ⚠️ and never shortlisted.
+* All times are South African time (SAST). Fixtures appear in the feed a few days ahead; each run lists matches
+  kicking off inside the next 24 hours, and builds parlays for the matches before the next run.
+* GitHub schedules can start up to ~30 minutes late at busy times. GitHub pauses schedules in repositories with no
+  activity for 60 days — the commits from every run keep this one active.
+* Sportybet's feed is unofficial; if it changes or blocks the runner, the scanner falls back to the feed's
+  average prices and says so in the report.
+* Teams with too little history (usually newly promoted from a division outside the feed) are shown with ⚠️ and
+  never shortlisted or used in parlays.
 * This is statistical information, not advice. Past hit-rates do not guarantee future results.

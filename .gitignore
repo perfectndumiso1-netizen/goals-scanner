@@ -5,3 +5,4 @@ __pycache__/
 backtest/cache/
 backtest/*.pkl
 backtest/grid.csv
+reports/pdf/

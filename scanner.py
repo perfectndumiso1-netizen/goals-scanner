@@ -1,20 +1,29 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Goals Scanner
-=============
-Daily scanner for football goals markets: Over 1.5, Over 2.5 and Both Teams To Score.
+Goals Scanner (v3)
+==================
+Automated football scanner, three times a day (07:00 / 12:00 / 17:00 SAST):
+  * goals shortlists  – Over 1.5, Over 2.5, Both Teams To Score (backtested, calibrated model v2)
+  * extra markets     – 1X2 / double chance, team goals, corners and cards (markets.py, backtested)
+  * Sportybet prices  – real prices for the user's bookmaker (sporty.py), value check vs fair price
+  * parlays           – 3 per run inside the 2.70-3.50 odds band, built from priced legs only (parlays.py),
+                        recorded in data/parlays.csv and auto-graded
+  * delivery          – Markdown + CSV in the repo, PDF report + PDF parlay dossier on Telegram
 
 Data source: football-data.co.uk (free, no API key)
   * fixtures.csv / new_league_fixtures.csv -> upcoming matches (+ market odds where published)
   * season result files                    -> team form, goals, xG / shots where available
 
 Outputs (relative to the repo root):
-  reports/YYYY-MM-DD.md   full report for the day (shortlists, full scan, per-match stats)
-  reports/YYYY-MM-DD.csv  every scanned match with every computed number
-  reports/latest.md       copy of the newest report
-  data/tracker.csv        running record of shortlisted matches, auto-settled once results arrive
-  README.md               the block between <!-- SCAN:START --> and <!-- SCAN:END --> is refreshed
+  reports/YYYY-MM-DD.md          full report (latest run of the day; earlier runs are overwritten)
+  reports/YYYY-MM-DD-parlays.md  parlay dossier: full stats + headlines for every parlay match
+  reports/YYYY-MM-DD.csv         every scanned match with every computed number
+  reports/latest.md              copy of the newest report
+  reports/pdf/                   PDF versions (not committed; sent to Telegram)
+  data/tracker.csv               shortlist picks, auto-settled once results arrive
+  data/parlays.csv               parlay ledger, auto-graded
+  README.md                      the block between <!-- SCAN:START --> and <!-- SCAN:END --> is refreshed
 
 Optional: a Telegram push if TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID are set in the environment.
 
@@ -24,6 +33,7 @@ from __future__ import annotations
 
 import html
 import io
+import json
 import logging
 import math
 import os
@@ -37,11 +47,23 @@ import numpy as np
 import pandas as pd
 import requests
 
+import markets
+import news as news_mod
+import parlays as parlay_mod
+import sporty
+
+try:
+    import pdfgen
+except Exception:  # noqa: BLE001 - reportlab missing: Markdown/Telegram text still work
+    pdfgen = None
+
 # ----------------------------------------------------------------------------- paths
 ROOT = Path(__file__).resolve().parent
 REPORTS_DIR = ROOT / "reports"
 DATA_DIR = ROOT / "data"
 TRACKER_FILE = DATA_DIR / "tracker.csv"
+PARLAY_FILE = DATA_DIR / "parlays.csv"
+PDF_DIR = REPORTS_DIR / "pdf"
 README_FILE = ROOT / "README.md"
 
 BASE = "https://www.football-data.co.uk"
@@ -93,6 +115,14 @@ CONFIG = {
         "BTTS": "64% of shortlisted matches (⭐⭐ 65%, ⭐⭐⭐ 71%) over 1,800 picks",
     },
     "MAX_PICKS": int(_env_float("MAX_PICKS", 15)),
+    # scheduled run hours (local time). Each run builds parlays for kick-offs before the next run.
+    "RUN_HOURS": sorted({int(h) for h in os.getenv("RUN_HOURS", "7,12,17").split(",") if h.strip().isdigit()}) or [7, 12, 17],
+    "PARLAYS_PER_RUN": int(_env_float("PARLAYS_PER_RUN", 3)),
+    "PARLAY_ODDS": (_env_float("PARLAY_MIN_ODDS", 2.70), _env_float("PARLAY_MAX_ODDS", 3.50)),
+    "PARLAY_MIN_MATCHES": 4,          # fewer priced matches before the next run -> use the whole 24 h window
+    "SPORTYBET": os.getenv("SPORTYBET", "1") != "0",
+    "NEWS": os.getenv("NEWS", "1") != "0",
+    "PDF": os.getenv("PDF", "1") != "0",
     "REQUEST_TIMEOUT": 30,
     "USER_AGENT": "Mozilla/5.0 (compatible; GoalsScanner/1.0)",
     # optional: restrict to some competitions, e.g. LEAGUES="E0,SP1,I1,D1,F1,BRA"
@@ -288,12 +318,12 @@ def market_lambdas(odds_h, odds_d, odds_a, odds_over, odds_under):
 
 
 # ----------------------------------------------------------------------------- data loading
-RESULT_COLS = ["country", "div", "league", "date", "home", "away", "hg", "ag",
-               "hxg", "axg", "hst", "ast"]
+NUM_RESULT_COLS = ("hg", "ag", "hxg", "axg", "hst", "ast", "hc", "ac", "hy", "ay", "hr", "ar")
+RESULT_COLS = ["country", "div", "league", "date", "home", "away", *NUM_RESULT_COLS, "referee"]
 
 
 def empty_results() -> pd.DataFrame:
-    return pd.DataFrame({c: pd.Series(dtype="float64" if c in ("hg", "ag", "hxg", "axg", "hst", "ast")
+    return pd.DataFrame({c: pd.Series(dtype="float64" if c in NUM_RESULT_COLS
                                       else ("datetime64[ns]" if c == "date" else "object"))
                          for c in RESULT_COLS})
 
@@ -318,6 +348,9 @@ def load_main_results(divs: set[str], seasons: list[str]) -> pd.DataFrame:
                 "hg": num(df, "FTHG"), "ag": num(df, "FTAG"),
                 "hxg": num(df, "HxG"), "axg": num(df, "AxG"),
                 "hst": num(df, "HST"), "ast": num(df, "AST"),
+                "hc": num(df, "HC"), "ac": num(df, "AC"),
+                "hy": num(df, "HY"), "ay": num(df, "AY"), "hr": num(df, "HR"), "ar": num(df, "AR"),
+                "referee": df["Referee"].astype(str).str.strip() if "Referee" in df.columns else "",
             }))
             log.info("Loaded %s %s: %d matches", div, season, len(df))
     return pd.concat(frames, ignore_index=True) if frames else empty_results()
@@ -340,6 +373,7 @@ def load_extra_results(codes: set[str], since: datetime) -> pd.DataFrame:
             "away": df["Away"].astype(str).str.strip(),
             "hg": num(df, "HG"), "ag": num(df, "AG"),
             "hxg": np.nan, "axg": np.nan, "hst": np.nan, "ast": np.nan,
+            "hc": np.nan, "ac": np.nan, "hy": np.nan, "ay": np.nan, "hr": np.nan, "ar": np.nan, "referee": "",
         })
         out = out[out["date"] >= since]
         frames.append(out)
@@ -371,6 +405,14 @@ def load_fixtures(tz: ZoneInfo) -> pd.DataFrame:
                 "odds_h": pd.to_numeric(r.get("AvgH"), errors="coerce"),
                 "odds_d": pd.to_numeric(r.get("AvgD"), errors="coerce"),
                 "odds_a": pd.to_numeric(r.get("AvgA"), errors="coerce"),
+                "bfe_h": pd.to_numeric(r.get("BFEH"), errors="coerce"),
+                "bfe_d": pd.to_numeric(r.get("BFED"), errors="coerce"),
+                "bfe_a": pd.to_numeric(r.get("BFEA"), errors="coerce"),
+                "bfe_over": pd.to_numeric(r.get("BFE>2.5"), errors="coerce"),
+                "bfe_under": pd.to_numeric(r.get("BFE<2.5"), errors="coerce"),
+                "max_over": pd.to_numeric(r.get("Max>2.5"), errors="coerce"),
+                "max_under": pd.to_numeric(r.get("Max<2.5"), errors="coerce"),
+                "referee": str(r.get("Referee", "") or "").strip(),
             })
     else:
         log.warning("Main fixtures feed unavailable")
@@ -393,6 +435,10 @@ def load_fixtures(tz: ZoneInfo) -> pd.DataFrame:
                 "odds_h": pd.to_numeric(r.get("AvgH"), errors="coerce"),
                 "odds_d": pd.to_numeric(r.get("AvgD"), errors="coerce"),
                 "odds_a": pd.to_numeric(r.get("AvgA"), errors="coerce"),
+                "bfe_h": pd.to_numeric(r.get("BFEH"), errors="coerce"),
+                "bfe_d": pd.to_numeric(r.get("BFED"), errors="coerce"),
+                "bfe_a": pd.to_numeric(r.get("BFEA"), errors="coerce"),
+                "bfe_over": np.nan, "bfe_under": np.nan, "max_over": np.nan, "max_under": np.nan, "referee": "",
             })
     else:
         log.warning("Extra-league fixtures feed unavailable")
@@ -411,6 +457,7 @@ def load_fixtures(tz: ZoneInfo) -> pd.DataFrame:
 
     fx["kickoff"] = fx.apply(kickoff, axis=1)
     fx["time_known"] = fx["time"].apply(lambda t: bool(t) and t.lower() not in ("nan", "none"))
+    fx["referee"] = fx["referee"].replace({"nan": "", "None": ""})
     if CONFIG["LEAGUES"]:
         fx = fx[fx["code"].isin(CONFIG["LEAGUES"])]
     return fx.sort_values(["kickoff", "country", "league"]).reset_index(drop=True)
@@ -599,6 +646,11 @@ class MatchRow:
     hist: dict            # market -> average historical hit-rate of both teams (information only)
     h2h: list
     div_avg: DivAvg
+    extra: markets.ExtraMarkets = field(default_factory=markets.ExtraMarkets)
+    sb: dict | None = None        # Sportybet prices (main markets) or None when not matched
+    sb_event: dict | None = None  # Sportybet event meta (id, names)
+    sb_full: dict | None = None   # full Sportybet market list (corners / cards), dossier matches only
+    fair: dict = field(default_factory=dict)   # calibrated probabilities for priced selections
 
     @property
     def basis(self) -> str:
@@ -640,14 +692,163 @@ def analyse(fx: pd.Series, long: pd.DataFrame, results: pd.DataFrame,
     else:
         mkt_h = mkt_a = float("nan")
         lam_h, lam_a = mod_h, mod_a
-    p_final = probs_from_matrix(score_matrix(lam_h, lam_a, rho))
+    M = score_matrix(lam_h, lam_a, rho)
+    p_final = probs_from_matrix(M)
     hist = {
         "O15": float(np.nanmean([H.rate_o15, A.rate_o15])) if H.n and A.n else float("nan"),
         "O25": float(np.nanmean([H.rate_o25, A.rate_o25])) if H.n and A.n else float("nan"),
         "BTTS": float(np.nanmean([H.rate_btts, A.rate_btts])) if H.n and A.n else float("nan"),
     }
-    return MatchRow(fx, H, A, lam_h, lam_a, mod_h, mod_a, mkt_h, mkt_a, p_model, p_mkt, p_final, hist,
-                    head_to_head(results, fx["country"], fx["home"], fx["away"]), da)
+    row = MatchRow(fx, H, A, lam_h, lam_a, mod_h, mod_a, mkt_h, mkt_a, p_model, p_mkt, p_final, hist,
+                   head_to_head(results, fx["country"], fx["home"], fx["away"]), da)
+    # ---- extra markets (v3): 1X2 / DC from the score matrix + sharp market, team goals, corners, cards
+    ex = row.extra
+    oh, od, oa = sharp_1x2(fx)
+    ex.x12 = markets.one_x_two(M, oh, od, oa)
+    ex.tg = markets.team_goals(M)
+    cm = MODELS.get("corners")
+    if cm is not None and fx["source"] == "main":
+        ex.corners = cm.expect(fx["country"], fx["home"], fx["away"], fx["div"])
+        ex.corner_p = markets.count_lines(ex.corners, markets.CORNERS)
+    km = MODELS.get("cards")
+    if km is not None and fx["source"] == "main":
+        ex.cards = km.expect(fx["country"], fx["home"], fx["away"], fx["div"], fx.get("referee", "") or "")
+        ex.card_p = markets.count_lines(ex.cards, markets.CARDS)
+    so, su = sharp_ou(fx)
+    fair_o = markets.fair_two_way(so, su)
+    ex.p_o25_fair = (1 - CONFIG["MARKET_XG_WEIGHT"]) * p_final["O25"] + CONFIG["MARKET_XG_WEIGHT"] * fair_o \
+        if not math.isnan(fair_o) else float("nan")
+    return row
+
+
+MODELS: dict = {}   # corners / cards count models, built once per run in main()
+
+
+def _ok(v) -> bool:
+    return v is not None and not (isinstance(v, float) and math.isnan(v)) and v > 1
+
+
+def sharp_1x2(fx: pd.Series):
+    """Best available reference prices for the 1X2 fair probability: Betfair Exchange, else market average."""
+    if all(_ok(fx.get(c)) for c in ("bfe_h", "bfe_d", "bfe_a")):
+        return fx["bfe_h"], fx["bfe_d"], fx["bfe_a"]
+    return fx.get("odds_h"), fx.get("odds_d"), fx.get("odds_a")
+
+
+def sharp_ou(fx: pd.Series):
+    if all(_ok(fx.get(c)) for c in ("bfe_over", "bfe_under")):
+        return fx["bfe_over"], fx["bfe_under"]
+    return fx.get("odds_over"), fx.get("odds_under")
+
+
+def attach_prices(rows: list[MatchRow], sbmap: dict, todays: pd.DataFrame) -> None:
+    """Attach Sportybet prices to rows and finish the calibrated probabilities used for legs / value.
+
+    The feed's reference prices (Betfair Exchange / market average) can be a few days old, while Sportybet's
+    price is live. So where both exist the fair probability is the average of the two market views (each
+    blended 90/10 with the model); a big gap between them is flagged as "price moved" rather than sold as value.
+    """
+    w = CONFIG["MARKET_XG_WEIGHT"]
+    for i, r in zip(todays.index, rows):
+        ev = sbmap.get(i)
+        if ev:
+            r.sb_event = {k: ev[k] for k in ("id", "home", "away", "country", "tournament", "ko")}
+            r.sb = ev["markets"]
+        ex = r.extra
+        M = score_matrix(r.lam_h, r.lam_a, CONFIG["DC_RHO"])
+        sb = r.sb or {}
+        # ---- 1X2 / double chance
+        sb1x2 = sb.get("1X2")
+        if sb1x2 and all(sb1x2):
+            x_sb = markets.one_x_two(M, *sb1x2)
+            if ex.x12.get("source") == "market+model":
+                gap = max(abs(ex.x12["H"] - x_sb["H"]), abs(ex.x12["A"] - x_sb["A"]))
+                ex.x12 = {k: 0.5 * ex.x12[k] + 0.5 * x_sb[k] for k in ("H", "D", "A", "1X", "12", "X2")}
+                ex.x12["source"] = "market+Sportybet+model"
+                ex.x12["gap"] = gap
+            else:
+                ex.x12 = x_sb
+                ex.x12["source"] = "Sportybet+model"
+        # ---- Over 2.5
+        ou = sb.get("OU", {}).get(2.5) if sb else None
+        fair_sb = markets.fair_two_way(ou[0], ou[1]) if ou and ou[0] and ou[1] else float("nan")
+        p_sb = (1 - w) * r.p_final["O25"] + w * fair_sb if not math.isnan(fair_sb) else float("nan")
+        if not math.isnan(ex.p_o25_fair) and not math.isnan(p_sb):
+            ex.p_o25_fair = 0.5 * ex.p_o25_fair + 0.5 * p_sb
+        elif math.isnan(ex.p_o25_fair):
+            ex.p_o25_fair = p_sb if not math.isnan(p_sb) else r.p_final["O25"]
+        # ---- fair probabilities of the shortlist markets (price check): model/market blend, half-anchored on Sportybet
+        r.fair = {"O15": r.p_final["O15"], "O25": ex.p_o25_fair, "BTTS": r.p_final["BTTS"]}
+        ou15 = sb.get("OU", {}).get(1.5) if sb else None
+        if ou15 and ou15[0] and ou15[1]:
+            r.fair["O15"] = 0.5 * r.p_final["O15"] + 0.5 * markets.fair_two_way(ou15[0], ou15[1])
+        btts = sb.get("BTTS") if sb else None
+        if btts and btts[0] and btts[1]:
+            r.fair["BTTS"] = 0.5 * r.p_final["BTTS"] + 0.5 * markets.fair_two_way(btts[0], btts[1])
+
+
+def avg_prices(fx: pd.Series) -> dict | None:
+    """Fallback price set from the feed averages (used when Sportybet is unavailable)."""
+    h, d, a = fx.get("odds_h"), fx.get("odds_d"), fx.get("odds_a")
+    if not all(_ok(v) for v in (h, d, a)):
+        return None
+    dc = lambda o1, o2: 1 / (1 / o1 + 1 / o2)
+    out = {"1X2": (h, d, a), "DC": {"1X": dc(h, d), "12": dc(h, a), "X2": dc(d, a)}}
+    if _ok(fx.get("odds_over")) and _ok(fx.get("odds_under")):
+        out["OU"] = {2.5: (fx["odds_over"], fx["odds_under"])}
+    return out
+
+
+def sb_price(r: MatchRow, mkt: str):
+    """Sportybet price for a shortlist market (O15 / O25 / BTTS) or None."""
+    if not r.sb:
+        return None
+    if mkt == "BTTS":
+        return (r.sb.get("BTTS") or (None, None))[0]
+    line = 1.5 if mkt == "O15" else 2.5
+    return (r.sb.get("OU", {}).get(line) or (None, None))[0]
+
+
+# ----------------------------------------------------------------------------- run schedule / parlays
+def run_schedule(now: datetime) -> tuple[str, datetime]:
+    """(run label, parlay window end). The window ends at the next scheduled run."""
+    hours = CONFIG["RUN_HOURS"]
+    todays = [now.replace(hour=h, minute=0, second=0, microsecond=0) for h in hours]
+    label = "manual"
+    for t in todays:
+        if abs((now - t).total_seconds()) <= 75 * 60:
+            label = f"{t:%H:%M}"
+    nxt = [t for t in todays if t > now + timedelta(minutes=30)]
+    window_end = nxt[0] if nxt else (todays[0] + timedelta(days=1))
+    return label, window_end
+
+
+def build_run_parlays(rows: list[MatchRow], now: datetime, window_end: datetime, sb_ok: bool) -> dict:
+    """Legs from priced matches kicking off before the next run; whole window if too thin."""
+    start = now + timedelta(minutes=10)
+    source = "Sportybet" if sb_ok else "avg market"
+
+    def legs_for(rs):
+        legs = []
+        for r in rs:
+            if not r.data_ok:
+                continue
+            prices = r.sb if sb_ok else avg_prices(r.fx)
+            if not prices and sb_ok:
+                continue
+            legs += parlay_mod.candidate_legs(r.fx, r.extra.x12, r.extra.p_o25_fair, prices, source)
+        return legs
+
+    short = [r for r in rows if start <= r.fx["kickoff"] <= window_end]
+    legs = legs_for(short)
+    extended = False
+    if len({l.key for l in legs}) < CONFIG["PARLAY_MIN_MATCHES"]:
+        legs = legs_for([r for r in rows if r.fx["kickoff"] >= start])
+        extended = True
+    lo, hi = CONFIG["PARLAY_ODDS"]
+    built = parlay_mod.build_parlays(legs, lo, hi, CONFIG["PARLAYS_PER_RUN"])
+    return {"parlays": built, "legs": legs, "extended": extended, "source": source,
+            "n_matches": len({l.key for l in legs})}
 
 
 def select_picks(rows: list[MatchRow]) -> dict[str, list[MatchRow]]:
@@ -859,6 +1060,7 @@ def render_details(r: MatchRow) -> list[str]:
         L.append(f"* Market 1X2: {f2(r.fx['odds_h'])} / {f2(r.fx['odds_d'])} / {f2(r.fx['odds_a'])} (no O/U odds published in feed)")
     L.append(f"* League context: avg {r.div_avg.mu_h:.2f} home + {r.div_avg.mu_a:.2f} away goals · "
              f"O2.5 in {pct(r.div_avg.o25_rate)} · BTTS in {pct(r.div_avg.btts_rate)} of matches")
+    L += render_extra_lines(r)
     L.append("")
     L += render_team_block(r.home, "Home")
     L += render_team_block(r.away, "Away")
@@ -875,16 +1077,233 @@ def render_details(r: MatchRow) -> list[str]:
     return L
 
 
+def fmt_odds(o) -> str:
+    return "–" if o is None or (isinstance(o, float) and math.isnan(o)) else f"{o:.2f}"
+
+
+def sb_line_str(d: dict | None, lines=None) -> str:
+    """'O8.5 1.45/2.60 · O9.5 1.85/1.90' from a Sportybet {line: (over, under)} dict."""
+    if not d:
+        return "–"
+    parts = []
+    for line in sorted(d):
+        if lines and line not in lines:
+            continue
+        o, u = d[line]
+        parts.append(f"O{line:g} {fmt_odds(o)} / U {fmt_odds(u)}")
+    return " · ".join(parts) if parts else "–"
+
+
+def render_extra_lines(r: MatchRow) -> list[str]:
+    ex = r.extra
+    L = []
+    if ex.x12:
+        x = ex.x12
+        L.append(f"* **1X2** (fair, {x.get('source', 'model')}): home {pct(x['H'])} · draw {pct(x['D'])} · away {pct(x['A'])} → "
+                 f"fair odds {1 / x['H']:.2f} / {1 / x['D']:.2f} / {1 / x['A']:.2f} · "
+                 f"**Double chance** 1X {pct(x['1X'])} · 12 {pct(x['12'])} · X2 {pct(x['X2'])}")
+    if ex.tg:
+        t = ex.tg
+        L.append(f"* **Team goals:** {r.fx['home']} to score {pct(t['H_o05'])} (2+ {pct(t['H_o15'])}) · "
+                 f"{r.fx['away']} to score {pct(t['A_o05'])} (2+ {pct(t['A_o15'])})")
+    if ex.corners is not None:
+        c, cp = ex.corners, ex.corner_p
+        tot = " · ".join(f"O{l:g} **{pct(p)}**" for l, p in cp["total"].items())
+        L.append(f"* **Corners:** expected {c.eh:.1f} (home) + {c.ea:.1f} (away) = **{c.total:.1f}** · total {tot} · "
+                 f"home " + " · ".join(f"O{l:g} {pct(p)}" for l, p in cp["home"].items()) + " · away " +
+                 " · ".join(f"O{l:g} {pct(p)}" for l, p in cp["away"].items()) +
+                 f" _(team averages: {r.fx['home']} {c.h_for:.1f} for / {c.h_against:.1f} against over {c.h_n} games, "
+                 f"{r.fx['away']} {c.a_for:.1f} / {c.a_against:.1f} over {c.a_n})_")
+    if ex.cards is not None:
+        k, kp = ex.cards, ex.card_p
+        tot = " · ".join(f"O{l:g} **{pct(p)}**" for l, p in kp["total"].items())
+        ref = ""
+        if k.ref_n > 0:
+            ref = f" · referee {r.fx.get('referee', '')} factor {k.ref_factor:.2f} ({k.ref_n:.0f} weighted games)"
+        L.append(f"* **Cards** (yellow + red): expected {k.eh:.1f} + {k.ea:.1f} = **{k.total:.1f}** · total {tot}{ref} "
+                 f"_(team averages: {r.fx['home']} {k.h_for:.1f} received / {k.h_against:.1f} opponents booked, "
+                 f"{r.fx['away']} {k.a_for:.1f} / {k.a_against:.1f})_")
+    if r.sb:
+        sb = r.sb
+        parts = []
+        if sb.get("1X2") and any(sb["1X2"]):
+            parts.append("1X2 " + " / ".join(fmt_odds(o) for o in sb["1X2"]))
+        if sb.get("DC"):
+            parts.append("DC 1X/12/X2 " + " / ".join(fmt_odds(sb["DC"].get(k)) for k in ("1X", "12", "X2")))
+        if sb.get("OU"):
+            parts.append("goals " + sb_line_str(sb["OU"], (1.5, 2.5, 3.5)))
+        if sb.get("BTTS"):
+            parts.append(f"BTTS {fmt_odds(sb['BTTS'][0])} / {fmt_odds(sb['BTTS'][1])}")
+        if sb.get("TGH"):
+            parts.append(f"{r.fx['home']} goals " + sb_line_str(sb["TGH"], (0.5, 1.5)))
+        if sb.get("TGA"):
+            parts.append(f"{r.fx['away']} goals " + sb_line_str(sb["TGA"], (0.5, 1.5)))
+        L.append("* **Sportybet:** " + " · ".join(parts))
+        full = r.sb_full or {}
+        parts = []
+        if full.get("CORN"):
+            parts.append("total corners " + sb_line_str(full["CORN"], (8.5, 9.5, 10.5, 11.5)))
+        if full.get("CORNH"):
+            parts.append("home corners " + sb_line_str(full["CORNH"], (3.5, 4.5, 5.5)))
+        if full.get("CORNA"):
+            parts.append("away corners " + sb_line_str(full["CORNA"], (3.5, 4.5, 5.5)))
+        if full.get("CORN1H"):
+            parts.append("1st-half corners " + sb_line_str(full["CORN1H"]) + " _(no model — market only)_")
+        if full.get("CARDS"):
+            parts.append("total cards " + sb_line_str(full["CARDS"], (3.5, 4.5, 5.5)))
+        if parts:
+            L.append("* **Sportybet corners / cards:** " + " · ".join(parts))
+    return L
+
+
+def leg_row(l: parlay_mod.Leg) -> str:
+    flag = " ⚠️ price moved vs reference — check team news" if l.ev > 0.08 else ""
+    return (f"| {l.kickoff[5:]} | **{l.match}** | {l.league} | **{l.label}** | **{l.odds:.2f}** | {l.fair_odds:.2f} | "
+            f"{pct(l.p)} | {100 * l.ev:+.1f}%{flag} |")
+
+
+def render_parlays(ctx: dict, pr: dict, ids: list[str], psum: dict) -> list[str]:
+    lo, hi = CONFIG["PARLAY_ODDS"]
+    L = [f"## 🎟️ Parlays — run {ctx['run']} · combined odds {lo:.2f}–{hi:.2f}", ""]
+    src = pr["source"]
+    win = f"kick-offs before the next run ({ctx['window_end']:%a %H:%M} {TZL})"
+    if pr["extended"]:
+        win = f"whole 24 h window (fewer than {CONFIG['PARLAY_MIN_MATCHES']} priced matches before the next run)"
+    L.append(f"_Prices: **{src}**{' — Sportybet was unreachable, average market prices used' if src != 'Sportybet' else ''}. "
+             f"Window: {win}. {pr['n_matches']} priced matches, {len(pr['legs'])} candidate legs. "
+             f"Legs are limited to 1X2, double chance and Over/Under 2.5 — markets with real prices. "
+             f"Each parlay maximises expected return (calibrated probability × price) inside the odds band._")
+    L.append("")
+    if not pr["parlays"]:
+        L.append("_No parlay could be built inside the odds band for this window._")
+        L.append("")
+        return L
+    for i, pl in enumerate(pr["parlays"], 1):
+        odds, p = parlay_mod.parlay_odds(pl), parlay_mod.parlay_p(pl)
+        pid = ids[i - 1] if i - 1 < len(ids) else ""
+        L.append(f"### Parlay {i} — {len(pl)} legs @ **{odds:.2f}** · win probability **{pct(p)}** · "
+                 f"expected return {100 * (p * odds - 1):+.1f}% · id `{pid}`")
+        L.append("")
+        L.append("| Kick-off | Match | Competition | Selection | Price | Fair odds | Probability | Leg edge |")
+        L.append("|---|---|---|---|---|---|---|---|")
+        for l in pl:
+            L.append(leg_row(l))
+        L.append("")
+    a, d30 = psum.get("all", {}), psum.get("30d", {})
+    if a.get("n"):
+        L.append(f"**Parlay record:** {a['won']}/{a['n']} won ({pct(a['rate'])}, expected {pct(a['exp_rate'])}) · "
+                 f"flat-stake return {100 * a['roi']:+.1f}% · last 30 days {d30.get('won', 0)}/{d30.get('n', 0)} "
+                 f"({pct(d30.get('rate', float('nan')))}, {100 * d30['roi']:+.1f}%)" if d30.get("n") else
+                 f"**Parlay record:** {a['won']}/{a['n']} won ({pct(a['rate'])}, expected {pct(a['exp_rate'])}) · "
+                 f"flat-stake return {100 * a['roi']:+.1f}%")
+    else:
+        L.append(f"**Parlay record:** no settled parlays yet ({psum.get('pending', 0)} pending).")
+    L.append("")
+    L.append(f"> ⚠️ Honest expectation: a parlay at ~{(lo + hi) / 2:.1f} needs to win about 1 in 3 to break even. "
+             "In the 2023-26 backtest this exact construction won 30-33% of the time and returned −4% to −13% "
+             "per unit at average prices — the bookmaker margin compounds across legs. Treat parlays as "
+             "entertainment with a known cost, not as income. Full test: `backtest/PARLAY_EXPERIMENT.md`.")
+    L.append("")
+    return L
+
+
+def render_value_check(picks: dict, sb_ok: bool) -> list[str]:
+    L = ["## 💰 Sportybet price check — shortlisted picks", ""]
+    if not sb_ok:
+        L.append("_Sportybet prices were not available for this run._")
+        L.append("")
+        return L
+    L.append("_Fair odds = 1 / calibrated probability (90% sharp market, 10% model where prices exist). "
+             "A positive edge means Sportybet pays more than the fair price; the backtest found positive edges "
+             "of this kind on Over 2.5 returned about +3% at the best available price — small, but real. "
+             "Negative edges mean the price is below fair value._")
+    L.append("")
+    L.append("| Market | Match | Kick-off | Probability | Fair odds | Sportybet | Edge |")
+    L.append("|---|---|---|---|---|---|---|")
+    n = 0
+    for mkt, name in MARKETS.items():
+        for r in picks.get(mkt, []):
+            price = sb_price(r, mkt)
+            p = r.fair.get(mkt, r.p_final[mkt])
+            if price is None or p is None or math.isnan(p) or p <= 0:
+                continue
+            n += 1
+            edge = p * price - 1
+            flag = "✅ value" if edge > 0.02 else ("≈ fair" if edge > -0.03 else "❌ short")
+            L.append(f"| {name} | **{r.label}** | {r.fx['kickoff']:%a %H:%M} | {pct(p)} | {1 / p:.2f} | **{price:.2f}** | "
+                     f"{100 * edge:+.1f}% {flag} |")
+    if n == 0:
+        L.append("| – | _no shortlisted pick is priced at Sportybet yet_ | | | | | |")
+    L.append("")
+    return L
+
+
+def render_other_markets(rows: list[MatchRow]) -> list[str]:
+    L = ["## 🧾 Other markets — 1X2, double chance, team goals, corners, cards", ""]
+    if not rows:
+        return L + ["_No fixtures._", ""]
+    L.append("_Probabilities are model + sharp-market blends (1X2, team goals) or the backtested count models "
+             "(corners / cards, main leagues only). Sportybet column = 1X2 prices where the match was found._")
+    L.append("")
+    L.append(f"| Kick-off ({TZL}) | Match | Competition | Home / Draw / Away | 1X / X2 | Home to score / 2+ | "
+             f"Away to score / 2+ | Corners exp. (O9.5 · O10.5) | Cards exp. (O3.5 · O4.5) | Sportybet 1X2 |")
+    L.append("|---|---|---|---|---|---|---|---|---|---|")
+    for r in sorted(rows, key=lambda r: (r.fx["kickoff"], comp(r))):
+        x, t, c, k = r.extra.x12, r.extra.tg, r.extra.corners, r.extra.cards
+        cp, kp = r.extra.corner_p, r.extra.card_p
+        corners = f"{c.total:.1f} ({pct(cp['total'][9.5])} · {pct(cp['total'][10.5])})" if c is not None else "–"
+        cards = f"{k.total:.1f} ({pct(kp['total'][3.5])} · {pct(kp['total'][4.5])})" if k is not None else "–"
+        sb = " / ".join(fmt_odds(o) for o in r.sb["1X2"]) if r.sb and r.sb.get("1X2") and any(r.sb["1X2"]) else "–"
+        L.append(f"| {ko(r)} | **{r.label}** | {comp(r)} | {pct(x['H'])} / {pct(x['D'])} / {pct(x['A'])} | "
+                 f"{pct(x['1X'])} / {pct(x['X2'])} | {pct(t['H_o05'])} / {pct(t['H_o15'])} | {pct(t['A_o05'])} / {pct(t['A_o15'])} | "
+                 f"{corners} | {cards} | {sb} |")
+    L.append("")
+    return L
+
+
+def render_parlay_history(psum: dict, rec: list[dict]) -> list[str]:
+    L = ["### Parlay ledger", ""]
+    a = psum.get("all", {})
+    if not a.get("n") and not rec:
+        L.append("_No parlays recorded yet._")
+        L.append("")
+        return L
+    L.append("| Scope | Settled | Won | Hit rate | Expected | Avg odds | Flat-stake return |")
+    L.append("|---|---|---|---|---|---|---|")
+    for name, st in (("All time", psum.get("all", {})), ("Last 30 days", psum.get("30d", {}))):
+        if st.get("n"):
+            L.append(f"| {name} | {st['n']} | {st['won']} | {pct(st['rate'])} | {pct(st['exp_rate'])} | {f2(st['avg_odds'])} | {100 * st['roi']:+.1f}% |")
+        else:
+            L.append(f"| {name} | 0 | 0 | – | – | – | – |")
+    for run, st in sorted(psum.get("by_run", {}).items()):
+        if st.get("n"):
+            L.append(f"| Run {run} | {st['n']} | {st['won']} | {pct(st['rate'])} | {pct(st['exp_rate'])} | {f2(st['avg_odds'])} | {100 * st['roi']:+.1f}% |")
+    L.append("")
+    if rec:
+        L.append("| Id | Created | Run | Legs | Odds | Prob. | Status |")
+        L.append("|---|---|---|---|---|---|---|")
+        icon = {"won": "✅ won", "lost": "❌ lost", "pending": "⏳ pending", "void": "void"}
+        for x in rec:
+            legs = "; ".join(f"{l.match} — {l.label} @ {l.odds:.2f}" for l in x["legs"])
+            L.append(f"| `{x['id']}` | {x['created']} | {x['run']} | {legs} | {x['odds']} | {pct(float(x['p']))} | {icon.get(x['status'], x['status'])} |")
+        L.append("")
+    return L
+
+
 def render_report(ctx: dict, rows: list[MatchRow], picks: dict, summary: dict, notes: list[str]) -> str:
     now = ctx["now"]
     L = [f"# ⚽ Goals Scanner — {now:%A %d %B %Y}", ""]
     comps = {comp(r) for r in rows}
-    L.append(f"**Scan window:** {ctx['start']:%a %d %b %H:%M} → {ctx['end']:%a %d %b %H:%M} ({TZL}) · "
-             f"**{len(rows)} fixtures** across **{len(comps)} competitions** · generated {now:%H:%M} {TZL}")
+    L.append(f"**Run {ctx.get('run', '')} {TZL}** · scan window {ctx['start']:%a %d %b %H:%M} → {ctx['end']:%a %d %b %H:%M} · "
+             f"**{len(rows)} fixtures** across **{len(comps)} competitions** · generated {now:%H:%M} {TZL} · "
+             f"next run {ctx['window_end']:%a %H:%M}")
     L.append("")
     if notes:
         L.append("> " + "  \n> ".join(notes))
         L.append("")
+    if ctx.get("digest"):
+        L += ctx["digest"]
+    L += render_parlays(ctx, ctx["parlays"], ctx["parlay_ids"], ctx["parlay_summary"])
 
     L.append("## 🎯 Shortlist")
     L.append("")
@@ -911,18 +1330,24 @@ def render_report(ctx: dict, rows: list[MatchRow], picks: dict, summary: dict, n
         L.append("_No fixtures found in the scan window._")
     L.append("")
 
+    L += render_value_check(picks, ctx["parlays"]["source"] == "Sportybet")
+    L += render_other_markets(rows)
+
     if rows:
         L.append("## 🔍 Match details (click to expand)")
         L.append("")
         for r in sorted(rows, key=lambda r: (r.fx["kickoff"], comp(r))):
             L += render_details(r)
 
-    L.append("## 📈 Shortlist tracker (auto-settled from results)")
+    L.append("## 📈 Trackers (auto-settled from results)")
+    L.append("")
+    L.append("### Shortlist tracker")
     L.append("")
     L += render_tracker(summary)
     L.append("")
     L.append("_Flat-stake return is for model evaluation only: 1 unit on every Over 2.5 pick at the average market odds._")
     L.append("")
+    L += render_parlay_history(ctx["parlay_summary"], ctx.get("parlay_recent", []))
 
     L.append("## ℹ️ Method")
     L.append("")
@@ -940,6 +1365,17 @@ def render_report(ctx: dict, rows: list[MatchRow], picks: dict, summary: dict, n
         "the model alone beats league averages but never beats the market, and when the model is more bullish than the "
         "market those matches under-deliver — so 'Model' above is information, not a value signal. "
         "Full results: `backtest/RESULTS.md`.",
+        "* **Extra markets (v3):** 1X2 / double chance = score matrix blended 10/90 with the sharp market (Betfair "
+        "Exchange, else market average), de-margined with the power method (removes the favourite-longshot bias). "
+        "Corners and cards = team for/against rates, league-normalised and shrunk (K=40 / K=20), negative binomial "
+        "totals; cards include a referee factor where the referee is published (UK leagues). Both are calibrated "
+        "within ~2 points on the standard lines (`backtest/MARKETS_RESULTS.md`). Half-time corners have no free data "
+        "source and are shown as Sportybet prices only, without a model.",
+        "* **Parlays:** legs only from 1X2, double chance and Over/Under 2.5 at real Sportybet prices; each parlay "
+        "maximises calibrated probability × price inside the 2.70-3.50 band, 2-4 legs, distinct matches. Backtest "
+        "2023-26: win rate 30-33%, return −4% to −13% per unit — see the warning in the parlay section.",
+        "* **Sportybet prices** are display / payout information only; they never enter the probability model. "
+        "Headlines in the parlay dossier come from Google News and are context only.",
         f"* Data: football-data.co.uk. All times are {TZL} ({CONFIG['TIMEZONE']}). ⚠️ marks teams with too little history "
         "(typically newly promoted from a division not covered) — they are never shortlisted.",
         "* This is statistical information, not advice. Past hit-rates do not guarantee future results.",
@@ -968,10 +1404,21 @@ def render_readme_block(ctx: dict, rows: list[MatchRow], picks: dict, summary: d
         else:
             L.append("_None met the criteria._")
         L.append("")
+    pr = ctx.get("parlays") or {}
+    if pr:
+        L.append(f"**Parlays (run {ctx.get('run', '')}, {pr['source']})** — see [dossier]({report_rel.replace('.md', '-parlays.md')})")
+        L.append("")
+        for i, pl in enumerate(pr["parlays"], 1):
+            legs = "; ".join(f"{l.match} — {l.label} @ {l.odds:.2f}" for l in pl)
+            L.append(f"{i}. @ **{parlay_mod.parlay_odds(pl):.2f}** (P {pct(parlay_mod.parlay_p(pl))}): {legs}")
+        if not pr["parlays"]:
+            L.append("_none possible in this window_")
+        L.append("")
     L.append("**Tracker**")
     L.append("")
     L += render_tracker(summary)
     L.append("")
+    L += render_parlay_history(ctx.get("parlay_summary", {}), [])
     return "\n".join(L)
 
 
@@ -1023,13 +1470,166 @@ def rows_to_csv(rows: list[MatchRow], path: Path) -> None:
             "league_o25_rate": r.div_avg.o25_rate, "h2h_matches": len(r.h2h),
             "h2h_avg_goals": np.mean([m["hg"] + m["ag"] for m in r.h2h]) if r.h2h else None,
             "data_ok": r.data_ok,
+            "p_home": r.extra.x12.get("H"), "p_draw": r.extra.x12.get("D"), "p_away": r.extra.x12.get("A"),
+            "p_home_scores": r.extra.tg.get("H_o05"), "p_away_scores": r.extra.tg.get("A_o05"),
+            "exp_corners_home": r.extra.corners.eh if r.extra.corners else None,
+            "exp_corners_away": r.extra.corners.ea if r.extra.corners else None,
+            "p_corners_over95": r.extra.corner_p["total"][9.5] if r.extra.corner_p else None,
+            "exp_cards_home": r.extra.cards.eh if r.extra.cards else None,
+            "exp_cards_away": r.extra.cards.ea if r.extra.cards else None,
+            "p_cards_over45": r.extra.card_p["total"][4.5] if r.extra.card_p else None,
+            "sportybet_home": r.sb["1X2"][0] if r.sb and r.sb.get("1X2") else None,
+            "sportybet_draw": r.sb["1X2"][1] if r.sb and r.sb.get("1X2") else None,
+            "sportybet_away": r.sb["1X2"][2] if r.sb and r.sb.get("1X2") else None,
+            "sportybet_over25": sb_price(r, "O25"), "sportybet_btts": sb_price(r, "BTTS"),
         })
     pd.DataFrame(recs).round(3).to_csv(path, index=False)
 
 
+def render_dossier(ctx: dict, pr: dict, ids: list[str], rows_by_key: dict, headlines: dict) -> str:
+    """Parlay dossier: every parlay, then the full data sheet of every match involved (+ headlines)."""
+    now = ctx["now"]
+    L = [f"# 🎟️ Parlay dossier — {now:%A %d %B %Y}, run {ctx['run']} {TZL}", ""]
+    lo, hi = CONFIG["PARLAY_ODDS"]
+    L.append(f"_{len(pr['parlays'])} parlay(s) · combined odds {lo:.2f}–{hi:.2f} · prices: {pr['source']} · "
+             f"generated {now:%H:%M} {TZL}. Full method and the honest backtest warning are in the main report._")
+    L.append("")
+    if not pr["parlays"]:
+        L.append("_No parlay could be built for this window._")
+        return "\n".join(L)
+    L.append("## Summary")
+    L.append("")
+    for i, pl in enumerate(pr["parlays"], 1):
+        odds, p = parlay_mod.parlay_odds(pl), parlay_mod.parlay_p(pl)
+        pid = ids[i - 1] if i - 1 < len(ids) else ""
+        L.append(f"### Parlay {i} — {len(pl)} legs @ **{odds:.2f}** · win probability **{pct(p)}** · "
+                 f"expected return {100 * (p * odds - 1):+.1f}% · id `{pid}`")
+        L.append("")
+        L.append("| Kick-off | Match | Competition | Selection | Price | Fair odds | Probability | Leg edge |")
+        L.append("|---|---|---|---|---|---|---|---|")
+        for l in pl:
+            L.append(leg_row(l))
+        L.append("")
+    L.append("## Match data sheets")
+    L.append("")
+    seen = set()
+    for i, pl in enumerate(pr["parlays"], 1):
+        for l in pl:
+            if l.key in seen:
+                continue
+            seen.add(l.key)
+            r = rows_by_key.get(l.key)
+            if r is None:
+                continue
+            L.append(f"### {r.label} — {comp(r)}, {ko(r)} (parlay {i}: {l.label} @ {l.odds:.2f})")
+            L.append("")
+            L.append(f"* Final expected goals **{r.lam_h:.2f} – {r.lam_a:.2f}** ({r.basis}) · P(O1.5) {pct(r.p_final['O15'])} · "
+                     f"P(O2.5) **{pct(r.p_final['O25'])}** · P(O3.5) {pct(r.p_final['O35'])} · P(BTTS) **{pct(r.p_final['BTTS'])}**"
+                     + (f" · Sportybet O2.5 {fmt_odds(sb_price(r, 'O25'))} / BTTS {fmt_odds(sb_price(r, 'BTTS'))}" if r.sb else ""))
+            L.append(f"* Team-form model alone: {r.mod_h:.2f} – {r.mod_a:.2f}"
+                     + (f" · market-implied {r.mkt_h:.2f} – {r.mkt_a:.2f}" if not math.isnan(r.mkt_h) else "")
+                     + f" · league avg {r.div_avg.mu_h:.2f} + {r.div_avg.mu_a:.2f} goals, O2.5 in {pct(r.div_avg.o25_rate)}")
+            if pd.notna(r.fx.get("odds_h")):
+                L.append(f"* Market average 1X2 {f2(r.fx['odds_h'])} / {f2(r.fx['odds_d'])} / {f2(r.fx['odds_a'])}"
+                         + (f" · O/U 2.5 {f2(r.fx['odds_over'])} / {f2(r.fx['odds_under'])}" if pd.notna(r.fx.get("odds_over")) else "")
+                         + (f" · Betfair Exchange 1X2 {f2(r.fx['bfe_h'])} / {f2(r.fx['bfe_d'])} / {f2(r.fx['bfe_a'])}" if pd.notna(r.fx.get("bfe_h")) else ""))
+            L += render_extra_lines(r)
+            L.append("")
+            L += render_team_block(r.home, "Home")
+            L += render_team_block(r.away, "Away")
+            if r.h2h:
+                parts = [f"{m['date']:%d %b %y}: {m['home']} {m['hg']}-{m['ag']} {m['away']}" for m in r.h2h]
+                tot = [m["hg"] + m["ag"] for m in r.h2h]
+                L.append(f"**Head-to-head** (last {len(r.h2h)}): avg {np.mean(tot):.1f} goals, O2.5 in {sum(t >= 3 for t in tot)}/{len(tot)}, "
+                         f"BTTS in {sum(m['hg'] > 0 and m['ag'] > 0 for m in r.h2h)}/{len(tot)}  ")
+                L.append("; ".join(parts))
+                L.append("")
+            for team in (r.fx["home"], r.fx["away"]):
+                hs = headlines.get(team) or []
+                L.append(f"**{team} — recent headlines** _(Google News, context only, not used by the model)_")
+                L.append("")
+                if hs:
+                    for h in hs:
+                        when = h["when"].astimezone(now.tzinfo).strftime("%d %b") if h.get("when") else ""
+                        L.append(f"* {when} · {h['source']}: {h['title']}")
+                else:
+                    L.append("* _no recent headlines found_")
+                L.append("")
+    return "\n".join(L)
+
+
+def weekly_digest(tracker: pd.DataFrame, ledger: pd.DataFrame, now: datetime) -> list[str]:
+    """Monday digest: last 7 days + all time for the shortlists and parlays."""
+    L = ["## 📅 Weekly digest", ""]
+    cut = (now - timedelta(days=7)).strftime("%Y-%m-%d")
+    L.append("| Market | Last 7 days | Hit rate | All time | Hit rate | Backtest expectation |")
+    L.append("|---|---|---|---|---|---|")
+    for mkt, name in MARKETS.items():
+        s = tracker[(tracker["market"] == mkt) & tracker["status"].isin(["hit", "miss"])] if not tracker.empty else tracker
+        wk = s[s["match_date"] >= cut] if not s.empty else s
+        h_all, h_wk = int((s["status"] == "hit").sum()) if not s.empty else 0, int((wk["status"] == "hit").sum()) if not wk.empty else 0
+        L.append(f"| {name} | {h_wk}/{len(wk)} | {pct(h_wk / len(wk)) if len(wk) else '–'} | {h_all}/{len(s)} | "
+                 f"{pct(h_all / len(s)) if len(s) else '–'} | {CONFIG['BACKTEST'][mkt].split(' of')[0]} |")
+    ps = parlay_mod.summary(ledger, now)
+    wk = ledger[(ledger["created"] >= cut)] if not ledger.empty else ledger
+    wks = parlay_mod._stats(wk)
+    a = ps["all"]
+    L.append(f"| Parlays | {wks['won']}/{wks['n']} | {pct(wks['rate'])} | {a['won']}/{a['n']} | {pct(a['rate'])} | "
+             f"30-33% wins, −4% to −13% return |")
+    L.append("")
+    if a["n"]:
+        L.append(f"Parlay flat-stake return: last 7 days {100 * wks['roi']:+.1f}% · all time {100 * a['roi']:+.1f}% "
+                 f"(avg odds {f2(a['avg_odds'])}, model expected {pct(a['exp_rate'])} wins vs actual {pct(a['rate'])}).")
+        L.append("")
+    return L
+
+
+def digest_text(lines: list[str]) -> str:
+    """Plain-text version of the digest for Telegram."""
+    out = ["📅 <b>Weekly digest</b>"]
+    for ln in lines:
+        if ln.startswith("|") and not ln.startswith("|---"):
+            cells = [c.strip().replace("**", "") for c in ln.strip("|").split("|")]
+            if cells[0] == "Market":
+                continue
+            out.append(f"• {html.escape(cells[0])}: week {cells[1]} ({cells[2]}), all {cells[3]} ({cells[4]})")
+        elif ln and not ln.startswith("#") and not ln.startswith("|"):
+            out.append(html.escape(ln))
+    return "\n".join(out)
+
+
+def send_telegram_document(path: Path, caption: str) -> bool:
+    token, chat = os.getenv("TELEGRAM_BOT_TOKEN"), os.getenv("TELEGRAM_CHAT_ID")
+    if not token or not chat or not path.exists():
+        return False
+    try:
+        with open(path, "rb") as fh:
+            r = SESSION.post(f"https://api.telegram.org/bot{token}/sendDocument", data={"chat_id": chat, "caption": caption[:1000]},
+                             files={"document": (path.name, fh, "application/pdf" if path.suffix == ".pdf" else "text/plain")}, timeout=60)
+        if r.status_code != 200:
+            log.warning("Telegram document error %s: %s", r.status_code, r.text[:200])
+            return False
+        return True
+    except (requests.RequestException, OSError) as exc:
+        log.warning("Telegram document failed: %s", exc)
+        return False
+
+
 def telegram_text(ctx: dict, rows: list[MatchRow], picks: dict, report_url: str | None) -> str:
     now = ctx["now"]
-    L = [f"⚽ <b>Goals Scanner — {now:%a %d %b}</b>", f"{len(rows)} fixtures scanned · times in {TZL}"]
+    L = [f"⚽ <b>Goals Scanner — {now:%a %d %b}, run {ctx.get('run', '')}</b>", f"{len(rows)} fixtures scanned · times in {TZL}"]
+    pr = ctx.get("parlays") or {}
+    if pr:
+        L.append("")
+        lo, hi = CONFIG["PARLAY_ODDS"]
+        L.append(f"🎟️ <b>Parlays</b> ({pr['source']}, odds {lo:.2f}–{hi:.2f})")
+        if not pr["parlays"]:
+            L.append("none possible in this window")
+        for i, pl in enumerate(pr["parlays"], 1):
+            odds, p = parlay_mod.parlay_odds(pl), parlay_mod.parlay_p(pl)
+            L.append(f"<b>#{i} @ {odds:.2f}</b> · P(win) {pct(p)} · EV {100 * (p * odds - 1):+.0f}%")
+            for l in pl:
+                L.append(f"   • {l.kickoff[11:]} {html.escape(l.match)} — {html.escape(l.label)} @ {l.odds:.2f}")
     for mkt, name in MARKETS.items():
         sel = picks.get(mkt, [])
         L.append("")
@@ -1076,22 +1676,31 @@ def main() -> None:
     now = datetime.strptime(override, "%Y-%m-%d %H:%M").replace(tzinfo=tz) if override else datetime.now(tz)
     start = now - timedelta(minutes=5)
     end = now + timedelta(hours=CONFIG["WINDOW_HOURS"])
-    ctx = {"now": now, "start": start, "end": end}
-    log.info("Scan window %s -> %s", start, end)
+    run_label, window_end = run_schedule(now)
+    ctx = {"now": now, "start": start, "end": end, "run": run_label, "window_end": window_end}
+    log.info("Run %s: scan window %s -> %s, parlay window until %s", run_label, start, end, window_end)
 
     REPORTS_DIR.mkdir(exist_ok=True)
     DATA_DIR.mkdir(exist_ok=True)
+    PDF_DIR.mkdir(exist_ok=True)
 
     fixtures = load_fixtures(tz)
     todays = fixtures[(fixtures["kickoff"] >= start) & (fixtures["kickoff"] <= end)] if not fixtures.empty else fixtures
     log.info("%d upcoming fixtures in feed, %d inside the window", len(fixtures), len(todays))
 
     tracker = load_tracker()
+    ledger = parlay_mod.load_ledger(PARLAY_FILE)
     pending = tracker[tracker["status"] == "pending"] if not tracker.empty else tracker
+    pending_parlays = ledger[ledger["status"] == "pending"] if not ledger.empty else ledger
 
     # which history files do we need? whole country systems, so promoted/relegated teams keep their history
     countries = set(todays["country"]) if not todays.empty else set()
     countries |= set(pending["country"]) if not pending.empty else set()
+    for legs_json in (pending_parlays["legs"] if not pending_parlays.empty else []):
+        try:
+            countries |= {d.get("country") for d in json.loads(legs_json)}
+        except ValueError:
+            pass
     main_divs = {d for d, (c, _) in MAIN_LEAGUES.items() if c in countries}
     extra_codes = {code for c, code in EXTRA_LEAGUES.items() if c in countries}
 
@@ -1105,9 +1714,50 @@ def main() -> None:
 
     div_avgs = compute_div_avgs(results, now)
     long = make_long(results, div_avgs)
+    MODELS["corners"] = markets.CountModel(results, "hc", "ac", now, markets.CORNERS)
+    cards_df = results.assign(hcards=results["hy"].fillna(0) + results["hr"].fillna(0),
+                              acards=results["ay"].fillna(0) + results["ar"].fillna(0))
+    cards_df.loc[results["hy"].isna(), ["hcards", "acards"]] = np.nan
+    MODELS["cards"] = markets.CountModel(cards_df, "hcards", "acards", now, markets.CARDS, use_ref=True)
 
     rows = [analyse(fx, long, results, div_avgs, now) for _, fx in todays.iterrows()]
+
+    # ---- Sportybet prices (display / payout only)
+    sbmap, sb_ok = {}, False
+    if CONFIG["SPORTYBET"] and rows:
+        events = sporty.fetch_upcoming(CONFIG["WINDOW_HOURS"] + 6)
+        sb_ok = bool(events)
+        sbmap = sporty.match_fixtures(todays, events) if events else {}
+    attach_prices(rows, sbmap, todays)
     picks = select_picks(rows)
+
+    # ---- parlays
+    pr = build_run_parlays(rows, now, window_end, sb_ok and bool(sbmap))
+    ledger = parlay_mod.settle(ledger, results, now)
+    ledger, parlay_ids = parlay_mod.add_parlays(ledger, pr["parlays"], now, run_label, window_end, pr["source"])
+    ledger.to_csv(PARLAY_FILE, index=False)
+    ctx.update({"parlays": pr, "parlay_ids": parlay_ids, "parlay_summary": parlay_mod.summary(ledger, now),
+                "parlay_recent": parlay_mod.recent(ledger, 12)})
+    log.info("Parlays: %d built from %d legs (%s%s)", len(pr["parlays"]), len(pr["legs"]), pr["source"],
+             ", extended window" if pr["extended"] else "")
+
+    # ---- dossier inputs: full Sportybet markets (corners / cards) + headlines for the parlay matches
+    rows_by_key = {(r.fx["date"].strftime("%Y-%m-%d"), r.fx["country"], r.fx["home"], r.fx["away"]): r for r in rows}
+    dossier_rows, seen_keys = [], set()
+    for pl in pr["parlays"]:
+        for l in pl:
+            r = rows_by_key.get(l.key)
+            if r is not None and l.key not in seen_keys:
+                seen_keys.add(l.key)
+                dossier_rows.append(r)
+    for r in dossier_rows:
+        if sb_ok and r.sb_event and r.sb_event.get("id"):
+            r.sb_full = sporty.fetch_event_markets(r.sb_event["id"])
+    headlines = {}
+    if CONFIG["NEWS"] and dossier_rows:
+        headlines = news_mod.headlines_for_matches(
+            [(r.fx["home"], r.fx["away"], r.fx["country"],
+              (r.sb_event or {}).get("home"), (r.sb_event or {}).get("away")) for r in dossier_rows])
 
     notes = []
     missing = sorted({comp(r) for r in rows if r.fx["div"] not in div_avgs})
@@ -1116,6 +1766,9 @@ def main() -> None:
     lowdata = sum(1 for r in rows if not r.data_ok)
     if lowdata:
         notes.append(f"{lowdata} fixture(s) flagged ⚠️ low data and excluded from shortlists.")
+    if CONFIG["SPORTYBET"]:
+        notes.append(f"Sportybet ({sporty.CC.upper()}): {len(sbmap)} of {len(rows)} fixtures priced." if sb_ok
+                     else "Sportybet prices unavailable this run — average market prices shown instead.")
 
     today_str = now.strftime("%Y-%m-%d")
     tracker = settle_tracker(tracker, results, now)
@@ -1123,17 +1776,41 @@ def main() -> None:
     tracker.to_csv(TRACKER_FILE, index=False)
     summary = tracker_summary(tracker, now)
 
+    digest_lines = []
+    if now.weekday() == 0 and run_label == f"{CONFIG['RUN_HOURS'][0]:02d}:00":
+        digest_lines = weekly_digest(tracker, ledger, now)
+        ctx["digest"] = digest_lines
+
     report_md = render_report(ctx, rows, picks, summary, notes)
     (REPORTS_DIR / f"{today_str}.md").write_text(report_md, encoding="utf-8")
     (REPORTS_DIR / "latest.md").write_text(report_md, encoding="utf-8")
+    dossier_md = render_dossier(ctx, pr, parlay_ids, rows_by_key, headlines)
+    (REPORTS_DIR / f"{today_str}-parlays.md").write_text(dossier_md, encoding="utf-8")
     rows_to_csv(rows, REPORTS_DIR / f"{today_str}.csv")
     update_readme(render_readme_block(ctx, rows, picks, summary, f"reports/{today_str}.md"))
+
+    pdf_report = pdf_dossier = None
+    if CONFIG["PDF"] and pdfgen is not None:
+        stamp = f"{today_str}-{now:%H%M}"
+        try:
+            pdf_report = pdfgen.markdown_to_pdf(report_md, PDF_DIR / f"goals-scanner-{stamp}.pdf", "Goals Scanner",
+                                                f"Run {run_label} {TZL} · full report")
+            pdf_dossier = pdfgen.markdown_to_pdf(dossier_md, PDF_DIR / f"parlays-{stamp}.pdf", "Parlay dossier",
+                                                 f"Run {run_label} {TZL} · parlay match data")
+        except Exception as exc:  # noqa: BLE001 - never lose the run because of the PDF
+            log.warning("PDF generation failed: %s", exc)
 
     repo = os.getenv("GITHUB_REPOSITORY")
     server = os.getenv("GITHUB_SERVER_URL", "https://github.com")
     branch = os.getenv("GITHUB_REF_NAME", "main")
     report_url = f"{server}/{repo}/blob/{branch}/reports/{today_str}.md" if repo else None
     send_telegram(telegram_text(ctx, rows, picks, report_url))
+    if pdf_report:
+        send_telegram_document(pdf_report, f"📄 Full report — {now:%a %d %b}, run {run_label} {TZL} ({len(rows)} fixtures)")
+    if pdf_dossier and pr["parlays"]:
+        send_telegram_document(pdf_dossier, f"🎟️ Parlay dossier — {len(pr['parlays'])} parlay(s), full match data")
+    if digest_lines:
+        send_telegram(digest_text(digest_lines))
 
     for mkt, name in MARKETS.items():
         log.info("%s: %d pick(s)", name, len(picks[mkt]))
