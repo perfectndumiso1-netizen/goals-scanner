@@ -1,35 +1,35 @@
 # ⚽ Goals Scanner — Saturday 26 September 2026
 
-**Run 17:00 sast** · scan window Sat 26 Sep 16:23 → Sun 27 Sep 16:28 · **23 fixtures** across **4 competitions** · generated 16:28 SAST · next run Sat 17:00
+**Run 17:00 sast** · scan window Sat 26 Sep 16:56 → Sun 27 Sep 17:01 · **23 fixtures** across **4 competitions** · generated 17:01 SAST · next run Sun 07:00
 
 > Sportybet (ZA): 19 of 23 fixtures priced.
 
 ## 🎟️ Parlays — run 17:00 · combined odds 2.70–3.50
 
-_Prices: **Sportybet**. Window: whole 24 h window (fewer than 4 priced matches before the next run). 19 priced matches, 151 candidate legs. Legs are limited to 1X2, double chance and Over/Under 2.5 — markets with real prices. Each parlay maximises expected return (calibrated probability × price) inside the odds band._
+_Prices: **Sportybet**. Window: kick-offs before the next run (Sun 07:00 SAST). 17 priced matches, 135 candidate legs. Legs are limited to 1X2, double chance and Over/Under 2.5 — markets with real prices. Each parlay maximises expected return (calibrated probability × price) inside the odds band._
 
-### Parlay 1 — 2 legs @ **3.45** · win probability **29%** · expected return -0.5% · id `20260926-10`
-
-| Kick-off | Match | Competition | Selection | Price | Fair odds | Probability | Leg edge |
-|---|---|---|---|---|---|---|---|
-| 09-27 01:30 | **Charlotte v Chicago Fire** | MLS | **Home win** | **2.30** | 2.27 | 44% | +1.2% |
-| 09-27 01:30 | **Philadelphia Union v Orlando City** | MLS | **Home win** | **1.50** | 1.53 | 66% | -1.6% |
-
-### Parlay 2 — 2 legs @ **3.22** · win probability **31%** · expected return -0.7% · id `20260926-11`
+### Parlay 1 — 2 legs @ **2.75** · win probability **37%** · expected return +0.7% · id `20260926-13`
 
 | Kick-off | Match | Competition | Selection | Price | Fair odds | Probability | Leg edge |
 |---|---|---|---|---|---|---|---|
 | 09-27 01:07 | **Guadalajara Chivas v Queretaro** | Liga MX | **Home or draw (1X)** | **1.17** | 1.19 | 84% | -1.7% |
-| 09-27 01:30 | **CF Montreal v FC Cincinnati** | MLS | **Home win** | **2.75** | 2.72 | 37% | +1.1% |
+| 09-27 01:30 | **Charlotte v Chicago Fire** | MLS | **Home win** | **2.35** | 2.29 | 44% | +2.5% |
 
-### Parlay 3 — 2 legs @ **3.48** · win probability **28%** · expected return -2.2% · id `20260926-12`
+### Parlay 2 — 2 legs @ **3.24** · win probability **30%** · expected return -1.3% · id `20260926-14`
 
 | Kick-off | Match | Competition | Selection | Price | Fair odds | Probability | Leg edge |
 |---|---|---|---|---|---|---|---|
+| 09-27 01:30 | **CF Montreal v FC Cincinnati** | MLS | **Home win** | **2.75** | 2.72 | 37% | +1.1% |
 | 09-27 02:30 | **Houston Dynamo v Sporting Kansas City** | MLS | **Home or draw (1X)** | **1.18** | 1.21 | 83% | -2.3% |
+
+### Parlay 3 — 2 legs @ **3.48** · win probability **28%** · expected return -2.7% · id `20260926-15`
+
+| Kick-off | Match | Competition | Selection | Price | Fair odds | Probability | Leg edge |
+|---|---|---|---|---|---|---|---|
+| 09-27 01:30 | **Philadelphia Union v Orlando City** | MLS | **Home or away (12)** | **1.18** | 1.21 | 82% | -2.8% |
 | 09-27 03:30 | **Real Salt Lake v New England Revolution** | MLS | **Away win** | **2.95** | 2.95 | 34% | +0.1% |
 
-**Parlay record:** no settled parlays yet (12 pending).
+**Parlay record:** no settled parlays yet (15 pending).
 
 > ⚠️ Honest expectation: a parlay at ~3.1 needs to win about 1 in 3 to break even. In the 2023-26 backtest this exact construction won 30-33% of the time and returned −4% to −13% per unit at average prices — the bookmaker margin compounds across legs. Treat parlays as entertainment with a known cost, not as income. Full test: `backtest/PARLAY_EXPERIMENT.md`.
 
@@ -113,20 +113,20 @@ _Fair odds = 1 / calibrated probability (90% sharp market, 10% model where price
 | Market | Match | Kick-off | Probability | Fair odds | Sportybet | Edge |
 |---|---|---|---|---|---|---|
 | Over 1.5 goals | **Philadelphia Union v Orlando City** | Sun 01:30 | 90% | 1.12 | **1.08** | -3.1% ❌ short |
-| Over 1.5 goals | **CF Montreal v FC Cincinnati** | Sun 01:30 | 86% | 1.16 | **1.14** | -2.0% ≈ fair |
+| Over 1.5 goals | **CF Montreal v FC Cincinnati** | Sun 01:30 | 85% | 1.17 | **1.15** | -1.7% ≈ fair |
 | Over 1.5 goals | **Charlotte v Chicago Fire** | Sun 01:30 | 86% | 1.17 | **1.14** | -2.5% ≈ fair |
 | Over 1.5 goals | **Seattle Sounders v Minnesota United** | Sun 02:30 | 84% | 1.19 | **1.18** | -1.2% ≈ fair |
 | Over 2.5 goals | **Philadelphia Union v Orlando City** | Sun 01:30 | 75% | 1.33 | **1.29** | -2.8% ≈ fair |
-| Over 2.5 goals | **CF Montreal v FC Cincinnati** | Sun 01:30 | 67% | 1.49 | **1.45** | -2.8% ≈ fair |
+| Over 2.5 goals | **CF Montreal v FC Cincinnati** | Sun 01:30 | 65% | 1.54 | **1.50** | -2.4% ≈ fair |
 | Over 2.5 goals | **Charlotte v Chicago Fire** | Sun 01:30 | 67% | 1.49 | **1.45** | -3.0% ≈ fair |
 | Over 2.5 goals | **Seattle Sounders v Minnesota United** | Sun 02:30 | 62% | 1.62 | **1.58** | -2.6% ≈ fair |
 | Over 2.5 goals | **Nashville SC v Toronto FC** | Sun 02:30 | 64% | 1.56 | **1.51** | -3.0% ❌ short |
 | Over 2.5 goals | **Real Salt Lake v New England Revolution** | Sun 03:30 | 61% | 1.63 | **1.58** | -3.1% ❌ short |
 | Over 2.5 goals | **FC Dallas v Los Angeles FC** | Sun 02:30 | 60% | 1.68 | **1.63** | -2.8% ≈ fair |
-| Both teams to score | **Philadelphia Union v Orlando City** | Sun 01:30 | 68% | 1.47 | **1.42** | -3.3% ❌ short |
-| Both teams to score | **CF Montreal v FC Cincinnati** | Sun 01:30 | 68% | 1.48 | **1.41** | -4.7% ❌ short |
+| Both teams to score | **Philadelphia Union v Orlando City** | Sun 01:30 | 68% | 1.46 | **1.41** | -3.6% ❌ short |
+| Both teams to score | **CF Montreal v FC Cincinnati** | Sun 01:30 | 67% | 1.50 | **1.45** | -3.4% ❌ short |
 | Both teams to score | **Seattle Sounders v Minnesota United** | Sun 02:30 | 64% | 1.56 | **1.52** | -2.5% ≈ fair |
-| Both teams to score | **Charlotte v Chicago Fire** | Sun 01:30 | 67% | 1.50 | **1.41** | -6.2% ❌ short |
+| Both teams to score | **Charlotte v Chicago Fire** | Sun 01:30 | 67% | 1.50 | **1.41** | -6.0% ❌ short |
 | Both teams to score | **Real Salt Lake v New England Revolution** | Sun 03:30 | 64% | 1.57 | **1.50** | -4.5% ❌ short |
 | Both teams to score | **FC Dallas v Los Angeles FC** | Sun 02:30 | 63% | 1.60 | **1.54** | -3.5% ❌ short |
 | Both teams to score | **Nashville SC v Toronto FC** | Sun 02:30 | 58% | 1.71 | **1.70** | -0.8% ≈ fair |
@@ -139,20 +139,20 @@ _Probabilities are model + sharp-market blends (1X2, team goals) or the backtest
 | Kick-off (SAST) | Match | Competition | Home / Draw / Away | 1X / X2 | Home to score / 2+ | Away to score / 2+ | Corners exp. (O9.5 · O10.5) | Cards exp. (O3.5 · O4.5) | Sportybet 1X2 |
 |---|---|---|---|---|---|---|---|---|---|
 | Sat 26 Sep 18:30 | **Oldham v Salford** | England · League Two | 39% / 27% / 35% | 65% / 61% | 77% / 43% | 74% / 39% | 9.7 (50% · 38%) | 3.7 (50% · 32%) | 2.45 / 3.50 / 2.75 |
-| Sat 26 Sep 18:30 | **Celta B v Sabadell** | Spain · Segunda División | 29% / 28% / 42% | 58% / 71% | 70% / 34% | 75% / 40% | 8.9 (40% · 29%) | 5.2 (74% · 58%) | 3.33 / 3.33 / 2.15 |
-| Sat 26 Sep 18:30 | **Tenerife v Cadiz** | Spain · Segunda División | 50% / 29% / 21% | 79% / 50% | 76% / 41% | 59% / 23% | 9.0 (42% · 31%) | 4.8 (68% · 51%) | 1.85 / 3.33 / 4.50 |
+| Sat 26 Sep 18:30 | **Celta B v Sabadell** | Spain · Segunda División | 29% / 28% / 43% | 57% / 71% | 70% / 34% | 75% / 40% | 8.9 (40% · 29%) | 5.2 (74% · 58%) | 3.50 / 3.33 / 2.10 |
+| Sat 26 Sep 18:30 | **Tenerife v Cadiz** | Spain · Segunda División | 50% / 29% / 21% | 79% / 50% | 76% / 41% | 59% / 23% | 9.0 (42% · 31%) | 4.8 (68% · 51%) | 1.87 / 3.33 / 4.40 |
 | Sun 27 Sep 00:50 | **Cruz Azul v Toluca** | Mexico · Liga MX | 37% / 26% / 37% | 63% / 63% | 79% / 46% | 72% / 37% | – | – | 2.60 / 3.60 / 2.60 |
 | Sun 27 Sep 01:07 | **Guadalajara Chivas v Queretaro** | Mexico · Liga MX | 64% / 20% / 16% | 84% / 36% | 81% / 50% | 66% / 30% | – | – | 1.59 / 4.30 / 5.25 |
 | Sun 27 Sep 01:30 | **Atlanta Utd v New York City** | USA · MLS | 41% / 26% / 33% | 67% / 59% | 78% / 45% | 75% / 40% | – | – | 2.40 / 3.75 / 2.90 |
 | Sun 27 Sep 01:30 | **CF Montreal v FC Cincinnati** | USA · MLS | 37% / 24% / 39% | 61% / 63% | 84% / 54% | 79% / 46% | – | – | 2.75 / 4.00 / 2.40 |
-| Sun 27 Sep 01:30 | **Charlotte v Chicago Fire** | USA · MLS | 44% / 24% / 32% | 68% / 56% | 85% / 56% | 75% / 41% | – | – | 2.30 / 4.00 / 2.90 |
+| Sun 27 Sep 01:30 | **Charlotte v Chicago Fire** | USA · MLS | 44% / 24% / 32% | 68% / 56% | 85% / 56% | 75% / 41% | – | – | 2.35 / 4.00 / 2.85 |
 | Sun 27 Sep 01:30 | **New York Red Bulls v St. Louis City** | USA · MLS | 29% / 23% / 47% | 53% / 71% | 79% / 46% | 79% / 46% | – | – | – |
-| Sun 27 Sep 01:30 | **Philadelphia Union v Orlando City** | USA · MLS | 66% / 18% / 17% | 83% / 34% | 89% / 64% | 76% / 42% | – | – | 1.50 / 5.40 / 5.60 |
+| Sun 27 Sep 01:30 | **Philadelphia Union v Orlando City** | USA · MLS | 65% / 18% / 17% | 83% / 35% | 89% / 64% | 76% / 42% | – | – | 1.51 / 5.40 / 5.50 |
 | Sun 27 Sep 02:30 | **Austin FC v San Diego FC** | USA · MLS | 40% / 25% / 34% | 66% / 60% | 81% / 49% | 74% / 39% | – | – | 2.45 / 3.75 / 2.80 |
 | Sun 27 Sep 02:30 | **FC Dallas v Los Angeles FC** | USA · MLS | 42% / 25% / 33% | 67% / 58% | 81% / 50% | 76% / 42% | – | – | 2.35 / 3.80 / 2.90 |
 | Sun 27 Sep 02:30 | **Houston Dynamo v Sporting Kansas City** | USA · MLS | 62% / 21% / 17% | 83% / 38% | 86% / 58% | 69% / 33% | – | – | 1.62 / 4.50 / 5.30 |
 | Sun 27 Sep 02:30 | **Nashville SC v Toronto FC** | USA · MLS | 66% / 19% / 15% | 85% / 34% | 86% / 59% | 69% / 33% | – | – | 1.45 / 5.20 / 6.70 |
-| Sun 27 Sep 02:30 | **Seattle Sounders v Minnesota United** | USA · MLS | 44% / 25% / 31% | 69% / 56% | 83% / 53% | 77% / 44% | – | – | 2.20 / 3.80 / 3.20 |
+| Sun 27 Sep 02:30 | **Seattle Sounders v Minnesota United** | USA · MLS | 44% / 25% / 31% | 69% / 56% | 83% / 53% | 77% / 44% | – | – | 2.15 / 3.90 / 3.30 |
 | Sun 27 Sep 03:30 | **Real Salt Lake v New England Revolution** | USA · MLS | 41% / 25% / 34% | 66% / 59% | 79% / 46% | 79% / 46% | – | – | 2.35 / 3.75 / 2.95 |
 | Sun 27 Sep 04:30 | **Los Angeles Galaxy v Colorado Rapids** | USA · MLS | 43% / 24% / 32% | 68% / 57% | 79% / 47% | 72% / 36% | – | – | – |
 | Sun 27 Sep 04:30 | **San Jose Earthquakes v Portland Timbers** | USA · MLS | 46% / 24% / 30% | 70% / 54% | 84% / 54% | 78% / 44% | – | – | – |
@@ -217,11 +217,11 @@ _Probabilities are model + sharp-market blends (1X2, team goals) or the backtest
 * Team-form model alone: 1.37 – 1.22 · P(O2.5) 48% · P(BTTS) 53% · Market-implied: 1.18 – 1.39
 * Market: Over 2.5 @ 1.96 / Under 2.5 @ 1.76 (implied O2.5 47%) · 1X2 2.95 / 3.26 / 2.24
 * League context: avg 1.45 home + 1.19 away goals · O2.5 in 50% · BTTS in 52% of matches
-* **1X2** (fair, market+Sportybet+model): home 29% · draw 28% · away 42% → fair odds 3.40 / 3.52 / 2.37 · **Double chance** 1X 58% · 12 72% · X2 71%
+* **1X2** (fair, market+Sportybet+model): home 29% · draw 28% · away 43% → fair odds 3.47 / 3.52 / 2.34 · **Double chance** 1X 57% · 12 72% · X2 71%
 * **Team goals:** Celta B to score 70% (2+ 34%) · Sabadell to score 75% (2+ 40%)
 * **Corners:** expected 4.8 (home) + 4.2 (away) = **8.9** · total O8.5 **53%** · O9.5 **40%** · O10.5 **29%** · O11.5 **20%** · home O3.5 65% · O4.5 49% · O5.5 35% · away O3.5 56% · O4.5 40% · O5.5 26% _(team averages: Celta B 3.9 for / 3.9 against over 6 games, Sabadell 4.8 / 2.8 over 6)_
 * **Cards** (yellow + red): expected 2.3 + 2.9 = **5.2** · total O3.5 **74%** · O4.5 **58%** · O5.5 **42%** _(team averages: Celta B 2.8 received / 2.9 opponents booked, Sabadell 2.9 / 2.0)_
-* **Sportybet:** 1X2 3.33 / 3.33 / 2.15 · DC 1X/12/X2 1.62 / 1.31 / 1.31 · goals O1.5 1.34 / U 3.20 · O2.5 2.05 / U 1.75 · O3.5 3.60 / U 1.28 · BTTS 1.81 / 1.89 · Celta B goals O0.5 1.43 / U 2.70 · O1.5 3.00 / U 1.36 · Sabadell goals O0.5 1.26 / U 3.60 · O1.5 2.20 / U 1.62
+* **Sportybet:** 1X2 3.50 / 3.33 / 2.10 · DC 1X/12/X2 1.65 / 1.31 / 1.30 · goals O1.5 1.34 / U 3.20 · O2.5 2.05 / U 1.75 · O3.5 3.60 / U 1.28 · BTTS 1.82 / 1.89 · Celta B goals O0.5 1.44 / U 2.65 · O1.5 3.10 / U 1.34 · Sabadell goals O0.5 1.25 / U 3.70 · O1.5 2.20 / U 1.64
 
 **Celta B** (Home) — 6 matches used (weighted 5.3), 3 home
 
@@ -263,11 +263,11 @@ _No head-to-head data in the last two seasons._
 * Team-form model alone: 1.54 – 1.12 · P(O2.5) 50% · P(BTTS) 53% · Market-implied: 1.40 – 0.88
 * Market: Over 2.5 @ 2.33 / Under 2.5 @ 1.54 (implied O2.5 40%) · 1X2 1.90 / 3.14 / 4.02
 * League context: avg 1.45 home + 1.19 away goals · O2.5 in 50% · BTTS in 52% of matches
-* **1X2** (fair, market+Sportybet+model): home 50% · draw 29% · away 21% → fair odds 1.99 / 3.50 / 4.72 · **Double chance** 1X 79% · 12 71% · X2 50%
+* **1X2** (fair, market+Sportybet+model): home 50% · draw 29% · away 21% → fair odds 2.00 / 3.50 / 4.66 · **Double chance** 1X 79% · 12 71% · X2 50%
 * **Team goals:** Tenerife to score 76% (2+ 41%) · Cadiz to score 59% (2+ 23%)
 * **Corners:** expected 5.1 (home) + 3.9 (away) = **9.0** · total O8.5 **54%** · O9.5 **42%** · O10.5 **31%** · O11.5 **21%** · home O3.5 69% · O4.5 54% · O5.5 40% · away O3.5 52% · O4.5 36% · O5.5 23% _(team averages: Tenerife 3.8 for / 3.4 against over 6 games, Cadiz 4.1 / 5.2 over 40)_
 * **Cards** (yellow + red): expected 2.1 + 2.7 = **4.8** · total O3.5 **68%** · O4.5 **51%** · O5.5 **35%** _(team averages: Tenerife 2.0 received / 1.5 opponents booked, Cadiz 3.2 / 2.0)_
-* **Sportybet:** 1X2 1.85 / 3.33 / 4.50 · DC 1X/12/X2 1.20 / 1.31 / 1.84 · goals O1.5 1.43 / U 2.80 · O2.5 2.30 / U 1.60 · O3.5 4.25 / U 1.21 · BTTS 2.10 / 1.67 · Tenerife goals O0.5 1.24 / U 3.75 · O1.5 2.15 / U 1.66 · Cadiz goals O0.5 1.67 / U 2.10 · O1.5 4.20 / U 1.20
+* **Sportybet:** 1X2 1.87 / 3.33 / 4.40 · DC 1X/12/X2 1.21 / 1.31 / 1.82 · goals O1.5 1.44 / U 2.75 · O2.5 2.35 / U 1.58 · O3.5 4.40 / U 1.20 · BTTS 2.10 / 1.65 · Tenerife goals O0.5 1.26 / U 3.70 · O1.5 2.20 / U 1.63 · Cadiz goals O0.5 1.67 / U 2.15 · O1.5 4.20 / U 1.20
 
 **Tenerife** (Home) — 6 matches used (weighted 5.2), 3 home
 
@@ -434,8 +434,8 @@ _No head-to-head data in the last two seasons._
 * League context: avg 1.75 home + 1.41 away goals · O2.5 in 63% · BTTS in 64% of matches
 * **1X2** (fair, market+Sportybet+model): home 37% · draw 24% · away 39% → fair odds 2.72 / 4.18 / 2.54 · **Double chance** 1X 61% · 12 76% · X2 63%
 * **Team goals:** CF Montreal to score 84% (2+ 54%) · FC Cincinnati to score 79% (2+ 46%)
-* **Sportybet:** 1X2 2.75 / 4.00 / 2.40 · DC 1X/12/X2 1.57 / 1.27 / 1.46 · goals O1.5 1.14 / U 6.25 · O2.5 1.45 / U 2.85 · O3.5 2.10 / U 1.79 · BTTS 1.41 / 2.95 · CF Montreal goals O0.5 1.20 / U 4.70 · O1.5 1.91 / U 1.90 · FC Cincinnati goals O0.5 1.17 / U 5.20 · O1.5 1.78 / U 2.05
-* **Sportybet corners / cards:** total corners O8.5 1.38 / U 2.80 · O9.5 1.63 / U 2.15 · O10.5 2.00 / U 1.73 · O11.5 2.50 / U 1.46 · home corners O3.5 1.27 / U 3.70 · O4.5 1.53 / U 2.45 · O5.5 1.94 / U 1.83 · away corners O3.5 1.45 / U 2.70 · O4.5 1.94 / U 1.83 · O5.5 2.80 / U 1.42 · 1st-half corners O3.5 1.36 / U 2.90 · O4.5 1.75 / U 1.97 · O5.5 2.40 / U 1.50 _(no model — market only)_ · total cards O3.5 1.56 / U 2.30 · O4.5 2.20 / U 1.60 · O5.5 3.40 / U 1.27
+* **Sportybet:** 1X2 2.75 / 4.00 / 2.40 · DC 1X/12/X2 1.57 / 1.27 / 1.46 · goals O1.5 1.15 / U 5.80 · O2.5 1.50 / U 2.70 · O3.5 2.20 / U 1.71 · BTTS 1.45 / 2.80 · CF Montreal goals O0.5 1.21 / U 4.50 · O1.5 1.98 / U 1.84 · FC Cincinnati goals O0.5 1.18 / U 5.00 · O1.5 1.84 / U 1.98
+* **Sportybet corners / cards:** total corners O8.5 1.38 / U 2.80 · O9.5 1.63 / U 2.15 · O10.5 2.00 / U 1.73 · O11.5 2.50 / U 1.46 · home corners O3.5 1.27 / U 3.70 · O4.5 1.53 / U 2.45 · O5.5 1.94 / U 1.83 · away corners O3.5 1.46 / U 2.65 · O4.5 1.98 / U 1.80 · O5.5 2.90 / U 1.40 · 1st-half corners O3.5 1.36 / U 2.90 · O4.5 1.75 / U 1.97 · O5.5 2.40 / U 1.50 _(no model — market only)_ · total cards O3.5 1.56 / U 2.30 · O4.5 2.20 / U 1.60 · O5.5 3.40 / U 1.27
 
 **CF Montreal** (Home) — 33 matches used (weighted 16.0), 17 home
 
@@ -474,10 +474,10 @@ _No head-to-head data in the last two seasons._
 * Team-form model alone: 1.88 – 1.40 · P(O2.5) 64% · P(BTTS) 64%
 * Market 1X2: 2.10 / 3.78 / 2.92 (no O/U odds published in feed)
 * League context: avg 1.75 home + 1.41 away goals · O2.5 in 63% · BTTS in 64% of matches
-* **1X2** (fair, market+Sportybet+model): home 44% · draw 24% · away 32% → fair odds 2.27 / 4.16 / 3.13 · **Double chance** 1X 68% · 12 76% · X2 56%
+* **1X2** (fair, market+Sportybet+model): home 44% · draw 24% · away 32% → fair odds 2.29 / 4.15 / 3.09 · **Double chance** 1X 68% · 12 76% · X2 56%
 * **Team goals:** Charlotte to score 85% (2+ 56%) · Chicago Fire to score 75% (2+ 41%)
-* **Sportybet:** 1X2 2.30 / 4.00 / 2.90 · DC 1X/12/X2 1.42 / 1.27 / 1.62 · goals O1.5 1.14 / U 6.30 · O2.5 1.45 / U 2.85 · O3.5 2.05 / U 1.79 · BTTS 1.41 / 2.90 · Charlotte goals O0.5 1.15 / U 5.50 · O1.5 1.73 / U 2.10 · Chicago Fire goals O0.5 1.21 / U 4.50 · O1.5 1.97 / U 1.85
-* **Sportybet corners / cards:** total corners O8.5 1.49 / U 2.45 · O9.5 1.80 / U 1.91 · O10.5 2.25 / U 1.57 · O11.5 2.90 / U 1.36 · home corners O3.5 1.38 / U 3.00 · O4.5 1.78 / U 2.00 · O5.5 2.50 / U 1.51 · away corners O3.5 1.37 / U 3.05 · O4.5 1.75 / U 2.05 · O5.5 2.37 / U 1.57 · 1st-half corners O3.5 1.42 / U 2.65 · O4.5 1.88 / U 1.82 · O5.5 2.65 / U 1.42 _(no model — market only)_ · total cards O3.5 1.46 / U 2.55 · O4.5 2.00 / U 1.73 · O5.5 3.00 / U 1.34
+* **Sportybet:** 1X2 2.35 / 4.00 / 2.85 · DC 1X/12/X2 1.43 / 1.27 / 1.60 · goals O1.5 1.14 / U 6.30 · O2.5 1.45 / U 2.85 · O3.5 2.05 / U 1.79 · BTTS 1.41 / 2.95 · Charlotte goals O0.5 1.16 / U 5.40 · O1.5 1.75 / U 2.10 · Chicago Fire goals O0.5 1.20 / U 4.60 · O1.5 1.94 / U 1.87
+* **Sportybet corners / cards:** total corners O8.5 1.49 / U 2.45 · O9.5 1.80 / U 1.91 · O10.5 2.25 / U 1.57 · O11.5 2.90 / U 1.36 · home corners O3.5 1.38 / U 3.00 · O4.5 1.78 / U 2.00 · O5.5 2.50 / U 1.51 · away corners O3.5 1.36 / U 3.10 · O4.5 1.75 / U 2.05 · O5.5 2.37 / U 1.57 · 1st-half corners O3.5 1.42 / U 2.65 · O4.5 1.88 / U 1.82 · O5.5 2.65 / U 1.42 _(no model — market only)_ · total cards O3.5 1.46 / U 2.55 · O4.5 2.00 / U 1.73 · O5.5 3.00 / U 1.34
 
 **Charlotte** (Home) — 36 matches used (weighted 16.2), 19 home
 
@@ -555,9 +555,9 @@ _No head-to-head data in the last two seasons._
 * Team-form model alone: 2.17 – 1.43 · P(O2.5) 70% · P(BTTS) 68%
 * Market 1X2: 1.40 / 5.03 / 5.82 (no O/U odds published in feed)
 * League context: avg 1.75 home + 1.41 away goals · O2.5 in 63% · BTTS in 64% of matches
-* **1X2** (fair, market+Sportybet+model): home 66% · draw 18% · away 17% → fair odds 1.53 / 5.67 / 5.95 · **Double chance** 1X 83% · 12 82% · X2 34%
+* **1X2** (fair, market+Sportybet+model): home 65% · draw 18% · away 17% → fair odds 1.53 / 5.67 / 5.89 · **Double chance** 1X 83% · 12 82% · X2 35%
 * **Team goals:** Philadelphia Union to score 89% (2+ 64%) · Orlando City to score 76% (2+ 42%)
-* **Sportybet:** 1X2 1.50 / 5.40 / 5.60 · DC 1X/12/X2 1.16 / 1.17 / 2.50 · goals O1.5 1.08 / U 8.50 · O2.5 1.29 / U 3.75 · O3.5 1.72 / U 2.20 · BTTS 1.42 / 2.90 · Philadelphia Union goals O0.5 1.05 / U 9.80 · O1.5 1.31 / U 3.50 · Orlando City goals O0.5 1.32 / U 3.40 · O1.5 2.45 / U 1.55
+* **Sportybet:** 1X2 1.51 / 5.40 / 5.50 · DC 1X/12/X2 1.17 / 1.18 / 2.45 · goals O1.5 1.08 / U 8.50 · O2.5 1.29 / U 3.75 · O3.5 1.72 / U 2.20 · BTTS 1.41 / 2.95 · Philadelphia Union goals O0.5 1.06 / U 9.70 · O1.5 1.31 / U 3.50 · Orlando City goals O0.5 1.31 / U 3.50 · O1.5 2.40 / U 1.57
 * **Sportybet corners / cards:** total corners O8.5 1.44 / U 2.60 · O9.5 1.72 / U 2.00 · O10.5 2.15 / U 1.63 · O11.5 2.75 / U 1.40 · home corners O4.5 1.26 / U 3.75 · O5.5 1.50 / U 2.55 · away corners O3.5 2.05 / U 1.75 · O4.5 3.20 / U 1.34 · O5.5 5.25 / U 1.15 · 1st-half corners O3.5 1.40 / U 2.75 · O4.5 1.83 / U 1.88 · O5.5 2.55 / U 1.45 _(no model — market only)_ · total cards O3.5 1.66 / U 2.10 · O4.5 2.40 / U 1.50 · O5.5 3.80 / U 1.22
 
 **Philadelphia Union** (Home) — 36 matches used (weighted 16.2), 17 home
@@ -762,9 +762,9 @@ _No head-to-head data in the last two seasons._
 * Team-form model alone: 1.77 – 1.48 · P(O2.5) 63% · P(BTTS) 65%
 * Market 1X2: 2.19 / 3.66 / 2.84 (no O/U odds published in feed)
 * League context: avg 1.75 home + 1.41 away goals · O2.5 in 63% · BTTS in 64% of matches
-* **1X2** (fair, market+Sportybet+model): home 44% · draw 25% · away 31% → fair odds 2.28 / 4.01 / 3.21 · **Double chance** 1X 69% · 12 75% · X2 56%
+* **1X2** (fair, market+Sportybet+model): home 44% · draw 25% · away 31% → fair odds 2.25 / 4.04 / 3.25 · **Double chance** 1X 69% · 12 75% · X2 56%
 * **Team goals:** Seattle Sounders to score 83% (2+ 53%) · Minnesota United to score 77% (2+ 44%)
-* **Sportybet:** 1X2 2.20 / 3.80 / 3.20 · DC 1X/12/X2 1.36 / 1.29 / 1.67 · goals O1.5 1.18 / U 5.20 · O2.5 1.58 / U 2.45 · O3.5 2.40 / U 1.61 · BTTS 1.52 / 2.55 · Seattle Sounders goals O0.5 1.17 / U 5.00 · O1.5 1.82 / U 2.00 · Minnesota United goals O0.5 1.28 / U 3.75 · O1.5 2.25 / U 1.64
+* **Sportybet:** 1X2 2.15 / 3.90 / 3.30 · DC 1X/12/X2 1.35 / 1.28 / 1.70 · goals O1.5 1.18 / U 5.20 · O2.5 1.58 / U 2.45 · O3.5 2.40 / U 1.61 · BTTS 1.52 / 2.55 · Seattle Sounders goals O0.5 1.17 / U 5.10 · O1.5 1.80 / U 2.05 · Minnesota United goals O0.5 1.28 / U 3.70 · O1.5 2.30 / U 1.62
 
 **Seattle Sounders** (Home) — 36 matches used (weighted 16.3), 18 home
 
@@ -1153,6 +1153,9 @@ _Flat-stake return is for model evaluation only: 1 unit on every Over 2.5 pick a
 
 | Id | Created | Run | Legs | Odds | Prob. | Status |
 |---|---|---|---|---|---|---|
+| `20260926-13` | 2026-09-26 17:01 | 17:00 | Guadalajara Chivas v Queretaro — Home or draw (1X) @ 1.17; Charlotte v Chicago Fire — Home win @ 2.35 | 2.75 | 37% | ⏳ pending |
+| `20260926-14` | 2026-09-26 17:01 | 17:00 | CF Montreal v FC Cincinnati — Home win @ 2.75; Houston Dynamo v Sporting Kansas City — Home or draw (1X) @ 1.18 | 3.24 | 30% | ⏳ pending |
+| `20260926-15` | 2026-09-26 17:01 | 17:00 | Philadelphia Union v Orlando City — Home or away (12) @ 1.18; Real Salt Lake v New England Revolution — Away win @ 2.95 | 3.48 | 28% | ⏳ pending |
 | `20260926-10` | 2026-09-26 16:28 | 17:00 | Charlotte v Chicago Fire — Home win @ 2.30; Philadelphia Union v Orlando City — Home win @ 1.50 | 3.45 | 29% | ⏳ pending |
 | `20260926-11` | 2026-09-26 16:28 | 17:00 | Guadalajara Chivas v Queretaro — Home or draw (1X) @ 1.17; CF Montreal v FC Cincinnati — Home win @ 2.75 | 3.22 | 31% | ⏳ pending |
 | `20260926-12` | 2026-09-26 16:28 | 17:00 | Houston Dynamo v Sporting Kansas City — Home or draw (1X) @ 1.18; Real Salt Lake v New England Revolution — Away win @ 2.95 | 3.48 | 28% | ⏳ pending |
@@ -1162,9 +1165,6 @@ _Flat-stake return is for model evaluation only: 1 unit on every Over 2.5 pick a
 | `20260926-07` | 2026-09-26 15:05 | manual | Wycombe v Reading — Home win @ 2.85; Solihull v Boreham Wood — Draw or away (X2) @ 1.21 | 3.45 | 28% | ⏳ pending |
 | `20260926-08` | 2026-09-26 15:05 | manual | Boston Utd v Fylde — Over 2.5 goals @ 1.52; Granada v Andorra — Home win @ 2.30 | 3.50 | 27% | ⏳ pending |
 | `20260926-04` | 2026-09-26 14:59 | manual | Southend v Barrow — Over 2.5 goals @ 1.59; Bristol Rvs v Exeter — Home win @ 1.72 | 2.73 | 34% | ⏳ pending |
-| `20260926-05` | 2026-09-26 14:59 | manual | Plymouth v Burton — Home win @ 1.59; Newport County v Grimsby — Away win @ 1.80 | 2.86 | 32% | ⏳ pending |
-| `20260926-06` | 2026-09-26 14:59 | manual | Boston Utd v Fylde — Over 2.5 goals @ 1.48; Rotherham v Crewe — Home win @ 2.10 | 3.11 | 30% | ⏳ pending |
-| `20260926-01` | 2026-09-26 14:57 | manual | York v Gillingham — Home win @ 1.80; Newport County v Grimsby — Away win @ 1.93 | 3.47 | 30% | ⏳ pending |
 
 ## ℹ️ Method
 
