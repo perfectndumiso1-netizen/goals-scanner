@@ -79,6 +79,18 @@ _No settled parlays yet — 12 pending (graded automatically once the results ar
 
 ---
 
+## 📱 Android app
+
+**Download:** [goals-scanner.apk (latest)](https://github.com/perfectndumiso1-netizen/goals-scanner/releases/latest/download/goals-scanner.apk)
+— on the phone allow "install from unknown sources" when asked; updates install over the old version.
+
+The app has no server of its own: it reads `data/app/latest.json`, the reports and the ledger straight from this
+repository, so it always shows exactly what the last scan published. Tabs: **Today** (parlays, shortlists, tracker),
+**Live** (scores, minute and scorers for parlay legs and shortlisted picks, from Livescore.com's public feed, with a
+live verdict per leg), **Fixtures** (every match with a full data sheet, Sportybet prices, corners and cards),
+**Reports** (every report and dossier), **Ledger** (graded parlays and performance).
+Every push to `android/` rebuilds the APK on GitHub Actions and publishes it on the Releases page.
+
 ## What you get every run
 
 | File | Contents |
