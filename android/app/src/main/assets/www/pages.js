@@ -7,7 +7,7 @@
   const view = () => $('#view');
   const live = PR.live;
   const MK = { O15: 'Over 1.5 goals', O25: 'Over 2.5 goals', BTTS: 'Both teams to score' };
-  const head = (title, sub) => `<div class="detail-head"><button class="back" id="back" aria-label="Back">${icon('back')}</button><div class="grow"><div class="b">${title}</div>${sub ? `<div class="tiny muted">${sub}</div>` : ''}</div></div>`;
+  const head = (title, sub, right) => `<div class="detail-head"><button class="back" id="back" aria-label="Back">${icon('back')}</button><div class="grow"><div class="b">${title}</div>${sub ? `<div class="tiny muted">${sub}</div>` : ''}</div>${right || ''}</div>`;
   function wireBack() { const b = $('#back'); if (b) b.onclick = () => PR.back(); }
   function ensureTeams(div) { if (!PR.teamsCached(div)) PR.loadTeams(div).then(() => PR.render()).catch(() => { state.teams[PR.slug(div)] = { missing: true }; }); }
   const rec = (div, name) => { const t = PR.teamsCached(div); return t && t.teams ? t.teams[name] : null; };
@@ -74,7 +74,9 @@
     ensureTeams(f.div);
     const s = live.for(f); const d = state.data; const v = state.matchView || 'overview';
     const th = rec(f.div, f.home), ta = rec(f.div, f.away);
-    const parts = [head(`${flag(f.country)} ${esc(f.competition)}`, `${esc(dayName(f.kickoff))} · ${esc(koTime(f.kickoff))} ${esc(d.meta.tz)}${f.time_known === false ? ' (time to be confirmed)' : ''}${f.referee ? ' · referee ' + esc(f.referee) : ''}`)];
+    const fav = PR.isFav(f.id);
+    const parts = [head(`${flag(f.country)} ${esc(f.competition)}`, `${esc(dayName(f.kickoff))} · ${esc(koTime(f.kickoff))} ${esc(d.meta.tz)}${f.time_known === false ? ' (time to be confirmed)' : ''}${f.referee ? ' · referee ' + esc(f.referee) : ''}`,
+      f0 ? `<button class="favbtn ${fav ? 'on' : ''}" id="fav-btn" title="${fav ? 'Remove from favourites' : 'Add to favourites'}" aria-label="Favourite">${fav ? '★' : '☆'}</button>` : '')];
     const form = (p) => p && p.last5 ? formBadges(p.last5.slice().reverse().map((m) => wdl(m.gf, m.ga))) : '';
     const teams = (x && x.teams) || { home: {}, away: {} };
     const sq = (x && x.squad) || {}; const val = (side) => sq[side] && sq[side].value ? `<div class="value-tag">💶 ${fmtValue(sq[side].value)}</div>` : '';
@@ -95,6 +97,7 @@
     else matchH2H(parts, x);
     view().innerHTML = parts.join('');
     wireBack();
+    const fb = $('#fav-btn'); if (fb) fb.onclick = () => PR.toggleFav(f.id);
     $$('[data-mv]').forEach((b) => { b.onclick = () => { state.matchView = b.dataset.mv; PR.render(); }; });
   };
   function matchOverview(parts, f, s) {
@@ -287,7 +290,7 @@
         if (f.competition !== lastComp) { parts.push(`<div class="comp-head">${flag(f.country)} ${esc(f.competition)}</div>`); lastComp = f.competition; }
         const sc = f.score; const fin = sc && sc.hg != null;
         const seenB = new Set();
-        const marks = (f.bets || []).filter((b) => { const k = b.kind + '|' + b.sel; if (seenB.has(k)) return false; seenB.add(k); return true; }).map((b) => `<span class="chip ${b.status === 'hit' ? 'good' : b.status === 'miss' ? 'bad' : ''}">${b.botd ? '⭐' : icon(b.kind === 'safe' ? 'lock' : 'star')} ${esc(b.label)}${b.odds ? ' @ ' + f2(b.odds) : ''} ${statusIcon(b.status)}</span>`).join('');
+        const marks = (f.bets || []).filter((b) => { const k = b.sel; if (seenB.has(k)) return false; seenB.add(k); return true; }).map((b) => `<span class="chip ${b.status === 'hit' ? 'good' : b.status === 'miss' ? 'bad' : ''}">${b.botd ? '⭐' : icon(b.kind === 'safe' ? 'lock' : 'star')} ${esc(b.label)}${b.odds ? ' @ ' + f2(b.odds) : ''} ${statusIcon(b.status)}</span>`).join('');
         const stats = fin && sc.hc != null ? `<span class="tiny muted">HT ${sc.hth != null ? `${sc.hth}–${sc.hta}` : '–'} · corners ${sc.hc}–${sc.ac}${sc.hy != null ? ` · 🟨 ${sc.hy}–${sc.ay}` : ''}${sc.hr ? ` · 🟥 ${sc.hr}` : ''}${sc.ar ? `–${sc.ar}` : ''}</span>` : fin && sc.hth != null ? `<span class="tiny muted">HT ${sc.hth}–${sc.hta}</span>` : '';
         const row = matchRow(f, { tap: !!openable(f), short: true, sub: (stats ? stats : '') + (marks ? `<div class="chips">${marks}</div>` : ''), right: fin ? '' : `<span class="tiny muted">xG ${f1(f.xg[0])}–${f1(f.xg[1])}</span><span class="tiny muted">O2.5 ${pct(f.p.O25)}</span>` });
         parts.push(f.d ? row.replace('<div class="mrow', `<div data-d="${esc(f.d)}" class="mrow`) : row);
@@ -295,7 +298,7 @@
       parts.push('</div>');
     } else {
       const botd = []; const safeBets = []; const picks = [];
-      day.fixtures.forEach((f) => (f.bets || []).forEach((b) => { if (b.kind === 'safe' && b.botd) botd.push({ f, b }); else if (b.kind === 'safe') safeBets.push({ f, b }); else if (b.kind === 'pick') picks.push({ f, b }); }));
+      day.fixtures.forEach((f) => (f.bets || []).forEach((b) => { if (b.botd) botd.push({ f, b }); else if (b.kind === 'safe') safeBets.push({ f, b }); else if (b.kind === 'pick') picks.push({ f, b }); }));
       const table = (lst, showP) => `<div class="card compact"><table class="tbl">${lst.map(({ f, b }) => `<tr ${tapAttrs(f)}><td class="tiny muted nowrap">${esc(koTime(f.kickoff))}</td><td><div class="b">${esc(f.home)} v ${esc(f.away)}</div><div class="tiny muted">${esc(b.label)}${showP ? ` · ${pct(b.p)}` : ''} · ${flag(f.country)} ${esc(f.competition)}</div></td><td class="right nowrap">${f.score && f.score.hg != null ? `<b>${f.score.hg}–${f.score.ag}</b>` : '<span class="muted">–</span>'}</td><td class="right nowrap">${b.odds ? f2(b.odds) + ' ' : ''}${statusIcon(b.status)}</td></tr>`).join('')}</table></div>`;
       if (botd.length) parts.push(`<h2 class="section">⭐ Bets of the day</h2>` + table(botd));
       if (safeBets.length) parts.push(`<h2 class="section">${icon('lock')} Safest bets</h2>` + table(safeBets));
@@ -330,7 +333,7 @@
     const row = (name, s, wonKey) => s && s.n ? `<tr><td>${name}</td><td class="right">${s[wonKey || 'won']}/${s.n}</td><td class="right"><b>${pct(s.rate)}</b></td><td class="right muted">${pct(s.exp_rate)}</td><td class="right">${f2(s.avg_odds)}</td><td class="right ${s.roi > 0 ? 'good' : s.roi < 0 ? 'bad' : ''}"><b>${signed(s.roi)}</b></td></tr>` : `<tr><td>${name}</td><td class="right muted">0/0</td><td class="right muted">–</td><td class="right muted">–</td><td class="right muted">–</td><td class="right muted">–</td></tr>`;
     const tbl = (rows) => `<table class="tbl head perf" style="margin-top:6px"><tr><th>Scope</th><th class="right">Won</th><th class="right">Hit</th><th class="right">Exp.</th><th class="right">Odds</th><th class="right">Return</th></tr>${rows}</table>`;
     const bo = sf.botd || {};
-    parts.push(`<div class="card"><div class="row"><span class="ico amber">${icon('star')}</span><b>Bets of the day</b></div>${tbl(row('All time', bo.all) + row('Last 30 days', bo['30d']))}<div class="tiny muted">${bo.pending || 0} pending. Five singles a day, picked at 07:00 from the safest bets.</div></div>`);
+    parts.push(`<div class="card"><div class="row"><span class="ico amber">${icon('star')}</span><b>Bets of the day</b></div>${tbl(row('All time', bo.all) + row('Last 30 days', bo['30d']) + Object.values(bo.by_section || {}).map((s) => row(s.title || '', s)).join(''))}<div class="tiny muted">${bo.pending || 0} pending. Up to three picks per section (1X2 · Over 1.5 & team goals · BTTS · Over 2.5 · Bookings · Corners), overs only.</div></div>`);
     const bg = (sf.bets || {}).by_group || {};
     parts.push(`<div class="card"><div class="row"><span class="ico green">${icon('lock')}</span><b>Safest bets</b></div>${tbl(row('All time', (sf.bets || {}).all) + row('Last 30 days', (sf.bets || {})['30d']) + Object.entries(bg).map(([g, s]) => row(GROUPS[g] || g, s)).join(''))}<div class="tiny muted">${(sf.bets || {}).pending || 0} pending. "Exp." is the model's own predicted hit rate — if the real rate stays below it for weeks, the model is over-confident. Return = flat-stake profit per unit staked.</div></div>`);
     const t = d.tracker || {};
@@ -354,6 +357,8 @@
     parts.push(sec('trend', 'How the probabilities are made', `<p>Each team gets a time-weighted attack and defence rating from its recent results (about two seasons, recent games weighted most, home and away split). The ratings give expected goals for both teams, and a Poisson-style model turns those into a probability for every line. Where a Sportybet price exists, the bookmaker's margin is removed and the de-margined probability is averaged with the model.</p><p><b>Safest bet</b> = at least 70% on <i>both</i> views, price ≥ 1.30, goals/BTTS/team goals/corners/cards only. <b>⭐ Bets of the day</b> = the five best safest bets at 07:00, one per match. <b>Low data</b> = fewer than four useful matches for a team; those games are shown but never selected.</p>`));
     parts.push(sec('ticket', 'Bet slip & tickets', `<p>Tap <b>+</b> next to any priced selection (match page › Markets, best selections, safest bets, bets of the day) to put it on your slip — one selection per match, like a real multiple. Press <b>Done</b> to lock the ticket: PlayReport multiplies the prices, records an optional stake, and then follows the scores. Goals markets settle from the final score; corners and cards settle from the match statistics a few hours after full time. You get a notification when the ticket is won or lost, and ☰ › <b>My tickets</b> keeps your record.</p><p>This is a private record on your phone — nothing is placed with a bookmaker.</p>`));
     parts.push(sec('info', 'Reading the numbers honestly', `<p>A 75% bet loses one time in four. A card of five 75% singles has all five winning only about 24% of the time — that is why PlayReport shows singles and grades every one of them, and does not build accumulators. Compare the <b>Hit</b> and <b>Exp.</b> columns under Performance: they should be close over a few weeks.</p><p>Coverage: every competition on the live feed, worldwide, including women's and youth leagues, priced by Sportybet South Africa. Prices move; check the price before you bet. Statistical information, not betting advice. 18+, bet responsibly.</p>`));
+    parts.push(sec('star', 'Bets of the day, favourites & alerts', `<p><b>⭐ Bets of the day</b> has six sections — 1X2, Over 1.5 & team goals, Both teams to score, Over 2.5, Bookings, Corners — with up to three picks each from different matches, overs only, picked by the first analysis of the day and graded separately. <b>Top leagues</b> ranks the major leagues by home wins, away wins, overs, corners and bookings.</p><p>Tap <b>☆</b> in a match header to make it a favourite: you get goal, half-time, full-time and kick-off alerts for it, it appears under Your matches on Home, and in the ★ filter of Matches.</p>`));
+    parts.push(PR.editorCard(false));
     parts.push(contactCard(false));
     view().innerHTML = parts.join('');
     wireBack();
@@ -371,7 +376,8 @@
       <label class="row" style="margin-top:6px"><input type="checkbox" id="s-reports" ${settings.reportAlerts !== false ? 'checked' : ''}> <span class="grow">📊 Full analysis published (07:00 · 12:00 · 17:00)</span></label>
       <label class="row" style="margin-top:6px"><input type="checkbox" id="s-goals" ${settings.goalAlerts ? 'checked' : ''}> <span class="grow">⚽ Score changes (goals with the scorer) in tracked matches — bets of the day, safest bets, shortlist and your tickets</span></label>
       <label class="row" style="margin-top:6px"><input type="checkbox" id="s-ht" ${settings.htAlerts ? 'checked' : ''}> <span class="grow">⏸ Half-time results of tracked matches</span></label>
-      <label class="row" style="margin-top:6px"><input type="checkbox" id="s-ft" ${settings.ftAlerts !== false ? 'checked' : ''}> <span class="grow">🏁 Full-time results of tracked matches · tickets won / lost</span></label></div>`);
+      <label class="row" style="margin-top:6px"><input type="checkbox" id="s-ft" ${settings.ftAlerts !== false ? 'checked' : ''}> <span class="grow">🏁 Full-time results of tracked matches · tickets won / lost</span></label>
+      <label class="row" style="margin-top:6px"><input type="checkbox" id="s-ko" ${settings.koAlerts !== false ? 'checked' : ''}> <span class="grow">⏰ Kick-off reminders (15 min before) for favourites and ticket matches</span></label></div>`);
     parts.push(`<div class="card settings"><h2>${icon('moon')} Appearance</h2>${segmented([['system', 'System'], ['light', 'Light'], ['dark', 'Dark']], settings.theme || 'system', 'th')}
       <div class="tiny muted" style="margin-top:6px">System follows your phone's dark-mode setting.</div></div>`);
     parts.push(`<div class="card settings"><h2>${icon('clock')} Display</h2>
@@ -382,6 +388,7 @@
     parts.push(`<div class="card settings"><h2>${icon('info')} App</h2><div class="row"><div class="grow small">PlayReport ${PR.APP_VERSION ? 'v' + PR.APP_VERSION : '(browser preview)'}${state.update ? ` · <b>v${esc(state.update.version)} available</b>` : ' · up to date'}</div>
       ${state.update ? `<button class="btn primary" id="s-install">Update</button>` : `<button class="btn" id="s-check">Check for update</button>`}</div>
       <div class="tiny muted" style="margin-top:6px">PlayReport checks for updates automatically and downloads them for you; Android asks for one confirmation before installing.</div></div>`);
+    parts.push(PR.editorCard(false));
     parts.push(contactCard(false));
     parts.push(`<div class="card small"><b>About PlayReport</b><div class="muted" style="margin-top:4px">Football analysis for every competition worldwide, refreshed every 30 minutes with a full report at 07:00, 12:00 and 17:00 SAST: expected goals, probabilities for every market, safest bets, bets of the day, trends, head-to-head, live scores and an audited day-by-day record. Live scores come from a public feed and never influence the model.</div>
       <div class="muted" style="margin-top:6px">Statistical information, not betting advice. Bet responsibly — 18+.</div></div>`);
@@ -394,6 +401,7 @@
     $('#s-bets').onchange = (e) => { settings.betAlerts = e.target.checked; PR.saveSettings(); pref('bets', settings.betAlerts); };
     $('#s-reports').onchange = (e) => { settings.reportAlerts = e.target.checked; PR.saveSettings(); pref('reports', settings.reportAlerts); };
     $('#s-ht').onchange = (e) => { settings.htAlerts = e.target.checked; PR.saveSettings(); pref('ht', settings.htAlerts); };
+    $('#s-ko').onchange = (e) => { settings.koAlerts = e.target.checked; PR.saveSettings(); pref('ko', settings.koAlerts); };
     $('#s-ft').onchange = (e) => { settings.ftAlerts = e.target.checked; PR.saveSettings(); pref('ft', settings.ftAlerts); };
     $$('[data-th]').forEach((b) => { b.onclick = () => { settings.theme = b.dataset.th; PR.saveSettings(); PR.applyTheme(); PR.render(); }; });
     $$('[data-lgs]').forEach((b) => { b.onclick = () => { settings.leagues = b.dataset.lgs; PR.saveSettings(); PR.render(); }; });

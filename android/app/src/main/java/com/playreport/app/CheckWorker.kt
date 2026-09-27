@@ -98,15 +98,33 @@ class CheckWorker(ctx: Context, params: WorkerParameters) : Worker(ctx, params) 
         val wantHt = prefs.getBoolean("pref_ht", false)
         val wantFt = prefs.getBoolean("pref_ft", true)
         val tickets = try { JSONArray(prefs.getString("str_tickets", "[]") ?: "[]") } catch (e: Exception) { JSONArray() }
+        val favs = try { JSONArray(prefs.getString("str_favs", "[]") ?: "[]") } catch (e: Exception) { JSONArray() }
         val want = HashSet<String>()
         meta.optJSONArray("tracked_eids")?.let { for (i in 0 until it.length()) want.add(it.getString(i)) }
+        val mine = ArrayList<JSONObject>()      // favourites + ticket legs: kick-off reminders
         for (i in 0 until tickets.length()) {
             val legs = tickets.getJSONObject(i).optJSONArray("legs") ?: continue
-            for (j in 0 until legs.length()) { val e = legs.getJSONObject(j).optString("eid"); if (e.isNotEmpty() && e != "null") want.add(e) }
+            for (j in 0 until legs.length()) { val l = legs.getJSONObject(j); val e = l.optString("eid"); if (e.isNotEmpty() && e != "null") { want.add(e); mine.add(l) } }
         }
-        if (want.isEmpty()) return
+        for (i in 0 until favs.length()) { val f = favs.getJSONObject(i); val e = f.optString("eid"); if (e.isNotEmpty() && e != "null") { want.add(e); mine.add(f) } }
         val zone = java.time.ZoneId.of("Africa/Johannesburg")
         val today = java.time.LocalDate.now(zone)
+        // kick-off reminders (15-20 min before) for the user's own matches
+        if (prefs.getBoolean("pref_ko", true)) {
+            val now = java.time.LocalDateTime.now(zone)
+            val fmt = java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm")
+            for (m in mine) {
+                val eid = m.optString("eid"); if (eid.isEmpty() || prefs.getBoolean("ko_$eid", false)) continue
+                val ko = try { java.time.LocalDateTime.parse(m.optString("kickoff"), fmt) } catch (e: Exception) { continue }
+                val mins = java.time.Duration.between(now, ko).toMinutes()
+                if (mins in 0..20) {
+                    prefs.edit().putBoolean("ko_$eid", true).apply()
+                    Notifier.notify(ctx, Notifier.CH_MATCH, 7000 + (eid.hashCode() and 0xfff), "⏰ Kick-off in $mins min · ${m.optString("home")} v ${m.optString("away")}",
+                        (if (m.has("label")) m.optString("label") + " · " else "") + m.optString("competition", ""), "live")
+                }
+            }
+        }
+        if (want.isEmpty()) return
         val found = HashMap<String, Ev>()
         for (day in listOf(today, today.minusDays(1))) {
             val ymd = day.toString().replace("-", "")

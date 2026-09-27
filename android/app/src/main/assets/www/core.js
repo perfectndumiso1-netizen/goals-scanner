@@ -44,6 +44,33 @@ window.PR = (function () {
   function niceDate(dateStr) { const d = parseLocal(dateStr); return d ? `${DAYS[d.getDay()]} ${d.getDate()} ${MONTHS[d.getMonth()]} ${d.getFullYear()}` : dateStr; }
   const koTime = (s) => (s || '').slice(11, 16);
   function koShort(s) { const d = parseLocal(s); if (!d) return s || ''; return `${DAYS[d.getDay()]} ${s.slice(11, 16)}`; }
+  /** in-app confirm (Android WebView swallows window.confirm) */
+  function confirmBox(title, text, okLabel) {
+    return new Promise((resolve) => {
+      const m = $('#modal'); if (!m) { resolve(window.confirm(`${title}\n\n${text}`)); return; }
+      $('#modal-title').textContent = title; $('#modal-text').textContent = text || ''; $('#modal-ok').textContent = okLabel || 'OK';
+      m.hidden = false;
+      const done = (v) => { m.hidden = true; $('#modal-ok').onclick = null; $('#modal-cancel').onclick = null; m.onclick = null; resolve(v); };
+      $('#modal-ok').onclick = () => done(true); $('#modal-cancel').onclick = () => done(false);
+      m.onclick = (e) => { if (e.target === m) done(false); };
+    });
+  }
+  // favourite matches (kept on the phone; tracked for goal / HT / FT alerts and kick-off reminders)
+  let favs = [];
+  try { favs = JSON.parse(localStorage.getItem('pr_favs') || '[]'); } catch (e) { favs = []; }
+  const isFav = (id) => favs.some((f) => f.fixture === id);
+  function saveFavs() {
+    const keep = ymd(new Date(tzNow().getTime() - 2 * 86400000));
+    favs = favs.filter((f) => f.kickoff.slice(0, 10) >= keep);
+    localStorage.setItem('pr_favs', JSON.stringify(favs));
+    if (native && native.setString) { try { native.setString('favs', JSON.stringify(favs.map((f) => ({ eid: f.eid, kickoff: f.kickoff, home: f.home, away: f.away, competition: f.competition })))); } catch (e) { /* ignore */ } }
+  }
+  function toggleFav(id) {
+    const f = fx(id); if (!f) return;
+    if (isFav(id)) { favs = favs.filter((x) => x.fixture !== id); toast('Removed from favourites'); }
+    else { favs.push({ fixture: id, eid: f.livescore_id || null, kickoff: f.kickoff, home: f.home, away: f.away, competition: f.competition, country: f.country }); toast('Added to favourites — you will get goal and kick-off alerts'); }
+    saveFavs(); render();
+  }
   function toast(msg) { const t = $('#toast'); t.textContent = msg; t.classList.add('show'); clearTimeout(t._h); t._h = setTimeout(() => t.classList.remove('show'), 2400); }
   function pill(p, hi, mid) { const cls = p >= (hi || 0.7) ? 'hi' : p >= (mid || 0.6) ? 'mid' : ''; return `<span class="pill ${cls}">${pct(p)}</span>`; }
   function bar(p, cls) { return `<span class="bar"><span class="fill ${cls || ''}" style="width:${Math.round((p || 0) * 100)}%"></span></span>`; }
@@ -262,6 +289,12 @@ window.PR = (function () {
   function closeMenu() { state.menuOpen = false; const m = $('#menu'); if (m) m.classList.remove('open'); }
 
   // ------------------------------------------------------------------ shared UI fragments
+  const EDITOR = { name: 'Ndumiso Msani', role: 'Editor & Lead Analyst', place: 'Mthwalume, KwaZulu-Natal', age: 37,
+    bio: 'Sports bettor and football analyst with a data-first approach. Ndumiso built PlayReport to turn thousands of results, prices and match statistics into a small number of disciplined, graded selections every day — specialising in goals, corners and bookings markets across world football.' };
+  function editorCard(compact) {
+    return `<div class="card"><div class="editor"><div class="avatar"><img src="editor.png" alt=""></div><div class="grow"><div class="b">${esc(EDITOR.name)}</div><div class="small muted">${esc(EDITOR.role)} · ${esc(EDITOR.place)}</div>${compact ? '' : `<div class="small" style="margin-top:6px">${esc(EDITOR.bio)}</div>`}</div></div>
+      ${compact ? '' : `<div class="tiny muted" style="margin-top:8px">Every selection published here is graded automatically against the final result — the record under Performance is the only opinion that counts. Statistical information, not betting advice. 18+.</div>`}</div>`;
+  }
   function contactCard(compact) {
     return `<div class="card contact"><div class="row"><div class="grow"><b>Contact</b>${compact ? '' : '<div class="small muted">Questions, feedback or a request? Get in touch.</div>'}</div></div>
       <div class="contact-row"><a class="btn wa" href="https://wa.me/${CONTACT.whatsapp}">${icon('chat')} WhatsApp ${esc(CONTACT.whatsappShown)}</a>
@@ -298,7 +331,8 @@ window.PR = (function () {
   return { native, settings, state, $, $$, saveSettings, nfetch, getJson, rawUrl, esc, pct, f1, f2, signed, DAYS, MONTHS, parseLocal, tzNow, ymd,
     dayName, niceDate, koTime, koShort, toast, pill, bar, wdl, formBadges, md, GROUPS, GROUP_ICON, selGroup, selLabel, selShort, settleSel,
     liveVerdict, isLive, isFT, indexData, fx, loadDetail, detailCached, detailKey, loadData, statusLine, loadDay, loadTeams, teamsCached, slug, TABS, render, setTab, push, replace,
-    back, openMatch, openTeam, toggleMenu, closeMenu, contactCard, teamLink, matchLine, matchRow, segmented, select, scoreBox, statusIcon, CONTACT, APP_VERSION,
+    back, openMatch, openTeam, toggleMenu, closeMenu, contactCard, editorCard, teamLink, matchLine, matchRow, segmented, select, scoreBox, statusIcon, CONTACT, APP_VERSION,
+    confirmBox, isFav, toggleFav, favList: () => favs, saveFavs,
     icon, flag, badge, fxBadge, skeleton, ring, applyTheme, loadBadges, BADGE_BASE,
     views: {}, pages: {}, live: {} };
 })();

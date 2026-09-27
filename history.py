@@ -208,9 +208,11 @@ class Days:
                 if f is None:
                     continue
                 st = r.status if r.status in ("hit", "miss", "void") else outcome(f, r.sel)
-                botd = str(getattr(r, "botd", "") or "") == "1"
-                f["bets"].append({"kind": "safe", "sel": r.sel, "label": safe.label(r.sel, f["home"], f["away"]),
-                                  "p": _f(r.p), "odds": _f(r.odds, 2), "status": st, "botd": botd})
+                botd = str(getattr(r, "botd", "") or "")
+                botd = botd if botd and botd != "nan" else ""
+                kind = "botd" if str(getattr(r, "kind", "") or "") == "botd" else "safe"
+                f["bets"].append({"kind": kind, "sel": r.sel, "label": safe.label(r.sel, f["home"], f["away"]),
+                                  "p": _f(r.p), "odds": _f(r.odds, 2), "status": st, "botd": botd or False})
 
         def add_multi(df, kind, id_col):
             if df is None or df.empty:
@@ -259,7 +261,7 @@ class Days:
                  "btts_rate": round(sum(1 for f in fin if f["score"]["hg"] > 0 and f["score"]["ag"] > 0) / len(fin), 3) if fin else None}
             for kind in ("pick", "safe", "botd"):
                 if kind == "botd":
-                    b = [x for f in fx for x in f.get("bets", []) if x["kind"] == "safe" and x.get("botd")]
+                    b = [x for f in fx for x in f.get("bets", []) if x.get("botd")]
                 else:
                     b = [x for f in fx for x in f.get("bets", []) if x["kind"] == kind]
                 s[kind if kind == "botd" else kind + "s"] = {"n": len(b), "hit": sum(1 for x in b if x["status"] == "hit"),

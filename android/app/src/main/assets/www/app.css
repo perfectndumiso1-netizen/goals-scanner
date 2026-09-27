@@ -364,3 +364,19 @@ body.has-slip #view { padding-bottom: 70px; }
 .value-tag { display: inline-block; font-size: 11px; color: var(--muted); margin-top: 2px; }
 .slip-stake, #slip-stake { width: 100%; max-width: 170px; box-sizing: border-box; }
 .seg button .ic { flex: 0 0 auto; }
+
+/* v1.3 */
+.logo img { width: 34px; height: 34px; border-radius: 50%; display: block; }
+.modal { position: fixed; inset: 0; background: rgba(0,0,0,.45); z-index: 60; display: flex; align-items: center; justify-content: center; padding: 20px; }
+.modal[hidden] { display: none; }
+.modal-box { background: var(--card); color: var(--text); border-radius: 16px; padding: 18px; width: 100%; max-width: 380px; box-shadow: var(--shadow-lg); }
+.modal-title { font-weight: 800; font-size: 16px; }
+.modal-text { font-size: 14px; margin-top: 8px; white-space: pre-line; color: var(--muted); }
+.favbtn { border: 0; background: transparent; font-size: 24px; line-height: 1; padding: 4px 8px; color: var(--muted); }
+.favbtn.on { color: #f59e0b; }
+.botd-sec { font-size: 12px; font-weight: 800; letter-spacing: .4px; text-transform: uppercase; color: var(--brand-text); padding: 8px 6px 2px; border-top: 1px solid var(--line); }
+.botd-sec:first-child { border-top: 0; }
+.editor { display: flex; gap: 12px; align-items: center; }
+.editor .avatar { width: 56px; height: 56px; border-radius: 50%; background: linear-gradient(135deg, #0f2a4a, #2b6cb0); color: #fff; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 20px; flex: 0 0 auto; overflow: hidden; }
+.editor .avatar img { width: 100%; height: 100%; object-fit: cover; }
+.tbl .addsel { width: 26px; height: 26px; font-size: 16px; margin-left: 4px; }

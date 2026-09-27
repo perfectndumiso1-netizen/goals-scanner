@@ -145,7 +145,7 @@ CONFIG = {
     "LIVESCORE": os.getenv("LIVESCORE", "1") != "0",   # Livescore.com ids for the app's live tab
     "WORLD": os.getenv("WORLD", "1") != "0",           # every competition on Livescore (priced by Sportybet) — v4
     "FULL_MARKETS_MAX": int(_env_float("FULL_MARKETS_MAX", 160)),   # per-event Sportybet market fetches (corners / cards)
-    "BOTD_N": int(_env_float("BOTD_N", 5)),            # bets of the day
+    "BOTD_N": int(_env_float("BOTD_N", 3)),            # bets of the day: picks per section
     "REPORT_MAX_ROWS": int(_env_float("REPORT_MAX_ROWS", 60)),
     "DETAIL_MAX": int(os.getenv("DETAIL_MAX", "12")),        # match dossiers in the report / PDF
     "STATS_BUDGET_S": _env_float("STATS_BUDGET_S", 75),      # Livescore match statistics per run: time budget
@@ -1352,17 +1352,23 @@ def render_safest(ctx: dict) -> list[str]:
              f"(calibrated model and the de-margined Sportybet price) at a Sportybet price of {sf['min_odds']:.2f} or more, "
              f"ranked by probability. Graded automatically (`data/safe_bets.csv`)._")
     L.append("")
-    botd = ctx.get("botd") or []
-    if botd:
+    groups = ctx.get("botd_groups") or []
+    if groups:
         L.append(f"### ⭐ Bets of the day — {ctx['now']:%A %d %B}")
         L.append("")
-        L.append("| Kick-off | Match | Competition | Selection | Price | Probability | Status |")
-        L.append("|---|---|---|---|---|---|---|")
-        icon = {"hit": "✅ hit", "miss": "❌ miss", "pending": "⏳", "void": "void"}
-        for b in botd:
-            L.append(f"| {b['kickoff'][11:]} | **{b['home']} v {b['away']}** | {b['league']} | **{b['label']}** | "
-                     f"**{b['odds']:.2f}** | {pct(b['p'])} | {icon.get(b['status'], b['status'])} |")
+        L.append("_One section per market: 1X2 · Over 1.5 & team goals · Both teams to score · Over 2.5 · Bookings · Corners. "
+                 "Overs only, Sportybet price ≥ 1.30, both views agree; up to three picks per section, one per match._")
         L.append("")
+        icon = {"hit": "✅ hit", "miss": "❌ miss", "pending": "⏳", "void": "void"}
+        for g in groups:
+            L.append(f"**{g['title']}** — {len(g['bets'])} pick(s)")
+            L.append("")
+            L.append("| Kick-off | Match | Competition | Selection | Price | Probability | Status |")
+            L.append("|---|---|---|---|---|---|---|")
+            for b in g["bets"]:
+                L.append(f"| {b['kickoff'][11:]} | **{b['home']} v {b['away']}** | {b['league']} | **{b['label']}** | "
+                         f"**{b['odds']:.2f}** | {pct(b['p'])} | {icon.get(b['status'], b['status'])} |")
+            L.append("")
     bets = sf.get("bets") or []
     L.append(f"### Safest single bets — top {min(len(bets), 25)} of {len(bets)}")
     L.append("")
@@ -1575,7 +1581,9 @@ def render_report(ctx: dict, rows: list[MatchRow], picks: dict, summary: dict, n
         "team-form model from Livescore's season results (goals markets only; corners and cards need the richer "
         "football-data feed of the 22 main European leagues). Sportybet's de-margined prices are the market view there.",
         "* **Safest bets** = goals, corners and cards selections at ≥70% on both the model and the de-margined Sportybet "
-        "price, priced 1.30 or better; parlays and accumulators are no longer produced (the backtest showed they lose money).",
+        "price, priced 1.30 or better, **overs only** (no unders / no-BTTS); parlays and accumulators are no longer produced "
+        "(the backtest showed they lose money). **Bets of the day** = up to three picks per section (1X2 ≥62%, Over 1.5 & "
+        "team goals ≥70%, BTTS ≥62%, Over 2.5 ≥62%, bookings ≥65%, corners ≥65%), graded separately.",
         "* **Sportybet prices** never enter the probability model except as the market view they represent.",
         f"* Data: football-data.co.uk, Livescore.com. All times are {TZL} ({CONFIG['TIMEZONE']}). ⚠️ marks teams with too little history "
         "— they are never shortlisted.",
@@ -1822,14 +1830,16 @@ def telegram_text(ctx: dict, rows: list[MatchRow], picks: dict, report_url: str 
     cov = ctx.get("coverage") or {}
     L = [f"⚽ <b>PlayReport — {now:%a %d %b}, {run_desc(ctx.get('run', ''))}</b>",
          f"{len(rows)} fixtures · {cov.get('competitions', 0)} competitions · {cov.get('priced', 0)} priced by Sportybet · times in {TZL}"]
-    botd = ctx.get("botd") or []
-    if botd:
+    groups = ctx.get("botd_groups") or []
+    if groups:
         L.append("")
         L.append(f"⭐ <b>Bets of the day</b>")
         icon = {"hit": "✅", "miss": "❌", "pending": "", "void": "⚪"}
-        for b in botd:
-            L.append(f"• {b['kickoff'][11:]} {html.escape(b['home'])} v {html.escape(b['away'])} — <b>{html.escape(b['label'])}</b> "
-                     f"@ {b['odds']:.2f} · {pct(b['p'])} {icon.get(b['status'], '')}")
+        for g in groups:
+            L.append(f"<u>{html.escape(g['title'])}</u>")
+            for b in g["bets"]:
+                L.append(f"• {b['kickoff'][11:]} {html.escape(b['home'])} v {html.escape(b['away'])} — <b>{html.escape(b['label'])}</b> "
+                         f"@ {b['odds']:.2f} · {pct(b['p'])} {icon.get(b['status'], '')}")
     sf = ctx.get("safe") or {}
     bets = sf.get("bets") or []
     L.append("")
@@ -2080,12 +2090,14 @@ def main() -> None:
         accas_df = safe_mod.settle_accas(accas_df, results_s, now)
         accas_df.to_csv(SAFE_ACCAS_FILE, index=False)
     bets_df, new_bets = safe_mod.add_bets(bets_df, safe_res["bets"], now, run_label)
-    bets_df = safe_mod.pick_bets_of_the_day(bets_df, now, CONFIG["BOTD_N"])
+    bets_df = safe_mod.pick_bets_of_the_day(bets_df, now, CONFIG["BOTD_N"], candidates=safe_mod.botd_candidates(rows, now),
+                                            run=run_label)
     bets_df.to_csv(SAFE_BETS_FILE, index=False)
     safe_res["ids"] = []
     ctx["safe"] = safe_res
     ctx["safe_summary"] = safe_mod.summary(bets_df, accas_df, now)
-    ctx["botd"] = safe_mod.bets_of_the_day(bets_df, now)
+    botd_card = safe_mod.bets_of_the_day(bets_df, now)
+    ctx["botd"], ctx["botd_groups"] = botd_card["bets"], botd_card["groups"]
     log.info("Safest: %d bets (%d new), bets of the day: %d", len(safe_res["bets"]), len(new_bets), len(ctx["botd"]))
 
     # ---- alerts for the app (new safest bets), kept in state
@@ -2149,7 +2161,7 @@ def main() -> None:
                                 "selections": all_sels},
                        reports_dir=REPORTS_DIR, tz_label=TZL, thresholds=CONFIG["THRESHOLDS"],
                        backtest=CONFIG["BACKTEST"], repo=os.getenv("GITHUB_REPOSITORY", "perfectndumiso1-netizen/goals-scanner"),
-                       days_index=days_index, safe_summary=ctx["safe_summary"], botd=ctx["botd"], alerts=alerts,
+                       days_index=days_index, safe_summary=ctx["safe_summary"], botd=ctx["botd"], botd_groups=ctx["botd_groups"], alerts=alerts,
                        coverage=coverage, safe_groups=safe_mod.SAFE_GROUPS,
                        extra_badges=archive.badge_map() if archive is not None else None, report_run=report_run)
         log.info("App data: %s", APP_FILE)

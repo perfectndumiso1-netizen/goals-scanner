@@ -45,7 +45,7 @@
 </svg>
 
 <header id="top">
-  <div class="logo" aria-hidden="true"><svg viewBox="0 0 40 40" width="32" height="32"><rect x="6" y="5" width="24" height="30" rx="5" fill="#fff"/><rect x="10" y="24" width="4" height="7" rx="1" fill="#0f2a4a"/><rect x="16" y="19" width="4" height="12" rx="1" fill="#0f2a4a"/><rect x="22" y="14" width="4" height="17" rx="1" fill="#0f2a4a"/><path d="M26 6l9 5-9 5z" fill="#12b76a"/></svg></div>
+  <div class="logo" aria-hidden="true"><img src="logo.png" alt="" width="34" height="34"></div>
   <div class="brand">
     <div class="title">PlayReport</div>
     <div class="sub" id="status-line">Football analysis · loading…</div>
@@ -75,6 +75,7 @@
 </nav>
 
 <div id="slipbar"></div>
+<div id="modal" class="modal" hidden><div class="modal-box"><div class="modal-title" id="modal-title"></div><div class="modal-text" id="modal-text"></div><div class="row" style="gap:8px;margin-top:14px;justify-content:flex-end"><button class="btn" id="modal-cancel">Cancel</button><button class="btn primary" id="modal-ok">OK</button></div></div></div>
 <div id="toast"></div>
 
 <script src="marked.min.js"></script>

@@ -118,6 +118,18 @@ def update_badges(path: Path, rows: list, ls_map: dict, extra: dict | None = Non
     return badges
 
 
+BOARD_SELS = ("H", "A", "O15", "O25", "BTTS", "CO95", "KO35")
+
+
+def _board(sels: list[dict]) -> dict:
+    """{sel: [p, odds|None]} for the standard board selections (home / away win, O1.5, O2.5, BTTS, corners 9.5, cards 3.5)."""
+    out = {}
+    for d in sels:
+        if d["sel"] in BOARD_SELS and d.get("p") is not None:
+            out[d["sel"]] = [round(d["p"], 3), round(d["odds"], 2) if d.get("odds") else None]
+    return out
+
+
 def _best(sels: list[dict], groups: tuple | None, min_odds: float, min_p: float) -> list | None:
     """[sel, p, odds] of the most probable priced selection (optionally restricted to groups / safety rules)."""
     best = None
@@ -142,7 +154,7 @@ def _write(path: Path, data) -> None:
 
 def export(path: Path, *, ctx: dict, rows: list, picks: dict, tracker_summary: dict, notes: list[str], ls_map: dict,
            helpers: dict, reports_dir: Path, tz_label: str, thresholds: dict, backtest: dict, repo: str | None,
-           days_index: list | None = None, safe_summary: dict | None = None, botd: list | None = None,
+           days_index: list | None = None, safe_summary: dict | None = None, botd: list | None = None, botd_groups: list | None = None,
            alerts: list | None = None, coverage: dict | None = None, safe_groups: tuple = (), extra_badges: dict | None = None,
            report_run: bool = True) -> Path:
     render_details, stars, comp = helpers["render_details"], helpers["stars"], helpers["comp"]
@@ -181,7 +193,7 @@ def export(path: Path, *, ctx: dict, rows: list, picks: dict, tracker_summary: d
             "xg": [_f(r.lam_h, 2), _f(r.lam_a, 2)],
             "p": {"O15": _f(r.p_final["O15"]), "O25": _f(r.p_final["O25"]), "BTTS": _f(r.p_final["BTTS"])},
             "x12": [_f(x12.get("H")), _f(x12.get("D")), _f(x12.get("A"))],
-            "priced": bool(r.sb), "top": top, "safe": safe_best, "hi": hi,
+            "priced": bool(r.sb), "top": top, "safe": safe_best, "hi": hi, "bo": _board(sels),
             "badges": {"home": badges.get(fx["home"]), "away": badges.get(fx["away"])},
             "livescore_id": eid, "sportybet_event": (r.sb_event or {}).get("id"),
         }
@@ -252,6 +264,9 @@ def export(path: Path, *, ctx: dict, rows: list, picks: dict, tracker_summary: d
         tracked.add(fid)
         safe_out["today"]["bets"].append({**b, "fixture": fid,
                                           "badges": {"home": badges.get(b["home"]), "away": badges.get(b["away"])}})
+    by_bet_id = {b["id"]: b for b in safe_out["today"]["bets"]}
+    safe_out["today"]["groups"] = [{"key": g["key"], "title": g["title"], "min_p": g.get("min_p"),
+                                    "bets": [by_bet_id[b["id"]] for b in g["bets"] if b["id"] in by_bet_id]} for g in (botd_groups or [])]
     for f in index:
         if f["id"] in tracked and f.get("livescore_id"):
             live_eids.append(f["livescore_id"])

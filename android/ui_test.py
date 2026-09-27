@@ -88,9 +88,12 @@ with sync_playwright() as p:
     assert page.locator('#status-line').inner_text().startswith('Updated'), 'status line'
     # ---- bets segments
     page.click('#tabs button[data-tab=bets]'); page.wait_for_timeout(200)
-    for seg in ['today', 'safest', 'goals', 'corners', 'cards', 'picks']:
+    for seg in ['today', 'top', 'safest', 'goals', 'corners', 'cards', 'picks']:
         page.click(f'[data-bv={seg}]'); page.wait_for_timeout(150); t = shot(page, f'bets_{seg}')
-        if seg == 'today': assert 'How the card is picked' in t and page.locator('#view .botd tr.tap').count() >= 1, 'bets of the day card'
+        if seg == 'today': assert 'How the card is picked' in t and page.locator('#view .botd tr.tap').count() >= 1 and page.locator('#view .botd-sec').count() >= 2, 'grouped bets of the day card'
+        if seg == 'top':
+            assert page.locator('#view [data-board]').count() == 7 and page.locator('#view .tbl tr.tap').count() >= 5, 'top leagues board'
+            page.click('[data-board=A]'); page.wait_for_timeout(150); t = shot(page, 'bets_top_away'); assert 'Away wins' in t
     page.click('[data-bv=goals]'); page.select_option('#f-hip', '0.8'); page.wait_for_timeout(150); shot(page, 'bets_goals_80')
     page.click('[data-bv=safest]'); page.click('[data-lg=major]'); page.wait_for_timeout(150); t = shot(page, 'bets_safest_major')
     page.click('[data-lg=all]'); page.wait_for_timeout(150); assert page.locator('#view .tbl tr.tap').count() >= 5, 'safest list'
@@ -123,6 +126,8 @@ with sync_playwright() as p:
     assert fid, 'an upcoming priced fixture exists'
     page.evaluate(f'window.app.PR.openMatch({json.dumps(fid)})'); page.wait_for_timeout(700); t = shot(page, 'match_overview')
     assert 'expected goals' in t.lower() and 'over 2.5' in t.lower(), 'match overview'
+    page.click('#fav-btn'); page.wait_for_timeout(200); assert page.locator('#fav-btn.on').count() == 1, 'favourite toggled on'
+    assert 'favs' in (page.evaluate('window.__str || {}') or {}), 'favourites shared with the native side'
     for seg in ['trends', 'markets', 'stats', 'h2h', 'lineups']:
         page.click(f'[data-mv={seg}]'); page.wait_for_timeout(300); t = shot(page, f'match_{seg}')
         if seg == 'trends': assert 'Trends' in t and ('of 10' in t or 'of 5' in t or 'Not enough' in t or 'in the last' in t), 'trends segment'
@@ -144,10 +149,14 @@ with sync_playwright() as p:
     page.click('#slip-open'); page.wait_for_timeout(300); t = shot(page, 'slip')
     assert 'Total odds' in t and page.locator('#view .tbl tr').count() >= 2, 'slip page with two legs'
     page.fill('#slip-stake', '50'); page.wait_for_timeout(100)
-    page.once('dialog', lambda d: d.accept())
-    page.click('#slip-place'); page.wait_for_timeout(400); t = shot(page, 'ticket')
-    assert 'Ticket T' in t and any(k in t.lower() for k in ('pending', 'lost', 'won')), 'ticket page after locking'
+    page.click('#slip-place'); page.wait_for_timeout(200)
+    assert page.locator('#modal:not([hidden])').count() == 1, 'in-app confirm modal shown'
+    shot(page, 'slip_confirm')
+    page.click('#modal-ok'); page.wait_for_timeout(400); t = shot(page, 'today_after_ticket')
+    assert page.evaluate('window.app.state.tab') == 'bets' and 'My tickets' in t and page.locator('#view [data-ticket]').count() >= 1, 'ticket appears under Bets > Today'
     assert page.locator('#slipbar.show').count() == 0, 'slip bar hidden after locking'
+    page.click('#view [data-ticket] >> nth=0'); page.wait_for_timeout(300); t = shot(page, 'ticket')
+    assert 'Ticket T' in t and any(k in t.lower() for k in ('pending', 'lost', 'won')), 'ticket page after locking'
     assert 'tickets' in (page.evaluate('window.__str || {}') or {}), 'tickets shared with the native side'
     page.evaluate('window.app.back()'); page.wait_for_timeout(100)
     page.click('#btn-menu'); page.click('#menu [data-page=tickets]'); page.wait_for_timeout(200); t = shot(page, 'tickets')
@@ -169,6 +178,10 @@ with sync_playwright() as p:
     while page.evaluate('window.app.back()'): page.wait_for_timeout(80)
     assert page.evaluate('window.app.state.tab') == 'home', 'back returns to home'
     # ---- days
+    page.click('#tabs button[data-tab=home]'); page.wait_for_timeout(200); t = shot(page, 'home2')
+    assert 'Your matches' in t and 'Ndumiso Msani' in t, 'home shows favourites and the editor card'
+    page.click('#tabs button[data-tab=matches]'); page.click('[data-mf=fav]'); page.wait_for_timeout(200); assert page.locator('#view .mrow').count() >= 1, 'favourites filter'
+    page.click('[data-mf=all]'); page.wait_for_timeout(100)
     page.click('#tabs button[data-tab=days]'); page.wait_for_timeout(200); t = shot(page, 'days')
     assert page.locator('[data-day]').count() >= 1, 'days list'
     page.click('[data-day] >> nth=0'); page.wait_for_timeout(700); t = shot(page, 'day_results')
@@ -192,7 +205,7 @@ with sync_playwright() as p:
     assert 'Bets of the day' in t and 'Safest bets' in t and 'Parlay' not in t and 'Treble' not in t, 'performance'
     page.evaluate('window.app.back()')
     page.click('#btn-menu'); page.click('#menu [data-page=settings]'); page.wait_for_timeout(200); t = shot(page, 'settings')
-    for sel in ['#s-goals', '#s-ht', '#s-ft', '#s-bets', '#s-reports', '#s-live', '#s-tz', '#s-save', '#s-clear']: assert page.locator(sel).count() == 1, f'settings control {sel}'
+    for sel in ['#s-goals', '#s-ht', '#s-ft', '#s-ko', '#s-bets', '#s-reports', '#s-live', '#s-tz', '#s-save', '#s-clear']: assert page.locator(sel).count() == 1, f'settings control {sel}'
     page.click('[data-th=dark]'); page.wait_for_timeout(200)
     assert page.evaluate("document.documentElement.dataset.theme") == 'dark', 'dark theme applied'
     assert page.evaluate("getComputedStyle(document.body).backgroundColor") == 'rgb(11, 15, 20)', 'dark background'

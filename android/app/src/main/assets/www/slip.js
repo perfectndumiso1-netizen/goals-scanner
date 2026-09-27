@@ -80,11 +80,12 @@
     const st = $('#slip-stake'); if (st) st.oninput = (e) => { slip.stake = e.target.value; saveSlip(); };
     const g = $('#go-tickets'); if (g) g.onclick = () => PR.push({ type: 'tickets' });
     const c = $('#slip-clear'); if (c) c.onclick = () => { slip.items = []; saveSlip(); bar(); PR.render(); };
-    const p = $('#slip-place'); if (p) p.onclick = () => {
-      if (!window.confirm(`Lock this ticket?\n\n${slip.items.length} selections · odds ${f2(totalOdds(slip.items))}${slip.stake ? ` · stake ${slip.stake}` : ''}\n\nIt cannot be edited afterwards.`)) return;
+    const p = $('#slip-place'); if (p) p.onclick = async () => {
+      const ok = await PR.confirmBox('Lock this ticket?', `${slip.items.length} selection${slip.items.length > 1 ? 's' : ''} · total odds ${f2(totalOdds(slip.items))}${slip.stake ? ` · stake ${slip.stake}` : ''}\n\nA locked ticket cannot be edited. It goes to Bets › Today and ☰ › My tickets, and is graded from the scores.`, 'Lock ticket');
+      if (!ok) return;
       const t = { id: 'T' + Date.now().toString(36).toUpperCase(), created: tzNow().toISOString().slice(0, 16).replace('T', ' '), legs: slip.items.map((l) => Object.assign({ status: 'pending' }, l)), odds: +totalOdds(slip.items).toFixed(2), stake: parseFloat(slip.stake) || null, status: 'pending' };
       tickets.unshift(t); slip.items = []; slip.stake = ''; saveSlip(); saveTickets(); bar();
-      toast('Ticket locked — good luck!'); state.stack = []; PR.push({ type: 'ticket', id: t.id });
+      toast('Ticket locked — good luck!'); state.stack = []; state.betsView = 'today'; PR.setTab('bets');
     };
   };
 
@@ -183,6 +184,20 @@
     PR.reconcileTickets();
   };
   PR.tickets = () => tickets;
+  PR.ticketsCard = function (onlyOpen) {
+    PR.settleTickets();
+    const today = ymd(tzNow());
+    const lst = tickets.filter((t) => t.status === 'pending' || (t.settled || '').slice(0, 10) === today || t.created.slice(0, 10) === today);
+    const shown = onlyOpen ? lst.filter((t) => t.status === 'pending') : lst;
+    const headRow = `<div class="section-head"><h2><span class="ico amber">${icon('ticket')}</span>My tickets</h2><button class="link" id="tk-all">All tickets ${icon('next')}</button></div>`;
+    if (!shown.length) return headRow + `<div class="card empty small">No open ticket. Tap <b>+</b> next to any priced selection to start a slip, then press Done.</div>`;
+    return headRow + `<div class="card compact">${shown.map((t) => `<div class="list-item tap" data-ticket="${esc(t.id)}"><div class="main"><div class="match">${stChip(t.status)} <b>odds ${f2(t.final_odds || t.odds)}</b>${t.stake ? ` <span class="muted small">· stake ${f2(t.stake)} → ${f2(t.stake * (t.final_odds || t.odds))}</span>` : ''}</div>
+      ${t.legs.map((l) => { const sc = scoreFor(l); const v = legLive(l, sc); return `<div class="small"><span class="${v.cls}">${l.status === 'won' ? '✅' : l.status === 'lost' ? '❌' : sc && sc.live ? '🔴' : '•'}</span> ${esc(l.label)} <span class="muted">(${esc(l.home)} v ${esc(l.away)}${sc && sc.hg != null ? ` ${sc.hg}–${sc.ag}` : ` ${esc(koShort(l.kickoff))}`})</span></div>`; }).join('')}</div><div class="chev">${icon('next')}</div></div>`).join('')}</div>`;
+  };
+  PR.wireTickets = function () {
+    $$('[data-ticket]').forEach((b) => { b.onclick = () => PR.push({ type: 'ticket', id: b.dataset.ticket }); });
+    const a = $('#tk-all'); if (a) a.onclick = () => PR.push({ type: 'tickets' });
+  };
   bar();
   if (PR.native && PR.native.setString) saveTickets();
 })(window.PR);
