@@ -2,7 +2,7 @@
 (function (PR) {
   'use strict';
   const { $, $$, esc, pct, f1, f2, signed, state, settings, fx, pill, koShort, koTime, dayName, niceDate, toast, selLabel, selGroup,
-    GROUPS, liveVerdict, isLive, segmented, select, contactCard, teamLink, statusIcon, formBadges, wdl, md, icon, flag, badge, fxBadge, matchRow, ring, skeleton } = PR;
+    GROUPS, liveVerdict, isLive, segmented, select, contactCard, teamLink, statusIcon, formBadges, wdl, md, icon, flag, badge, fxBadge, matchRow, ring, skeleton, parseLocal, tzNow } = PR;
   const GICON = { result: 'shield', dc: 'swap', goals: 'ball', btts: 'swap', team: 'target', corners: 'corner', cards: 'card' };
   const view = () => $('#view');
   const live = PR.live;
@@ -16,6 +16,49 @@
   const xgH = (f) => Array.isArray(f.xg) ? f.xg[0] : (f.xg || {}).home;
   const xgA = (f) => Array.isArray(f.xg) ? f.xg[1] : (f.xg || {}).away;
   const x12 = (f, k) => Array.isArray(f.x12) ? f.x12[{ H: 0, D: 1, A: 2 }[k]] : (f.x12 || {})[k];
+
+  // ------------------------------------------------------------------ live extras (statistics, line-ups) fetched on demand
+  const LS = 'https://prod-public-api.livescore.com/v1/api/app';
+  state.lsx = state.lsx || {};
+  function lsx(kind, eid, ttlMs) {
+    const key = `${kind}:${eid}`; const c = state.lsx[key];
+    if (c && (c.loading || Date.now() - c.t < ttlMs)) return c.data || null;
+    state.lsx[key] = { loading: true, t: Date.now(), data: c ? c.data : null };
+    PR.getJson(`${LS}/${kind}/soccer/${eid}`).then((j) => { state.lsx[key] = { t: Date.now(), data: j || {} }; PR.render(); }).catch(() => { state.lsx[key] = { t: Date.now(), data: c ? c.data : {} }; });
+    return c ? c.data : null;
+  }
+  const fmtValue = (v) => v == null ? '–' : v >= 1e9 ? `€${(v / 1e9).toFixed(2)}bn` : v >= 1e6 ? `€${(v / 1e6).toFixed(1)}M` : `€${Math.round(v / 1e3)}K`;
+  PR.fmtValue = fmtValue;
+  function statsCard(f, s, sc) {
+    // in play / finished: Livescore statistics; older finished matches: the stats saved in the day file
+    let st = null;
+    if (f.livescore_id && s && s.hg != null) {
+      const j = lsx('statistics', f.livescore_id, isLive(s) ? 60000 : 3600000);
+      const T = j && j.Stat ? Object.fromEntries(j.Stat.map((t) => [t.Tnb, t])) : null;
+      if (T && T[1] && T[2]) {
+        const g = (t, k) => t[k] == null ? null : +t[k]; const shots = (t) => (g(t, 'Shon') || 0) + (g(t, 'Shof') || 0) + (g(t, 'Shbl') || 0);
+        st = [['Possession', g(T[1], 'Pss'), g(T[2], 'Pss'), '%'], ['Shots', shots(T[1]), shots(T[2])], ['On target', g(T[1], 'Shon'), g(T[2], 'Shon')], ['Corners', g(T[1], 'Cos'), g(T[2], 'Cos')], ['Fouls', g(T[1], 'Fls'), g(T[2], 'Fls')], ['Offsides', g(T[1], 'Ofs'), g(T[2], 'Ofs')], ['Yellow cards', g(T[1], 'Ycs'), g(T[2], 'Ycs')], ['Red cards', g(T[1], 'Rcs'), g(T[2], 'Rcs')]];
+      }
+    }
+    if (!st && sc && sc.hc != null) st = [['Possession', sc.hposs, sc.aposs, '%'], ['Shots', sc.hs, sc.as], ['On target', sc.hst, sc.ast], ['Corners', sc.hc, sc.ac], ['Yellow cards', sc.hy, sc.ay], ['Red cards', sc.hr, sc.ar]];
+    if (!st) return '';
+    const rows = st.filter(([, a, b]) => a != null || b != null).map(([k, a, b, unit]) => { const tot = (a || 0) + (b || 0); const wa = tot ? (a || 0) / tot : 0.5;
+      return `<div class="statbar"><span class="${a > b ? 'lead' : ''}">${a == null ? '–' : a}${unit || ''}</span><div><div class="k">${k}</div><div class="duo"><span class="l" style="width:${Math.round(wa * 50)}%"></span><span class="r" style="width:${Math.round((1 - wa) * 50)}%"></span></div></div><span class="${b > a ? 'lead' : ''}">${b == null ? '–' : b}${unit || ''}</span></div>`; }).join('');
+    return rows ? `<div class="card compact"><div class="row"><div class="grow b">${icon('chart', 'sm')} Match statistics</div><span class="tiny muted">${s && isLive(s) ? 'live' : 'full time'}</span></div>${rows}</div>` : '';
+  }
+  function lineupsBlock(f, s) {
+    if (!f.livescore_id) return `<div class="card tiny muted">Line-ups are not available for this match.</div>`;
+    const ko = parseLocal(f.kickoff); const soon = ko && (ko - tzNow()) < 2 * 3600000;
+    if (!soon && !(s && s.hg != null)) return `<div class="card empty">Line-ups are published about an hour before kick-off (${esc(koShort(f.kickoff))}).</div>`;
+    const j = lsx('lineups', f.livescore_id, s && isLive(s) ? 300000 : 1800000);
+    if (j == null) return skeleton(6);
+    const lu = (j.Lu || []); if (!lu.length) return `<div class="card empty">Line-ups not published yet — check back closer to kick-off.</div>`;
+    const team = (t, name, side) => { const ps = (t.Ps || []); const xi = ps.filter((p) => p.Pos >= 1 && p.Pos <= 4).sort((a, b) => a.Pos - b.Pos || (a.Fp || '').localeCompare(b.Fp || '')); const subs = ps.filter((p) => p.Pos === 5); const coach = ps.find((p) => p.Pos === 10);
+      const pl = (p) => `<div class="pl"><span class="no">${p.Snu != null ? p.Snu : ''}</span><span class="grow">${esc(p.Snm || [p.Fn, p.Ln].filter(Boolean).join(' '))}</span>${p.Mo != null ? `<span class="pos">${p.Pos === 5 ? '▲' : '▼'} ${p.Mo}'</span>` : `<span class="pos">${esc((p.Pon || '').slice(0, 3).toUpperCase())}</span>`}</div>`;
+      return `<div><div class="b row" style="gap:6px">${fxBadge(f, side).replace('s24', 's20')}${esc(name)}</div>${t.Fo ? `<div class="tiny muted">${t.Fo.join('-')}</div>` : ''}<h4>Starting XI</h4>${xi.map(pl).join('')}${subs.length ? `<h4>Substitutes</h4>${subs.map(pl).join('')}` : ''}${coach ? `<h4>Coach</h4><div class="pl"><span class="no"></span><span>${esc(coach.Snm || [coach.Fn, coach.Ln].filter(Boolean).join(' '))}</span></div>` : ''}</div>`; };
+    const h = lu.find((t) => t.Tnb === 1) || lu[0], a = lu.find((t) => t.Tnb === 2) || lu[1];
+    return `<div class="card"><div class="lineup">${h ? team(h, f.home, 'home') : ''}${a ? team(a, f.away, 'away') : ''}</div><div class="tiny muted" style="margin-top:8px">Source: public live feed. ▼ substituted off · ▲ came on.</div></div>`;
+  }
 
   // ------------------------------------------------------------------ MATCH PAGE
   PR.pages.match = function (page) {
@@ -34,15 +77,17 @@
     const parts = [head(`${flag(f.country)} ${esc(f.competition)}`, `${esc(dayName(f.kickoff))} · ${esc(koTime(f.kickoff))} ${esc(d.meta.tz)}${f.time_known === false ? ' (time to be confirmed)' : ''}${f.referee ? ' · referee ' + esc(f.referee) : ''}`)];
     const form = (p) => p && p.last5 ? formBadges(p.last5.slice().reverse().map((m) => wdl(m.gf, m.ga))) : '';
     const teams = (x && x.teams) || { home: {}, away: {} };
+    const sq = (x && x.squad) || {}; const val = (side) => sq[side] && sq[side].value ? `<div class="value-tag">💶 ${fmtValue(sq[side].value)}</div>` : '';
     parts.push(`<div class="card mhead"><div class="teams">
-      <div class="t">${fxBadge(f, 'home').replace('s24', 's56')}${teamLink(f, 'home')}<div class="tiny muted">${th && th.pos ? `${th.pos}${ord(th.pos)} · ${th.all.pts} pts` : 'Home'}</div>${form(teams.home)}</div>
+      <div class="t">${fxBadge(f, 'home').replace('s24', 's56')}${teamLink(f, 'home')}<div class="tiny muted">${th && th.pos ? `${th.pos}${ord(th.pos)} · ${th.all.pts} pts` : 'Home'}</div>${form(teams.home)}${val('home')}</div>
       <div class="mid">${s && s.hg != null ? `<div class="score big">${s.hg} – ${s.ag}</div><div class="minute ${isLive(s) ? 'on' : 'ft'}">${esc(s.status)}</div>` : `<div class="score big muted">${esc(koTime(f.kickoff))}</div><div class="tiny muted">${esc(koShort(f.kickoff).split(' ')[0])} · ${esc(d.meta.tz)}</div>`}</div>
-      <div class="t">${fxBadge(f, 'away').replace('s24', 's56')}${teamLink(f, 'away')}<div class="tiny muted">${ta && ta.pos ? `${ta.pos}${ord(ta.pos)} · ${ta.all.pts} pts` : 'Away'}</div>${form(teams.away)}</div></div>
+      <div class="t">${fxBadge(f, 'away').replace('s24', 's56')}${teamLink(f, 'away')}<div class="tiny muted">${ta && ta.pos ? `${ta.pos}${ord(ta.pos)} · ${ta.all.pts} pts` : 'Away'}</div>${form(teams.away)}${val('away')}</div></div>
       <div class="x12"><div class="lbl"><span>${esc(f.home)} ${pct(x12(f, 'H'))}</span><span>Draw ${pct(x12(f, 'D'))}</span><span>${esc(f.away)} ${pct(x12(f, 'A'))}</span></div>
         <div class="tri"><span class="h" style="width:${Math.round((x12(f, 'H') || 0) * 100)}%"></span><span class="d" style="width:${Math.round((x12(f, 'D') || 0) * 100)}%"></span><span class="a" style="width:${Math.round((x12(f, 'A') || 0) * 100)}%"></span></div></div>
       ${f.data_ok ? '' : '<div class="chip warn" style="margin-top:6px">⚠️ low data — never shortlisted or used for safest bets</div>'}</div>`);
-    parts.push(`<div class="card compact">${segmented([['overview', 'Overview'], ['trends', 'Trends'], ['markets', 'Markets'], ['stats', 'Stats'], ['h2h', 'H2H']], v, 'mv')}</div>`);
-    if (!x) parts.push(skeleton(5));
+    parts.push(`<div class="card compact">${segmented([['overview', 'Overview'], ['markets', 'Markets'], ['trends', 'Trends'], ['stats', 'Stats'], ['h2h', 'H2H'], ['lineups', 'Line-ups']], v, 'mv')}</div>`);
+    if (v === 'lineups') parts.push(lineupsBlock(f, s));
+    else if (!x) parts.push(skeleton(5));
     else if (v === 'overview') matchOverview(parts, x, s);
     else if (v === 'trends') matchTrends(parts, x);
     else if (v === 'markets') matchMarkets(parts, x);
@@ -56,10 +101,11 @@
     parts.push(`<div class="card"><div class="row"><div class="grow"><div class="cell" style="display:inline-block"><div class="k">Expected goals</div><div class="v">${f1(xgH(f))} – ${f1(xgA(f))}</div><div class="tiny muted">total ${f2(f.xg.total)}</div></div></div>
       <div class="rings" style="flex:2">${ring(f.p.O15, 'Over 1.5')}${ring(f.p.O25, 'Over 2.5')}${ring(f.p.BTTS, 'BTTS')}</div></div>
       <div class="tiny muted" style="margin-top:8px">${f.basis === 'market+model' ? '90% market / 10% team-form model' : f.priced ? 'team-form model blended with the Sportybet price' : 'team-form model only (no price available)'} · league avg ${f2((f.league_avg.home_goals || 0) + (f.league_avg.away_goals || 0))} goals, O2.5 in ${pct(f.league_avg.o25)}</div></div>`);
+    const sc0 = statsCard(f, s, null); if (sc0) parts.push(sc0);
     const bets = betsOn(f.id);
     if (bets.length) parts.push(`<div class="card compact"><div class="b">Bets on this match</div><div class="chips" style="margin-top:6px">${bets.map((b) => { const vd = liveVerdict(b.sel, s); return `<span class="chip ${vd.cls}">${esc(b.kind)}: ${esc(b.label)}${b.odds ? ' @ ' + f2(b.odds) : ''} · ${esc(vd.text)}</span>`; }).join('')}</div></div>`);
     const best = f.sels.filter((x) => x.odds && x.odds >= 1.25 && !x.diff).slice(0, 5);
-    if (best.length) parts.push(`<div class="card compact"><div class="row"><div class="grow b">${icon('target', 'sm')} Best priced selections</div></div><table class="tbl">${best.map((x) => `<tr><td><div class="b">${esc(selLabel(x.sel, f.home, f.away))}</div><div class="tiny muted">${esc(GROUPS[selGroup(x.sel)])} · model ${pct(x.p_model)} · Sportybet ${pct(x.p_sb)}</div></td><td class="right"><b>${f2(x.odds)}</b></td><td class="right">${pill(x.p, 0.8, 0.7)}</td></tr>`).join('')}</table></div>`);
+    if (best.length) parts.push(`<div class="card compact"><div class="row"><div class="grow b">${icon('target', 'sm')} Best priced selections</div><span class="tiny muted">+ adds to your slip</span></div><table class="tbl">${best.map((x) => `<tr><td><div class="b">${esc(selLabel(x.sel, f.home, f.away))}</div><div class="tiny muted">${esc(GROUPS[selGroup(x.sel)])} · model ${pct(x.p_model)} · Sportybet ${pct(x.p_sb)}</div></td><td class="right"><b>${f2(x.odds)}</b></td><td class="right"><div class="row" style="gap:0;justify-content:flex-end">${pill(x.p, 0.8, 0.7)}${PR.addBtn ? PR.addBtn(f.id, x.sel, x.odds) : ''}</div></td></tr>`).join('')}</table></div>`);
     const tr = f.trends || {}; const topTrends = [].concat((tr.match || []).filter((t) => t.kind !== 'info'), (tr.home && tr.home.all || []).slice(0, 2), (tr.away && tr.away.all || []).slice(0, 2), (tr.h2h || []).slice(0, 1)).slice(0, 5);
     if (topTrends.length) parts.push(`<div class="card compact tap" id="go-trends"><div class="row"><div class="grow b">${icon('trend', 'sm')} Trends</div><span class="tiny muted">all ${icon('next', 'sm')}</span></div><div class="trends">${topTrends.map(trendLine).join('')}</div></div>`);
     const sb = f.sportybet || {};
@@ -98,18 +144,19 @@
     ((sf.today && sf.today.bets) || []).filter((b) => b.fixture === fid).forEach((b) => out.push({ kind: '⭐ Bet of the day', label: b.label, sel: b.sel, odds: b.odds }));
     sf.bets.filter((b) => b.fixture === fid && !out.some((o) => o.sel === b.sel)).forEach((b) => out.push({ kind: '🔒 Safest', label: b.label, sel: b.sel, odds: b.odds }));
     Object.entries(d.picks || {}).forEach(([mk, lst]) => lst.filter((p) => p.fixture === fid).forEach(() => out.push({ kind: 'Shortlist', label: MK[mk], sel: mk })));
+    if (PR.tickets) PR.tickets().forEach((t) => { if (t.status === 'pending') t.legs.filter((l) => l.fixture === fid).forEach((l) => out.push({ kind: '🎫 My ticket', label: l.label, sel: l.sel, odds: l.odds })); });
     return out;
   }
   function matchMarkets(parts, f) {
     const groups = {};
     f.sels.forEach((s) => { (groups[selGroup(s.sel)] = groups[selGroup(s.sel)] || []).push(s); });
-    parts.push(`<div class="card tiny muted">Every modelled market. <b>Prob.</b> = the probability used for ranking (average of the model and the de-margined Sportybet price where a price exists). Rows at ≥ 70% are highlighted; ⚠ = the two views differ by more than 12 points.</div>`);
+    parts.push(`<div class="card tiny muted">Every modelled market. <b>Prob.</b> = the probability used for ranking (average of the model and the de-margined Sportybet price where a price exists). Rows at ≥ 70% are highlighted; ⚠ = the two views differ by more than 12 points. Tap <b>+</b> to put a priced selection on your bet slip.</div>`);
     Object.keys(GROUPS).forEach((g) => {
       const items = groups[g]; if (!items) return;
       const order = { result: ['H', 'D', 'A'], dc: ['1X', '12', 'X2'], btts: ['BTTS', 'NBTTS'] }[g];
       const sorted = order ? items.slice().sort((a, b) => order.indexOf(a.sel) - order.indexOf(b.sel)) : items.slice().sort((a, b) => a.sel.localeCompare(b.sel, undefined, { numeric: true }));
       parts.push(`<div class="card compact"><div class="row" style="margin:4px 0 2px"><span class="ico">${icon(GICON[g] || 'ball')}</span><b>${GROUPS[g]}</b></div><table class="tbl head" style="margin-top:4px"><tr><th>Selection</th><th class="right">Model</th><th class="right">Sportybet</th><th class="right">Price</th><th class="right">Prob.</th></tr>
-        ${sorted.map((s) => `<tr class="${s.p >= 0.7 ? 'hl' : ''}"><td>${esc(selLabel(s.sel, f.home, f.away))}${s.diff ? ' <span class="warn">⚠</span>' : ''}</td><td class="right muted">${pct(s.p_model)}</td><td class="right muted">${pct(s.p_sb)}</td><td class="right">${s.odds ? `<b>${f2(s.odds)}</b>` : '<span class="muted">–</span>'}</td><td class="right">${pill(s.p, 0.8, 0.7)}</td></tr>`).join('')}</table></div>`);
+        ${sorted.map((s) => `<tr class="${s.p >= 0.7 ? 'hl' : ''}"><td>${esc(selLabel(s.sel, f.home, f.away))}${s.diff ? ' <span class="warn">⚠</span>' : ''}</td><td class="right muted">${pct(s.p_model)}</td><td class="right muted">${pct(s.p_sb)}</td><td class="right">${s.odds ? `<b>${f2(s.odds)}</b>` : '<span class="muted">–</span>'}</td><td class="right"><div class="row" style="gap:0;justify-content:flex-end">${pill(s.p, 0.8, 0.7)}${PR.addBtn ? PR.addBtn(f.id, s.sel, s.odds) : ''}</div></td></tr>`).join('')}</table></div>`);
     });
     const sb = f.sportybet || {};
     const lines = (obj, label) => obj ? `<tr><td>${label}</td><td colspan="4" class="tiny">${Object.entries(obj).sort((a, b) => +a[0] - +b[0]).map(([k, v]) => `<span class="chip">${k}: ${f2(v[0])} / ${f2(v[1])}</span>`).join(' ')}</td></tr>` : '';
@@ -127,8 +174,9 @@
   function matchStats(parts, f, th, ta) {
     const H = f.teams.home || {}, A = f.teams.away || {};
     const outOf = (n) => (x) => x == null ? '–' : `${x}/${n}`;
+    const sq = f.squad || {};
     parts.push(`<div class="card compact"><div class="row"><div class="grow b row" style="gap:6px">${fxBadge(f, 'home')}${esc(f.home)}</div><div class="tiny muted">form model · recent seasons</div><div class="b row" style="gap:6px">${esc(f.away)}${fxBadge(f, 'away')}</div></div>
-      <table class="cmp">${cmpRow('Goals scored / game', H.gf, A.gf, f2, true)}${cmpRow('Goals conceded / game', H.ga, A.ga, f2, false)}
+      <table class="cmp">${sq.home || sq.away ? cmpRow('Squad value (Transfermarkt)', sq.home && sq.home.value, sq.away && sq.away.value, fmtValue, true) + cmpRow('Average age', sq.home && sq.home.avg_age, sq.away && sq.away.avg_age, f1, false) : ''}${cmpRow('Goals scored / game', H.gf, A.gf, f2, true)}${cmpRow('Goals conceded / game', H.ga, A.ga, f2, false)}
       ${cmpRow('Home / away goals for', H.venue_gf, A.venue_gf, f2, true)}${cmpRow('Home / away goals against', H.venue_ga, A.venue_ga, f2, false)}
       ${cmpRow('Attack strength', H.att, A.att, f2, true)}${cmpRow('Defence (lower = better)', H.def, A.def, f2, false)}
       ${cmpRow('xG for (last 10)', H.xg_for, A.xg_for, f2, true)}${cmpRow('xG against (last 10)', H.xg_against, A.xg_against, f2, false)}
@@ -183,7 +231,7 @@
     const r = t.teams && t.teams[page.name];
     if (!r) { parts.push(`<div class="card empty">No season data for ${esc(page.name)} yet.</div>`); view().innerHTML = parts.join(''); wireBack(); return; }
     const a = r.all;
-    parts.push(`<div class="card"><div class="thead">${badge(page.name, null, 56)}<div class="grow"><div class="h1">${esc(page.name)}</div><div class="small muted">${flag(page.country)} ${esc(t.league)} · ${r.pos ? `${r.pos}${ord(r.pos)} of ${r.teams_in_league}` : ''} · ${a.pts} pts from ${a.p}</div><div style="margin-top:4px">${formBadges(r.form.split(''))}</div></div></div>
+    parts.push(`<div class="card"><div class="thead">${badge(page.name, null, 56)}<div class="grow"><div class="h1">${esc(page.name)}</div><div class="small muted">${flag(page.country)} ${esc(t.league)} · ${r.pos ? `${r.pos}${ord(r.pos)} of ${r.teams_in_league}` : ''} · ${a.pts} pts from ${a.p}</div>${r.squad && r.squad.value ? `<div class="value-tag">💶 Squad value ${fmtValue(r.squad.value)} · avg age ${f1(r.squad.avg_age)} · ${r.squad.size} players</div>` : ''}<div style="margin-top:4px">${formBadges(r.form.split(''))}</div></div></div>
       <div class="grid4" style="margin-top:8px"><div class="cell"><div class="k">Record</div><div class="v">${a.w}-${a.d}-${a.l}</div><div class="tiny muted">W-D-L</div></div><div class="cell"><div class="k">Goals</div><div class="v">${a.gf} : ${a.ga}</div><div class="tiny muted">${f2(a.gf_avg)} / ${f2(a.ga_avg)} per game</div></div><div class="cell"><div class="k">Points / game</div><div class="v">${f2(a.ppg)}</div><div class="tiny muted">streak ${esc(r.streak || '–')}</div></div><div class="cell"><div class="k">Over 2.5</div><div class="v">${pct(a.o25)}</div><div class="tiny muted">BTTS ${pct(a.btts)}</div></div></div></div>`);
     parts.push(`<div class="card compact">${segmented([['overview', 'Overview'], ['matches', 'Matches'], ['table', 'Table']], v, 'tv')}</div>`);
     if (v === 'overview') {
@@ -240,7 +288,8 @@
         const sc = f.score; const fin = sc && sc.hg != null;
         const seenB = new Set();
         const marks = (f.bets || []).filter((b) => { const k = b.kind + '|' + b.sel; if (seenB.has(k)) return false; seenB.add(k); return true; }).map((b) => `<span class="chip ${b.status === 'hit' ? 'good' : b.status === 'miss' ? 'bad' : ''}">${b.botd ? '⭐' : icon(b.kind === 'safe' ? 'lock' : 'star')} ${esc(b.label)}${b.odds ? ' @ ' + f2(b.odds) : ''} ${statusIcon(b.status)}</span>`).join('');
-        const row = matchRow(f, { tap: !!openable(f), short: true, sub: marks ? `<div class="chips">${marks}</div>` : '', right: fin ? '' : `<span class="tiny muted">xG ${f1(f.xg[0])}–${f1(f.xg[1])}</span><span class="tiny muted">O2.5 ${pct(f.p.O25)}</span>` });
+        const stats = fin && sc.hc != null ? `<span class="tiny muted">HT ${sc.hth != null ? `${sc.hth}–${sc.hta}` : '–'} · corners ${sc.hc}–${sc.ac}${sc.hy != null ? ` · 🟨 ${sc.hy}–${sc.ay}` : ''}${sc.hr ? ` · 🟥 ${sc.hr}` : ''}${sc.ar ? `–${sc.ar}` : ''}</span>` : fin && sc.hth != null ? `<span class="tiny muted">HT ${sc.hth}–${sc.hta}</span>` : '';
+        const row = matchRow(f, { tap: !!openable(f), short: true, sub: (stats ? stats : '') + (marks ? `<div class="chips">${marks}</div>` : ''), right: fin ? '' : `<span class="tiny muted">xG ${f1(f.xg[0])}–${f1(f.xg[1])}</span><span class="tiny muted">O2.5 ${pct(f.p.O25)}</span>` });
         parts.push(f.d ? row.replace('<div class="mrow', `<div data-d="${esc(f.d)}" class="mrow`) : row);
       });
       parts.push('</div>');
@@ -303,6 +352,7 @@
     parts.push(sec('card', 'Cards / bookings', `<p><b>Over 3.5 cards</b> wins with 4 or more cards. On Sportybet a yellow counts 1 and a straight red 2 (a second yellow = yellow + red = 3 for that player); some books use "booking points" (10/25) instead — check the market name. Cards to the bench or after the whistle usually do not count. Modelled from team and referee averages in the main European leagues.</p>`));
     parts.push(sec('shield', 'Match result & double chance', `<p><b>1X2</b>: home win, draw or away win after 90 minutes. <b>Double chance 1X</b> wins if the home team wins or draws — two of the three outcomes covered, at a shorter price. Shown on every match page for context; PlayReport's safest bets stay in the goals, corners and cards markets.</p>`));
     parts.push(sec('trend', 'How the probabilities are made', `<p>Each team gets a time-weighted attack and defence rating from its recent results (about two seasons, recent games weighted most, home and away split). The ratings give expected goals for both teams, and a Poisson-style model turns those into a probability for every line. Where a Sportybet price exists, the bookmaker's margin is removed and the de-margined probability is averaged with the model.</p><p><b>Safest bet</b> = at least 70% on <i>both</i> views, price ≥ 1.30, goals/BTTS/team goals/corners/cards only. <b>⭐ Bets of the day</b> = the five best safest bets at 07:00, one per match. <b>Low data</b> = fewer than four useful matches for a team; those games are shown but never selected.</p>`));
+    parts.push(sec('ticket', 'Bet slip & tickets', `<p>Tap <b>+</b> next to any priced selection (match page › Markets, best selections, safest bets, bets of the day) to put it on your slip — one selection per match, like a real multiple. Press <b>Done</b> to lock the ticket: PlayReport multiplies the prices, records an optional stake, and then follows the scores. Goals markets settle from the final score; corners and cards settle from the match statistics a few hours after full time. You get a notification when the ticket is won or lost, and ☰ › <b>My tickets</b> keeps your record.</p><p>This is a private record on your phone — nothing is placed with a bookmaker.</p>`));
     parts.push(sec('info', 'Reading the numbers honestly', `<p>A 75% bet loses one time in four. A card of five 75% singles has all five winning only about 24% of the time — that is why PlayReport shows singles and grades every one of them, and does not build accumulators. Compare the <b>Hit</b> and <b>Exp.</b> columns under Performance: they should be close over a few weeks.</p><p>Coverage: every competition on the live feed, worldwide, including women's and youth leagues, priced by Sportybet South Africa. Prices move; check the price before you bet. Statistical information, not betting advice. 18+, bet responsibly.</p>`));
     parts.push(contactCard(false));
     view().innerHTML = parts.join('');
@@ -319,7 +369,9 @@
       ${allowed === false ? '<button class="btn primary" id="s-notif">Allow</button>' : ''}</div>
       <label class="row" style="margin-top:10px"><input type="checkbox" id="s-bets" ${settings.betAlerts !== false ? 'checked' : ''}> <span class="grow">🔒 New safest bets (found by the half-hourly refresh)</span></label>
       <label class="row" style="margin-top:6px"><input type="checkbox" id="s-reports" ${settings.reportAlerts !== false ? 'checked' : ''}> <span class="grow">📊 Full analysis published (07:00 · 12:00 · 17:00)</span></label>
-      <label class="row" style="margin-top:6px"><input type="checkbox" id="s-goals" ${settings.goalAlerts ? 'checked' : ''}> <span class="grow">⚽ Goals with the scorer in tracked matches (bets of the day, safest bets, shortlist)</span></label></div>`);
+      <label class="row" style="margin-top:6px"><input type="checkbox" id="s-goals" ${settings.goalAlerts ? 'checked' : ''}> <span class="grow">⚽ Score changes (goals with the scorer) in tracked matches — bets of the day, safest bets, shortlist and your tickets</span></label>
+      <label class="row" style="margin-top:6px"><input type="checkbox" id="s-ht" ${settings.htAlerts ? 'checked' : ''}> <span class="grow">⏸ Half-time results of tracked matches</span></label>
+      <label class="row" style="margin-top:6px"><input type="checkbox" id="s-ft" ${settings.ftAlerts !== false ? 'checked' : ''}> <span class="grow">🏁 Full-time results of tracked matches · tickets won / lost</span></label></div>`);
     parts.push(`<div class="card settings"><h2>${icon('moon')} Appearance</h2>${segmented([['system', 'System'], ['light', 'Light'], ['dark', 'Dark']], settings.theme || 'system', 'th')}
       <div class="tiny muted" style="margin-top:6px">System follows your phone's dark-mode setting.</div></div>`);
     parts.push(`<div class="card settings"><h2>${icon('clock')} Display</h2>
@@ -341,6 +393,8 @@
     $('#s-goals').onchange = (e) => { settings.goalAlerts = e.target.checked; PR.saveSettings(); pref('goals', settings.goalAlerts); };
     $('#s-bets').onchange = (e) => { settings.betAlerts = e.target.checked; PR.saveSettings(); pref('bets', settings.betAlerts); };
     $('#s-reports').onchange = (e) => { settings.reportAlerts = e.target.checked; PR.saveSettings(); pref('reports', settings.reportAlerts); };
+    $('#s-ht').onchange = (e) => { settings.htAlerts = e.target.checked; PR.saveSettings(); pref('ht', settings.htAlerts); };
+    $('#s-ft').onchange = (e) => { settings.ftAlerts = e.target.checked; PR.saveSettings(); pref('ft', settings.ftAlerts); };
     $$('[data-th]').forEach((b) => { b.onclick = () => { settings.theme = b.dataset.th; PR.saveSettings(); PR.applyTheme(); PR.render(); }; });
     $$('[data-lgs]').forEach((b) => { b.onclick = () => { settings.leagues = b.dataset.lgs; PR.saveSettings(); PR.render(); }; });
     const n = $('#s-notif'); if (n) n.onclick = () => { if (PR.native && PR.native.requestNotifications) PR.native.requestNotifications(); };

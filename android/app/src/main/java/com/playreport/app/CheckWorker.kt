@@ -11,8 +11,10 @@ import org.json.JSONObject
  * half-hourly refreshes cost almost no data:
  *  1. a full analysis (07:00 / 12:00 / 17:00 run) was published -> notification
  *  2. new safest bets found by any run                          -> notification per bet (max 4, then a summary)
- *  3. goals in tracked matches (safest bets, bets of the day, shortlist) -> notification with the scorer
- *  4. newer app version                                          -> notification (every 6 h at most)
+ *  3. tracked matches (safest bets, bets of the day, shortlist, the user's tickets):
+ *     goals with the scorer, half-time and full-time scores       -> notifications (each switchable in Settings)
+ *  4. the user's pending tickets settled from the final scores   -> notification
+ *  5. newer app version                                          -> notification (every 6 h at most)
  */
 class CheckWorker(ctx: Context, params: WorkerParameters) : Worker(ctx, params) {
 
@@ -20,8 +22,7 @@ class CheckWorker(ctx: Context, params: WorkerParameters) : Worker(ctx, params) 
         val ctx = applicationContext
         val prefs = ctx.getSharedPreferences(Notifier.PREFS, Context.MODE_PRIVATE)
         val r = Net.get(Net.META_JSON + "?t=" + System.currentTimeMillis())
-        if (r.code != 200) return Result.success()
-        val meta = try { JSONObject(r.body) } catch (e: Exception) { return Result.success() }
+        val meta = if (r.code == 200) (try { JSONObject(r.body) } catch (e: Exception) { JSONObject() }) else JSONObject()
 
         // 1. full analysis published
         val generated = meta.optString("generated")
@@ -41,10 +42,10 @@ class CheckWorker(ctx: Context, params: WorkerParameters) : Worker(ctx, params) 
         // 2. new safest bets
         try { checkAlerts(ctx, meta) } catch (_: Exception) { }
 
-        // 3. goals in tracked matches
-        try { checkGoals(ctx, meta) } catch (_: Exception) { }
+        // 3 + 4. tracked matches and tickets
+        try { checkMatches(ctx, meta) } catch (_: Exception) { }
 
-        // 4. app update (at most every 6 hours)
+        // 5. app update (at most every 6 hours)
         val lastUpd = prefs.getLong("last_update_check", 0L)
         if (System.currentTimeMillis() - lastUpd > 6 * 3600 * 1000L) {
             prefs.edit().putLong("last_update_check", System.currentTimeMillis()).apply()
@@ -86,16 +87,28 @@ class CheckWorker(ctx: Context, params: WorkerParameters) : Worker(ctx, params) 
         }
     }
 
-    private fun checkGoals(ctx: Context, meta: JSONObject) {
+    private data class Ev(val eid: String, val status: String, val hg: Int?, val ag: Int?, val home: String, val away: String, val comp: String)
+
+    private fun isFinished(st: String) = st == "FT" || st == "AET" || st == "AP" || st == "Awarded"
+    private fun isVoid(st: String) = st == "Postp." || st == "Canc." || st == "Aband."
+
+    private fun checkMatches(ctx: Context, meta: JSONObject) {
         val prefs = ctx.getSharedPreferences(Notifier.PREFS, Context.MODE_PRIVATE)
-        if (!prefs.getBoolean("pref_goals", true)) return
+        val wantGoals = prefs.getBoolean("pref_goals", true)
+        val wantHt = prefs.getBoolean("pref_ht", false)
+        val wantFt = prefs.getBoolean("pref_ft", true)
+        val tickets = try { JSONArray(prefs.getString("str_tickets", "[]") ?: "[]") } catch (e: Exception) { JSONArray() }
         val want = HashSet<String>()
         meta.optJSONArray("tracked_eids")?.let { for (i in 0 until it.length()) want.add(it.getString(i)) }
+        for (i in 0 until tickets.length()) {
+            val legs = tickets.getJSONObject(i).optJSONArray("legs") ?: continue
+            for (j in 0 until legs.length()) { val e = legs.getJSONObject(j).optString("eid"); if (e.isNotEmpty() && e != "null") want.add(e) }
+        }
         if (want.isEmpty()) return
         val zone = java.time.ZoneId.of("Africa/Johannesburg")
         val today = java.time.LocalDate.now(zone)
-        val days = listOf(today, today.minusDays(1))
-        for (day in days) {
+        val found = HashMap<String, Ev>()
+        for (day in listOf(today, today.minusDays(1))) {
             val ymd = day.toString().replace("-", "")
             val r = Net.get("https://prod-public-api.livescore.com/v1/api/app/date/soccer/$ymd/2?MD=1")
             if (r.code != 200) continue
@@ -106,25 +119,73 @@ class CheckWorker(ctx: Context, params: WorkerParameters) : Worker(ctx, params) 
                 for (e in 0 until events.length()) {
                     val ev = events.getJSONObject(e)
                     val eid = ev.optString("Eid")
-                    if (!want.contains(eid)) continue
-                    val status = ev.optString("Eps")
-                    if (status == "NS") continue
-                    val hg = ev.optString("Tr1").toIntOrNull() ?: continue
-                    val ag = ev.optString("Tr2").toIntOrNull() ?: continue
-                    val score = "$hg-$ag"
-                    val prev = prefs.getString("score_$eid", null)
-                    if (Notifier.goalSeen(ctx, eid, score)) continue          // unchanged
-                    if (prev == null || hg + ag == 0) continue                 // first sighting: just remember it
-                    if (status == "FT" || status == "AET" || status == "AP") continue   // final scores are not goal alerts
+                    if (!want.contains(eid) || found.containsKey(eid)) continue
                     val home = ev.optJSONArray("T1")?.optJSONObject(0)?.optString("Nm") ?: "Home"
                     val away = ev.optJSONArray("T2")?.optJSONObject(0)?.optString("Nm") ?: "Away"
                     val comp = listOf(st.optString("Cnm"), st.optString("Snm")).filter { it.isNotEmpty() }.joinToString(" · ")
-                    val scorer = latestScorer(eid)
-                    val title = "⚽ GOAL  $home $hg – $ag $away"
-                    val body = (if (scorer.isNotEmpty()) "$scorer · " else "") + "$status · $comp"
-                    Notifier.notify(ctx, Notifier.CH_GOALS, eid.hashCode(), title, body, "live")
+                    found[eid] = Ev(eid, ev.optString("Eps"), ev.optString("Tr1").toIntOrNull(), ev.optString("Tr2").toIntOrNull(), home, away, comp)
                 }
             }
+        }
+        // goals / HT / FT
+        for (ev in found.values) {
+            if (ev.status == "NS" || ev.status.isEmpty() || ev.hg == null || ev.ag == null) continue
+            val score = "${ev.hg}-${ev.ag}"
+            val prev = prefs.getString("score_${ev.eid}", null)
+            val changed = !Notifier.goalSeen(ctx, ev.eid, score)
+            if (changed && prev != null && ev.hg + ev.ag > 0 && !isFinished(ev.status) && wantGoals) {
+                val scorer = latestScorer(ev.eid)
+                Notifier.notify(ctx, Notifier.CH_GOALS, ev.eid.hashCode(), "⚽ GOAL  ${ev.home} ${ev.hg} – ${ev.ag} ${ev.away}",
+                    (if (scorer.isNotEmpty()) "$scorer · " else "") + "${ev.status} · ${ev.comp}", "live")
+            }
+            if (ev.status == "HT" && wantHt && !prefs.getBoolean("ht_${ev.eid}", false)) {
+                prefs.edit().putBoolean("ht_${ev.eid}", true).apply()
+                Notifier.notify(ctx, Notifier.CH_MATCH, 5000 + (ev.eid.hashCode() and 0xfff), "⏸ Half-time  ${ev.home} ${ev.hg} – ${ev.ag} ${ev.away}", ev.comp, "live")
+            }
+            if (isFinished(ev.status) && wantFt && !prefs.getBoolean("ft_${ev.eid}", false)) {
+                prefs.edit().putBoolean("ft_${ev.eid}", true).apply()
+                if (prev != null || prefs.getBoolean("ht_${ev.eid}", false))   // only for matches we were actually following
+                    Notifier.notify(ctx, Notifier.CH_MATCH, 6000 + (ev.eid.hashCode() and 0xfff), "🏁 Full-time  ${ev.home} ${ev.hg} – ${ev.ag} ${ev.away}", ev.comp, "live")
+            }
+        }
+        // tickets (goals markets only here; corners / cards are graded in the app from the match statistics)
+        if (!wantFt) return
+        for (i in 0 until tickets.length()) {
+            val t = tickets.getJSONObject(i)
+            val id = t.optString("id")
+            if (id.isEmpty() || prefs.getBoolean("tk_$id", false)) continue
+            val legs = t.optJSONArray("legs") ?: continue
+            var lost = false; var allWon = legs.length() > 0
+            val lines = ArrayList<String>()
+            for (j in 0 until legs.length()) {
+                val l = legs.getJSONObject(j)
+                val ev = found[l.optString("eid")]
+                val sel = l.optString("sel")
+                val res: Boolean? = if (ev != null && isFinished(ev.status) && ev.hg != null && ev.ag != null) settle(sel, ev.hg, ev.ag) else if (ev != null && isVoid(ev.status)) true else null
+                if (res == null) allWon = false else if (!res) { lost = true }
+                lines.add((if (res == true) "✅ " else if (res == false) "❌ " else "⏳ ") + l.optString("label") + " (" + l.optString("home") + " v " + l.optString("away") + ")")
+            }
+            if (lost || allWon) {
+                prefs.edit().putBoolean("tk_$id", true).apply()
+                val odds = t.optDouble("odds", 0.0)
+                val stake = t.optDouble("stake", 0.0)
+                val title = if (lost) "❌ Ticket lost" else "🎉 Ticket won · odds ${"%.2f".format(odds)}" + if (stake > 0) " · return ${"%.2f".format(stake * odds)}" else ""
+                Notifier.notify(ctx, Notifier.CH_BETS, 3000 + (id.hashCode() and 0xfff), title, lines.joinToString("\n"), "bets")
+            }
+        }
+    }
+
+    /** true / false, or null when the selection cannot be graded from goals alone. */
+    private fun settle(sel: String, hg: Int, ag: Int): Boolean? {
+        val tot = hg + ag
+        fun line(s: String) = s.filter { it.isDigit() }.toInt() / 10.0
+        return when {
+            sel == "H" -> hg > ag; sel == "D" -> hg == ag; sel == "A" -> ag > hg
+            sel == "1X" -> hg >= ag; sel == "12" -> hg != ag; sel == "X2" -> ag >= hg
+            sel == "BTTS" -> hg > 0 && ag > 0; sel == "NBTTS" -> !(hg > 0 && ag > 0)
+            Regex("^[OU]\\d+$").matches(sel) -> if (sel[0] == 'O') tot > line(sel) else tot < line(sel)
+            Regex("^[HA][OU]\\d+$").matches(sel) -> { val g = if (sel[0] == 'H') hg else ag; if (sel[1] == 'O') g > line(sel) else g < line(sel) }
+            else -> null
         }
     }
 

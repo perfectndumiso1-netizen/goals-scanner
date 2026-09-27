@@ -219,6 +219,12 @@ class MainActivity : AppCompatActivity() {
             getSharedPreferences(Notifier.PREFS, MODE_PRIVATE).edit().putBoolean("pref_$key", value).apply()
         }
 
+        /** Small JSON blobs shared with the background checker (pending tickets). */
+        @JavascriptInterface
+        fun setString(key: String, value: String) {
+            getSharedPreferences(Notifier.PREFS, MODE_PRIVATE).edit().putString("str_$key", value).apply()
+        }
+
         /** Called by the page whenever its theme resolves (system / light / dark). */
         @JavascriptInterface
         fun setTheme(dark: Boolean) = runOnUiThread { applyTheme(dark) }

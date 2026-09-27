@@ -335,3 +335,32 @@ select { border: 1px solid var(--line); background: var(--card-2); color: var(--
 .ico.amber { color: var(--amber, #f59e0b); }
 details summary { cursor: pointer; padding: 6px 0; }
 .mrow .sub .chip { margin-right: 4px; }
+
+/* v1.2: bet slip, tickets, search, lineups, stats bars, accordions */
+.addsel { width: 30px; height: 30px; border-radius: 50%; border: 1.5px solid var(--brand-2); background: transparent; color: var(--brand-text); font-weight: 800; font-size: 18px; line-height: 1; display: inline-flex; align-items: center; justify-content: center; margin-left: 6px; flex: 0 0 auto; }
+.addsel.on { background: var(--good); border-color: var(--good); color: #fff; }
+.addsel .ic { width: 16px; height: 16px; }
+#slipbar { position: fixed; left: 0; right: 0; bottom: calc(66px + var(--safe-bottom)); z-index: 40; padding: 0 10px; transform: translateY(120%); transition: transform .25s; pointer-events: none; }
+#slipbar.show { transform: translateY(-8px); pointer-events: auto; }
+.slipbtn { width: 100%; max-width: 740px; margin: 0 auto; display: flex; align-items: center; gap: 10px; background: var(--brand); color: #fff; border: 0; border-radius: 14px; padding: 10px 14px; box-shadow: 0 6px 20px rgba(0,0,0,.25); font-size: 14px; text-align: left; }
+.slipbtn .cnt { background: var(--good); color: #fff; border-radius: 999px; min-width: 26px; height: 26px; display: inline-flex; align-items: center; justify-content: center; font-weight: 800; }
+body.has-slip #view { padding-bottom: 70px; }
+.acc-head { display: flex; align-items: center; gap: 8px; padding: 10px 6px; border-bottom: 1px solid var(--line); font-weight: 700; cursor: pointer; }
+.acc-head .cnt { margin-left: auto; font-size: 12px; color: var(--muted); font-weight: 600; }
+.acc-head .chev { transition: transform .2s; color: var(--muted); }
+.acc-head.open .chev { transform: rotate(90deg); }
+.hour-head { font-size: 12px; font-weight: 700; color: var(--muted); padding: 8px 6px 2px; letter-spacing: .3px; }
+.statbar { display: grid; grid-template-columns: 44px 1fr 44px; align-items: center; gap: 8px; font-size: 13px; margin: 6px 0; }
+.statbar .k { text-align: center; font-size: 11px; color: var(--muted); }
+.statbar .duo { display: flex; height: 6px; border-radius: 3px; overflow: hidden; background: var(--chip); }
+.statbar .duo .l { background: var(--brand-2); height: 100%; } .statbar .duo .r { background: var(--amber, #f59e0b); height: 100%; margin-left: auto; }
+.statbar .duo { justify-content: space-between; }
+.statbar .lead { font-weight: 800; }
+.lineup { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.lineup .pl { display: flex; align-items: center; gap: 6px; padding: 3px 0; font-size: 13px; }
+.lineup .pl .no { width: 22px; text-align: right; color: var(--muted); font-size: 11px; font-weight: 700; }
+.lineup .pl .pos { font-size: 10px; color: var(--muted); }
+.lineup h4 { margin: 6px 0 2px; font-size: 12px; color: var(--muted); font-weight: 700; }
+.value-tag { display: inline-block; font-size: 11px; color: var(--muted); margin-top: 2px; }
+.slip-stake, #slip-stake { width: 100%; max-width: 170px; box-sizing: border-box; }
+.seg button .ic { flex: 0 0 auto; }

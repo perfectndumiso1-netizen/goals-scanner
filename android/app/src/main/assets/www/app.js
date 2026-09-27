@@ -7,6 +7,7 @@
   $$('#tabs button').forEach((b) => { b.onclick = () => PR.setTab(b.dataset.tab); });
   $('#btn-refresh').onclick = () => { PR.loadData(true); if (state.tab === 'live' || state.tab === 'home') PR.live.refresh(true); };
   $('#btn-menu').onclick = (e) => { e.stopPropagation(); PR.toggleMenu(); };
+  $('#btn-search').onclick = (e) => { e.stopPropagation(); PR.closeMenu(); state.focusSearch = true; state.stack = []; if (state.tab === 'matches') PR.render(); else PR.setTab('matches'); const i = $('#fx-search'); if (i) { i.focus(); i.scrollIntoView({ block: 'start', behavior: 'smooth' }); } };
   $$('#menu [data-page]').forEach((b) => { b.onclick = () => { PR.closeMenu(); const t = b.dataset.page; state.stack = []; PR.push({ type: t }); }; });
   $('#menu [data-contact]').onclick = () => { PR.closeMenu(); if (PR.native && PR.native.openUrl) PR.native.openUrl(`https://wa.me/${PR.CONTACT.whatsapp}`); else window.open(`https://wa.me/${PR.CONTACT.whatsapp}`); };
   document.addEventListener('visibilitychange', () => { if (!document.hidden && (state.tab === 'live' || state.tab === 'home')) PR.live.refresh(false); });
@@ -48,6 +49,7 @@
   PR.loadBadges().then(() => { if (state.data) PR.render(); });
   PR.loadData(false).then(() => { if (state.data) PR.live.refresh(false); });
   PR.live.schedule();
-  if (PR.native && PR.native.setPref) { try { PR.native.setPref('goals', !!settings.goalAlerts); PR.native.setPref('bets', settings.betAlerts !== false); PR.native.setPref('reports', settings.reportAlerts !== false); } catch (e) { /* ignore */ } }
+  if (PR.native && PR.native.setPref) { try { PR.native.setPref('goals', !!settings.goalAlerts); PR.native.setPref('ht', !!settings.htAlerts); PR.native.setPref('ft', settings.ftAlerts !== false); PR.native.setPref('bets', settings.betAlerts !== false); PR.native.setPref('reports', settings.reportAlerts !== false); } catch (e) { /* ignore */ } }
+  if (PR.reconcileTickets) setTimeout(() => PR.reconcileTickets(), 2500);
   if (PR.native && PR.native.checkUpdate) setTimeout(() => { try { PR.native.checkUpdate(); } catch (e) { /* ignore */ } }, 4000);
 })(window.PR);

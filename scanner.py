@@ -53,6 +53,7 @@ import parlays as parlay_mod
 import sporty
 import livescore
 import trends as trends_mod
+import squads as squads_mod
 import worldfeed
 import appdata
 import safe as safe_mod
@@ -147,6 +148,9 @@ CONFIG = {
     "BOTD_N": int(_env_float("BOTD_N", 5)),            # bets of the day
     "REPORT_MAX_ROWS": int(_env_float("REPORT_MAX_ROWS", 60)),
     "DETAIL_MAX": int(os.getenv("DETAIL_MAX", "12")),        # match dossiers in the report / PDF
+    "STATS_BUDGET_S": _env_float("STATS_BUDGET_S", 75),      # Livescore match statistics per run: time budget
+    "STATS_MAX": int(_env_float("STATS_MAX", 400)),          # ... and request cap
+    "WORLD_COUNT_MIN_N": int(_env_float("WORLD_COUNT_MIN_N", 5)),  # corners/cards outside the main leagues need this many matches with stats per team
     "H2H_SEASONS": int(_env_float("H2H_SEASONS", 5)),  # seasons of main-league history kept for head-to-head
     "REQUEST_TIMEOUT": 30,
     "USER_AGENT": "Mozilla/5.0 (compatible; GoalsScanner/1.0)",
@@ -786,13 +790,20 @@ def analyse(fx: pd.Series, long: pd.DataFrame, results: pd.DataFrame,
     oh, od, oa = sharp_1x2(fx)
     ex.x12 = markets.one_x_two(M, oh, od, oa)
     ex.tg = markets.team_goals(M)
+    # corners / cards: main leagues from football-data; elsewhere from the archived Livescore match statistics once
+    # both teams have enough matches with stats
+    min_n = 0 if fx["source"] == "main" else CONFIG["WORLD_COUNT_MIN_N"]
     cm = MODELS.get("corners")
-    if cm is not None and fx["source"] == "main":
+    if cm is not None:
         ex.corners = cm.expect(fx["country"], fx["home"], fx["away"], fx["div"])
+        if ex.corners is not None and (ex.corners.h_n < min_n or ex.corners.a_n < min_n):
+            ex.corners = None
         ex.corner_p = markets.count_lines(ex.corners, markets.CORNERS)
     km = MODELS.get("cards")
-    if km is not None and fx["source"] == "main":
+    if km is not None:
         ex.cards = km.expect(fx["country"], fx["home"], fx["away"], fx["div"], fx.get("referee", "") or "")
+        if ex.cards is not None and (ex.cards.h_n < min_n or ex.cards.a_n < min_n):
+            ex.cards = None
         ex.card_p = markets.count_lines(ex.cards, markets.CARDS)
     so, su = sharp_ou(fx)
     fair_o = markets.fair_two_way(so, su)
@@ -1172,6 +1183,12 @@ def render_details(r: MatchRow) -> list[str]:
              f"P(BTTS) **{pct(r.p_final['BTTS'])}**")
     L.append(f"* Team-form model alone: {r.mod_h:.2f} – {r.mod_a:.2f} · P(O2.5) {pct(r.p_model['O25'])} · P(BTTS) {pct(r.p_model['BTTS'])}"
              + (f" · Market-implied: {r.mkt_h:.2f} – {r.mkt_a:.2f}" if not math.isnan(r.mkt_h) else ""))
+    sqd = getattr(r, "squad", None) or {}
+    if sqd.get("home") or sqd.get("away"):
+        h_, a_ = sqd.get("home") or {}, sqd.get("away") or {}
+        L.append(f"* Squad value (Transfermarkt): {html.escape(r.fx['home'])} **{squads_mod.fmt_value(h_.get('value'))}**"
+                 f"{' (avg age ' + str(h_.get('avg_age')) + ')' if h_.get('avg_age') else ''} · {html.escape(r.fx['away'])} "
+                 f"**{squads_mod.fmt_value(a_.get('value'))}**{' (avg age ' + str(a_.get('avg_age')) + ')' if a_.get('avg_age') else ''}")
     if not math.isnan(r.p_market_o25):
         L.append(f"* Market: Over 2.5 @ {r.fx['odds_over']:.2f} / Under 2.5 @ {r.fx['odds_under']:.2f} "
                  f"(implied O2.5 {pct(r.p_market_o25)}) · 1X2 {f2(r.fx['odds_h'])} / {f2(r.fx['odds_d'])} / {f2(r.fx['odds_a'])}")
@@ -1623,7 +1640,7 @@ def rows_to_csv(rows: list[MatchRow], path: Path) -> None:
     for r in rows:
         fx = r.fx
         recs.append({
-            "kickoff_uk": fx["kickoff"].strftime("%Y-%m-%d %H:%M"), "country": fx["country"],
+            "kickoff": fx["kickoff"].strftime("%Y-%m-%d %H:%M"), "country": fx["country"],
             "competition": fx["league"], "div": fx["div"], "home": fx["home"], "away": fx["away"],
             "xg_home_final": round(r.lam_h, 3), "xg_away_final": round(r.lam_a, 3),
             "xg_home_model": round(r.mod_h, 3), "xg_away_model": round(r.mod_a, 3),
@@ -1789,7 +1806,7 @@ def send_telegram_document(path: Path, caption: str) -> bool:
     try:
         with open(path, "rb") as fh:
             r = SESSION.post(f"https://api.telegram.org/bot{token}/sendDocument", data={"chat_id": chat, "caption": caption[:1000]},
-                             files={"document": (path.name, fh, "application/pdf" if path.suffix == ".pdf" else "text/plain")}, timeout=60)
+                             files={"document": (f"playreport-{path.name}" if not path.name.startswith("playreport") else path.name, fh, "application/pdf" if path.suffix == ".pdf" else "text/csv" if path.suffix == ".csv" else "text/plain")}, timeout=60)
         if r.status_code != 200:
             log.warning("Telegram document error %s: %s", r.status_code, r.text[:200])
             return False
@@ -1947,7 +1964,9 @@ def main() -> None:
         try:
             archive = worldfeed.Archive(LS_DIR)
             archive.absorb_days(ls_events, now)
-            archive.refresh(worldfeed.stage_priorities(todays), now, tz_off)
+            prios = worldfeed.stage_priorities(todays)
+            archive.refresh(prios, now, tz_off)
+            archive.refresh_stats(prios, now, budget_s=CONFIG["STATS_BUDGET_S"], max_n=CONFIG["STATS_MAX"])
             archive.save()
         except Exception as exc:  # noqa: BLE001
             log.warning("Livescore archive failed: %s", exc)
@@ -2003,13 +2022,26 @@ def main() -> None:
         for r in sorted(rows, key=lambda r: r.fx["kickoff"]):
             if n_full >= CONFIG["FULL_MARKETS_MAX"]:
                 break
-            if r.fx["source"] == "main" and r.sb_event and r.sb_event.get("id") and (r.extra.corners or r.extra.cards):
+            if r.sb_event and r.sb_event.get("id") and (r.extra.corners or r.extra.cards):
                 r.sb_full = sporty.fetch_event_markets(r.sb_event["id"])
                 n_full += 1
     log.info("Sportybet: %d fixtures priced, %d full market lists", len(sbmap), n_full)
     picks = select_picks(rows)
 
     # ---- trends (team / match / head-to-head)
+    # squad market values (Transfermarkt, weekly) — context only
+    sq = None
+    try:
+        sq = squads_mod.Squads(DATA_DIR / "squads.json")
+        sq.refresh(set(str(d) for d in todays["div"]) if not todays.empty else set(), now)
+        n_sq = 0
+        for r in rows:
+            r.squad = {"home": sq.lookup(r.fx["div"], r.fx["home"]), "away": sq.lookup(r.fx["div"], r.fx["away"])}
+            n_sq += bool(r.squad["home"]) + bool(r.squad["away"])
+        sq.save()
+        log.info("Squad values: %d of %d teams matched", n_sq, 2 * len(rows))
+    except Exception as exc:  # noqa: BLE001
+        log.warning("Squad values failed: %s", exc)
     try:
         lg_tr = trends_mod._long(pool)
         for r in rows:
@@ -2023,7 +2055,7 @@ def main() -> None:
     try:
         days = history_mod.Days(DAYS_DIR, now)
         days.upsert(rows, comp, ls_map, top_sels)
-        extra = days.fill_scores(results)
+        extra = days.fill_scores(results, archive)
         if not extra.empty:
             results_s = pd.concat([results, extra], ignore_index=True)
             log.info("History: %d late score(s) from Livescore added for settlement", len(extra))
@@ -2096,7 +2128,7 @@ def main() -> None:
         except Exception as exc:  # noqa: BLE001
             log.warning("Day history write failed: %s", exc)
     try:
-        log.info("Team pages: %d division file(s)", len(teamstats.export(results, now, TEAMS_DIR)))
+        log.info("Team pages: %d division file(s)", len(teamstats.export(results, now, TEAMS_DIR, squad_lookup=sq.lookup if sq else None)))
     except Exception as exc:  # noqa: BLE001
         log.warning("Team pages failed: %s", exc)
 
@@ -2144,6 +2176,10 @@ def main() -> None:
         send_telegram(telegram_text(ctx, rows, picks, report_url))
         if pdf_report:
             send_telegram_document(pdf_report, f"📄 PlayReport — {now:%a %d %b}, {run_desc(run_label, True)} ({len(rows)} fixtures)")
+        csv_path = REPORTS_DIR / f"{today_str}.csv"
+        if csv_path.exists():
+            send_telegram_document(csv_path, f"📊 PlayReport data — {now:%a %d %b}, {run_desc(run_label, True)}: every fixture with "
+                                             f"probabilities, expected goals, corners, cards and Sportybet prices (CSV)")
         mark_report_run(now, run_label)
     elif new_bets:
         send_telegram(alert_text(new_bets, now))

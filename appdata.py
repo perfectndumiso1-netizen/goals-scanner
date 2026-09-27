@@ -215,6 +215,7 @@ def export(path: Path, *, ctx: dict, rows: list, picks: dict, tracker_summary: d
             "league_ctx": {"btts": _f(getattr(r.div_avg, "btts_rate", None))},
             "sels": [[d["sel"], d["p"], d["p_model"], d["p_sb"], d["odds"], 1 if d["diff"] else 0] for d in sels],
             "trends": r.trends or {},
+            "squad": getattr(r, "squad", None) or None,
         })
         _write(fx_dir / f"{key}.json", detail)
     # prune detail files of fixtures older than a few days (day pages keep their own summary)

@@ -15,6 +15,7 @@
   live.for = (f) => f && f.livescore_id ? state.live[f.livescore_id] : null;
   live.tracked = function () {
     const d = state.data; const ids = new Set(d.tracked || []);
+    if (PR.ticketFixtures) PR.ticketFixtures().forEach((id) => ids.add(id));
     return (d.fixtures || []).filter((f) => ids.has(f.id)).sort((a, b) => a.kickoff.localeCompare(b.kickoff));
   };
   const LIVE_STATUS = (e) => e.Eps || '';
@@ -25,7 +26,7 @@
     if (now.getHours() < 3) days.add(ymd(new Date(now.getTime() - 86400000)));
     const want = new Set(tracked.map((f) => f.livescore_id));
     const byEid = {}; (d.fixtures || []).forEach((f) => { if (f.livescore_id) byEid[f.livescore_id] = f; });
-    const goalEvents = []; const all = []; const seenAll = new Set();
+    const goalEvents = []; const all = []; const seenAll = new Set(); const phaseEvents = [];
     for (const day of days) {
       try {
         const j = await PR.getJson(`https://prod-public-api.livescore.com/v1/api/app/date/soccer/${day.replace(/-/g, '')}/${settings.tzOffset}?MD=1`);
@@ -36,6 +37,7 @@
           const prev = state.live[eid];
           state.live[eid] = cur;
           if (want.has(eid) && prev && prev.hg != null && cur.hg != null && (cur.hg + cur.ag) > (prev.hg + prev.ag)) goalEvents.push(eid);
+          if (want.has(eid) && prev && prev.status !== cur.status && (cur.status === 'HT' || isFT(cur))) phaseEvents.push(eid);
           if (isLive(cur) && !seenAll.has(eid)) {
             seenAll.add(eid);
             const t1 = (e.T1 || [])[0] || {}, t2 = (e.T2 || [])[0] || {};
@@ -65,7 +67,25 @@
     if ((state.tab === 'live' || state.tab === 'home') && !top) PR.render();
     if (top && top.type === 'match') PR.render();
     goalEvents.forEach(announceGoal);
+    phaseEvents.forEach(announcePhase);
+    if (PR.settleTickets) PR.settleTickets(true);
   };
+  function announcePhase(eid) {
+    const f = live.tracked().find((x) => x.livescore_id === eid); const s = state.live[eid]; if (!f || !s) return;
+    const ht = s.status === 'HT';
+    if (ht && !settings.htAlerts) return; if (!ht && !settings.ftAlerts) return;
+    const bets = betsFor(f.id).map((b) => `${b.label}: ${liveVerdict(b.sel, s).text}`).join(' · ');
+    const title = `${ht ? '⏸ Half-time' : '🏁 Full-time'}  ${f.home} ${s.hg} – ${s.ag} ${f.away}`;
+    const text = (bets ? bets + ' · ' : '') + f.competition;
+    if (PR.native && PR.native.notify) { try { PR.native.notify('match', (ht ? 5000 : 6000) + (parseInt(eid, 10) % 1000), title, text, 'live'); } catch (e) { /* ignore */ } } else toast(title);
+  }
+  function betsFor(fid) {
+    const d = state.data, out = [], sf = d.safe || { bets: [] };
+    ((sf.today && sf.today.bets) || []).filter((b) => b.fixture === fid).forEach((b) => out.push({ label: b.label, sel: b.sel }));
+    (sf.bets || []).filter((b) => b.fixture === fid && !out.some((o) => o.sel === b.sel)).forEach((b) => out.push({ label: b.label, sel: b.sel }));
+    if (PR.tickets) PR.tickets().forEach((t) => { if (t.status === 'pending') t.legs.filter((l) => l.fixture === fid && !out.some((o) => o.sel === l.sel)).forEach((l) => out.push({ label: '🎫 ' + l.label, sel: l.sel })); });
+    return out;
+  }
   function announceGoal(eid) {
     if (!settings.goalAlerts) return;
     const f = live.tracked().find((x) => x.livescore_id === eid); const s = state.live[eid]; if (!f || !s) return;
@@ -107,12 +127,12 @@
     return `<tr ${tap}><td class="tiny muted nowrap">${esc(opts.time ? koTime(b.kickoff) : koShort(b.kickoff))}</td>
       <td><div class="row" style="gap:6px">${badge(b.home, b.badges && b.badges.home, 20)}${badge(b.away, b.badges && b.badges.away, 20)}<div class="b grow">${esc(b.home)} <span class="muted">v</span> ${esc(b.away)}</div></div>
       <div class="sel"><b>${esc(b.label)}</b></div><div class="tiny muted">${flag(b.country)} ${esc(b.league)}${st.text !== 'not started' ? ` · <span class="${st.cls}">${esc(st.text)}</span>` : ''}</div></td>
-      <td class="right nowrap"><b>${f2(b.odds)}</b></td><td class="right">${pill(b.p, 0.8, 0.7)}</td></tr>`;
+      <td class="right nowrap"><b>${f2(b.odds)}</b></td><td class="right"><div class="row" style="gap:0;justify-content:flex-end">${pill(b.p, 0.8, 0.7)}${PR.addBtn ? PR.addBtn(b.fixture, b.sel, b.odds) : ''}</div></td></tr>`;
   }
   function selRow(f, s) {
     return `<tr class="tap" data-fx="${esc(f.id)}"><td class="tiny muted nowrap">${esc(koShort(f.kickoff))}</td>
       <td><div class="match">${esc(f.home)} <span class="muted">v</span> ${esc(f.away)}</div><div class="sel"><b>${esc(selLabel(s.sel, f.home, f.away))}</b></div><div class="tiny muted">${flag(f.country)} ${esc(f.competition)}${s.diff ? ' · <span class="warn">views differ</span>' : ''}</div></td>
-      <td class="right nowrap">${s.odds ? `<b>${f2(s.odds)}</b>` : '<span class="muted">–</span>'}</td><td class="right">${pill(s.p, 0.8, 0.7)}</td></tr>`;
+      <td class="right nowrap">${s.odds ? `<b>${f2(s.odds)}</b>` : '<span class="muted">–</span>'}</td><td class="right"><div class="row" style="gap:0;justify-content:flex-end">${pill(s.p, 0.8, 0.7)}${PR.addBtn ? PR.addBtn(f.id, s.sel, s.odds) : ''}</div></td></tr>`;
   }
   function botdCard(compact) {
     const sf = state.data.safe || {}; const today = sf.today || { bets: [] }; const bets = today.bets || [];
@@ -137,7 +157,7 @@
       ${inPlay.length ? `<div class="live-strip" data-tab-go="live"><span class="status-dot live"></span><div class="grow"><b>${inPlay.length} tracked in play</b> · ${inPlay.slice(0, 2).map((f) => { const s = live.for(f); return `${esc(f.home)} ${s.hg}–${s.ag} ${esc(f.away)}`; }).join(' · ')}${inPlay.length > 2 ? ' …' : ''}</div>${icon('next', 'sm')}</div>` : ''}</div>`);
     if (PR.APP_VERSION && settings.seenVersion !== PR.APP_VERSION) {
       parts.push(`<div class="card whatsnew"><div class="row"><div class="grow"><b>${icon('sparkle', 'sm')} New in PlayReport ${esc(PR.APP_VERSION)}</b></div><button class="link" id="wn-close">${icon('x')}</button></div>
-        <ul><li>Every competition worldwide — including women's and youth leagues priced by Sportybet</li><li>Analysis refreshed every 30 minutes; new safest bets arrive as notifications</li><li>⭐ Bets of the day with its own graded record</li><li>Trends, head-to-head and home/away form on every match page</li><li>Live scores for every match in play · new Guide to the markets (☰ menu)</li></ul></div>`);
+        <ul><li>🎫 <b>Bet slip & tickets</b> — tap + next to any priced selection, press Done to lock the ticket; PlayReport grades it from the scores (☰ › My tickets)</li><li>Matches by time or by country & competition, plus a search button in the header</li><li>Match statistics (possession, shots, corners, cards), line-ups and squad values on match pages</li><li>Half-time / full-time and ticket notifications (Settings)</li><li>Results archive now keeps match statistics for every league, so corners & cards models grow worldwide</li></ul></div>`);
     }
     parts.push(botdCard(true));
     parts.push(`<div class="section-head">${sh('lock', 'Safest bets', 'green')}<button class="link" data-bets="safest">All ${safe.length} ${icon('next')}</button></div>`);
@@ -283,36 +303,69 @@
   PR.incidentLine = incidentLine;
 
   // ------------------------------------------------------------------ MATCHES
+  const PINNED = ['England', 'Spain', 'Italy', 'Germany', 'France', 'Netherlands', 'Portugal', 'Belgium', 'Turkiye', 'Scotland', 'South Africa', 'UEFA Champions League', 'UEFA Europa League'];
+  function matchSub(f, withComp) {
+    const b = f.safe || (f.top && f.top[2] >= 1.3 ? f.top : null);
+    return `${withComp ? flag(f.country) + ' ' + esc(f.competition) + ' · ' : ''}xG ${f1(f.xg[0])}–${f1(f.xg[1])}${b ? ` · ${f.safe ? '🔒 ' : ''}<b>${esc(selShort(b[0]))}</b> ${pct(b[1])} @ ${f2(b[2])}` : f.priced ? '' : ' · <span class="muted">no price</span>'}${f.data_ok ? '' : ' · <span class="warn">low data</span>'}${f.time_known === false ? ' · <span class="muted">time tbc</span>' : ''}`;
+  }
+  function matchRight(f, s) { return s && s.hg != null ? '' : `<span class="tiny muted">O2.5 ${pill(f.p.O25, 0.6, 0.5)}</span><span class="tiny muted">BTTS ${pill(f.p.BTTS, 0.6, 0.5)}</span>`; }
   PR.views.matches = function () {
-    const d = state.data; const q = (state.search || '').toLowerCase(); const key = state.sort || 'ko'; const filt = state.matchFilter || 'all';
+    const d = state.data; const q = (state.search || '').trim().toLowerCase(); const key = state.sort || 'ko'; const filt = state.matchFilter || 'all'; const mode = state.matchesView || 'time';
     let lst = d.fixtures.filter((f) => !q || `${f.home} ${f.away} ${f.competition} ${f.country}`.toLowerCase().includes(q));
     if (filt === 'priced') lst = lst.filter((f) => f.priced);
     else if (filt === 'safe') lst = lst.filter((f) => f.safe);
     else if (filt === 'major') lst = lst.filter((f) => f.major);
     else if (filt === 'ok') lst = lst.filter((f) => f.data_ok);
+    else if (filt === 'live') lst = lst.filter((f) => isLive(live.for(f)));
     const best = (f) => (f.top && f.top[2] >= 1.3 ? f.top[1] : 0);
-    lst = lst.slice().sort((a, b) => key === 'ko' ? a.kickoff.localeCompare(b.kickoff) || a.competition.localeCompare(b.competition) : key === 'safe' ? best(b) - best(a) : key === 'H' ? (b.x12[0] || 0) - (a.x12[0] || 0) : (b.p[key] || 0) - (a.p[key] || 0));
-    const parts = [`<div class="card compact"><div class="searchbar"><div class="field">${icon('search')}<input id="fx-search" placeholder="Search team, league or country" value="${esc(state.search || '')}"></div>
-      ${select('fx-sort', [['ko', 'Kick-off'], ['safe', 'Best bet first'], ['O25', 'Over 2.5'], ['O15', 'Over 1.5'], ['BTTS', 'BTTS'], ['H', 'Home win']], key)}</div>
-      <div class="chips small-chips" style="margin-top:6px">${[['all', `All ${d.fixtures.length}`], ['major', '🏆 Major leagues'], ['priced', 'Priced'], ['safe', '🔒 Safest bet'], ['ok', 'Enough data']].map(([k, l]) => `<button class="chip tapchip ${filt === k ? 'on' : ''}" data-mf="${k}">${l}</button>`).join('')}</div></div>`];
-    if (!lst.length) parts.push(`<div class="card empty">No matches found.</div>`);
-    let lastDay = null, lastComp = null; const max = state.expanded.matches ? lst.length : 250;
-    lst.slice(0, max).forEach((f) => {
-      const day = f.kickoff.slice(0, 10);
-      if (key === 'ko' && day !== lastDay) { if (lastDay) parts.push('</div>'); parts.push(`<h2 class="section">${esc(dayName(day))}</h2><div class="card compact">`); lastDay = day; lastComp = null; }
-      else if (key !== 'ko' && !lastDay) { parts.push('<div class="card compact">'); lastDay = 'x'; }
-      if (key === 'ko' && f.competition !== lastComp) { parts.push(`<div class="comp-head">${flag(f.country)} ${esc(f.competition)}</div>`); lastComp = f.competition; }
-      const s = live.for(f); const b = f.safe || (f.top && f.top[2] >= 1.3 ? f.top : null);
-      const sub = `${key === 'ko' ? '' : flag(f.country) + ' ' + esc(f.competition) + ' · '}xG ${f1(f.xg[0])}–${f1(f.xg[1])}${b ? ` · ${f.safe ? '🔒 ' : ''}<b>${esc(selShort(b[0]))}</b> ${pct(b[1])} @ ${f2(b[2])}` : f.priced ? '' : ' · <span class="muted">no price</span>'}${f.data_ok ? '' : ' · <span class="warn">low data</span>'}${f.time_known === false ? ' · <span class="muted">time tbc</span>' : ''}`;
-      parts.push(matchRow(f, { live: s, short: key === 'ko', sub, right: s && s.hg != null ? '' : `<span class="tiny muted">O2.5 ${pill(f.p.O25, 0.6, 0.5)}</span><span class="tiny muted">BTTS ${pill(f.p.BTTS, 0.6, 0.5)}</span>` }));
-    });
-    if (lastDay) parts.push('</div>');
-    if (lst.length > max) parts.push(`<button class="btn wide" data-more="matches">Show all ${lst.length}</button>`);
+    const parts = [`<div class="card compact"><div class="searchbar"><div class="field">${icon('search')}<input id="fx-search" placeholder="Search team, league or country" value="${esc(state.search || '')}">${q ? `<button class="link" id="fx-clear">${icon('x')}</button>` : ''}</div></div>
+      <div style="margin-top:8px">${segmented([['time', `${icon('clock')} By time`], ['comp', `${icon('trend')} By country & competition`]], mode, 'mmode')}</div>
+      <div class="chips small-chips" style="margin-top:6px">${[['all', `All ${d.fixtures.length}`], ['live', '🔴 Live'], ['major', '🏆 Major'], ['priced', 'Priced'], ['safe', '🔒 Safest bet'], ['ok', 'Enough data']].map(([k, l]) => `<button class="chip tapchip ${filt === k ? 'on' : ''}" data-mf="${k}">${l}</button>`).join('')}
+      ${mode === 'time' ? select('fx-sort', [['ko', 'Kick-off'], ['safe', 'Best bet first'], ['O25', 'Over 2.5'], ['O15', 'Over 1.5'], ['BTTS', 'BTTS'], ['H', 'Home win']], key) : ''}</div></div>`];
+    if (!lst.length) parts.push(`<div class="card empty">No matches found${q ? ` for “${esc(q)}”` : ''}.</div>`);
+    else if (mode === 'time') {
+      lst = lst.slice().sort((a, b) => key === 'ko' ? a.kickoff.localeCompare(b.kickoff) || a.competition.localeCompare(b.competition) : key === 'safe' ? best(b) - best(a) : key === 'H' ? (b.x12[0] || 0) - (a.x12[0] || 0) : (b.p[key] || 0) - (a.p[key] || 0));
+      const max = state.expanded.matches ? lst.length : 250; let lastDay = null, lastHour = null;
+      lst.slice(0, max).forEach((f) => {
+        const day = f.kickoff.slice(0, 10), hour = f.kickoff.slice(11, 13) + ':00';
+        if (key === 'ko' && day !== lastDay) { if (lastDay) parts.push('</div>'); parts.push(`<h2 class="section">${esc(dayName(day))}</h2><div class="card compact">`); lastDay = day; lastHour = null; }
+        else if (key !== 'ko' && !lastDay) { parts.push('<div class="card compact">'); lastDay = 'x'; }
+        if (key === 'ko' && hour !== lastHour) { parts.push(`<div class="hour-head">${esc(hour)}</div>`); lastHour = hour; }
+        const s = live.for(f);
+        parts.push(matchRow(f, { live: s, short: true, sub: matchSub(f, true), right: matchRight(f, s) }));
+      });
+      if (lastDay) parts.push('</div>');
+      if (lst.length > max) parts.push(`<button class="btn wide" data-more="matches">Show all ${lst.length}</button>`);
+    } else {
+      // country -> competition accordions
+      const byC = {}; lst.forEach((f) => { (byC[f.country] = byC[f.country] || {}); (byC[f.country][f.competition] = byC[f.country][f.competition] || []).push(f); });
+      const countries = Object.keys(byC).sort((a, b) => { const pa = PINNED.indexOf(a), pb = PINNED.indexOf(b); return (pa < 0 ? 99 : pa) - (pb < 0 ? 99 : pb) || a.localeCompare(b); });
+      const open = state.openCountries || (state.openCountries = new Set(q ? countries : countries.slice(0, 3)));
+      if (q) countries.forEach((c) => open.add(c));
+      parts.push(`<div class="row" style="padding:0 6px 4px"><div class="grow tiny muted">${countries.length} countries · ${Object.values(byC).reduce((a, c) => a + Object.keys(c).length, 0)} competitions</div><button class="link" id="acc-all">${open.size >= countries.length ? 'Collapse all' : 'Expand all'}</button></div>`);
+      parts.push('<div class="card compact">');
+      countries.forEach((c) => {
+        const comps = byC[c]; const n = Object.values(comps).reduce((a, l) => a + l.length, 0); const nl = Object.values(comps).reduce((a, l) => a + l.filter((f) => isLive(live.for(f))).length, 0); const isOpen = open.has(c);
+        parts.push(`<div class="acc-head ${isOpen ? 'open' : ''}" data-acc="${esc(c)}"><span>${flag(c)}</span><span>${esc(c)}</span>${nl ? `<span class="status-dot live"></span>` : ''}<span class="cnt">${Object.keys(comps).length} · ${n} match${n === 1 ? '' : 'es'}</span><span class="chev">${icon('next')}</span></div>`);
+        if (!isOpen) return;
+        Object.keys(comps).sort().forEach((comp) => {
+          parts.push(`<div class="comp-head">${esc(comp.replace(c + ' · ', ''))}</div>`);
+          comps[comp].sort((a, b) => a.kickoff.localeCompare(b.kickoff)).forEach((f) => { const s = live.for(f); parts.push(matchRow(f, { live: s, short: false, sub: matchSub(f, false), right: matchRight(f, s) })); });
+        });
+      });
+      parts.push('</div>');
+    }
     view().innerHTML = parts.join('');
-    $('#fx-search').oninput = (e) => { state.search = e.target.value; PR.render(); const i = $('#fx-search'); i.focus(); i.setSelectionRange(i.value.length, i.value.length); };
-    $('#fx-sort').onchange = (e) => { state.sort = e.target.value; PR.render(); };
+    const inp = $('#fx-search');
+    inp.oninput = (e) => { state.search = e.target.value; PR.render(); const i = $('#fx-search'); i.focus(); i.setSelectionRange(i.value.length, i.value.length); };
+    if (state.focusSearch) { state.focusSearch = false; inp.focus(); }
+    const cl = $('#fx-clear'); if (cl) cl.onclick = () => { state.search = ''; PR.render(); };
+    const so = $('#fx-sort'); if (so) so.onchange = (e) => { state.sort = e.target.value; PR.render(); };
     $$('[data-mf]').forEach((b) => { b.onclick = () => { state.matchFilter = b.dataset.mf; PR.render(); }; });
+    $$('[data-mmode]').forEach((b) => { b.onclick = () => { state.matchesView = b.dataset.mmode; PR.render(); }; });
     $$('[data-more]').forEach((b) => { b.onclick = () => { state.expanded[b.dataset.more] = true; PR.render(); }; });
+    $$('[data-acc]').forEach((b) => { b.onclick = () => { const o = state.openCountries; if (o.has(b.dataset.acc)) o.delete(b.dataset.acc); else o.add(b.dataset.acc); PR.render(); }; });
+    const all = $('#acc-all'); if (all) all.onclick = () => { const cs = Object.keys(d.fixtures.reduce((a, f) => { a[f.country] = 1; return a; }, {})); if (state.openCountries.size >= cs.length) state.openCountries = new Set(); else state.openCountries = new Set(cs); PR.render(); };
   };
 
   // ------------------------------------------------------------------ DAYS

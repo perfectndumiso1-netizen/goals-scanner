@@ -19,6 +19,7 @@ from pathlib import Path
 
 import numpy as np
 import pandas as pd
+import requests
 
 import livescore
 
@@ -88,8 +89,50 @@ def fetch_stage(ccd: str, scd: str, tz_offset_hours: int = 2) -> tuple[dict | No
 
 
 # ----------------------------------------------------------------------------- archive
+STAT_KEYS = ("hc", "ac", "hy", "ay", "hr", "ar", "hs", "as", "hst", "ast", "hposs", "aposs", "hf", "af")
+
+
+def fetch_stats(eid: str) -> list | None:
+    """Match statistics of a finished match: [hc, ac, hy, ay, hr, ar, hs, as, hst, ast, hposs, aposs, hf, af]
+    or [] when Livescore has no statistics for it; None on a network error (retry later)."""
+    try:
+        r = requests.get(f"{BASE}/statistics/soccer/{eid}", headers={"User-Agent": livescore.UA, "Accept": "application/json"},
+                         timeout=20)
+        if r.status_code == 404:
+            return []
+        if r.status_code != 200:
+            return None
+        data = r.json() if r.text.strip() else {}
+    except (requests.RequestException, ValueError):
+        return None
+    if not isinstance(data, dict):
+        return []
+    teams = {int(t.get("Tnb", 0)): t for t in (data.get("Stat") or []) if isinstance(t, dict)}
+    h, a = teams.get(1), teams.get(2)
+    if not h or not a:
+        return []
+
+    def g(t, k):
+        v = t.get(k)
+        return int(v) if isinstance(v, (int, float)) else None
+
+    def shots(t):
+        parts = [g(t, "Shon"), g(t, "Shof"), g(t, "Shbl")]
+        return None if all(p is None for p in parts) else sum(p or 0 for p in parts)
+
+    def cards(t, k):
+        # a second yellow (YRcs) is both a yellow and a red, as in the football-data convention
+        v, yr = g(t, k), g(t, "YRcs")
+        return None if v is None else v + (yr or 0)
+
+    return [g(h, "Cos"), g(a, "Cos"), cards(h, "Ycs"), cards(a, "Ycs"), cards(h, "Rcs"), cards(a, "Rcs"),
+            shots(h), shots(a), g(h, "Shon"), g(a, "Shon"), g(h, "Pss"), g(a, "Pss"), g(h, "Fls"), g(a, "Fls")]
+
+
 class Archive:
-    """data/ls/stages/<ccd>__<scd>.json  +  data/ls/teams.json (id -> [name, img, country])."""
+    """data/ls/stages/<ccd>__<scd>.json  +  data/ls/teams.json (id -> [name, img, country]).
+    Each stage file: {key, country, league, fetched, events {eid: [esd, hid, home, aid, away, hg, ag, hth, hta]},
+    stats {eid: [hc, ac, hy, ay, hr, ar, hs, as, hst, ast, hposs, aposs, hf, af] | []}}."""
 
     def __init__(self, root: Path):
         self.root = root
@@ -204,6 +247,85 @@ class Archive:
             n += self.merge(key, {"country": evs[0]["country"], "league": evs[0]["league"]}, evs)
         return n
 
+    # -- match statistics (corners, cards, shots, possession)
+    def refresh_stats(self, wanted: dict[str, int], now: datetime, budget_s: float = 60.0, max_n: int = 400,
+                      recent_days: int = 3) -> dict:
+        """Fetch statistics for finished matches without them: the last `recent_days` of every wanted stage first,
+        then the older backlog of the highest-priority stages, within a time / request budget."""
+        t0 = time.time()
+        recent_cut = int((now - timedelta(days=recent_days)).strftime("%Y%m%d%H%M"))
+        order = sorted(wanted.items(), key=lambda kv: -kv[1])
+        todo_recent, todo_old = [], []
+        for key, _prio in order:
+            data = self.load(key)
+            stats = data.setdefault("stats", {})
+            probe = data.setdefault("stats_probe", {"tried": 0, "hit": 0})
+            # competitions where Livescore publishes no statistics: after 8 empty answers only probe one recent
+            # match per run (to notice if they start appearing) and skip the older backlog entirely
+            dead = probe["tried"] >= 8 and probe["hit"] == 0
+            n_recent_stage = 0
+            for eid, rec in sorted((data.get("events") or {}).items(), key=lambda kv: kv[1][0], reverse=True):
+                if eid in stats:
+                    continue
+                try:
+                    esd = int(rec[0])
+                except (TypeError, ValueError, IndexError):
+                    continue
+                if esd >= recent_cut:
+                    if dead and n_recent_stage >= 1:
+                        continue
+                    n_recent_stage += 1
+                    todo_recent.append((key, eid, esd))
+                elif not dead:
+                    todo_old.append((key, eid, esd))
+        todo_old.sort(key=lambda x: -x[2])
+        done = empty = failed = 0
+        for key, eid, _esd in todo_recent + todo_old:
+            if done + empty + failed >= max_n or time.time() - t0 > budget_s:
+                break
+            st = fetch_stats(eid)
+            if st is None:
+                failed += 1
+                continue
+            data = self._cache[key]
+            data["stats"][eid] = st
+            data["stats_probe"]["tried"] += 1
+            self._dirty.add(key)
+            if st:
+                data["stats_probe"]["hit"] += 1
+                done += 1
+            else:
+                empty += 1
+        log.info("Livescore statistics: %d fetched, %d without stats, %d failed, %d still missing, %.0fs",
+                 done, empty, failed, len(todo_recent) + len(todo_old) - done - empty - failed, time.time() - t0)
+        return {"fetched": done, "empty": empty, "failed": failed}
+
+    def load_all(self) -> None:
+        for p in self.stages_dir.glob("*.json"):
+            key = p.stem.replace("__", "/")
+            if key not in self._cache:
+                try:
+                    data = json.loads(p.read_text(encoding="utf-8"))
+                except (OSError, ValueError):
+                    continue
+                self._cache[data.get("key") or key] = data
+
+    def stats_for(self, eid: str) -> list | None:
+        for data in self._cache.values():
+            st = (data.get("stats") or {}).get(eid)
+            if st:
+                return st
+        return None
+
+    def event_for(self, eid: str) -> dict | None:
+        """{hg, ag, hth, hta, kickoff} of an archived (finished) match."""
+        for data in self._cache.values():
+            rec = (data.get("events") or {}).get(eid)
+            if rec:
+                esd, _hid, _home, _aid, _away, hg, ag, hth, hta = rec
+                return {"hg": hg, "ag": ag, "hth": hth, "hta": hta, "kickoff": esd}
+        return None
+
     # -- model input
     def results_frame(self, since: datetime) -> pd.DataFrame:
         rows = []
@@ -216,6 +338,7 @@ class Archive:
             key = data.get("key") or p.stem.replace("__", "/")
             ccd, _, scd = key.partition("/")
             div = div_code(ccd, scd)
+            stats = data.get("stats") or {}
             for eid, rec in (data.get("events") or {}).items():
                 try:
                     esd, hid, home, aid, away, hg, ag, hth, hta = rec
@@ -223,20 +346,25 @@ class Archive:
                     continue
                 if int(esd) < cutoff:
                     continue
+                st = stats.get(eid) or []
+                st = (st + [None] * 12)[:12] if st else [None] * 12
                 rows.append((data.get("country") or "", div, data.get("league") or "", esd[:8], home, away, hid, aid,
-                             hg, ag, hth, hta, eid))
+                             hg, ag, hth, hta, eid, *st))
         if not rows:
             return pd.DataFrame()
         df = pd.DataFrame(rows, columns=["country", "div", "league", "d", "home", "away", "home_id", "away_id",
-                                         "hg", "ag", "hth", "hta", "eid"])
+                                         "hg", "ag", "hth", "hta", "eid",
+                                         "hc", "ac", "hy", "ay", "hr", "ar", "hs", "as", "hst", "ast", "hposs", "aposs"])
         df["date"] = pd.to_datetime(df["d"], format="%Y%m%d")
         df = df.drop(columns=["d"])
         for c in ("hg", "ag"):
             df[c] = pd.to_numeric(df[c], errors="coerce")
         for c in ("hth", "hta"):
             df[c] = pd.to_numeric(df[c], errors="coerce")
-        for c in ("hxg", "axg", "hst", "ast", "hc", "ac", "hy", "ay", "hr", "ar"):
+        for c in ("hxg", "axg"):
             df[c] = np.nan
+        for c in ("hc", "ac", "hy", "ay", "hr", "ar", "hs", "as", "hst", "ast", "hposs", "aposs"):
+            df[c] = pd.to_numeric(df[c], errors="coerce") if c in df.columns else np.nan
         df["referee"] = ""
         return df
 

@@ -87,8 +87,9 @@ class Days:
                 day["fixtures"].append(rec)
 
     # ------------------------------------------------------------------ scores
-    def fill_scores(self, results: pd.DataFrame) -> pd.DataFrame:
-        """Fill final scores from results + Livescore. Returns extra result rows (Livescore) for the settlers."""
+    def fill_scores(self, results: pd.DataFrame, archive=None) -> pd.DataFrame:
+        """Fill final scores from results + Livescore (day feed and archive, incl. half-time score and match
+        statistics). Returns extra result rows (Livescore) for the settlers."""
         ls_by_eid = {}
         want_days = set()
         today = self.now.date()
@@ -130,7 +131,52 @@ class Days:
                                       "hg": float(e["hg"]), "ag": float(e["ag"])})
                     elif st in ("Postp.", "Canc.", "Aband."):
                         f["score"] = {"hg": None, "ag": None, "status": st, "src": "livescore"}
+        if archive is not None:
+            self._enrich(archive)
         return pd.DataFrame(extra) if extra else pd.DataFrame()
+
+    STAT_KEYS = ("hc", "ac", "hy", "ay", "hr", "ar", "hs", "as", "hst", "ast", "hposs", "aposs")
+
+    def _enrich(self, archive) -> None:
+        """Half-time scores and match statistics (corners, cards, shots, possession) from the Livescore archive."""
+        try:
+            archive.load_all()
+        except Exception:  # noqa: BLE001
+            return
+        today = self.now.date()
+        n = 0
+        for date, day in self.days.items():
+            for f in day["fixtures"]:
+                eid = f.get("livescore_id")
+                if not eid:
+                    continue
+                ko = datetime.strptime(f["kickoff"], "%Y-%m-%d %H:%M").date()
+                if (today - ko).days > 6:
+                    continue
+                sc = f.get("score")
+                if sc is None:
+                    ev = archive.event_for(str(eid))
+                    if ev and ev["hg"] is not None:
+                        sc = f["score"] = {"hg": int(ev["hg"]), "ag": int(ev["ag"]), "status": "FT", "src": "archive"}
+                if not sc or sc.get("hg") is None:
+                    continue
+                if sc.get("hth") is None:
+                    ev = archive.event_for(str(eid))
+                    if ev and ev.get("hth") is not None:
+                        sc["hth"], sc["hta"] = _int(ev["hth"]), _int(ev["hta"])
+                if sc.get("hc") is None or sc.get("hs") is None:
+                    st = archive.stats_for(str(eid))
+                    if st:
+                        vals = (list(st) + [None] * 12)[:12]
+                        for k, v in zip(self.STAT_KEYS, vals):
+                            if v is not None:
+                                sc[k] = _int(v)
+                        if sc.get("hy") is not None:
+                            sc["hcards"] = _int(sc["hy"]) + (_int(sc.get("hr")) or 0)
+                            sc["acards"] = _int(sc["ay"]) + (_int(sc.get("ar")) or 0)
+                        n += 1
+        if n:
+            log.info("History: match statistics added to %d fixture(s)", n)
 
     # ------------------------------------------------------------------ bets on each fixture
     def annotate(self, tracker: pd.DataFrame, parlays: pd.DataFrame, accas: pd.DataFrame, bets: pd.DataFrame) -> None:

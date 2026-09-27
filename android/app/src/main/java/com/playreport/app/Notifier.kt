@@ -18,6 +18,7 @@ object Notifier {
     const val CH_GOALS = "goals"
     const val CH_UPDATES = "updates"
     const val CH_BETS = "bets"
+    const val CH_MATCH = "match"
     const val PREFS = "playreport"
 
     fun createChannels(ctx: Context) {
@@ -28,8 +29,11 @@ object Notifier {
         nm.createNotificationChannel(NotificationChannel(CH_GOALS, "Goals in tracked matches", NotificationManager.IMPORTANCE_HIGH).apply {
             description = "Score changes in safest-bet and shortlisted matches"
         })
-        nm.createNotificationChannel(NotificationChannel(CH_BETS, "New safest bets", NotificationManager.IMPORTANCE_HIGH).apply {
-            description = "A new bet met the safety rules (checked every half hour)"
+        nm.createNotificationChannel(NotificationChannel(CH_BETS, "New safest bets & tickets", NotificationManager.IMPORTANCE_HIGH).apply {
+            description = "A new bet met the safety rules; one of your tickets was settled"
+        })
+        nm.createNotificationChannel(NotificationChannel(CH_MATCH, "Half-time & full-time", NotificationManager.IMPORTANCE_DEFAULT).apply {
+            description = "Half-time and full-time scores of tracked matches"
         })
         nm.createNotificationChannel(NotificationChannel(CH_UPDATES, "App updates", NotificationManager.IMPORTANCE_LOW).apply {
             description = "A newer PlayReport version is available"

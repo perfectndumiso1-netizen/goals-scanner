@@ -22,6 +22,7 @@ def live_json():
         if i == 0 and live_calls['n'] > 1: hg = 2
         evs.append({'Eid': str(f['livescore_id']), 'Eps': st, 'Tr1': str(hg), 'Tr2': str(ag), 'T1': [{'Nm': f['home']}], 'T2': [{'Nm': f['away']}]})
     return {'Stages': [{'Snm': 'x', 'Cnm': 'y', 'Events': evs}]}
+STATS = {'Eid': 'x', 'Stat': [{'Tnb': 1, 'Pss': 61, 'Shon': 5, 'Shof': 4, 'Shbl': 2, 'Cos': 6, 'Fls': 9, 'Ofs': 1, 'Ycs': 1, 'Rcs': 0}, {'Tnb': 2, 'Pss': 39, 'Shon': 2, 'Shof': 3, 'Shbl': 1, 'Cos': 3, 'Fls': 12, 'Ofs': 2, 'Ycs': 3, 'Rcs': 0}]}
 INCS = {'Incs': {'1': [{'Min': 12, 'IT': 36, 'Nm': 1, 'Fn': 'John', 'Ln': 'Smith', 'Sc': [1, 0]}, {'Min': 40, 'IT': 39, 'Nm': 2, 'Fn': 'Peter', 'Ln': 'Jones', 'Sc': [1, 1]}]}}
 import base64, io
 try:
@@ -34,7 +35,10 @@ LEAK = re.compile(r'github|perfectndumiso|goals-scanner|goals scanner|raw\.githu
 errors, shots = [], []
 def shot(page, name):
     page.wait_for_timeout(150)
-    path = f'/tmp/ui_{name}.png'; page.screenshot(path=path, full_page=True); shots.append(path)
+    path = f'/tmp/ui_{name}.png'
+    try: page.screenshot(path=path, full_page=True)
+    except Exception: page.screenshot(path=path, full_page=False)   # very tall pages exceed Chrome's capture limit
+    shots.append(path)
     txt = page.inner_text('body')
     m = LEAK.search(txt)
     if m: errors.append(f'LEAK on {name}: …{txt[max(0, m.start()-40):m.end()+40]}…')
@@ -52,6 +56,7 @@ with sync_playwright() as p:
         version: () => '1.1.0', dataUrl: () => 'https://data.test/data/app/latest.json', rawBase: () => 'https://data.test/', setPref: () => {}, setTheme: () => {},
         notificationsAllowed: () => true, requestNotifications: () => {}, refreshDone: () => {}, openUrl: (u) => { window.__opened = u; },
         notifyGoal: (eid, score, title, text) => window.__notified.push({eid, score, title, text}),
+        notify: (ch, id, title, text, tab) => window.__notified.push({ch, id, title, text, tab}), setString: (k, v) => { window.__str = window.__str || {}; window.__str[k] = v; },
         checkUpdate: () => setTimeout(() => window.__updateInfo({version: '1.1.1', url: 'https://data.test/PlayReport.apk', notes: ''}), 200),
         installUpdate: (u) => { window.__installed = u; setTimeout(() => window.__updateProgress('downloading'), 50); },
       };
@@ -66,7 +71,7 @@ with sync_playwright() as p:
         elif 'lsm-static-prod.livescore.com' in url:
             route.fulfill(body=PNG, content_type='image/png')
         elif 'livescore.com' in url:
-            route.fulfill(json=INCS if '/incidents/' in url else live_json())
+            route.fulfill(json=INCS if '/incidents/' in url else STATS if '/statistics/' in url else {} if '/lineups/' in url else live_json())
         else:
             errors.append('unexpected request: ' + url); route.abort()
     page.route(re.compile(r'^https?://'), handle)
@@ -104,15 +109,53 @@ with sync_playwright() as p:
     page.select_option('#fx-sort', 'O25'); page.wait_for_timeout(150); shot(page, 'matches_sort')
     page.select_option('#fx-sort', 'ko'); page.click('[data-mf=safe]'); page.wait_for_timeout(150); t = shot(page, 'matches_safe'); assert '🔒' in t or 'Safest' in t
     page.click('[data-mf=major]'); page.wait_for_timeout(150); shot(page, 'matches_major'); page.click('[data-mf=all]'); page.wait_for_timeout(150)
-    # ---- match page from matches list
-    page.click('#view .mrow.tap[data-fx] >> nth=0'); page.wait_for_timeout(700); t = shot(page, 'match_overview')
+    assert page.locator('#view .hour-head').count() >= 2, 'hour headers in the time view'
+    page.click('[data-mmode=comp]'); page.wait_for_timeout(200); t = shot(page, 'matches_comp')
+    assert page.locator('#view .acc-head').count() >= 5, 'country accordions'
+    page.click('#acc-all'); page.wait_for_timeout(300); shot(page, 'matches_comp_all')
+    heads = page.locator('#view .acc-head'); heads.nth(0).click(); page.wait_for_timeout(150)
+    page.click('[data-mmode=time]'); page.wait_for_timeout(150)
+    page.click('#tabs button[data-tab=home]'); page.wait_for_timeout(100)
+    page.click('#btn-search'); page.wait_for_timeout(200)
+    assert page.evaluate('window.app.state.tab') == 'matches' and page.evaluate("document.activeElement && document.activeElement.id") == 'fx-search', 'search button focuses the search box'
+    # ---- match page: the first priced match that has not kicked off yet (so the slip can be used)
+    fid = page.evaluate("""(() => { const P = window.app.PR; const now = P.tzNow(); const f = P.state.data.fixtures.filter((x) => x.priced && x.data_ok && P.parseLocal(x.kickoff) > now).sort((a, b) => a.kickoff.localeCompare(b.kickoff))[0]; return f && f.id; })()""")
+    assert fid, 'an upcoming priced fixture exists'
+    page.evaluate(f'window.app.PR.openMatch({json.dumps(fid)})'); page.wait_for_timeout(700); t = shot(page, 'match_overview')
     assert 'expected goals' in t.lower() and 'over 2.5' in t.lower(), 'match overview'
-    for seg in ['trends', 'markets', 'stats', 'h2h']:
+    for seg in ['trends', 'markets', 'stats', 'h2h', 'lineups']:
         page.click(f'[data-mv={seg}]'); page.wait_for_timeout(300); t = shot(page, f'match_{seg}')
         if seg == 'trends': assert 'Trends' in t and ('of 10' in t or 'of 5' in t or 'Not enough' in t or 'in the last' in t), 'trends segment'
         if seg == 'h2h': assert 'last 5' in t.lower(), 'h2h/form segment'
+        if seg == 'lineups': assert 'line-ups' in t.lower(), 'lineups segment'
+        if seg == 'markets':
+            assert page.locator('#view .addsel').count() >= 3, 'add-to-slip buttons on markets'
+            page.click('#view .addsel >> nth=0'); page.wait_for_timeout(200)
+            assert page.locator('#slipbar.show').count() == 1, 'slip bar appears'
+            assert page.locator('#view .addsel.on').count() == 1, 'selection marked as added'
+            page.click('#view .addsel >> nth=1'); page.wait_for_timeout(200)   # same match -> replaces
+            assert page.locator('#view .addsel.on').count() == 1, 'one selection per match'
     page.click('[data-mv=stats]'); page.wait_for_timeout(600); t = shot(page, 'match_stats2')
     assert 'this season' in t.lower() or 'not available' in t or 'Loading' in t, 'season block'
+    # ---- bet slip: add a second match from the Bets tab, lock the ticket, check pages
+    page.click('#tabs button[data-tab=bets]'); page.click('[data-bv=safest]'); page.wait_for_timeout(200)
+    btns = page.locator('#view .addsel:not(.on)'); assert btns.count() >= 1, 'add buttons on safest bets'
+    btns.nth(0).click(); page.wait_for_timeout(200)
+    page.click('#slip-open'); page.wait_for_timeout(300); t = shot(page, 'slip')
+    assert 'Total odds' in t and page.locator('#view .tbl tr').count() >= 2, 'slip page with two legs'
+    page.fill('#slip-stake', '50'); page.wait_for_timeout(100)
+    page.once('dialog', lambda d: d.accept())
+    page.click('#slip-place'); page.wait_for_timeout(400); t = shot(page, 'ticket')
+    assert 'Ticket T' in t and any(k in t.lower() for k in ('pending', 'lost', 'won')), 'ticket page after locking'
+    assert page.locator('#slipbar.show').count() == 0, 'slip bar hidden after locking'
+    assert 'tickets' in (page.evaluate('window.__str || {}') or {}), 'tickets shared with the native side'
+    page.evaluate('window.app.back()'); page.wait_for_timeout(100)
+    page.click('#btn-menu'); page.click('#menu [data-page=tickets]'); page.wait_for_timeout(200); t = shot(page, 'tickets')
+    assert 'My tickets' in t and '1 ticket' in t, 'tickets list'
+    page.click('#view [data-ticket]'); page.wait_for_timeout(200); assert 'Total odds' in shot(page, 'ticket2')
+    while page.evaluate('window.app.back()'): page.wait_for_timeout(60)
+    page.click('#tabs button[data-tab=matches]'); page.wait_for_timeout(200)
+    page.click('#view .mrow.tap[data-fx] >> nth=0'); page.wait_for_timeout(600)
     # ---- team page via team link
     page.click('#view a.team >> nth=0'); page.wait_for_timeout(600); t = shot(page, 'team_overview')
     assert 'Season splits' in t or 'No season data' in t, 'team page'
@@ -149,7 +192,7 @@ with sync_playwright() as p:
     assert 'Bets of the day' in t and 'Safest bets' in t and 'Parlay' not in t and 'Treble' not in t, 'performance'
     page.evaluate('window.app.back()')
     page.click('#btn-menu'); page.click('#menu [data-page=settings]'); page.wait_for_timeout(200); t = shot(page, 'settings')
-    for sel in ['#s-goals', '#s-bets', '#s-reports', '#s-live', '#s-tz', '#s-save', '#s-clear']: assert page.locator(sel).count() == 1, f'settings control {sel}'
+    for sel in ['#s-goals', '#s-ht', '#s-ft', '#s-bets', '#s-reports', '#s-live', '#s-tz', '#s-save', '#s-clear']: assert page.locator(sel).count() == 1, f'settings control {sel}'
     page.click('[data-th=dark]'); page.wait_for_timeout(200)
     assert page.evaluate("document.documentElement.dataset.theme") == 'dark', 'dark theme applied'
     assert page.evaluate("getComputedStyle(document.body).backgroundColor") == 'rgb(11, 15, 20)', 'dark background'
@@ -177,7 +220,9 @@ with sync_playwright() as p:
     page.click('#tabs button[data-tab=live]'); page.wait_for_timeout(200)
     page.evaluate('window.app.PR.live.refresh(true)'); page.wait_for_timeout(600)
     notified = page.evaluate('window.__notified')
-    assert notified and notified[-1]['score'] == '2-0', f'goal alert not fired: {notified}'
+    goals = [n for n in notified if n.get('score')]
+    assert goals and goals[-1]['score'] == '2-0', f'goal alert not fired: {notified}'
+    notified = goals
     shot(page, 'live_after_goal')
     # external link routing
     page.click('#btn-menu'); page.click('#menu [data-contact]'); page.wait_for_timeout(100)

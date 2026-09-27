@@ -105,7 +105,7 @@ def team_record(lg_team: pd.DataFrame, season: pd.DataFrame, name: str, country:
     return rec
 
 
-def export(results: pd.DataFrame, now: datetime, out_dir: Path) -> list[str]:
+def export(results: pd.DataFrame, now: datetime, out_dir: Path, squad_lookup=None) -> list[str]:
     """Write one JSON per division; returns the list of div slugs written."""
     if results is None or results.empty:
         return []
@@ -128,6 +128,11 @@ def export(results: pd.DataFrame, now: datetime, out_dir: Path) -> list[str]:
         for t in teams:
             s = lg_season[lg_season["team"] == t]
             rec = team_record(lg_country[lg_country["team"] == t], s, t, country, league, div, since)
+            if squad_lookup is not None:
+                try:
+                    rec["squad"] = squad_lookup(div, t)
+                except Exception:  # noqa: BLE001
+                    rec["squad"] = None
             records[t] = rec
             a = rec["all"]
             table.append({"team": t, "p": a["p"], "w": a["w"], "d": a["d"], "l": a["l"], "gf": a["gf"], "ga": a["ga"],

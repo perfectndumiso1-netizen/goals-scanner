@@ -8,7 +8,7 @@ window.PR = (function () {
   const DATA_URL = (native && native.dataUrl && native.dataUrl()) || (RAW_BASE + 'data/app/latest.json');
   const CONTACT = { whatsapp: '27738212664', whatsappShown: '073 821 2664', email: 'msanindumiso@gmail.com' };
   const APP_VERSION = (native && native.version && native.version()) || '';
-  const settings = Object.assign({ liveEvery: 60, tzOffset: 2, goalAlerts: true, betAlerts: true, reportAlerts: true, minP: 0.70, minOdds: 1.30, hiP: 0.70, theme: 'system', seenVersion: '', leagues: 'all' },
+  const settings = Object.assign({ liveEvery: 60, tzOffset: 2, goalAlerts: true, htAlerts: false, ftAlerts: true, betAlerts: true, reportAlerts: true, minP: 0.70, minOdds: 1.30, hiP: 0.70, theme: 'system', seenVersion: '', leagues: 'all' },
     JSON.parse(localStorage.getItem('pr_settings') || '{}'));
   const state = { data: null, tab: 'home', stack: [], live: {}, incidents: {}, liveTimer: null, lastLive: 0, loading: false,
     update: null, updateStage: null, days: {}, teams: {}, reports: {}, details: {}, betsView: 'today', search: '', sort: 'ko', matchFilter: 'all',
@@ -292,7 +292,7 @@ window.PR = (function () {
     if (m && (m.classList.contains('tap') || m.tagName === 'A' || m.tagName === 'BUTTON')) { e.preventDefault(); openMatch(m.dataset.fx, m.dataset.d || null); return; }
     const a = e.target.closest('a[href]');
     if (a && /^(https?:|mailto:|tel:)/.test(a.getAttribute('href')) && native && native.openUrl) { e.preventDefault(); native.openUrl(a.href); return; }
-    if (state.menuOpen && !e.target.closest('#menu') && !e.target.closest('#btn-menu')) closeMenu();
+    if (state.menuOpen && !e.target.closest('#menu') && !e.target.closest('#btn-menu') && !e.target.closest('#btn-search')) closeMenu();
   });
 
   return { native, settings, state, $, $$, saveSettings, nfetch, getJson, rawUrl, esc, pct, f1, f2, signed, DAYS, MONTHS, parseLocal, tzNow, ymd,
