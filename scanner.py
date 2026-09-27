@@ -1810,6 +1810,7 @@ def send_telegram_document(path: Path, caption: str) -> bool:
         if r.status_code != 200:
             log.warning("Telegram document error %s: %s", r.status_code, r.text[:200])
             return False
+        log.info("Telegram: document sent (%s, %d KB)", path.name, path.stat().st_size // 1024)
         return True
     except (requests.RequestException, OSError) as exc:
         log.warning("Telegram document failed: %s", exc)
