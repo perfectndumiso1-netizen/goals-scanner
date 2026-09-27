@@ -12,11 +12,14 @@ from __future__ import annotations
 
 import hashlib
 import json
+import logging
 import math
 from datetime import datetime, timedelta
 from pathlib import Path
 
 import pandas as pd
+
+log = logging.getLogger("scanner")
 
 VERSION = 3
 KEEP_DETAIL_DAYS = 3
@@ -145,6 +148,41 @@ def _best(sels: list[dict], groups: tuple | None, min_odds: float, min_p: float)
     return best
 
 
+def carry_over(prev: dict | None, index: list, bets: list, tracked: set, now: datetime, hours: float = 3.0) -> int:
+    """Fixtures of the previous publication that kicked off in the last `hours` and are no longer in the scan window
+    are appended unchanged ("frozen"), together with their safest bets and tracked flags; returns how many."""
+    if not prev:
+        return 0
+    now_naive = now.replace(tzinfo=None)
+    cur_ids = {f["id"] for f in index}
+    prev_tracked = set(prev.get("tracked") or [])
+    frozen_ids = set()
+    for f in prev.get("fixtures") or []:
+        if f.get("id") in cur_ids:
+            continue
+        try:
+            ko = datetime.strptime(str(f.get("kickoff")), "%Y-%m-%d %H:%M")
+        except ValueError:
+            continue
+        if not (now_naive - timedelta(hours=hours) <= ko <= now_naive + timedelta(minutes=5)):
+            continue
+        f = dict(f)
+        f["frozen"] = True
+        index.append(f)
+        cur_ids.add(f["id"])
+        frozen_ids.add(f["id"])
+        if f["id"] in prev_tracked:
+            tracked.add(f["id"])
+    index.sort(key=lambda f: (f.get("kickoff") or "", f.get("competition") or ""))
+    have = {b["id"] for b in bets}
+    for b in (prev.get("safe") or {}).get("bets") or []:
+        if b.get("id") in have or b.get("fixture") not in frozen_ids:
+            continue
+        bets.append(dict(b, live=True))
+        tracked.add(b["fixture"])
+    return len(frozen_ids)
+
+
 def _write(path: Path, data) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     body = json.dumps(data, ensure_ascii=False, separators=(",", ":"), default=str)
@@ -169,6 +207,13 @@ def export(path: Path, *, ctx: dict, rows: list, picks: dict, tracker_summary: d
     ids_by_key = {}
     badges = update_badges(app_dir / "badges.json", rows, ls_map, extra_badges)
     live_eids = []
+    # the previous publication: matches that have kicked off are carried over unchanged ("frozen") for 3 hours so the
+    # app keeps their pre-match analysis, live status, bets and tickets while they are in play
+    prev = None
+    try:
+        prev = json.loads(path.read_text(encoding="utf-8")) if path.exists() else None
+    except (OSError, ValueError):
+        prev = None
     for r in rows:
         fx = r.fx
         date = fx["date"].strftime("%Y-%m-%d")
@@ -264,6 +309,9 @@ def export(path: Path, *, ctx: dict, rows: list, picks: dict, tracker_summary: d
         tracked.add(fid)
         safe_out["today"]["bets"].append({**b, "fixture": fid,
                                           "badges": {"home": badges.get(b["home"]), "away": badges.get(b["away"])}})
+    frozen = carry_over(prev, index, safe_out["bets"], tracked, now)
+    if frozen:
+        log.info("App data: %d started fixture(s) carried over from the previous publication", frozen)
     by_bet_id = {b["id"]: b for b in safe_out["today"]["bets"]}
     safe_out["today"]["groups"] = [{"key": g["key"], "title": g["title"], "min_p": g.get("min_p"),
                                     "bets": [by_bet_id[b["id"]] for b in g["bets"] if b["id"] in by_bet_id]} for g in (botd_groups or [])]
