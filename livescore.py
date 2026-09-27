@@ -48,6 +48,8 @@ def fetch_day(day: datetime, tz_offset_hours: int = 2) -> list[dict]:
                     "home": e["T1"][0]["Nm"], "away": e["T2"][0]["Nm"], "kickoff": ko,
                     "status": e.get("Eps", ""), "hg": _int(e.get("Tr1")), "ag": _int(e.get("Tr2")),
                     "ht": (_int(e.get("Trh1")), _int(e.get("Trh2"))),
+                    "home_img": e["T1"][0].get("Img") or None, "away_img": e["T2"][0].get("Img") or None,
+                    "ccd": st.get("Ccd") or None,
                 })
             except (KeyError, IndexError, ValueError, TypeError):
                 continue

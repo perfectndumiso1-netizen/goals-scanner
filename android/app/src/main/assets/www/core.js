@@ -8,11 +8,12 @@ window.PR = (function () {
   const DATA_URL = (native && native.dataUrl && native.dataUrl()) || (RAW_BASE + 'data/app/latest.json');
   const CONTACT = { whatsapp: '27738212664', whatsappShown: '073 821 2664', email: 'msanindumiso@gmail.com' };
   const APP_VERSION = (native && native.version && native.version()) || '';
-  const settings = Object.assign({ liveEvery: 60, tzOffset: 2, goalAlerts: true, minP: 0.70, minOdds: 1.30, hiP: 0.70 },
+  const settings = Object.assign({ liveEvery: 60, tzOffset: 2, goalAlerts: true, minP: 0.70, minOdds: 1.30, hiP: 0.70, theme: 'system', seenVersion: '' },
     JSON.parse(localStorage.getItem('pr_settings') || '{}'));
   const state = { data: null, tab: 'home', stack: [], live: {}, incidents: {}, liveTimer: null, lastLive: 0, loading: false,
     update: null, updateStage: null, days: {}, teams: {}, reports: {}, betsView: 'safest', search: '', sort: 'ko',
-    dayView: 'results', matchView: 'overview', teamView: 'overview', menuOpen: false, expanded: {} };
+    dayView: 'results', matchView: 'overview', teamView: 'overview', menuOpen: false, expanded: {}, badges: {}, dark: false };
+  const BADGE_BASE = 'https://lsm-static-prod.livescore.com/medium/';
 
   const $ = (sel, root) => (root || document).querySelector(sel);
   const $$ = (sel, root) => Array.from((root || document).querySelectorAll(sel));
@@ -48,6 +49,48 @@ window.PR = (function () {
   function bar(p, cls) { return `<span class="bar"><span class="fill ${cls || ''}" style="width:${Math.round((p || 0) * 100)}%"></span></span>`; }
   function wdl(gf, ga) { return gf > ga ? 'W' : gf < ga ? 'L' : 'D'; }
   function formBadges(items) { return `<span class="form">${(items || []).map((r) => `<i class="f ${r}">${r}</i>`).join('')}</span>`; }
+  const icon = (name, cls) => `<svg class="ic ${cls || ''}" aria-hidden="true"><use href="#i-${name}"/></svg>`;
+  const FLAGS = { England: '🏴󠁧󠁢󠁥󠁮󠁧󠁿', Scotland: '🏴󠁧󠁢󠁳󠁣󠁴󠁿', Wales: '🏴󠁧󠁢󠁷󠁬󠁳󠁿', Spain: '🇪🇸', Italy: '🇮🇹', Germany: '🇩🇪', France: '🇫🇷', Netherlands: '🇳🇱', Belgium: '🇧🇪', Portugal: '🇵🇹', Turkey: '🇹🇷', Greece: '🇬🇷',
+    USA: '🇺🇸', Mexico: '🇲🇽', Argentina: '🇦🇷', Brazil: '🇧🇷', Japan: '🇯🇵', China: '🇨🇳', Norway: '🇳🇴', Sweden: '🇸🇪', Denmark: '🇩🇰', Finland: '🇫🇮', Poland: '🇵🇱', Romania: '🇷🇴', Russia: '🇷🇺',
+    Austria: '🇦🇹', Switzerland: '🇨🇭', Ireland: '🇮🇪', Australia: '🇦🇺', 'South Africa': '🇿🇦' };
+  const flag = (country) => FLAGS[country] || '🌍';
+  function hue(name) { let h = 0; for (const c of String(name || '')) h = (h * 31 + c.charCodeAt(0)) % 360; return h; }
+  const initials = (name) => String(name || '?').replace(/\b(FC|CF|SC|AFC|Utd|United|City|Town|Athletic|Club|De|Los|Las|La|El)\b/g, '').trim().split(/\s+/).map((w) => w[0]).join('').slice(0, 2).toUpperCase() || '?';
+  /** team badge: Livescore image when known, otherwise an initials disc coloured from the name */
+  function badge(name, img, size) {
+    img = img || state.badges[name];
+    const cls = `badge s${size || 24}`;
+    if (!img) return `<span class="${cls} nb" style="--h:${hue(name)}"><i>${esc(initials(name))}</i></span>`;
+    return `<span class="${cls}" style="--h:${hue(name)}"><img src="${esc(BADGE_BASE + img)}" alt="" loading="lazy" onerror="this.parentNode.classList.add('nb');this.remove()"><i>${esc(initials(name))}</i></span>`;
+  }
+  const fxBadge = (f, side) => badge(f[side], f.badges && f.badges[side]);
+  /** Sofascore-style match row: kick-off / status column, two team lines with badges and score, optional right block */
+  function matchRow(m, opts) {
+    opts = opts || {}; const s = opts.live; const sc = s && s.hg != null ? s : (m.score && m.score.hg != null ? m.score : null);
+    const status = sc ? (sc.status || '') : ''; const liveNow = sc && isLive(sc); const ft = sc && isFT(sc);
+    const left = sc ? `<div class="minute ${liveNow ? 'on' : 'ft'}">${esc(liveNow ? status : ft ? 'FT' : status)}</div>${ft || liveNow ? '' : ''}` : `<div class="ko">${esc(opts.short ? koTime(m.kickoff) : koShort(m.kickoff)).replace(' ', '<br>')}</div>`;
+    const hw = sc && sc.hg > sc.ag, aw = sc && sc.ag > sc.hg;
+    const tm = (side, won) => `<div class="tm ${won ? 'won' : ''}">${badge(m[side], m.badges && m.badges[side], 22)}<span class="nm">${esc(opts.long ? (m[side + '_long'] || m[side]) : m[side])}</span>${sc ? `<span class="sc">${side === 'home' ? sc.hg : sc.ag}</span>` : ''}</div>`;
+    return `<div class="mrow ${opts.tap === false ? '' : 'tap'} ${liveNow ? 'is-live' : ''}" data-fx="${esc(m.id)}"><div class="mrow-l">${left}</div>
+      <div class="mrow-m">${tm('home', hw)}${tm('away', aw)}${opts.sub != null ? `<div class="sub">${opts.sub}</div>` : `<div class="sub">${flag(m.country)} ${esc(m.competition || m.league || '')}</div>`}</div>
+      ${opts.right ? `<div class="mrow-r">${opts.right}</div>` : ''}</div>`;
+  }
+  const skeleton = (n) => `<div class="card sk">${Array.from({ length: n || 3 }).map(() => '<div class="sk-row"><span class="sk-b"></span><span class="sk-l"></span></div>').join('')}</div>`;
+  /** 0–1 → SVG ring */
+  function ring(p, label, size) {
+    size = size || 64; const r = (size - 8) / 2, c = 2 * Math.PI * r, v = Math.max(0, Math.min(1, p || 0));
+    const cls = v >= 0.8 ? 'hi' : v >= 0.6 ? 'mid' : 'lo';
+    return `<div class="ring ${cls}" style="width:${size}px"><svg viewBox="0 0 ${size} ${size}" width="${size}" height="${size}"><circle class="tr" cx="${size / 2}" cy="${size / 2}" r="${r}"/><circle class="pr" cx="${size / 2}" cy="${size / 2}" r="${r}" stroke-dasharray="${c.toFixed(1)}" stroke-dashoffset="${(c * (1 - v)).toFixed(1)}"/></svg><div class="rv">${pct(p)}</div>${label ? `<div class="rl">${label}</div>` : ''}</div>`;
+  }
+  // ------------------------------------------------------------------ theme
+  const darkMedia = window.matchMedia ? window.matchMedia('(prefers-color-scheme: dark)') : null;
+  function applyTheme() {
+    const t = settings.theme || 'system'; document.documentElement.dataset.theme = t;
+    state.dark = t === 'dark' || (t === 'system' && !!(darkMedia && darkMedia.matches));
+    if (native && native.setTheme) { try { native.setTheme(state.dark); } catch (e) { /* ignore */ } }
+  }
+  if (darkMedia && darkMedia.addEventListener) darkMedia.addEventListener('change', () => { if ((settings.theme || 'system') === 'system') applyTheme(); });
+  applyTheme();
   function md(text) {
     let html;
     const clean = String(text || '').replace(/Goals Scanner/g, 'PlayReport').replace(/https?:\/\/(?:www\.)?(?:github\.com|raw\.githubusercontent\.com)\/\S*/g, '');
@@ -155,6 +198,10 @@ window.PR = (function () {
     state.teams[k] = j; return j;
   }
   function teamsCached(div) { return state.teams[slug(div)] || null; }
+  async function loadBadges() {
+    try { const c = localStorage.getItem('pr_badges'); if (c) state.badges = JSON.parse(c); } catch (e) { /* ignore */ }
+    try { const j = await getJson(rawUrl('data/app/badges.json') + '?t=' + Math.floor(Date.now() / 86400000)); if (j && typeof j === 'object') { state.badges = j; localStorage.setItem('pr_badges', JSON.stringify(j)); } } catch (e) { /* offline: keep cache */ }
+  }
 
   // ------------------------------------------------------------------ navigation
   const TABS = ['home', 'bets', 'live', 'matches', 'days'];
@@ -166,6 +213,8 @@ window.PR = (function () {
       $('#view').innerHTML = `<div class="card empty">This version of PlayReport needs the new analysis format.<br>It arrives with the next scheduled analysis — pull down to refresh later.</div>`;
       return;
     }
+    const v = $('#view'); v.classList.remove('enter'); void v.offsetWidth; v.classList.add('enter');
+    document.body.classList.toggle('depth', !!top);
     if (top) return PR.pages[top.type](top);
     PR.views[state.tab]();
   }
@@ -185,25 +234,22 @@ window.PR = (function () {
     if (state.tab !== 'home') { setTab('home'); return true; }
     return false;
   }
-  function openMatch(id) { if (fx(id)) push({ type: 'match', id }); else toast('This match is not in the current analysis'); }
-  function openTeam(name, country, div) { push({ type: 'team', name, country, div }); }
+  function openMatch(id) { if (fx(id)) { state.matchView = 'overview'; push({ type: 'match', id }); } else toast('This match is not in the current analysis'); }
+  function openTeam(name, country, div) { state.teamView = 'overview'; push({ type: 'team', name, country, div }); }
   function toggleMenu() { state.menuOpen = !state.menuOpen; $('#menu').classList.toggle('open', state.menuOpen); }
   function closeMenu() { state.menuOpen = false; const m = $('#menu'); if (m) m.classList.remove('open'); }
 
   // ------------------------------------------------------------------ shared UI fragments
   function contactCard(compact) {
     return `<div class="card contact"><div class="row"><div class="grow"><b>Contact</b>${compact ? '' : '<div class="small muted">Questions, feedback or a request? Get in touch.</div>'}</div></div>
-      <div class="contact-row"><a class="btn wa" href="https://wa.me/${CONTACT.whatsapp}"><span class="ic">💬</span> WhatsApp ${esc(CONTACT.whatsappShown)}</a>
-      <a class="btn" href="mailto:${esc(CONTACT.email)}"><span class="ic">✉️</span> ${esc(CONTACT.email)}</a></div></div>`;
+      <div class="contact-row"><a class="btn wa" href="https://wa.me/${CONTACT.whatsapp}">${icon('chat')} WhatsApp ${esc(CONTACT.whatsappShown)}</a>
+      <a class="btn" href="mailto:${esc(CONTACT.email)}">${icon('mail')} ${esc(CONTACT.email)}</a></div></div>`;
   }
   function teamLink(f, side) {
     const name = side === 'home' ? f.home : f.away; const long = side === 'home' ? (f.home_long || f.home) : (f.away_long || f.away);
     return `<a class="team" href="#" data-team="${esc(name)}" data-country="${esc(f.country)}" data-div="${esc(f.div)}">${esc(long)}</a>`;
   }
-  function matchLine(f, extra) {
-    return `<div class="list-item tap" data-fx="${esc(f.id)}"><div class="ko">${esc(koShort(f.kickoff))}</div>
-      <div class="main"><div class="match">${esc(f.home)} <span class="muted">v</span> ${esc(f.away)}</div><div class="meta">${esc(f.competition)}</div></div>${extra || ''}</div>`;
-  }
+  function matchLine(f, extra) { return matchRow(f, { right: extra || '' }); }
   function segmented(items, current, attr) {
     return `<div class="seg">${items.map(([k, label]) => `<button class="${k === current ? 'on' : ''}" data-${attr}="${k}">${label}</button>`).join('')}</div>`;
   }
@@ -230,6 +276,7 @@ window.PR = (function () {
   return { native, settings, state, $, $$, saveSettings, nfetch, getJson, rawUrl, esc, pct, f1, f2, signed, DAYS, MONTHS, parseLocal, tzNow, ymd,
     dayName, niceDate, koTime, koShort, toast, pill, bar, wdl, formBadges, md, GROUPS, GROUP_ICON, selGroup, selLabel, selShort, settleSel,
     liveVerdict, isLive, isFT, indexData, fx, loadData, statusLine, loadDay, loadTeams, teamsCached, slug, TABS, render, setTab, push, replace,
-    back, openMatch, openTeam, toggleMenu, closeMenu, contactCard, teamLink, matchLine, segmented, select, scoreBox, statusIcon, CONTACT, APP_VERSION,
+    back, openMatch, openTeam, toggleMenu, closeMenu, contactCard, teamLink, matchLine, matchRow, segmented, select, scoreBox, statusIcon, CONTACT, APP_VERSION,
+    icon, flag, badge, fxBadge, skeleton, ring, applyTheme, loadBadges, BADGE_BASE,
     views: {}, pages: {}, live: {} };
 })();

@@ -2,7 +2,8 @@
 (function (PR) {
   'use strict';
   const { $, $$, esc, pct, f1, f2, signed, state, settings, fx, pill, bar, koShort, koTime, dayName, toast, selLabel, selShort, selGroup,
-    GROUPS, GROUP_ICON, liveVerdict, isLive, isFT, segmented, select, contactCard, matchLine, scoreBox, statusIcon, tzNow, parseLocal, ymd } = PR;
+    GROUPS, GROUP_ICON, liveVerdict, isLive, isFT, segmented, select, contactCard, matchLine, matchRow, scoreBox, statusIcon, tzNow, parseLocal, ymd, icon, flag, badge, fxBadge } = PR;
+  const sh = (ico, title, cls) => `<h2><span class="ico ${cls || ''}">${icon(ico)}</span>${title}</h2>`;
   const view = () => $('#view');
   const MK = { O15: 'Over 1.5 goals', O25: 'Over 2.5 goals', BTTS: 'Both teams to score' };
 
@@ -33,6 +34,7 @@
       } catch (e) { if (manual) toast('Live scores unavailable (' + e.message + ')'); }
     }
     state.lastLive = Date.now();
+    const dot = $('#live-dot'); if (dot) dot.classList.toggle('on', live.inPlay().length > 0);
     for (const f of tracked) {
       const s = state.live[f.livescore_id]; if (!s || s.hg == null || (s.hg + s.ag) === 0) continue;
       const key = `${s.hg}-${s.ag}`; const c = state.incidents[f.livescore_id]; if (c && c.key === key) continue;
@@ -135,30 +137,36 @@
     const d = state.data, m = d.meta, sf = d.safe || { bets: [], trebles: [] }; const parts = [];
     const inPlay = live.inPlay();
     const priced = d.fixtures.filter((f) => f.sportybet).length;
-    parts.push(`<div class="card hero"><div class="row"><div class="grow"><div class="tiny muted">LATEST ANALYSIS</div><div class="b">${esc(dayName(m.generated))} · ${esc(koTime(m.generated))} ${esc(m.tz)}</div>
-      <div class="tiny muted">Next update ${esc(koShort(m.next_run || ''))} · window to ${esc(koShort(m.window_end))}</div></div>
-      <div class="hero-nums"><div><b>${m.fixtures}</b><span>matches</span></div><div><b>${priced}</b><span>priced</span></div><div><b>${sf.bets.length}</b><span>safe bets</span></div></div></div>
-      ${inPlay.length ? `<div class="live-strip" data-tab-go="live"><span class="status-dot live"></span><b>${inPlay.length} match${inPlay.length > 1 ? 'es' : ''} in play</b> · ${inPlay.slice(0, 2).map((f) => { const s = live.for(f); return `${esc(f.home)} ${s.hg}–${s.ag} ${esc(f.away)}`; }).join(' · ')}${inPlay.length > 2 ? ' …' : ''} ›</div>` : ''}</div>`);
+    parts.push(`<div class="card hero"><div class="eyebrow">Latest analysis</div><div class="b" style="font-size:17px">${esc(dayName(m.generated))} · ${esc(koTime(m.generated))} ${esc(m.tz)}</div>
+      <div class="tiny muted">Next update ${esc(koShort(m.next_run || ''))} · window to ${esc(koShort(m.window_end))}</div>
+      <div class="hero-nums"><div><b>${m.fixtures}</b><span>matches</span></div><div><b>${sf.trebles.length}</b><span>trebles</span></div><div><b>${sf.bets.length}</b><span>safe bets</span></div><div><b>${(d.parlays || []).length}</b><span>parlays</span></div></div>
+      ${inPlay.length ? `<div class="live-strip" data-tab-go="live"><span class="status-dot live"></span><div class="grow"><b>${inPlay.length} in play</b> · ${inPlay.slice(0, 2).map((f) => { const s = live.for(f); return `${esc(f.home)} ${s.hg}–${s.ag} ${esc(f.away)}`; }).join(' · ')}${inPlay.length > 2 ? ' …' : ''}</div>${icon('next', 'sm')}</div>` : ''}</div>`);
+    // what's new (once per version)
+    if (PR.APP_VERSION && settings.seenVersion !== PR.APP_VERSION) {
+      parts.push(`<div class="card whatsnew"><div class="row"><div class="grow"><b>${icon('sparkle', 'sm')} New in PlayReport ${esc(PR.APP_VERSION)}</b></div><button class="link" id="wn-close">${icon('x')}</button></div>
+        <ul><li>Team badges, country flags and a cleaner match list</li><li>Light / dark / system theme (Settings → Appearance)</li><li>Probability rings, smoother pages and a new bottom bar</li></ul></div>`);
+    }
     // safest trebles
-    parts.push(`<div class="section-head"><h2>🔒 Safest trebles</h2><button class="link" data-bets="trebles">Details ›</button></div>`);
+    parts.push(`<div class="section-head">${sh('lock', 'Safest trebles')}<button class="link" data-bets="trebles">Details ${icon('next')}</button></div>`);
     if (!sf.trebles.length) parts.push(`<div class="card empty small">No treble met the safety rules in this window.</div>`);
     else parts.push(`<div class="card compact">${sf.trebles.map((t, i) => `<div class="treble-row"><div class="row"><div class="grow"><b>Treble ${i + 1}</b> <span class="muted small">· win ${pct(t.p)}</span></div><span class="chip brand">odds ${f2(t.odds)}</span></div>
-      ${t.legs.map((l) => `<div class="leg tap" data-fx="${esc(l.fixture)}"><span class="tiny muted nowrap">${esc(koShort(l.kickoff))}</span> <span class="grow">${esc(l.home)} v ${esc(l.away)} — <b>${esc(l.label || selLabel(l.sel, l.home, l.away))}</b></span><span class="price">${f2(l.odds)}</span></div>`).join('')}</div>`).join('')}</div>`);
+      ${t.legs.map((l) => { const f = fx(l.fixture); return `<div class="leg tap" data-fx="${esc(l.fixture)}"><span class="tiny muted nowrap">${esc(koShort(l.kickoff))}</span>${f ? fxBadge(f, 'home') : ''}${f ? fxBadge(f, 'away') : ''}<span class="grow">${esc(l.home)} v ${esc(l.away)} — <b>${esc(l.label || selLabel(l.sel, l.home, l.away))}</b></span><span class="price">${f2(l.odds)}</span></div>`; }).join('')}</div>`).join('')}</div>`);
     // safest bets top 5
-    parts.push(`<div class="section-head"><h2>🎯 Safest bets</h2><button class="link" data-bets="safest">All ${sf.bets.length} ›</button></div>`);
+    parts.push(`<div class="section-head">${sh('target', 'Safest bets', 'green')}<button class="link" data-bets="safest">All ${sf.bets.length} ${icon('next')}</button></div>`);
     if (!sf.bets.length) parts.push(`<div class="card empty small">Nothing priced at ≥ ${f2(sf.min_odds || 1.3)} reached ${pct(sf.min_p || 0.7)} on both views.</div>`);
-    else parts.push(`<div class="card compact"><table class="tbl">${sf.bets.slice(0, 5).map((b) => `<tr class="tap" data-fx="${esc(b.fixture)}"><td class="tiny muted nowrap">${esc(koTime(b.kickoff))}</td><td><div class="b">${esc(b.home)} v ${esc(b.away)}</div><div class="tiny muted">${esc(b.label)}</div></td><td class="right"><b>${f2(b.odds)}</b></td><td class="right">${pill(b.p, 0.8, 0.7)}</td></tr>`).join('')}</table></div>`);
+    else parts.push(`<div class="card compact"><table class="tbl">${sf.bets.slice(0, 5).map((b) => { const f = fx(b.fixture); return `<tr class="tap" data-fx="${esc(b.fixture)}"><td class="tiny muted nowrap">${esc(koTime(b.kickoff))}</td><td><div class="row" style="gap:6px">${f ? fxBadge(f, 'home') + fxBadge(f, 'away') : ''}<div class="b grow">${esc(b.home)} v ${esc(b.away)}</div></div><div class="tiny muted">${esc(b.label)}</div></td><td class="right"><b>${f2(b.odds)}</b></td><td class="right">${pill(b.p, 0.8, 0.7)}</td></tr>`; }).join('')}</table></div>`);
     // shortlist + parlays summary
     const pk = d.picks || {};
-    parts.push(`<div class="card compact"><div class="row" style="flex-wrap:wrap"><div class="grow b">Today's shortlists & parlays</div></div>
-      <div class="chips">${['O15', 'O25', 'BTTS'].map((k) => `<button class="chip tapchip" data-bets="picks">${esc(MK[k])} <b>${(pk[k] || []).length}</b></button>`).join('')}<button class="chip tapchip" data-bets="parlays">Parlays 2.70–3.50 <b>${(d.parlays || []).length}</b></button><button class="chip tapchip" data-bets="high">Markets ≥ 70% ›</button></div></div>`);
+    parts.push(`<div class="card compact"><div class="row" style="flex-wrap:wrap"><div class="grow b">Shortlists & parlays</div></div>
+      <div class="chips">${['O15', 'O25', 'BTTS'].map((k) => `<button class="chip tapchip" data-bets="picks">${icon('star', 'sm')} ${esc(MK[k])} <b>${(pk[k] || []).length}</b></button>`).join('')}<button class="chip tapchip" data-bets="parlays">${icon('ticket', 'sm')} Parlays 2.70–3.50 <b>${(d.parlays || []).length}</b></button><button class="chip tapchip" data-bets="high">${icon('trend', 'sm')} Markets ≥ 70% ${icon('next', 'sm')}</button></div></div>`);
     // next kick-offs
     const now = tzNow(); const upcoming = d.fixtures.filter((f) => { const ko = parseLocal(f.kickoff); return ko && ko > now - 2 * 3600000; }).sort((a, b) => a.kickoff.localeCompare(b.kickoff)).slice(0, 6);
-    parts.push(`<div class="section-head"><h2>📅 Next kick-offs</h2><button class="link" data-tab-go="matches">All matches ›</button></div><div class="card compact">${upcoming.map((f) => { const s = live.for(f); const best = f.sels.filter((x) => x.odds && x.odds >= 1.3 && !x.diff)[0];
-      return `<div class="list-item tap" data-fx="${esc(f.id)}"><div class="ko">${esc(koShort(f.kickoff))}</div><div class="main"><div class="match">${esc(f.home)} <span class="muted">v</span> ${esc(f.away)}</div><div class="meta">${esc(f.competition)}${best ? ` · ${esc(selShort(best.sel))} ${pct(best.p)}` : ''}</div></div>${s && s.hg != null ? `<div class="nums"><div class="score">${s.hg} – ${s.ag}</div><div class="minute ${isFT(s) ? 'ft' : ''}">${esc(s.status)}</div></div>` : `<div class="nums"><span class="pill ${f.p.O25 >= 0.6 ? 'hi' : ''}">O2.5 ${pct(f.p.O25)}</span></div>`}</div>`; }).join('') || '<div class="empty small">No upcoming matches in the window.</div>'}</div>`);
+    parts.push(`<div class="section-head">${sh('calendar', 'Next kick-offs')}<button class="link" data-tab-go="matches">All matches ${icon('next')}</button></div><div class="card compact">${upcoming.map((f) => { const s = live.for(f); const best = f.sels.filter((x) => x.odds && x.odds >= 1.3 && !x.diff)[0];
+      return matchRow(f, { live: s, sub: `${flag(f.country)} ${esc(f.competition)}${best ? ` · <b>${esc(selShort(best.sel))}</b> ${pct(best.p)}` : ''}`, right: s && s.hg != null ? '' : `<span class="pill ${f.p.O25 >= 0.6 ? 'hi' : ''}">O2.5 ${pct(f.p.O25)}</span><span class="tiny muted">BTTS ${pct(f.p.BTTS)}</span>` }); }).join('') || '<div class="empty small">No upcoming matches in the window.</div>'}</div>`);
     parts.push(contactCard(true));
     view().innerHTML = parts.join('');
     wireCommon();
+    const wn = $('#wn-close'); if (wn) wn.onclick = () => { settings.seenVersion = PR.APP_VERSION; PR.saveSettings(); PR.render(); };
   };
   function wireCommon() {
     $$('[data-bets]').forEach((b) => { b.onclick = (e) => { e.stopPropagation(); state.betsView = b.dataset.bets; PR.setTab('bets'); }; });
@@ -169,7 +177,7 @@
   PR.views.bets = function () {
     const d = state.data; const parts = [];
     const v = state.betsView || 'safest';
-    parts.push(`<div class="card compact sticky-ish">${segmented([['safest', '🎯 Safest'], ['trebles', '🔒 Trebles'], ['high', '📈 ≥70%'], ['parlays', '🎟️ Parlays'], ['picks', '⭐ Shortlist']], v, 'bv')}</div>`);
+    parts.push(`<div class="card compact sticky-ish">${segmented([['safest', `${icon('target')} Safest`], ['trebles', `${icon('lock')} Trebles`], ['high', `${icon('trend')} ≥70%`], ['parlays', `${icon('ticket')} Parlays`], ['picks', `${icon('star')} Shortlist`]], v, 'bv')}</div>`);
     if (v === 'safest') renderSafest(parts);
     else if (v === 'trebles') renderTrebles(parts);
     else if (v === 'high') renderHigh(parts);
@@ -251,7 +259,7 @@
     parts.push(`<div class="card row compact"><div class="grow small"><span class="status-dot ${nLive ? 'live' : ''}"></span>${tracked.length} tracked match${tracked.length === 1 ? '' : 'es'} · ${nLive} in play${state.lastLive ? ' · updated ' + new Date(state.lastLive).toTimeString().slice(0, 5) : ''}</div><button class="btn" id="live-refresh">Refresh</button></div>`);
     const sf = d.safe || { trebles: [], bets: [] };
     const pend = (d.ledger || []).filter((p) => p.status === 'pending' && !d.parlays.some((q) => q.id === p.id));
-    parts.push(`<div class="card compact">${segmented([['matches', '⚽ Matches'], ['trebles', `🔒 Trebles (${sf.trebles.length})`], ['parlays', `🎟️ Parlays (${d.parlays.length + pend.length})`]], v, 'lv')}</div>`);
+    parts.push(`<div class="card compact">${segmented([['matches', `${icon('ball')} Matches`], ['trebles', `${icon('lock')} Trebles (${sf.trebles.length})`], ['parlays', `${icon('ticket')} Parlays (${d.parlays.length + pend.length})`]], v, 'lv')}</div>`);
     if (v === 'trebles') {
       if (!sf.trebles.length) parts.push(`<div class="card empty">No trebles in this window.</div>`);
       sf.trebles.forEach((t, i) => parts.push(trebleCard(t, i, { live: true })));
@@ -277,8 +285,7 @@
         const chips = (betsByFx[f.id] || []).filter((b) => { const k = b.sel + (b.kind === 'pick' ? 'p' : ''); if (seen.has(k)) return false; seen.add(k); return true; })
           .map((b) => { const vd = liveVerdict(b.sel, s); return `<span class="chip ${vd.cls}">${esc(b.label)}${b.odds ? ' @ ' + f2(b.odds) : ''} · ${esc(vd.text)}</span>`; }).join('');
         const goals = inc && g !== 1 ? inc.items.filter((it) => ['goal', 'own goal', 'penalty'].includes(it.type)) : [];
-        parts.push(`<div class="list-item tap" data-fx="${esc(f.id)}"><div class="main"><div class="tiny muted">${esc(f.competition)}</div><div class="match">${esc(f.home)} <span class="muted">v</span> ${esc(f.away)}</div>
-          <div class="chips">${chips}</div>${goals.length ? `<div class="tiny muted">${goals.map((it) => `⚽ ${esc(it.player || '')} ${it.min != null ? it.min + "'" : ''}${it.team === 'A' ? ' (away)' : ''}`).join(' · ')}</div>` : ''}</div>${scoreBox(s, f)}</div>`);
+        parts.push(matchRow(f, { live: s, sub: `${flag(f.country)} ${esc(f.competition)}`, right: '' }) + `<div class="mrow-extra"><div class="chips">${chips}</div>${goals.length ? `<div class="tiny muted">${goals.map((it) => `⚽ ${esc(it.player || '')} ${it.min != null ? it.min + "'" : ''}${it.team === 'A' ? ' (away)' : ''}`).join(' · ')}</div>` : ''}</div>`);
       });
       parts.push('</div>');
       parts.push(`<div class="tiny muted" style="padding:0 6px">Scores from a public live feed (unofficial). Auto-refresh every ${settings.liveEvery}s while a tracked match is in play. The settled results in Days are the final word.</div>`);
@@ -299,19 +306,18 @@
     let lst = d.fixtures.filter((f) => !q || `${f.home} ${f.away} ${f.home_long} ${f.away_long} ${f.competition} ${f.country}`.toLowerCase().includes(q));
     const best = (f) => (f.sels.filter((x) => x.odds && x.odds >= 1.3 && !x.diff)[0] || {}).p || 0;
     lst = lst.slice().sort((a, b) => key === 'ko' ? a.kickoff.localeCompare(b.kickoff) : key === 'safe' ? best(b) - best(a) : key === 'H' ? (b.x12.H || 0) - (a.x12.H || 0) : (b.p[key] || 0) - (a.p[key] || 0));
-    const parts = [`<div class="card compact"><div class="searchbar"><input id="fx-search" placeholder="Search team or league" value="${esc(state.search || '')}">
+    const parts = [`<div class="card compact"><div class="searchbar"><div class="field">${icon('search')}<input id="fx-search" placeholder="Search team or league" value="${esc(state.search || '')}"></div>
       ${select('fx-sort', [['ko', 'Kick-off'], ['safe', 'Safest first'], ['O25', 'Over 2.5'], ['O15', 'Over 1.5'], ['BTTS', 'BTTS'], ['H', 'Home win']], key)}</div></div>`];
     if (!lst.length) parts.push(`<div class="card empty">No matches found.</div>`);
-    let lastDay = null;
+    let lastDay = null, lastComp = null;
     lst.forEach((f) => {
       const day = f.kickoff.slice(0, 10);
-      if (key === 'ko' && day !== lastDay) { if (lastDay) parts.push('</div>'); parts.push(`<h2 class="section">${esc(dayName(day))}</h2><div class="card compact">`); lastDay = day; }
+      if (key === 'ko' && day !== lastDay) { if (lastDay) parts.push('</div>'); parts.push(`<h2 class="section">${esc(dayName(day))}</h2><div class="card compact">`); lastDay = day; lastComp = null; }
       else if (key !== 'ko' && !lastDay) { parts.push('<div class="card compact">'); lastDay = 'x'; }
+      if (key === 'ko' && f.competition !== lastComp) { parts.push(`<div class="comp-head">${flag(f.country)} ${esc(f.competition)}</div>`); lastComp = f.competition; }
       const s = live.for(f); const b = f.sels.filter((x) => x.odds && x.odds >= 1.3 && !x.diff)[0];
-      parts.push(`<div class="list-item tap" data-fx="${esc(f.id)}"><div class="ko">${esc(koShort(f.kickoff))}</div>
-        <div class="main"><div class="match">${esc(f.home)} <span class="muted">v</span> ${esc(f.away)}${f.data_ok ? '' : ' <span class="chip warn">low data</span>'}</div>
-          <div class="meta">${esc(f.competition)} · xG ${f1(f.xg.home)}–${f1(f.xg.away)}${b ? ` · <b>${esc(selShort(b.sel))}</b> ${pct(b.p)} @ ${f2(b.odds)}` : ''}</div></div>
-        ${s && s.hg != null ? `<div class="nums"><div class="score">${s.hg} – ${s.ag}</div><div class="minute ${isFT(s) ? 'ft' : ''}">${esc(s.status)}</div></div>` : `<div class="nums"><div class="tiny muted">O2.5 ${pill(f.p.O25, 0.6, 0.5)}</div><div class="tiny muted">BTTS ${pill(f.p.BTTS, 0.6, 0.5)}</div></div>`}</div>`);
+      const sub = `${key === 'ko' ? '' : flag(f.country) + ' ' + esc(f.competition) + ' · '}xG ${f1(f.xg.home)}–${f1(f.xg.away)}${b ? ` · <b>${esc(selShort(b.sel))}</b> ${pct(b.p)} @ ${f2(b.odds)}` : ''}${f.data_ok ? '' : ' · <span class="warn">low data</span>'}`;
+      parts.push(matchRow(f, { live: s, short: key === 'ko', sub, right: s && s.hg != null ? '' : `<span class="tiny muted">O2.5 ${pill(f.p.O25, 0.6, 0.5)}</span><span class="tiny muted">BTTS ${pill(f.p.BTTS, 0.6, 0.5)}</span>` }));
     });
     if (lastDay) parts.push('</div>');
     view().innerHTML = parts.join('');
@@ -327,9 +333,9 @@
     const rate = (o, hitKey) => { if (!o || !o.n) return '–'; const settled = o.n - (o.pending || 0); return settled ? `${o[hitKey]}/${settled}${o.pending ? ' · ' + o.pending + ' open' : ''}` : `${o.n} open`; };
     parts.push(`<div class="card compact">${days.map((x) => `<div class="list-item tap day" data-day="${esc(x.date)}"><div class="main"><div class="match">${esc(dayName(x.date))}</div>
       <div class="meta">${x.n} matches${x.finished ? ` · ${x.finished} finished` : ''}${x.goals_avg != null ? ` · ${f1(x.goals_avg)} goals/match · O2.5 ${pct(x.o25_rate)} · BTTS ${pct(x.btts_rate)}` : ''}</div>
-      <div class="chips">${x.safes && x.safes.n ? `<span class="chip ${chipCls(x.safes, 'hit')}">🎯 safest ${rate(x.safes, 'hit')}</span>` : ''}${x.accas && x.accas.n ? `<span class="chip ${chipCls(x.accas, 'won')}">🔒 trebles ${rate(x.accas, 'won')}</span>` : ''}${x.parlays && x.parlays.n ? `<span class="chip ${chipCls(x.parlays, 'won')}">🎟️ parlays ${rate(x.parlays, 'won')}</span>` : ''}${x.picks && x.picks.n ? `<span class="chip ${chipCls(x.picks, 'hit')}">⭐ picks ${rate(x.picks, 'hit')}</span>` : ''}</div></div><div class="chev">›</div></div>`).join('')}</div>`);
+      <div class="chips">${x.safes && x.safes.n ? `<span class="chip ${chipCls(x.safes, 'hit')}">${icon('target')} safest ${rate(x.safes, 'hit')}</span>` : ''}${x.accas && x.accas.n ? `<span class="chip ${chipCls(x.accas, 'won')}">${icon('lock')} trebles ${rate(x.accas, 'won')}</span>` : ''}${x.parlays && x.parlays.n ? `<span class="chip ${chipCls(x.parlays, 'won')}">${icon('ticket')} parlays ${rate(x.parlays, 'won')}</span>` : ''}${x.picks && x.picks.n ? `<span class="chip ${chipCls(x.picks, 'hit')}">${icon('star')} picks ${rate(x.picks, 'hit')}</span>` : ''}</div></div><div class="chev">${icon('next')}</div></div>`).join('')}</div>`);
     view().innerHTML = parts.join('');
-    $$('[data-day]').forEach((b) => { b.onclick = () => PR.push({ type: 'day', date: b.dataset.day }); });
+    $$('[data-day]').forEach((b) => { b.onclick = () => { state.dayView = 'results'; PR.push({ type: 'day', date: b.dataset.day }); }; });
   };
   function chipCls(o, k) { const settled = o.n - (o.pending || 0); if (!settled) return ''; const r = o[k] / settled; return r >= 0.6 ? 'good' : r <= 0.35 ? 'bad' : 'warn'; }
   PR.chipCls = chipCls;

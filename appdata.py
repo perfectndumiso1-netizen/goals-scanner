@@ -74,6 +74,28 @@ def _profile(t) -> dict:
                       for m in (t.last5 or [])]}
 
 
+def update_badges(path: Path, rows: list, ls_map: dict) -> dict:
+    """Persistent {team short name: Livescore image path}; grows with every run, so league tables and
+    history pages can show badges for teams that are not in today's fixtures."""
+    try:
+        badges = json.loads(path.read_text(encoding="utf-8")) if path.exists() else {}
+    except (OSError, ValueError):
+        badges = {}
+    changed = False
+    for r in rows:
+        ls = ls_map.get(r.fx.name) or {}
+        for side in ("home", "away"):
+            img = ls.get(f"{side}_img")
+            name = r.fx[side]
+            if img and badges.get(name) != img:
+                badges[name] = img
+                changed = True
+    if changed or not path.exists():
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(json.dumps(dict(sorted(badges.items())), ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
+    return badges
+
+
 def export(path: Path, *, ctx: dict, rows: list, picks: dict, pr: dict, parlay_ids: list, ledger: pd.DataFrame,
            tracker_summary: dict, notes: list[str], headlines: dict, ls_map: dict, helpers: dict,
            reports_dir: Path, tz_label: str, thresholds: dict, backtest: dict, repo: str | None,
@@ -84,6 +106,7 @@ def export(path: Path, *, ctx: dict, rows: list, picks: dict, pr: dict, parlay_i
     tracked = set()
     fixtures = []
     ids_by_key = {}
+    badges = update_badges(path.parent / "badges.json", rows, ls_map)
     for r in rows:
         fx = r.fx
         date = fx["date"].strftime("%Y-%m-%d")
@@ -116,6 +139,7 @@ def export(path: Path, *, ctx: dict, rows: list, picks: dict, pr: dict, parlay_i
                      "bfe_over25": _f(fx.get("bfe_over"), 2), "bfe_under25": _f(fx.get("bfe_under"), 2)},
             "sportybet": _sb(r.sb_full or r.sb), "sportybet_event": (r.sb_event or {}).get("id"),
             "livescore_id": (ls or {}).get("eid"),
+            "badges": {"home": badges.get(fx["home"]), "away": badges.get(fx["away"])},
             "teams": {"home": _profile(r.home), "away": _profile(r.away)},
             "league_avg": {"home_goals": _f(r.div_avg.mu_h, 2), "away_goals": _f(r.div_avg.mu_a, 2),
                            "o25": _f(r.div_avg.o25_rate)},

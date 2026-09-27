@@ -12,6 +12,8 @@ import android.webkit.WebResourceRequest
 import android.webkit.WebResourceResponse
 import android.webkit.WebSettings
 import android.webkit.WebView
+import android.graphics.Color
+import androidx.core.view.WindowInsetsControllerCompat
 import androidx.activity.OnBackPressedCallback
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
@@ -55,6 +57,7 @@ class MainActivity : AppCompatActivity() {
 
         swipe = SwipeRefreshLayout(this)
         web = WebView(this)
+        applyTheme(getSharedPreferences(Notifier.PREFS, MODE_PRIVATE).getBoolean("dark", false))
         web.layoutParams = ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
         swipe.addView(web)
         setContentView(swipe)
@@ -163,6 +166,20 @@ class MainActivity : AppCompatActivity() {
 
     private fun js(code: String) = runOnUiThread { web.evaluateJavascript(code, null) }
 
+    /** Keep the system bars and the WebView backdrop in step with the page theme (no white flashes). */
+    private fun applyTheme(dark: Boolean) {
+        val bg = if (dark) Color.parseColor("#0B0F14") else Color.parseColor("#F2F4F8")
+        val nav = if (dark) Color.parseColor("#131A22") else Color.WHITE
+        web.setBackgroundColor(bg)
+        swipe.setBackgroundColor(bg)
+        window.navigationBarColor = nav
+        val ctl = WindowInsetsControllerCompat(window, web)
+        ctl.isAppearanceLightNavigationBars = !dark
+        ctl.isAppearanceLightStatusBars = false
+        val prefs = getSharedPreferences(Notifier.PREFS, MODE_PRIVATE)
+        prefs.edit().putBoolean("dark", dark).apply()
+    }
+
     inner class Bridge {
         @JavascriptInterface
         fun fetch(id: Int, url: String, userAgent: String?) {
@@ -195,6 +212,10 @@ class MainActivity : AppCompatActivity() {
 
         @JavascriptInterface
         fun rawBase(): String = "https://raw.githubusercontent.com/${Net.REPO}/${Net.BRANCH}/"
+
+        /** Called by the page whenever its theme resolves (system / light / dark). */
+        @JavascriptInterface
+        fun setTheme(dark: Boolean) = runOnUiThread { applyTheme(dark) }
 
         @JavascriptInterface
         fun notificationsAllowed(): Boolean = Notifier.canNotify(this@MainActivity)

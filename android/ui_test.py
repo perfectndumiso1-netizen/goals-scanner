@@ -23,6 +23,12 @@ def live_json():
         evs.append({'Eid': str(f['livescore_id']), 'Eps': st, 'Tr1': str(hg), 'Tr2': str(ag), 'T1': [{'Nm': f['home']}], 'T2': [{'Nm': f['away']}]})
     return {'Stages': [{'Snm': 'x', 'Cnm': 'y', 'Events': evs}]}
 INCS = {'Incs': {'1': [{'Min': 12, 'IT': 36, 'Nm': 1, 'Fn': 'John', 'Ln': 'Smith', 'Sc': [1, 0]}, {'Min': 40, 'IT': 39, 'Nm': 2, 'Fn': 'Peter', 'Ln': 'Jones', 'Sc': [1, 1]}]}}
+import base64, io
+try:
+    from PIL import Image, ImageDraw
+    _im = Image.new('RGBA', (64, 64), (0, 0, 0, 0)); ImageDraw.Draw(_im).ellipse((4, 4, 60, 60), fill=(30, 77, 140, 255)); _b = io.BytesIO(); _im.save(_b, 'PNG'); PNG = _b.getvalue()
+except Exception:
+    PNG = base64.b64decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==')
 LEAK = re.compile(r'github|perfectndumiso|goals-scanner|goals scanner|raw\.githubusercontent', re.I)
 
 errors, shots = [], []
@@ -57,6 +63,8 @@ with sync_playwright() as p:
             f = DATA_ROOT / rel
             if f.exists(): route.fulfill(body=f.read_bytes(), content_type='application/json' if rel.endswith('.json') else 'text/plain; charset=utf-8')
             else: route.fulfill(status=404, body='missing')
+        elif 'lsm-static-prod.livescore.com' in url:
+            route.fulfill(body=PNG, content_type='image/png')
         elif 'livescore.com' in url:
             route.fulfill(json=INCS if '/incidents/' in url else live_json())
         else:
@@ -69,6 +77,9 @@ with sync_playwright() as p:
     # ---- home
     t = shot(page, 'home')
     for needle in ['Safest trebles', 'Safest bets', 'Next kick-offs']: assert needle in t, f'home missing {needle}'
+    assert page.locator('#view .badge img').count() >= 4, 'badges rendered'
+    assert page.locator('#view .whatsnew').count() == 1, "what's new card"
+    page.click('#wn-close'); page.wait_for_timeout(150); assert page.locator('#view .whatsnew').count() == 0, "what's new dismissed"
     assert page.locator('#status-line').inner_text().startswith('Analysis'), 'status line'
     # ---- bets segments
     page.click('#tabs button[data-tab=bets]'); page.wait_for_timeout(200)
@@ -89,7 +100,7 @@ with sync_playwright() as p:
     page.fill('#fx-search', ''); page.wait_for_timeout(200)
     page.select_option('#fx-sort', 'O25'); page.wait_for_timeout(150); shot(page, 'matches_sort')
     # ---- match page from matches list
-    page.click('#view .list-item.tap[data-fx] >> nth=0'); page.wait_for_timeout(500); t = shot(page, 'match_overview')
+    page.click('#view .mrow.tap[data-fx] >> nth=0'); page.wait_for_timeout(500); t = shot(page, 'match_overview')
     assert 'expected goals' in t.lower() and 'over 2.5' in t.lower(), 'match overview'
     for seg in ['markets', 'stats', 'h2h']:
         page.click(f'[data-mv={seg}]'); page.wait_for_timeout(300); t = shot(page, f'match_{seg}')
@@ -130,6 +141,18 @@ with sync_playwright() as p:
     page.evaluate('window.app.back()')
     page.click('#btn-menu'); page.click('#menu [data-page=settings]'); page.wait_for_timeout(200); t = shot(page, 'settings')
     for sel in ['#s-goals', '#s-live', '#s-tz', '#s-save', '#s-clear']: assert page.locator(sel).count() == 1, f'settings control {sel}'
+    page.click('[data-th=dark]'); page.wait_for_timeout(200)
+    assert page.evaluate("document.documentElement.dataset.theme") == 'dark', 'dark theme applied'
+    assert page.evaluate("getComputedStyle(document.body).backgroundColor") == 'rgb(11, 15, 20)', 'dark background'
+    shot(page, 'settings_dark')
+    page.evaluate('window.app.back()'); page.evaluate("window.app.setTab('home')"); page.wait_for_timeout(300); shot(page, 'home_dark')
+    page.click('#tabs button[data-tab=matches]'); page.wait_for_timeout(200); shot(page, 'matches_dark')
+    page.click('#view .mrow.tap >> nth=0'); page.wait_for_timeout(400); shot(page, 'match_dark')
+    while page.evaluate('window.app.back()'): page.wait_for_timeout(50)
+    page.click('#btn-menu'); page.click('#menu [data-page=settings]'); page.wait_for_timeout(200)
+    page.click('[data-th=light]'); page.wait_for_timeout(200)
+    assert page.evaluate("getComputedStyle(document.body).backgroundColor") == 'rgb(242, 244, 248)', 'light background'
+    page.click('[data-th=system]'); page.wait_for_timeout(100)
     assert 'WhatsApp' in t and 'msanindumiso@gmail.com' in t, 'contact card'
     # update flow
     page.wait_for_timeout(4200)  # boot checkUpdate fires after 4 s

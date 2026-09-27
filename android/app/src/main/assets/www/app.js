@@ -45,6 +45,7 @@
   // boot: cached first, then network
   const cached = localStorage.getItem('pr_latest');
   if (cached) { try { state.data = PR.indexData(JSON.parse(cached)); PR.statusLine(); PR.render(); } catch (e) { /* ignore */ } }
+  PR.loadBadges().then(() => { if (state.data) PR.render(); });
   PR.loadData(false).then(() => { if (state.data) PR.live.refresh(false); });
   PR.live.schedule();
   if (PR.native && PR.native.checkUpdate) setTimeout(() => { try { PR.native.checkUpdate(); } catch (e) { /* ignore */ } }, 4000);
