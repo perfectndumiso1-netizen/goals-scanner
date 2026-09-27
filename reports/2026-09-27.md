@@ -1,10 +1,10 @@
 # ⚽ Goals Scanner — Sunday 27 September 2026
 
-**Run 07:00 sast** · scan window Sun 27 Sep 06:56 → Mon 28 Sep 07:01 · **9 fixtures** across **3 competitions** · generated 07:01 SAST · next run Sun 12:00
+**Manual run 09:15 sast** · scan window Sun 27 Sep 09:10 → Mon 28 Sep 09:15 · **9 fixtures** across **3 competitions** · generated 09:15 SAST · next run Sun 12:00
 
 > Sportybet (ZA): 9 of 9 fixtures priced.
 
-## 🎟️ Parlays — run 07:00 · combined odds 2.70–3.50
+## 🎟️ Parlays — manual run 09:15 · combined odds 2.70–3.50
 
 _Prices: **Sportybet**. Window: whole 24 h window (fewer than 4 priced matches before the next run). 9 priced matches, 72 candidate legs. Legs are limited to 1X2, double chance and Over/Under 2.5 — markets with real prices. Each parlay maximises expected return (calibrated probability × price) inside the odds band._
 
@@ -33,25 +33,25 @@ _Prices: **Sportybet**. Window: whole 24 h window (fewer than 4 priced matches b
 
 > ⚠️ Honest expectation: a parlay at ~3.1 needs to win about 1 in 3 to break even. In the 2023-26 backtest this exact construction won 30-33% of the time and returned −4% to −13% per unit at average prices — the bookmaker margin compounds across legs. Treat parlays as entertainment with a known cost, not as income. Full test: `backtest/PARLAY_EXPERIMENT.md`.
 
-## 🔒 Safest bets — run 07:00
+## 🔒 Safest bets — manual run 09:15
 
 _Selections across every modelled market whose probability is at least 70% on **both** views (calibrated model and the de-margined Sportybet price) at a Sportybet price of 1.30 or more. Three trebles are built from that pool — one leg per match, no match repeated — ranked by probability. Legs from the whole 24 h window (too few before the next run). Both lists are graded automatically (`data/safe_bets.csv`, `data/safe_accas.csv`)._
 
-### Safest treble 1 — odds **2.32** · win probability **39%** · id `S20260927-01`
+### Safest treble 1 — odds **2.21** · win probability **39%** · id `S20260927-03`
 
 | Kick-off | Match | Competition | Selection | Price | Probability |
 |---|---|---|---|---|---|
 | 09-27 16:15 | **Mallorca v Almeria** | Segunda División | **Over 1.5 goals** | **1.31** | 74% |
 | 09-27 20:00 | **UNAM Pumas v Atl. San Luis** | Liga MX | **UNAM Pumas or draw** | **1.30** | 73% |
-| 09-28 05:10 | **Necaxa v Club America** | Liga MX | **Necaxa over 0.5 goals** | **1.36** | 73% |
+| 09-27 21:00 | **Oviedo v Sp Gijon** | Segunda División | **Oviedo over 0.5 goals** | **1.30** | 73% |
 
-### Safest treble 2 — odds **2.25** · win probability **38%** · id `S20260927-02`
+### Safest treble 2 — odds **2.32** · win probability **38%** · id `S20260927-04`
 
 | Kick-off | Match | Competition | Selection | Price | Probability |
 |---|---|---|---|---|---|
 | 09-27 14:00 | **Valladolid v Cordoba** | Segunda División | **Valladolid or Cordoba** | **1.31** | 73% |
 | 09-27 18:30 | **Eibar v Las Palmas** | Segunda División | **Eibar or Las Palmas** | **1.30** | 73% |
-| 09-27 21:00 | **Oviedo v Sp Gijon** | Segunda División | **Oviedo over 0.5 goals** | **1.32** | 73% |
+| 09-28 05:10 | **Necaxa v Club America** | Liga MX | **Necaxa over 0.5 goals** | **1.36** | 73% |
 
 ### Safest single bets — top 13 of 13
 
@@ -59,17 +59,17 @@ _Selections across every modelled market whose probability is at least 70% on **
 |---|---|---|---|---|---|---|---|
 | 09-27 16:15 | Mallorca v Almeria | Segunda División | **Over 1.5 goals** | **1.31** | **74%** | 75% | 72% |
 | 09-27 20:00 | UNAM Pumas v Atl. San Luis | Liga MX | **UNAM Pumas or draw** | **1.30** | **73%** | 74% | 73% |
+| 09-27 21:00 | Oviedo v Sp Gijon | Segunda División | **Oviedo over 0.5 goals** | **1.30** | **73%** | 74% | 72% |
 | 09-28 05:10 | Necaxa v Club America | Liga MX | **Necaxa over 0.5 goals** | **1.36** | **73%** | 77% | 69% |
 | 09-27 18:30 | Eibar v Las Palmas | Segunda División | **Eibar or Las Palmas** | **1.30** | **73%** | 73% | 73% |
 | 09-27 14:00 | Valladolid v Cordoba | Segunda División | **Valladolid or Cordoba** | **1.31** | **73%** | 73% | 73% |
-| 09-27 21:00 | Oviedo v Sp Gijon | Segunda División | **Oviedo over 0.5 goals** | **1.32** | **73%** | 74% | 71% |
-| 09-27 18:30 | Eibar v Las Palmas | Segunda División | **Under 3.5 goals** | **1.33** | **72%** | 73% | 71% |
 | 09-27 16:15 | Mallorca v Almeria | Segunda División | **Mallorca or Almeria** | **1.31** | **72%** | 72% | 72% |
 | 09-27 16:15 | Mallorca v Almeria | Segunda División | **Under 3.5 goals** | **1.31** | **72%** | 72% | 72% |
+| 09-27 18:30 | Eibar v Las Palmas | Segunda División | **Under 3.5 goals** | **1.35** | **72%** | 73% | 70% |
 | 09-27 18:30 | Burgos v Eldense | Segunda División | **Burgos or Eldense** | **1.32** | **72%** | 72% | 72% |
 | 09-28 01:00 | Columbus Crew v Inter Miami | MLS | **Under 4.5 goals** | **1.43** | **71%** | 75% | 67% |
-| 09-27 18:30 | Eibar v Las Palmas | Segunda División | **Las Palmas under 1.5 goals** | **1.33** | **71%** | 71% | 71% |
 | 09-27 14:00 | Valladolid v Cordoba | Segunda División | **Cordoba over 0.5 goals** | **1.32** | **71%** | 71% | 71% |
+| 09-27 18:30 | Eibar v Las Palmas | Segunda División | **Las Palmas under 1.5 goals** | **1.34** | **71%** | 71% | 70% |
 
 _Track record — safest bets: 4/8 hit (50%, expected 74%); trebles: 0/3 won (0%, expected 40%)._
 
@@ -289,7 +289,7 @@ _No head-to-head data in the last two seasons._
 * **Team goals:** Eibar to score 79% (2+ 46%) · Las Palmas to score 65% (2+ 29%)
 * **Corners:** expected 4.7 (home) + 4.5 (away) = **9.2** · total O8.5 **56%** · O9.5 **43%** · O10.5 **32%** · O11.5 **22%** · home O3.5 64% · O4.5 48% · O5.5 34% · away O3.5 60% · O4.5 44% · O5.5 30% _(team averages: Eibar 3.6 for / 5.6 against over 40 games, Las Palmas 4.7 / 4.4 over 40)_
 * **Cards** (yellow + red): expected 2.4 + 2.2 = **4.6** · total O3.5 **66%** · O4.5 **48%** · O5.5 **32%** _(team averages: Eibar 2.6 received / 2.5 opponents booked, Las Palmas 1.6 / 2.4)_
-* **Sportybet:** 1X2 1.94 / 3.40 / 3.90 · DC 1X/12/X2 1.24 / 1.30 / 1.76 · goals O1.5 1.29 / U 3.50 · O2.5 1.92 / U 1.86 · O3.5 3.25 / U 1.33 · BTTS 1.76 / 1.95 · Eibar goals O0.5 1.20 / U 4.20 · O1.5 1.96 / U 1.79 · Las Palmas goals O0.5 1.46 / U 2.60 · O1.5 3.20 / U 1.33
+* **Sportybet:** 1X2 1.94 / 3.40 / 3.90 · DC 1X/12/X2 1.24 / 1.30 / 1.76 · goals O1.5 1.28 / U 3.60 · O2.5 1.89 / U 1.88 · O3.5 3.20 / U 1.35 · BTTS 1.74 / 1.98 · Eibar goals O0.5 1.20 / U 4.25 · O1.5 1.94 / U 1.80 · Las Palmas goals O0.5 1.45 / U 2.65 · O1.5 3.10 / U 1.34
 
 **Eibar** (Home) — 40 matches used (weighted 14.8), 20 home
 
@@ -335,7 +335,7 @@ _No head-to-head data in the last two seasons._
 * **1X2** (fair, market+Sportybet+model): home 48% · draw 26% · away 26% → fair odds 2.08 / 3.92 / 3.80 · **Double chance** 1X 74% · 12 74% · X2 52%
 * **Team goals:** UNAM Pumas to score 82% (2+ 52%) · Atl. San Luis to score 70% (2+ 34%)
 * **Sportybet:** 1X2 2.05 / 3.60 / 3.50 · DC 1X/12/X2 1.30 / 1.29 / 1.70 · goals O1.5 1.22 / U 4.10 · O2.5 1.71 / U 2.10 · O3.5 2.70 / U 1.45 · BTTS 1.61 / 2.25 · UNAM Pumas goals O0.5 1.18 / U 4.50 · O1.5 1.88 / U 1.86 · Atl. San Luis goals O0.5 1.34 / U 3.10 · O1.5 2.60 / U 1.47
-* **Sportybet corners / cards:** total corners O8.5 1.61 / U 2.15 · O9.5 1.99 / U 1.73 · O10.5 2.55 / U 1.45 · O11.5 3.33 / U 1.28 · home corners O3.5 1.25 / U 3.75 · O4.5 1.53 / U 2.40 · O5.5 1.98 / U 1.77 · away corners O3.5 1.78 / U 1.96 · O4.5 2.62 / U 1.45 · O5.5 4.10 / U 1.21 · 1st-half corners O3.5 1.50 / U 2.45 · O4.5 2.05 / U 1.70 · O5.5 2.95 / U 1.35 _(no model — market only)_ · total cards O4.5 1.92 / U 1.79
+* **Sportybet corners / cards:** total corners O8.5 1.61 / U 2.15 · O9.5 1.99 / U 1.73 · O10.5 2.55 / U 1.45 · O11.5 3.33 / U 1.28 · home corners O3.5 1.25 / U 3.75 · O4.5 1.53 / U 2.40 · O5.5 1.98 / U 1.77 · away corners O3.5 1.78 / U 1.96 · O4.5 2.65 / U 1.44 · O5.5 4.10 / U 1.21 · 1st-half corners O3.5 1.50 / U 2.45 · O4.5 2.05 / U 1.70 · O5.5 2.95 / U 1.35 _(no model — market only)_ · total cards O3.5 1.42 / U 2.65 · O4.5 1.92 / U 1.79 · O5.5 2.85 / U 1.37
 
 **UNAM Pumas** (Home) — 40 matches used (weighted 16.5), 19 home
 
@@ -378,7 +378,7 @@ _No head-to-head data in the last two seasons._
 * **Team goals:** Oviedo to score 74% (2+ 39%) · Sp Gijon to score 61% (2+ 25%)
 * **Corners:** expected 5.2 (home) + 4.0 (away) = **9.3** · total O8.5 **57%** · O9.5 **45%** · O10.5 **33%** · O11.5 **23%** · home O3.5 71% · O4.5 56% · O5.5 42% · away O3.5 54% · O4.5 37% · O5.5 24% _(team averages: Oviedo 4.4 for / 4.7 against over 40 games, Sp Gijon 4.1 / 5.3 over 40)_
 * **Cards** (yellow + red): expected 2.4 + 2.4 = **4.8** · total O3.5 **69%** · O4.5 **52%** · O5.5 **35%** _(team averages: Oviedo 2.4 received / 1.9 opponents booked, Sp Gijon 2.3 / 2.6)_
-* **Sportybet:** 1X2 2.10 / 3.10 / 3.80 · DC 1X/12/X2 1.26 / 1.34 / 1.67 · goals O1.5 1.49 / U 2.55 · O2.5 2.50 / U 1.51 · O3.5 4.80 / U 1.18 · BTTS 2.15 / 1.64 · Oviedo goals O0.5 1.32 / U 3.20 · O1.5 2.45 / U 1.51 · Sp Gijon goals O0.5 1.62 / U 2.20 · O1.5 3.90 / U 1.23
+* **Sportybet:** 1X2 2.10 / 3.10 / 3.80 · DC 1X/12/X2 1.26 / 1.34 / 1.67 · goals O1.5 1.46 / U 2.65 · O2.5 2.40 / U 1.54 · O3.5 4.50 / U 1.19 · BTTS 2.05 / 1.68 · Oviedo goals O0.5 1.30 / U 3.30 · O1.5 2.40 / U 1.53 · Sp Gijon goals O0.5 1.59 / U 2.25 · O1.5 3.80 / U 1.24
 * **Sportybet corners / cards:** total corners O8.5 1.72 / U 2.00 · O9.5 2.15 / U 1.62 · 1st-half corners O3.5 1.56 / U 2.30 · O4.5 2.15 / U 1.63 · O5.5 3.20 / U 1.31 _(no model — market only)_
 
 **Oviedo** (Home) — 40 matches used (weighted 14.3), 20 home
@@ -424,7 +424,7 @@ _No head-to-head data in the last two seasons._
 * **1X2** (fair, market+Sportybet+model): home 35% · draw 23% · away 42% → fair odds 2.86 / 4.36 / 2.38 · **Double chance** 1X 58% · 12 77% · X2 65%
 * **Team goals:** Columbus Crew to score 83% (2+ 52%) · Inter Miami to score 80% (2+ 48%)
 * **Sportybet:** 1X2 2.85 / 4.10 / 2.30 · DC 1X/12/X2 1.62 / 1.26 / 1.43 · goals O1.5 1.11 / U 7.40 · O2.5 1.36 / U 3.30 · O3.5 1.87 / U 1.98 · BTTS 1.35 / 3.25 · Columbus Crew goals O0.5 1.17 / U 5.00 · O1.5 1.82 / U 2.00 · Inter Miami goals O0.5 1.13 / U 6.10 · O1.5 1.63 / U 2.30
-* **Sportybet corners / cards:** total corners O8.5 1.73 / U 1.99 · O9.5 2.15 / U 1.61 · O10.5 2.85 / U 1.38 · home corners O3.5 1.48 / U 2.60 · O4.5 2.00 / U 1.78 · O5.5 2.90 / U 1.40 · away corners O3.5 1.53 / U 2.45 · O4.5 2.12 / U 1.70 · O5.5 3.20 / U 1.34 · 1st-half corners O3.5 1.56 / U 2.30 · O4.5 2.15 / U 1.63 · O5.5 3.20 / U 1.31 _(no model — market only)_
+* **Sportybet corners / cards:** total corners O8.5 1.73 / U 1.99 · O9.5 2.15 / U 1.61 · O10.5 2.85 / U 1.38 · home corners O3.5 1.48 / U 2.60 · O4.5 1.98 / U 1.80 · O5.5 2.90 / U 1.40 · away corners O3.5 1.53 / U 2.45 · O4.5 2.12 / U 1.70 · O5.5 3.20 / U 1.34 · 1st-half corners O3.5 1.56 / U 2.30 · O4.5 2.15 / U 1.63 · O5.5 3.20 / U 1.31 _(no model — market only)_
 
 **Columbus Crew** (Home) — 37 matches used (weighted 16.2), 17 home
 

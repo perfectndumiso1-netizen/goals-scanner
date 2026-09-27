@@ -15,9 +15,9 @@ Every run:
   headlines for every parlay match); Markdown + CSV committed here; a weekly performance digest on Mondays.
 
 <!-- SCAN:START -->
-### Latest scan — Sunday 27 September 2026 (07:01 SAST)
+### Latest scan — Sunday 27 September 2026 (09:15 SAST)
 
-9 fixtures scanned · window Sun 06:56 → Mon 07:01 SAST · [open full report](reports/2026-09-27.md)
+9 fixtures scanned · window Sun 09:10 → Mon 09:15 SAST · [open full report](reports/2026-09-27.md)
 
 **Over 1.5 goals** — 1 pick(s)
 
@@ -37,7 +37,7 @@ Every run:
 |---|---|---|---|---|
 | Mon 28 Sep 01:00 | **Columbus Crew v Inter Miami** | USA · MLS | 67% | ⭐⭐⭐ |
 
-**Parlays (run 07:00, Sportybet)** — see [dossier](reports/2026-09-27-parlays.md)
+**Parlays (manual run 09:15, Sportybet)** — see [dossier](reports/2026-09-27-parlays.md)
 
 1. @ **2.79** (P 34%): UNAM Pumas v Atl. San Luis — Home win @ 2.05; Columbus Crew v Inter Miami — Over 2.5 goals @ 1.36
 2. @ **2.94** (P 32%): Valladolid v Cordoba — Home win @ 2.35; Burgos v Eldense — Home or draw (1X) @ 1.25
