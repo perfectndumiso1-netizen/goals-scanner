@@ -15,65 +15,50 @@ Every run:
   headlines for every parlay match); Markdown + CSV committed here; a weekly performance digest on Mondays.
 
 <!-- SCAN:START -->
-### Latest scan — Saturday 26 September 2026 (18:27 SAST)
+### Latest scan — Sunday 27 September 2026 (07:01 SAST)
 
-23 fixtures scanned · window Sat 18:22 → Sun 18:27 SAST · [open full report](reports/2026-09-26.md)
+9 fixtures scanned · window Sun 06:56 → Mon 07:01 SAST · [open full report](reports/2026-09-27.md)
 
-**Over 1.5 goals** — 5 pick(s)
-
-| Kick-off | Match | Competition | Final prob. | Rating |
-|---|---|---|---|---|
-| Sun 27 Sep 01:30 | **Philadelphia Union v Orlando City** | USA · MLS | 88% | ⭐⭐ |
-| Sun 27 Sep 01:30 | **CF Montreal v FC Cincinnati** | USA · MLS | 85% | ⭐ |
-| Sun 27 Sep 04:30 | **San Jose Earthquakes v Portland Timbers** | USA · MLS | 85% | ⭐ |
-| Sun 27 Sep 01:30 | **Charlotte v Chicago Fire** | USA · MLS | 84% | ⭐ |
-| Sun 27 Sep 02:30 | **Seattle Sounders v Minnesota United** | USA · MLS | 84% | ⭐ |
-
-**Over 2.5 goals** — 10 pick(s)
+**Over 1.5 goals** — 1 pick(s)
 
 | Kick-off | Match | Competition | Final prob. | Rating |
 |---|---|---|---|---|
-| Sun 27 Sep 01:30 | **Philadelphia Union v Orlando City** | USA · MLS | 70% | ⭐⭐⭐ |
-| Sun 27 Sep 01:30 | **CF Montreal v FC Cincinnati** | USA · MLS | 65% | ⭐⭐ |
-| Sun 27 Sep 04:30 | **San Jose Earthquakes v Portland Timbers** | USA · MLS | 64% | ⭐⭐ |
-| Sun 27 Sep 01:30 | **Charlotte v Chicago Fire** | USA · MLS | 64% | ⭐ |
-| Sun 27 Sep 02:30 | **Seattle Sounders v Minnesota United** | USA · MLS | 63% | ⭐ |
-| Sun 27 Sep 02:30 | **Nashville SC v Toronto FC** | USA · MLS | 62% | ⭐ |
-| Sun 27 Sep 01:30 | **New York Red Bulls v St. Louis City** | USA · MLS | 60% | ⭐ |
-| Sun 27 Sep 03:30 | **Real Salt Lake v New England Revolution** | USA · MLS | 60% | ⭐ |
-| … | _2 more in the full report_ | | | |
+| Mon 28 Sep 01:00 | **Columbus Crew v Inter Miami** | USA · MLS | 86% | ⭐ |
 
-**Both teams to score** — 10 pick(s)
+**Over 2.5 goals** — 1 pick(s)
 
 | Kick-off | Match | Competition | Final prob. | Rating |
 |---|---|---|---|---|
-| Sun 27 Sep 01:30 | **Philadelphia Union v Orlando City** | USA · MLS | 68% | ⭐⭐⭐ |
-| Sun 27 Sep 01:30 | **CF Montreal v FC Cincinnati** | USA · MLS | 66% | ⭐⭐⭐ |
-| Sun 27 Sep 04:30 | **San Jose Earthquakes v Portland Timbers** | USA · MLS | 65% | ⭐⭐ |
-| Sun 27 Sep 02:30 | **Seattle Sounders v Minnesota United** | USA · MLS | 65% | ⭐⭐ |
-| Sun 27 Sep 01:30 | **Charlotte v Chicago Fire** | USA · MLS | 64% | ⭐⭐ |
-| Sun 27 Sep 01:30 | **New York Red Bulls v St. Louis City** | USA · MLS | 63% | ⭐ |
-| Sun 27 Sep 03:30 | **Real Salt Lake v New England Revolution** | USA · MLS | 63% | ⭐ |
-| Sun 27 Sep 02:30 | **FC Dallas v Los Angeles FC** | USA · MLS | 63% | ⭐ |
-| … | _2 more in the full report_ | | | |
+| Mon 28 Sep 01:00 | **Columbus Crew v Inter Miami** | USA · MLS | 66% | ⭐⭐ |
 
-**Parlays (manual run 18:27, Sportybet)** — see [dossier](reports/2026-09-26-parlays.md)
+**Both teams to score** — 1 pick(s)
 
-1. @ **2.75** (P 37%): Guadalajara Chivas v Queretaro — Home or draw (1X) @ 1.17; Charlotte v Chicago Fire — Home win @ 2.35
-2. @ **3.24** (P 30%): CF Montreal v FC Cincinnati — Home win @ 2.75; Houston Dynamo v Sporting Kansas City — Home or draw (1X) @ 1.18
-3. @ **3.14** (P 31%): Atlanta Utd v New York City — Home win @ 2.45; Philadelphia Union v Orlando City — Over 2.5 goals @ 1.28
+| Kick-off | Match | Competition | Final prob. | Rating |
+|---|---|---|---|---|
+| Mon 28 Sep 01:00 | **Columbus Crew v Inter Miami** | USA · MLS | 67% | ⭐⭐⭐ |
+
+**Parlays (run 07:00, Sportybet)** — see [dossier](reports/2026-09-27-parlays.md)
+
+1. @ **2.79** (P 34%): UNAM Pumas v Atl. San Luis — Home win @ 2.05; Columbus Crew v Inter Miami — Over 2.5 goals @ 1.36
+2. @ **2.94** (P 32%): Valladolid v Cordoba — Home win @ 2.35; Burgos v Eldense — Home or draw (1X) @ 1.25
+3. @ **3.34** (P 28%): Oviedo v Sp Gijon — Home win @ 2.10; Club Leon v Juarez — Over 2.5 goals @ 1.59
 
 **Tracker**
 
 | Market | Settled | Hits | Hit rate | Last 30 days | Pending | Avg odds | Flat-stake return |
 |---|---|---|---|---|---|---|---|
-| Over 1.5 goals | 0 | 0 | – | – | 10 | – | – |
-| Over 2.5 goals | 0 | 0 | – | – | 16 | – | – |
-| Both teams to score | 0 | 0 | – | – | 14 | – | – |
+| Over 1.5 goals | 5 | 4 | 80% | 4/5 (80%) | 6 | – | – |
+| Over 2.5 goals | 9 | 6 | 67% | 6/9 (67%) | 8 | – | – |
+| Both teams to score | 9 | 5 | 56% | 5/9 (56%) | 6 | – | – |
 
 ### Parlay ledger
 
-_No settled parlays yet — 16 pending (graded automatically once the results are in)._
+| Scope | Settled | Won | Hit rate | Expected | Avg odds | Flat-stake return |
+|---|---|---|---|---|---|---|
+| All time | 7 | 0 | 0% | 31% | 3.25 | -100.0% |
+| Last 30 days | 7 | 0 | 0% | 31% | 3.25 | -100.0% |
+| Run 17:00 | 6 | 0 | 0% | 30% | 3.27 | -100.0% |
+| Run manual 18:27 | 1 | 0 | 0% | 31% | 3.14 | -100.0% |
 
 <!-- SCAN:END -->
 
