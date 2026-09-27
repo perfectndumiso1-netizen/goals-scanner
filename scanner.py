@@ -902,9 +902,13 @@ def run_schedule(now: datetime) -> tuple[str, datetime]:
     todays = [now.replace(hour=h, minute=0, second=0, microsecond=0) for h in hours]
     event = os.getenv("GITHUB_EVENT_NAME", "")
     label = f"manual {now:%H:%M}" if event == "workflow_dispatch" or not event else f"auto {now:%H:%M}"
+    # the first run within 90 min after a report hour that has not yet produced that report is the report run
+    # (GitHub's cron is often 5-30 min late; a crashed run is retried by the next half-hourly one)
+    done = _report_marks().get(now.strftime("%Y-%m-%d"), [])
     for t in todays:
-        if -5 * 60 <= (now - t).total_seconds() <= 20 * 60:
+        if -5 * 60 <= (now - t).total_seconds() <= 90 * 60 and f"{t:%H:%M}" not in done:
             label = f"{t:%H:%M}"
+            break
     nxt = [t for t in todays if t > now + timedelta(minutes=20)]
     window_end = nxt[0] if nxt else (todays[0] + timedelta(days=1))
     return label, window_end
@@ -912,6 +916,29 @@ def run_schedule(now: datetime) -> tuple[str, datetime]:
 
 def is_report_run(label: str) -> bool:
     return not label.startswith(("auto", "manual"))
+
+
+REPORT_MARKS_FILE = DATA_DIR / "report_marks.json"
+
+
+def _report_marks() -> dict:
+    try:
+        return json.loads(REPORT_MARKS_FILE.read_text(encoding="utf-8")) if REPORT_MARKS_FILE.exists() else {}
+    except Exception:
+        return {}
+
+
+def mark_report_run(now: datetime, label: str) -> None:
+    """Remember that today's report for this hour went out (keeps the last 3 days)."""
+    marks = _report_marks()
+    day = now.strftime("%Y-%m-%d")
+    marks.setdefault(day, [])
+    if label not in marks[day]:
+        marks[day].append(label)
+    for k in sorted(marks)[:-3]:
+        marks.pop(k, None)
+    REPORT_MARKS_FILE.parent.mkdir(parents=True, exist_ok=True)
+    REPORT_MARKS_FILE.write_text(json.dumps(marks, indent=1), encoding="utf-8")
 
 
 def build_run_parlays(rows: list[MatchRow], now: datetime, window_end: datetime, sb_ok: bool) -> dict:
@@ -1827,6 +1854,8 @@ def send_telegram(text: str) -> None:
                                         "disable_web_page_preview": True}, timeout=20)
             if r.status_code != 200:
                 log.warning("Telegram error %s: %s", r.status_code, r.text[:200])
+            else:
+                log.info("Telegram: message sent (%d chars)", len(c))
         except requests.RequestException as exc:
             log.warning("Telegram failed: %s", exc)
 
@@ -2102,6 +2131,7 @@ def main() -> None:
         send_telegram(telegram_text(ctx, rows, picks, report_url))
         if pdf_report:
             send_telegram_document(pdf_report, f"📄 PlayReport — {now:%a %d %b}, {run_desc(run_label, True)} ({len(rows)} fixtures)")
+        mark_report_run(now, run_label)
     elif new_bets:
         send_telegram(alert_text(new_bets, now))
     if digest_lines:
