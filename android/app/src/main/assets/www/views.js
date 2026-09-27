@@ -1,11 +1,14 @@
 /* PlayReport — tab views: Home, Bets, Live, Matches, Days. */
 (function (PR) {
   'use strict';
-  const { $, $$, esc, pct, f1, f2, signed, state, settings, fx, pill, bar, koShort, koTime, dayName, toast, selLabel, selShort, selGroup,
-    GROUPS, GROUP_ICON, liveVerdict, isLive, isFT, segmented, select, contactCard, matchLine, matchRow, scoreBox, statusIcon, tzNow, parseLocal, ymd, icon, flag, badge, fxBadge } = PR;
+  const { $, $$, esc, pct, f1, f2, signed, state, settings, fx, pill, koShort, koTime, dayName, toast, selLabel, selShort, selGroup,
+    GROUPS, GROUP_ICON, liveVerdict, isLive, isFT, segmented, select, contactCard, matchRow, tzNow, parseLocal, ymd, icon, flag, badge, fxBadge } = PR;
   const sh = (ico, title, cls) => `<h2><span class="ico ${cls || ''}">${icon(ico)}</span>${title}</h2>`;
   const view = () => $('#view');
   const MK = { O15: 'Over 1.5 goals', O25: 'Over 2.5 goals', BTTS: 'Both teams to score' };
+  const FAMILY = { goals: ['goals', 'btts', 'team'], corners: ['corners'], cards: ['cards'] };
+  const majorOnly = () => settings.leagues === 'major';
+  const inScope = (f) => !majorOnly() || !f || f.major;
 
   // ------------------------------------------------------------------ live data (shared by Live tab, Home strip, match page)
   const live = PR.live;
@@ -14,25 +17,34 @@
     const d = state.data; const ids = new Set(d.tracked || []);
     return (d.fixtures || []).filter((f) => ids.has(f.id)).sort((a, b) => a.kickoff.localeCompare(b.kickoff));
   };
+  const LIVE_STATUS = (e) => e.Eps || '';
   live.refresh = async function (manual) {
     const d = state.data; if (!d) return;
     const tracked = live.tracked().filter((f) => f.livescore_id);
-    if (!tracked.length) return;
     const now = tzNow(); const days = new Set(tracked.map((f) => f.kickoff.slice(0, 10))); days.add(ymd(now));
+    if (now.getHours() < 3) days.add(ymd(new Date(now.getTime() - 86400000)));
     const want = new Set(tracked.map((f) => f.livescore_id));
-    const goalEvents = [];
+    const byEid = {}; (d.fixtures || []).forEach((f) => { if (f.livescore_id) byEid[f.livescore_id] = f; });
+    const goalEvents = []; const all = []; const seenAll = new Set();
     for (const day of days) {
       try {
         const j = await PR.getJson(`https://prod-public-api.livescore.com/v1/api/app/date/soccer/${day.replace(/-/g, '')}/${settings.tzOffset}?MD=1`);
         (j.Stages || []).forEach((st) => (st.Events || []).forEach((e) => {
-          const eid = String(e.Eid); if (!want.has(eid)) return;
+          const eid = String(e.Eid); const status = LIVE_STATUS(e);
+          const ns = !status || status === 'NS';
+          const cur = { status, hg: !ns && e.Tr1 != null && e.Tr1 !== '' ? +e.Tr1 : null, ag: !ns && e.Tr2 != null && e.Tr2 !== '' ? +e.Tr2 : null, ht: [e.Trh1, e.Trh2], t: Date.now() };
           const prev = state.live[eid];
-          const ns = !e.Eps || e.Eps === 'NS'; const cur = { status: e.Eps || '', hg: !ns && e.Tr1 != null && e.Tr1 !== '' ? +e.Tr1 : null, ag: !ns && e.Tr2 != null && e.Tr2 !== '' ? +e.Tr2 : null, ht: [e.Trh1, e.Trh2], t: Date.now() };
           state.live[eid] = cur;
-          if (prev && prev.hg != null && cur.hg != null && (cur.hg + cur.ag) > (prev.hg + prev.ag)) goalEvents.push(eid);
+          if (want.has(eid) && prev && prev.hg != null && cur.hg != null && (cur.hg + cur.ag) > (prev.hg + prev.ag)) goalEvents.push(eid);
+          if (isLive(cur) && !seenAll.has(eid)) {
+            seenAll.add(eid);
+            const t1 = (e.T1 || [])[0] || {}, t2 = (e.T2 || [])[0] || {};
+            all.push({ eid, status, hg: cur.hg, ag: cur.ag, home: t1.Nm || '?', away: t2.Nm || '?', img: [t1.Img, t2.Img], country: st.Cnm || '', league: st.Snm || '', fixture: byEid[eid] ? byEid[eid].id : null, esd: String(e.Esd || '') });
+          }
         }));
       } catch (e) { if (manual) toast('Live scores unavailable (' + e.message + ')'); }
     }
+    state.liveAll = all; state.lastLiveAll = Date.now();
     state.lastLive = Date.now();
     const dot = $('#live-dot'); if (dot) dot.classList.toggle('on', live.inPlay().length > 0);
     for (const f of tracked) {
@@ -60,7 +72,7 @@
     const inc = state.incidents[eid]; const goals = inc ? inc.items.filter((it) => ['goal', 'own goal', 'penalty'].includes(it.type)) : [];
     const last = goals.length ? goals[goals.length - 1] : null;
     const scorer = last ? `${last.player || ''} ${last.min != null ? last.min + "'" : ''}${last.type !== 'goal' ? ' (' + last.type + ')' : ''}`.trim() : '';
-    const title = `⚽ GOAL  ${f.home_long || f.home} ${s.hg} – ${s.ag} ${f.away_long || f.away}`;
+    const title = `⚽ GOAL  ${f.home} ${s.hg} – ${s.ag} ${f.away}`;
     const text = (scorer ? scorer + ' · ' : '') + `${s.status} · ${f.competition}`;
     if (PR.native && PR.native.notifyGoal) PR.native.notifyGoal(eid, `${s.hg}-${s.ag}`, title, text); else toast(title);
   }
@@ -71,98 +83,72 @@
       const top = state.stack[state.stack.length - 1];
       if (!(state.tab === 'live' || state.tab === 'home' || (top && top.type === 'match'))) return;
       const now = tzNow();
-      const active = live.tracked().some((f) => { const s = live.for(f); const ko = parseLocal(f.kickoff); return isLive(s) || (ko && !isFT(s) && Math.abs(now - ko) < 3 * 3600 * 1000); });
+      const active = (state.tab === 'live' && state.liveView === 'all') || live.tracked().some((f) => { const s = live.for(f); const ko = parseLocal(f.kickoff); return isLive(s) || (ko && !isFT(s) && Math.abs(now - ko) < 3 * 3600 * 1000); });
       if (active) live.refresh(false);
     }, Math.max(20, settings.liveEvery) * 1000);
   };
   live.inPlay = () => live.tracked().filter((f) => isLive(live.for(f)));
 
   // ------------------------------------------------------------------ bets helpers
-  function safeBets(minP, minOdds, group) {
-    const out = [];
-    (state.data.fixtures || []).forEach((f) => { if (!f.data_ok) return; f.sels.forEach((s) => {
-      if (!s.odds || s.odds < minOdds || s.p < minP || s.diff) return;
-      if (group && group !== 'all' && selGroup(s.sel) !== group) return;
-      out.push({ f, s });
-    }); });
-    out.sort((a, b) => b.s.p - a.s.p || b.s.odds - a.s.odds);
-    return out;
+  function safeList(group) {
+    const sf = state.data.safe || { bets: [] };
+    let lst = (sf.bets || []).filter((b) => inScope(fx(b.fixture)));
+    if (group && group !== 'all') lst = lst.filter((b) => (FAMILY[group] || [group]).includes(b.group));
+    return lst;
   }
-  function highProb(minP, group) {
-    const out = [];
-    (state.data.fixtures || []).forEach((f) => { if (!f.data_ok) return; f.sels.forEach((s) => {
-      if (s.p < minP) return; if (group && group !== 'all' && selGroup(s.sel) !== group) return; out.push({ f, s });
-    }); });
-    out.sort((a, b) => b.s.p - a.s.p);
-    return out;
+  function betStatus(b) {
+    if (b.status && b.status !== 'pending') return b.status === 'hit' || b.status === 'won' ? { cls: 'good', text: '✅ won' } : b.status === 'void' ? { cls: '', text: 'void' } : { cls: 'bad', text: '❌ lost' };
+    const f = fx(b.fixture); const s = live.for(f);
+    return liveVerdict(b.sel, s);
   }
-  function betRow({ f, s }, showMatch) {
-    const sel = esc(selLabel(s.sel, f.home, f.away));
-    const main = showMatch === false
-      ? `<div class="b">${sel}</div><div class="tiny muted">${esc(GROUPS[selGroup(s.sel)])}${s.diff ? ' · <span class="warn">views differ</span>' : ''}</div>`
-      : `<div class="match">${esc(f.home)} <span class="muted">v</span> ${esc(f.away)}</div><div class="sel"><b>${sel}</b></div><div class="tiny muted">${esc(koShort(f.kickoff))} · ${esc(f.competition)}${s.diff ? ' · <span class="warn">views differ</span>' : ''}</div>`;
-    return `<tr class="tap" data-fx="${esc(f.id)}">${showMatch === false ? `<td class="tiny muted nowrap">${esc(koShort(f.kickoff))}</td>` : ''}<td>${main}</td>
+  function safeRow(b, opts) {
+    opts = opts || {}; const f = fx(b.fixture); const st = betStatus(b);
+    const tap = f ? `class="tap" data-fx="${esc(b.fixture)}"` : '';
+    return `<tr ${tap}><td class="tiny muted nowrap">${esc(opts.time ? koTime(b.kickoff) : koShort(b.kickoff))}</td>
+      <td><div class="row" style="gap:6px">${badge(b.home, b.badges && b.badges.home, 20)}${badge(b.away, b.badges && b.badges.away, 20)}<div class="b grow">${esc(b.home)} <span class="muted">v</span> ${esc(b.away)}</div></div>
+      <div class="sel"><b>${esc(b.label)}</b></div><div class="tiny muted">${flag(b.country)} ${esc(b.league)}${st.text !== 'not started' ? ` · <span class="${st.cls}">${esc(st.text)}</span>` : ''}</div></td>
+      <td class="right nowrap"><b>${f2(b.odds)}</b></td><td class="right">${pill(b.p, 0.8, 0.7)}</td></tr>`;
+  }
+  function selRow(f, s) {
+    return `<tr class="tap" data-fx="${esc(f.id)}"><td class="tiny muted nowrap">${esc(koShort(f.kickoff))}</td>
+      <td><div class="match">${esc(f.home)} <span class="muted">v</span> ${esc(f.away)}</div><div class="sel"><b>${esc(selLabel(s.sel, f.home, f.away))}</b></div><div class="tiny muted">${flag(f.country)} ${esc(f.competition)}${s.diff ? ' · <span class="warn">views differ</span>' : ''}</div></td>
       <td class="right nowrap">${s.odds ? `<b>${f2(s.odds)}</b>` : '<span class="muted">–</span>'}</td><td class="right">${pill(s.p, 0.8, 0.7)}</td></tr>`;
   }
-  function trebleCard(t, i, opts) {
-    opts = opts || {};
-    const legs = t.legs.map((l) => { const f = fx(l.fixture); const s = f && live.for(f); const v = opts.live ? liveVerdict(l.sel, s) : null;
-      return `<tr class="tap" data-fx="${esc(l.fixture)}"><td class="tiny muted nowrap">${esc(koShort(l.kickoff))}</td>
-        <td><div class="b">${esc(l.home)} v ${esc(l.away)}</div><div class="tiny muted">${esc(l.league || '')}</div><div class="sel">${esc(l.label || selLabel(l.sel, l.home, l.away))}</div>${v ? `<div class="verdict ${v.cls}">${v.text}</div>` : ''}</td>
-        <td class="right"><b>${f2(l.odds)}</b><div class="tiny muted">${pct(l.p)}</div></td></tr>`; }).join('');
-    const st = opts.live ? multiVerdict(t.legs) : null;
-    return `<div class="card acca"><div class="row"><div class="grow"><span class="chip brand">Treble ${i + 1}</span> <b>odds ${f2(t.odds)}</b> <span class="muted small">· win ${pct(t.p)}</span></div>${st ? `<span class="chip ${st.cls}">${st.text}</span>` : (t.id ? `<span class="tiny muted">${esc(t.id)}</span>` : '')}</div>
-      <table class="tbl legs">${legs}</table></div>`;
+  function botdCard(compact) {
+    const sf = state.data.safe || {}; const today = sf.today || { bets: [] }; const bets = today.bets || [];
+    const settled = bets.filter((b) => b.status && b.status !== 'pending'); const won = settled.filter((b) => b.status === 'hit' || b.status === 'won').length;
+    const rec = (sf.summary && sf.summary.botd) || {};
+    const head = `<div class="section-head">${sh('star', 'Bets of the day', 'amber')}${compact ? `<button class="link" data-bets="today">Details ${icon('next')}</button>` : `<span class="tiny muted">${esc(dayName(today.date || ''))}</span>`}</div>`;
+    if (!bets.length) return head + `<div class="card empty small">Today's card is picked from the first analysis of the day — it appears at 07:00.</div>`;
+    const acc = bets.reduce((a, b) => a * (b.odds || 1), 1);
+    return head + `<div class="card botd"><table class="tbl">${bets.map((b) => safeRow(b, { time: true })).join('')}</table>
+      <div class="row tiny muted" style="margin-top:6px"><div class="grow">${settled.length ? `Today: ${won}/${settled.length} won${bets.length > settled.length ? ` · ${bets.length - settled.length} to play` : ''}` : `${bets.length} singles · combined ${f2(acc)}`}</div>${rec.all && rec.all.n ? `<div>record ${rec.all.won}/${rec.all.n} (${pct(rec.all.rate)})</div>` : ''}</div></div>`;
   }
-  function multiVerdict(legs) {
-    let lost = false, allFt = true, started = false;
-    legs.forEach((l) => { const s = live.for(fx(l.fixture)); if (!s || s.status === 'NS' || s.hg == null) { allFt = false; return; } started = true; if (!isFT(s)) allFt = false; const v = liveVerdict(l.sel, s); if (v.text === '❌ lost') lost = true; });
-    if (lost) return { cls: 'bad', text: 'LOST' }; if (allFt && started) return { cls: 'good', text: 'WON' };
-    return started ? { cls: 'warn', text: 'in play' } : { cls: '', text: 'pending' };
-  }
-  function parlayCard(p, i, isLiveView) {
-    const st = isLiveView ? multiVerdict(p.legs) : null;
-    const rows = p.legs.map((l) => { const f = fx(l.fixture); const v = isLiveView ? liveVerdict(l.sel, live.for(f)) : null;
-      const flag = (l.edge != null && l.edge > 0.08) ? ' <span class="chip warn">price moved</span>' : '';
-      return `<tr class="tap" data-fx="${esc(l.fixture)}"><td class="tiny muted nowrap">${esc(koShort(l.kickoff))}</td>
-        <td><div class="b">${esc(l.home)} v ${esc(l.away)}</div><div class="tiny muted">${esc(l.competition || '')}</div><div class="sel">${esc(l.label || selLabel(l.sel, l.home, l.away))} <span class="muted tiny">· ${pct(l.p)} · fair ${f2(l.fair)}</span>${flag}</div>${v ? `<div class="verdict ${v.cls}">${v.text}</div>` : ''}</td>
-        <td class="right"><b>${f2(l.odds)}</b></td></tr>`; }).join('');
-    return `<div class="card acca"><div class="row"><div class="grow"><span class="chip">Parlay ${i + 1}</span> <b>odds ${f2(p.odds)}</b> <span class="muted small">· win ${pct(p.p)} · exp. ${signed(p.ev)}</span></div>${st ? `<span class="chip ${st.cls}">${st.text}</span>` : `<span class="tiny muted">${esc(p.id || '')}</span>`}</div>
-      <table class="tbl legs">${rows}</table><div class="tiny muted" style="margin-top:4px">Prices: ${esc(p.source || '')}${p.extended ? ' · whole 24 h window' : ''}</div></div>`;
-  }
-  PR.betRow = betRow; PR.trebleCard = trebleCard; PR.parlayCard = parlayCard; PR.safeBets = safeBets;
+  PR.safeRow = safeRow; PR.betStatus = betStatus;
 
   // ------------------------------------------------------------------ HOME
   PR.views.home = function () {
-    const d = state.data, m = d.meta, sf = d.safe || { bets: [], trebles: [] }; const parts = [];
-    const inPlay = live.inPlay();
-    const priced = d.fixtures.filter((f) => f.sportybet).length;
-    parts.push(`<div class="card hero"><div class="eyebrow">Latest analysis</div><div class="b" style="font-size:17px">${esc(dayName(m.generated))} · ${esc(koTime(m.generated))} ${esc(m.tz)}</div>
-      <div class="tiny muted">Next update ${esc(koShort(m.next_run || ''))} · window to ${esc(koShort(m.window_end))}</div>
-      <div class="hero-nums"><div><b>${m.fixtures}</b><span>matches</span></div><div><b>${sf.trebles.length}</b><span>trebles</span></div><div><b>${sf.bets.length}</b><span>safe bets</span></div><div><b>${(d.parlays || []).length}</b><span>parlays</span></div></div>
-      ${inPlay.length ? `<div class="live-strip" data-tab-go="live"><span class="status-dot live"></span><div class="grow"><b>${inPlay.length} in play</b> · ${inPlay.slice(0, 2).map((f) => { const s = live.for(f); return `${esc(f.home)} ${s.hg}–${s.ag} ${esc(f.away)}`; }).join(' · ')}${inPlay.length > 2 ? ' …' : ''}</div>${icon('next', 'sm')}</div>` : ''}</div>`);
-    // what's new (once per version)
+    const d = state.data, m = d.meta, sf = d.safe || { bets: [] }; const parts = [];
+    const inPlay = live.inPlay(); const cov = m.coverage || {};
+    const safe = safeList('all');
+    parts.push(`<div class="card hero"><div class="eyebrow">Live analysis · updated every 30 minutes</div><div class="b" style="font-size:17px">${esc(dayName(m.generated))} · ${esc(koTime(m.generated))} ${esc(m.tz)}</div>
+      <div class="tiny muted">Next update ${esc(koTime(m.next_run || ''))} · ${cov.competitions || '–'} competitions worldwide · ${cov.priced || 0} priced by Sportybet</div>
+      <div class="hero-nums"><div><b>${m.fixtures}</b><span>matches</span></div><div><b>${(sf.today && sf.today.bets ? sf.today.bets.length : 0)}</b><span>bets of the day</span></div><div><b>${safe.length}</b><span>safest bets</span></div><div><b>${(state.liveAll || []).length || inPlay.length}</b><span>in play</span></div></div>
+      ${inPlay.length ? `<div class="live-strip" data-tab-go="live"><span class="status-dot live"></span><div class="grow"><b>${inPlay.length} tracked in play</b> · ${inPlay.slice(0, 2).map((f) => { const s = live.for(f); return `${esc(f.home)} ${s.hg}–${s.ag} ${esc(f.away)}`; }).join(' · ')}${inPlay.length > 2 ? ' …' : ''}</div>${icon('next', 'sm')}</div>` : ''}</div>`);
     if (PR.APP_VERSION && settings.seenVersion !== PR.APP_VERSION) {
       parts.push(`<div class="card whatsnew"><div class="row"><div class="grow"><b>${icon('sparkle', 'sm')} New in PlayReport ${esc(PR.APP_VERSION)}</b></div><button class="link" id="wn-close">${icon('x')}</button></div>
-        <ul><li>Team badges, country flags and a cleaner match list</li><li>Light / dark / system theme (Settings → Appearance)</li><li>Probability rings, smoother pages and a new bottom bar</li></ul></div>`);
+        <ul><li>Every competition worldwide — including women's and youth leagues priced by Sportybet</li><li>Analysis refreshed every 30 minutes; new safest bets arrive as notifications</li><li>⭐ Bets of the day with its own graded record</li><li>Trends, head-to-head and home/away form on every match page</li><li>Live scores for every match in play · new Guide to the markets (☰ menu)</li></ul></div>`);
     }
-    // safest trebles
-    parts.push(`<div class="section-head">${sh('lock', 'Safest trebles')}<button class="link" data-bets="trebles">Details ${icon('next')}</button></div>`);
-    if (!sf.trebles.length) parts.push(`<div class="card empty small">No treble met the safety rules in this window.</div>`);
-    else parts.push(`<div class="card compact">${sf.trebles.map((t, i) => `<div class="treble-row"><div class="row"><div class="grow"><b>Treble ${i + 1}</b> <span class="muted small">· win ${pct(t.p)}</span></div><span class="chip brand">odds ${f2(t.odds)}</span></div>
-      ${t.legs.map((l) => { const f = fx(l.fixture); return `<div class="leg tap" data-fx="${esc(l.fixture)}"><span class="tiny muted nowrap">${esc(koShort(l.kickoff))}</span>${f ? fxBadge(f, 'home') : ''}${f ? fxBadge(f, 'away') : ''}<span class="grow">${esc(l.home)} v ${esc(l.away)} — <b>${esc(l.label || selLabel(l.sel, l.home, l.away))}</b></span><span class="price">${f2(l.odds)}</span></div>`; }).join('')}</div>`).join('')}</div>`);
-    // safest bets top 5
-    parts.push(`<div class="section-head">${sh('target', 'Safest bets', 'green')}<button class="link" data-bets="safest">All ${sf.bets.length} ${icon('next')}</button></div>`);
-    if (!sf.bets.length) parts.push(`<div class="card empty small">Nothing priced at ≥ ${f2(sf.min_odds || 1.3)} reached ${pct(sf.min_p || 0.7)} on both views.</div>`);
-    else parts.push(`<div class="card compact"><table class="tbl">${sf.bets.slice(0, 5).map((b) => { const f = fx(b.fixture); return `<tr class="tap" data-fx="${esc(b.fixture)}"><td class="tiny muted nowrap">${esc(koTime(b.kickoff))}</td><td><div class="row" style="gap:6px">${f ? fxBadge(f, 'home') + fxBadge(f, 'away') : ''}<div class="b grow">${esc(b.home)} v ${esc(b.away)}</div></div><div class="tiny muted">${esc(b.label)}</div></td><td class="right"><b>${f2(b.odds)}</b></td><td class="right">${pill(b.p, 0.8, 0.7)}</td></tr>`; }).join('')}</table></div>`);
-    // shortlist + parlays summary
+    parts.push(botdCard(true));
+    parts.push(`<div class="section-head">${sh('lock', 'Safest bets', 'green')}<button class="link" data-bets="safest">All ${safe.length} ${icon('next')}</button></div>`);
+    if (!safe.length) parts.push(`<div class="card empty small">Nothing priced at ≥ ${f2(sf.min_odds || 1.3)} reached ${pct(sf.min_p || 0.7)} on both views${majorOnly() ? ' in the major leagues' : ''}.</div>`);
+    else parts.push(`<div class="card compact"><table class="tbl">${safe.slice(0, 5).map((b) => safeRow(b)).join('')}</table></div>`);
     const pk = d.picks || {};
-    parts.push(`<div class="card compact"><div class="row" style="flex-wrap:wrap"><div class="grow b">Shortlists & parlays</div></div>
-      <div class="chips">${['O15', 'O25', 'BTTS'].map((k) => `<button class="chip tapchip" data-bets="picks">${icon('star', 'sm')} ${esc(MK[k])} <b>${(pk[k] || []).length}</b></button>`).join('')}<button class="chip tapchip" data-bets="parlays">${icon('ticket', 'sm')} Parlays 2.70–3.50 <b>${(d.parlays || []).length}</b></button><button class="chip tapchip" data-bets="high">${icon('trend', 'sm')} Markets ≥ 70% ${icon('next', 'sm')}</button></div></div>`);
-    // next kick-offs
-    const now = tzNow(); const upcoming = d.fixtures.filter((f) => { const ko = parseLocal(f.kickoff); return ko && ko > now - 2 * 3600000; }).sort((a, b) => a.kickoff.localeCompare(b.kickoff)).slice(0, 6);
-    parts.push(`<div class="section-head">${sh('calendar', 'Next kick-offs')}<button class="link" data-tab-go="matches">All matches ${icon('next')}</button></div><div class="card compact">${upcoming.map((f) => { const s = live.for(f); const best = f.sels.filter((x) => x.odds && x.odds >= 1.3 && !x.diff)[0];
-      return matchRow(f, { live: s, sub: `${flag(f.country)} ${esc(f.competition)}${best ? ` · <b>${esc(selShort(best.sel))}</b> ${pct(best.p)}` : ''}`, right: s && s.hg != null ? '' : `<span class="pill ${f.p.O25 >= 0.6 ? 'hi' : ''}">O2.5 ${pct(f.p.O25)}</span><span class="tiny muted">BTTS ${pct(f.p.BTTS)}</span>` }); }).join('') || '<div class="empty small">No upcoming matches in the window.</div>'}</div>`);
+    parts.push(`<div class="card compact"><div class="row" style="flex-wrap:wrap"><div class="grow b">Explore</div></div>
+      <div class="chips">${['O15', 'O25', 'BTTS'].map((k) => `<button class="chip tapchip" data-bets="picks">${icon('star', 'sm')} ${esc(MK[k])} <b>${(pk[k] || []).length}</b></button>`).join('')}<button class="chip tapchip" data-bets="corners">${icon('corner', 'sm')} Corners</button><button class="chip tapchip" data-bets="cards">${icon('card', 'sm')} Cards</button><button class="chip tapchip" data-page-go="guide">${icon('info', 'sm')} Guide to the markets</button></div></div>`);
+    const now = tzNow(); const upcoming = d.fixtures.filter((f) => inScope(f) && f.data_ok && f.priced && parseLocal(f.kickoff) > now - 2 * 3600000).sort((a, b) => a.kickoff.localeCompare(b.kickoff)).slice(0, 6);
+    parts.push(`<div class="section-head">${sh('calendar', 'Next kick-offs')}<button class="link" data-tab-go="matches">All matches ${icon('next')}</button></div><div class="card compact">${upcoming.map((f) => { const s = live.for(f); const best = f.top;
+      return matchRow(f, { live: s, sub: `${flag(f.country)} ${esc(f.competition)}${best ? ` · <b>${esc(selShort(best[0]))}</b> ${pct(best[1])} @ ${f2(best[2])}` : ''}`, right: s && s.hg != null ? '' : `<span class="pill ${f.p.O25 >= 0.6 ? 'hi' : ''}">O2.5 ${pct(f.p.O25)}</span><span class="tiny muted">BTTS ${pct(f.p.BTTS)}</span>` }); }).join('') || '<div class="empty small">No upcoming matches in the window.</div>'}</div>`);
     parts.push(contactCard(true));
     view().innerHTML = parts.join('');
     wireCommon();
@@ -171,81 +157,72 @@
   function wireCommon() {
     $$('[data-bets]').forEach((b) => { b.onclick = (e) => { e.stopPropagation(); state.betsView = b.dataset.bets; PR.setTab('bets'); }; });
     $$('[data-tab-go]').forEach((b) => { b.onclick = (e) => { e.stopPropagation(); PR.setTab(b.dataset.tabGo); }; });
+    $$('[data-page-go]').forEach((b) => { b.onclick = (e) => { e.stopPropagation(); PR.push({ type: b.dataset.pageGo }); }; });
   }
 
   // ------------------------------------------------------------------ BETS
+  const leagueChips = () => `<div class="chips small-chips"><button class="chip tapchip ${!majorOnly() ? 'on' : ''}" data-lg="all">🌍 All leagues</button><button class="chip tapchip ${majorOnly() ? 'on' : ''}" data-lg="major">🏆 Major leagues</button></div>`;
   PR.views.bets = function () {
-    const d = state.data; const parts = [];
-    const v = state.betsView || 'safest';
-    parts.push(`<div class="card compact sticky-ish">${segmented([['safest', `${icon('target')} Safest`], ['trebles', `${icon('lock')} Trebles`], ['high', `${icon('trend')} ≥70%`], ['parlays', `${icon('ticket')} Parlays`], ['picks', `${icon('star')} Shortlist`]], v, 'bv')}</div>`);
-    if (v === 'safest') renderSafest(parts);
-    else if (v === 'trebles') renderTrebles(parts);
-    else if (v === 'high') renderHigh(parts);
-    else if (v === 'parlays') renderParlays(parts);
-    else renderPicks(parts);
+    const parts = []; const v = state.betsView || 'today';
+    parts.push(`<div class="card compact sticky-ish">${segmented([['today', `${icon('star')} Today`], ['safest', `${icon('lock')} Safest`], ['goals', `${icon('ball')} Goals`], ['corners', `${icon('corner')} Corners`], ['cards', `${icon('card')} Cards`], ['picks', `${icon('trend')} Shortlist`]], v, 'bv')}</div>`);
+    if (v === 'today') renderToday(parts);
+    else if (v === 'safest') renderSafest(parts);
+    else if (v === 'picks') renderPicks(parts);
+    else renderFamily(parts, v);
+    parts.push(`<div class="card compact tap" id="guide-link"><div class="row"><span class="ico">${icon('info')}</span><div class="grow"><b>What do these markets mean?</b><div class="tiny muted">Over/Under, BTTS, team goals, corners, cards — and how the probabilities are made.</div></div>${icon('next')}</div></div>`);
     view().innerHTML = parts.join('');
     $$('[data-bv]').forEach((b) => { b.onclick = () => { state.betsView = b.dataset.bv; PR.render(); window.scrollTo(0, 0); }; });
-    const mp = $('#f-minp'); if (mp) mp.onchange = (e) => { settings.minP = +e.target.value; PR.saveSettings(); PR.render(); };
-    const mo = $('#f-minodds'); if (mo) mo.onchange = (e) => { settings.minOdds = +e.target.value; PR.saveSettings(); PR.render(); };
-    const mg = $('#f-group'); if (mg) mg.onchange = (e) => { state.betGroup = e.target.value; PR.render(); };
+    $$('[data-lg]').forEach((b) => { b.onclick = () => { settings.leagues = b.dataset.lg; PR.saveSettings(); PR.render(); }; });
     const hp = $('#f-hip'); if (hp) hp.onchange = (e) => { settings.hiP = +e.target.value; PR.saveSettings(); PR.render(); };
+    const mg = $('#f-group'); if (mg) mg.onchange = (e) => { state.betGroup = e.target.value; PR.render(); };
     $$('[data-more]').forEach((b) => { b.onclick = () => { state.expanded[b.dataset.more] = true; PR.render(); }; });
+    const g = $('#guide-link'); if (g) g.onclick = () => PR.push({ type: 'guide' });
+    wireCommon();
   };
-  const groupOptions = [['all', 'All markets']].concat(Object.entries(GROUPS));
+  function renderToday(parts) {
+    parts.push(botdCard(false));
+    const rec = ((state.data.safe || {}).summary || {}).botd || {};
+    parts.push(`<div class="card small"><b>How the card is picked</b><div class="muted" style="margin-top:4px">At 07:00 the day's safest bets (≥ 70% on both the model and the de-margined Sportybet price, price ≥ 1.30, goals · BTTS · team goals · corners · cards only) are ranked by probability and the top five from different matches make the card. A slot is only replaced when its match is postponed. Every card is graded automatically.</div>
+      ${rec.all && rec.all.n ? `<table class="tbl head" style="margin-top:8px"><tr><th>Bets of the day</th><th class="right">Won</th><th class="right">Hit</th><th class="right">Exp.</th><th class="right">Return</th></tr>${[['All time', rec.all], ['Last 30 days', rec['30d']]].filter(([, s]) => s && s.n).map(([n, s]) => `<tr><td>${n}</td><td class="right">${s.won}/${s.n}</td><td class="right"><b>${pct(s.rate)}</b></td><td class="right muted">${pct(s.exp_rate)}</td><td class="right ${s.roi > 0 ? 'good' : s.roi < 0 ? 'bad' : ''}">${signed(s.roi)}</td></tr>`).join('')}</table>` : '<div class="tiny muted" style="margin-top:6px">The record starts with the first settled card.</div>'}</div>`);
+  }
   function renderSafest(parts) {
-    const sf = state.data.safe || {}; const lst = safeBets(settings.minP, settings.minOdds, state.betGroup);
-    parts.push(`<div class="card compact"><div class="filters"><label>Min probability ${select('f-minp', [[0.7, '70%'], [0.75, '75%'], [0.8, '80%'], [0.85, '85%'], [0.9, '90%']], settings.minP)}</label>
-      <label>Min price ${select('f-minodds', [[1.01, 'any'], [1.1, '1.10'], [1.2, '1.20'], [1.3, '1.30'], [1.4, '1.40'], [1.5, '1.50']], settings.minOdds)}</label>
-      <label>Market ${select('f-group', groupOptions, state.betGroup || 'all')}</label></div>
-      <div class="tiny muted">Probability = average of the calibrated model and the de-margined Sportybet price; selections where the two views disagree by more than 12 points are hidden. The default rules (≥ ${pct(sf.min_p || 0.7)}, price ≥ ${f2(sf.min_odds || 1.3)}) are the graded "safest bets" you can follow in Days.</div></div>`);
-    if (!lst.length) parts.push(`<div class="card empty">No selection matches these filters.</div>`);
+    const sf = state.data.safe || {}; const lst = safeList(state.betGroup || 'all');
+    const groupOptions = [['all', 'All markets'], ['goals', 'Goals (incl. BTTS, team goals)'], ['corners', 'Corners'], ['cards', 'Cards']];
+    parts.push(`<div class="card compact">${leagueChips()}<div class="filters" style="margin-top:6px"><label>Market ${select('f-group', groupOptions, state.betGroup || 'all')}</label></div>
+      <div class="tiny muted">Safest = at least ${pct(sf.min_p || 0.7)} on <b>both</b> the calibrated model and the de-margined Sportybet price, price ≥ ${f2(sf.min_odds || 1.3)}, in the goals, corners and cards markets. New ones are added every 30 minutes and announced. Each one is graded in Days.</div></div>`);
+    if (!lst.length) parts.push(`<div class="card empty">No safest bet in this window${majorOnly() ? ' for the major leagues' : ''}.</div>`);
     else {
       const max = state.expanded.safest ? lst.length : 30;
-      parts.push(`<div class="card compact"><table class="tbl head"><tr><th>Match · selection</th><th class="right">Price</th><th class="right">Prob.</th></tr>${lst.slice(0, max).map((x) => betRow(x)).join('')}</table>
+      parts.push(`<div class="card compact"><table class="tbl head"><tr><th></th><th>Match · selection</th><th class="right">Price</th><th class="right">Prob.</th></tr>${lst.slice(0, max).map((b) => safeRow(b)).join('')}</table>
         ${lst.length > max ? `<button class="btn wide" data-more="safest">Show all ${lst.length}</button>` : ''}</div>`);
     }
     const ss = (sf.summary || {}).bets || {};
-    if (ss.all && ss.all.n) parts.push(`<div class="card small"><b>Track record</b> — safest bets settled: ${ss.all.won}/${ss.all.n} hit (${pct(ss.all.rate)}, expected ${pct(ss.all.exp_rate)}) · flat-stake return ${signed(ss.all.roi)}${ss['30d'] && ss['30d'].n ? ` · last 30 days ${ss['30d'].won}/${ss['30d'].n}` : ''}</div>`);
+    if (ss.all && ss.all.n) parts.push(`<div class="card small"><b>Track record</b> — safest bets settled: ${ss.all.won}/${ss.all.n} hit (${pct(ss.all.rate)}, expected ${pct(ss.all.exp_rate)}) · flat-stake return ${signed(ss.all.roi)}${ss['30d'] && ss['30d'].n ? ` · last 30 days ${ss['30d'].won}/${ss['30d'].n}` : ''} · ${ss.pending || 0} pending. Full breakdown under ☰ › Performance.</div>`);
   }
-  function renderTrebles(parts) {
-    const sf = state.data.safe || { trebles: [] };
-    parts.push(`<div class="card small"><b>Safest trebles</b> — three 3-leg accumulators from the safest priced selections (≥ ${pct(sf.min_p || 0.7)} on both views, price ≥ ${f2(sf.min_odds || 1.3)}), one leg per match, no match repeated, ranked by probability.${sf.extended ? ' Legs come from the whole 24 h window (too few before the next update).' : ''}</div>`);
-    if (!sf.trebles.length) parts.push(`<div class="card empty">No treble possible: fewer than three priced matches met the rules.</div>`);
-    sf.trebles.forEach((t, i) => parts.push(trebleCard(t, i, { live: true })));
-    const sa = (sf.summary || {}).accas || {};
-    if (sa.all && sa.all.n) parts.push(`<div class="card small"><b>Track record</b> — trebles settled: ${sa.all.won}/${sa.all.n} won (${pct(sa.all.rate)}, expected ${pct(sa.all.exp_rate)}) · return ${signed(sa.all.roi)} per unit${sa.pending ? ` · ${sa.pending} pending` : ''}</div>`);
-    parts.push(`<div class="note">A treble at ~2.2 needs to win about 45% of the time to break even. Three legs at 74% each give roughly 40%: safe legs, but still a bet with a cost. Everything here is graded automatically — check the Days tab before trusting it.</div>`);
-  }
-  function renderHigh(parts) {
-    const minP = settings.hiP || 0.7; const lst = highProb(minP, state.betGroup);
-    parts.push(`<div class="card compact"><div class="filters"><label>Probability ≥ ${select('f-hip', [[0.7, '70%'], [0.75, '75%'], [0.8, '80%'], [0.85, '85%'], [0.9, '90%']], minP)}</label><label>Market ${select('f-group', groupOptions, state.betGroup || 'all')}</label></div>
-      <div class="tiny muted">Every modelled selection at or above the threshold, grouped by market — including ones without a Sportybet price (shown as –) and very short prices. For bets worth placing use the Safest view.</div></div>`);
-    const groups = {};
-    lst.forEach((x) => { (groups[selGroup(x.s.sel)] = groups[selGroup(x.s.sel)] || []).push(x); });
-    Object.keys(GROUPS).forEach((g) => {
-      const items = groups[g]; if (!items) return;
-      const key = 'high_' + g; const max = state.expanded[key] ? items.length : 12;
-      parts.push(`<div class="card compact"><div class="row"><div class="grow"><b>${GROUP_ICON[g]} ${GROUPS[g]}</b></div><span class="chip">${items.length}</span></div>
-        <table class="tbl">${items.slice(0, max).map((x) => betRow(x)).join('')}</table>${items.length > max ? `<button class="btn wide" data-more="${key}">Show all ${items.length}</button>` : ''}</div>`);
-    });
-    if (!lst.length) parts.push(`<div class="card empty">Nothing at or above ${pct(minP)} for this market.</div>`);
-  }
-  function renderParlays(parts) {
-    const d = state.data, m = d.meta;
-    parts.push(`<div class="card small"><b>Parlays</b> — value-seeking accumulators (odds ${m.parlay_band && m.parlay_band.length ? m.parlay_band.map(f2).join('–') : '2.70–3.50'}) from 1X2, double chance and Over/Under 2.5 at real prices; each maximises probability × price. Riskier than the safest trebles by design.</div>`);
-    if (!d.parlays.length) parts.push(`<div class="card empty">No parlay possible in this window.</div>`);
-    d.parlays.forEach((p, i) => parts.push(parlayCard(p, i, true)));
-    parts.push(`<div class="note">⚠️ Honest expectation: a parlay at ~3.1 must win about 1 in 3 to break even. In the 2023–26 backtest this construction won 30–33% and returned −4% to −13% per unit. Treat parlays as entertainment with a known cost.</div>`);
-    const ps = d.parlay_summary || {}; const a = ps.all || {};
-    if (a.n) parts.push(`<div class="card small"><b>Track record</b> — ${a.won}/${a.n} won (${pct(a.rate)}, expected ${pct(a.exp_rate)}) · return ${signed(a.roi)} · ${ps.pending || 0} pending. Full list under ☰ › Performance.</div>`);
+  function renderFamily(parts, fam) {
+    const minP = settings.hiP || 0.7; const groups = FAMILY[fam] || [fam];
+    const safe = safeList(fam);
+    const title = { goals: 'Goals markets', corners: 'Corners', cards: 'Cards & bookings' }[fam] || fam;
+    parts.push(`<div class="card compact">${leagueChips()}<div class="filters" style="margin-top:6px"><label>Probability ≥ ${select('f-hip', [[0.7, '70%'], [0.75, '75%'], [0.8, '80%'], [0.85, '85%'], [0.9, '90%']], minP)}</label></div>
+      <div class="tiny muted">${fam === 'goals' ? 'Over/Under, both teams to score and team goals.' : fam === 'corners' ? 'Total corners — modelled for the leagues with corner statistics (the 22 main European leagues) and priced by Sportybet.' : 'Total cards (yellow = 1, red = 2 on Sportybet) — modelled for the 22 main European leagues from team and referee averages.'} Safest bets first, then every other selection at or above the threshold.</div></div>`);
+    if (safe.length) parts.push(`<div class="card compact"><div class="row"><div class="grow b">${icon('lock', 'sm')} Safest ${title.toLowerCase()}</div><span class="chip good">${safe.length}</span></div><table class="tbl">${safe.map((b) => safeRow(b)).join('')}</table></div>`);
+    // other high-probability selections need the per-match details; use the index's top/safe and the priced flag
+    const lst = [];
+    (state.data.fixtures || []).forEach((f) => { if (!inScope(f) || !f.data_ok) return; (f.hi || []).forEach((x) => { const s = { sel: x[0], p: x[1], odds: x[2] }; if (s.p >= minP && groups.includes(selGroup(s.sel)) && !safe.some((b) => b.fixture === f.id && b.sel === s.sel)) lst.push({ f, s }); }); });
+    lst.sort((a, b) => b.s.p - a.s.p);
+    if (lst.length) {
+      const key = 'fam_' + fam; const max = state.expanded[key] ? lst.length : 25;
+      parts.push(`<div class="card compact"><div class="row"><div class="grow b">${icon('trend', 'sm')} Other selections ≥ ${pct(minP)}</div><span class="chip">${lst.length}</span></div><table class="tbl">${lst.slice(0, max).map((x) => selRow(x.f, x.s)).join('')}</table>${lst.length > max ? `<button class="btn wide" data-more="${key}">Show all ${lst.length}</button>` : ''}</div>`);
+    } else if (!safe.length) parts.push(`<div class="card empty">Nothing at or above ${pct(minP)} in ${title.toLowerCase()} right now.</div>`);
   }
   function renderPicks(parts) {
     const d = state.data, m = d.meta;
+    parts.push(`<div class="card small">${leagueChips()}<div style="margin-top:6px"><b>Goals shortlists</b> — the matches most likely to produce goals, ranked by probability (⭐ = threshold, ⭐⭐⭐ = very strong). These are match ratings, not priced bets: use them to pick games to watch or to build your own selections.</div></div>`);
     for (const mk of ['O15', 'O25', 'BTTS']) {
-      const lst = d.picks[mk] || [];
+      const lst = (d.picks[mk] || []).filter((p) => inScope(fx(p.fixture)));
       parts.push(`<div class="card compact"><div class="row"><div class="grow"><b>${MK[mk]}</b> <span class="muted small">· threshold ${pct(m.thresholds[mk])}</span></div><span class="chip">${lst.length}</span></div>`);
       if (!lst.length) parts.push(`<div class="muted small">None met the criteria.</div>`);
-      else parts.push(`<table class="tbl">${lst.map((p) => { const f = fx(p.fixture); if (!f) return ''; return `<tr class="tap" data-fx="${esc(f.id)}"><td class="tiny muted nowrap">${esc(koShort(f.kickoff))}</td><td><div class="b">${esc(f.home)} v ${esc(f.away)}</div><div class="tiny muted">${esc(f.competition)}</div></td><td class="right">${p.sportybet ? `<b>${f2(p.sportybet)}</b>` : '<span class="muted">–</span>'}</td><td class="right">${pill(p.p, 0.7, 0.6)}<div class="stars">${esc(p.stars)}</div></td></tr>`; }).join('')}</table>`);
+      else parts.push(`<table class="tbl">${lst.map((p) => { const f = fx(p.fixture); if (!f) return ''; return `<tr class="tap" data-fx="${esc(f.id)}"><td class="tiny muted nowrap">${esc(koShort(f.kickoff))}</td><td><div class="row" style="gap:6px">${fxBadge(f, 'home').replace('s24', 's20')}${fxBadge(f, 'away').replace('s24', 's20')}<div class="b grow">${esc(f.home)} v ${esc(f.away)}</div></div><div class="tiny muted">${flag(f.country)} ${esc(f.competition)}</div></td><td class="right">${p.sportybet ? `<b>${f2(p.sportybet)}</b>` : '<span class="muted">–</span>'}</td><td class="right">${pill(p.p, 0.7, 0.6)}<div class="stars">${esc(p.stars)}</div></td></tr>`; }).join('')}</table>`);
       parts.push(`<div class="tiny muted" style="margin-top:6px">Backtest: ${esc(m.backtest[mk] || '')}</div></div>`);
     }
     const t = d.tracker || {};
@@ -254,25 +231,30 @@
 
   // ------------------------------------------------------------------ LIVE
   PR.views.live = function () {
-    const d = state.data; const tracked = live.tracked(); const parts = []; const v = state.liveView || 'matches';
-    const nLive = tracked.filter((f) => isLive(live.for(f))).length;
-    parts.push(`<div class="card row compact"><div class="grow small"><span class="status-dot ${nLive ? 'live' : ''}"></span>${tracked.length} tracked match${tracked.length === 1 ? '' : 'es'} · ${nLive} in play${state.lastLive ? ' · updated ' + new Date(state.lastLive).toTimeString().slice(0, 5) : ''}</div><button class="btn" id="live-refresh">Refresh</button></div>`);
-    const sf = d.safe || { trebles: [], bets: [] };
-    const pend = (d.ledger || []).filter((p) => p.status === 'pending' && !d.parlays.some((q) => q.id === p.id));
-    parts.push(`<div class="card compact">${segmented([['matches', `${icon('ball')} Matches`], ['trebles', `${icon('lock')} Trebles (${sf.trebles.length})`], ['parlays', `${icon('ticket')} Parlays (${d.parlays.length + pend.length})`]], v, 'lv')}</div>`);
-    if (v === 'trebles') {
-      if (!sf.trebles.length) parts.push(`<div class="card empty">No trebles in this window.</div>`);
-      sf.trebles.forEach((t, i) => parts.push(trebleCard(t, i, { live: true })));
-    } else if (v === 'parlays') {
-      if (!d.parlays.length && !pend.length) parts.push(`<div class="card empty">No parlays in this window.</div>`);
-      d.parlays.forEach((p, i) => parts.push(parlayCard(p, i, true)));
-      if (pend.length) { parts.push(`<h2 class="section">Earlier parlays still open</h2>`); pend.forEach((p, i) => parts.push(parlayCard(p, i, true))); }
+    const d = state.data; const tracked = live.tracked(); const parts = []; const v = state.liveView || 'tracked';
+    const nLive = tracked.filter((f) => isLive(live.for(f))).length; const all = state.liveAll || [];
+    parts.push(`<div class="card row compact"><div class="grow small"><span class="status-dot ${nLive || all.length ? 'live' : ''}"></span>${v === 'all' ? `${all.length} match${all.length === 1 ? '' : 'es'} in play worldwide` : `${tracked.length} tracked · ${nLive} in play`}${state.lastLive ? ' · updated ' + new Date(state.lastLive).toTimeString().slice(0, 5) : ''}</div><button class="btn" id="live-refresh">Refresh</button></div>`);
+    parts.push(`<div class="card compact">${segmented([['tracked', `${icon('target')} Tracked (${tracked.length})`], ['all', `${icon('live')} All in play (${all.length})`]], v, 'lv')}</div>`);
+    if (v === 'all') {
+      if (state.liveAll == null) parts.push(PR.skeleton(6));
+      else if (!all.length) parts.push(`<div class="card empty">No match is in play right now.</div>`);
+      else {
+        const groups = {}; all.forEach((e) => { const k = `${e.country} · ${e.league}`; (groups[k] = groups[k] || []).push(e); });
+        const keys = Object.keys(groups).sort((a, b) => (groups[b].some((e) => e.fixture) ? 1 : 0) - (groups[a].some((e) => e.fixture) ? 1 : 0) || a.localeCompare(b));
+        parts.push('<div class="card compact">');
+        keys.forEach((k) => {
+          const g = groups[k]; parts.push(`<div class="comp-head">${flag(g[0].country)} ${esc(k)}</div>`);
+          g.forEach((e) => { const m = { id: e.fixture || 'live:' + e.eid, home: e.home, away: e.away, badges: { home: e.img[0], away: e.img[1] }, country: e.country, competition: e.league, kickoff: '' };
+            const f = e.fixture ? fx(e.fixture) : null; const sub = f ? `<span class="chip brand">analysed</span>${f.safe ? ` <b>${esc(selLabel(f.safe[0], f.home, f.away))}</b> · ${esc(liveVerdict(f.safe[0], state.live[e.eid]).text)}` : ''}` : '';
+            parts.push(matchRow(m, { live: state.live[e.eid], tap: !!f, short: true, sub, right: '' })); });
+        });
+        parts.push('</div>');
+      }
     } else {
       if (!tracked.length) parts.push(`<div class="card empty">Nothing to follow in this window.</div>`);
-      const betsByFx = {};
+      const betsByFx = {}; const sf = d.safe || { bets: [] };
+      ((sf.today && sf.today.bets) || []).forEach((b) => { (betsByFx[b.fixture] = betsByFx[b.fixture] || []).push({ label: b.label, sel: b.sel, odds: b.odds, kind: 'botd' }); });
       (sf.bets || []).forEach((b) => { (betsByFx[b.fixture] = betsByFx[b.fixture] || []).push({ label: b.label, sel: b.sel, odds: b.odds, kind: 'safe' }); });
-      sf.trebles.forEach((t) => t.legs.forEach((l) => { (betsByFx[l.fixture] = betsByFx[l.fixture] || []).push({ label: l.label, sel: l.sel, odds: l.odds, kind: 'treble' }); }));
-      d.parlays.concat(pend).forEach((p) => p.legs.forEach((l) => { (betsByFx[l.fixture] = betsByFx[l.fixture] || []).push({ label: l.label || selLabel(l.sel, l.home, l.away), sel: l.sel, odds: l.odds, kind: 'parlay' }); }));
       Object.entries(d.picks || {}).forEach(([mk, lst]) => lst.forEach((p) => { (betsByFx[p.fixture] = betsByFx[p.fixture] || []).push({ label: MK[mk], sel: mk, kind: 'pick' }); }));
       const rank = (f) => { const s = live.for(f); return isLive(s) ? 0 : isFT(s) ? 2 : 1; };
       const ordered = tracked.slice().sort((x, y) => rank(x) - rank(y) || x.kickoff.localeCompare(y.kickoff));
@@ -282,17 +264,17 @@
         const g = rank(f); if (g !== lastGroup) { parts.push(`<div class="comp-head">${GROUP_LABEL[g]}</div>`); lastGroup = g; }
         const s = live.for(f); const inc = f.livescore_id && state.incidents[f.livescore_id];
         const seen = new Set();
-        const chips = (betsByFx[f.id] || []).filter((b) => { const k = b.sel + (b.kind === 'pick' ? 'p' : ''); if (seen.has(k)) return false; seen.add(k); return true; })
-          .map((b) => { const vd = liveVerdict(b.sel, s); return `<span class="chip ${vd.cls}">${esc(b.label)}${b.odds ? ' @ ' + f2(b.odds) : ''} · ${esc(vd.text)}</span>`; }).join('');
+        const chips = (betsByFx[f.id] || []).filter((b) => { const k = b.sel; if (seen.has(k)) return false; seen.add(k); return true; })
+          .map((b) => { const vd = liveVerdict(b.sel, s); return `<span class="chip ${vd.cls}">${b.kind === 'botd' ? '⭐ ' : b.kind === 'safe' ? '🔒 ' : ''}${esc(b.label)}${b.odds ? ' @ ' + f2(b.odds) : ''} · ${esc(vd.text)}</span>`; }).join('');
         const goals = inc && g !== 1 ? inc.items.filter((it) => ['goal', 'own goal', 'penalty'].includes(it.type)) : [];
         parts.push(matchRow(f, { live: s, sub: `${flag(f.country)} ${esc(f.competition)}`, right: '' }) + `<div class="mrow-extra"><div class="chips">${chips}</div>${goals.length ? `<div class="tiny muted">${goals.map((it) => `⚽ ${esc(it.player || '')} ${it.min != null ? it.min + "'" : ''}${it.team === 'A' ? ' (away)' : ''}`).join(' · ')}</div>` : ''}</div>`);
       });
       parts.push('</div>');
-      parts.push(`<div class="tiny muted" style="padding:0 6px">Scores from a public live feed (unofficial). Auto-refresh every ${settings.liveEvery}s while a tracked match is in play. The settled results in Days are the final word.</div>`);
     }
+    parts.push(`<div class="tiny muted" style="padding:0 6px">Scores from a public live feed (unofficial). Auto-refresh every ${settings.liveEvery}s while this tab is open. The settled results in Days are the final word.</div>`);
     view().innerHTML = parts.join('');
     const b = $('#live-refresh'); if (b) b.onclick = (e) => { e.stopPropagation(); toast('Refreshing…'); live.refresh(true); };
-    $$('[data-lv]').forEach((x) => { x.onclick = () => { state.liveView = x.dataset.lv; PR.render(); }; });
+    $$('[data-lv]').forEach((x) => { x.onclick = () => { state.liveView = x.dataset.lv; PR.render(); if (x.dataset.lv === 'all' && Date.now() - state.lastLiveAll > 20000) live.refresh(false); }; });
   };
   function incidentLine(it) {
     const ico = { goal: '⚽', 'own goal': '⚽ (og)', penalty: '⚽ (pen)', 'missed penalty': '❌ pen', yellow: '🟨', 'second yellow': '🟨🟥', red: '🟥' }[it.type] || '';
@@ -302,38 +284,46 @@
 
   // ------------------------------------------------------------------ MATCHES
   PR.views.matches = function () {
-    const d = state.data; const q = (state.search || '').toLowerCase(); const key = state.sort || 'ko';
-    let lst = d.fixtures.filter((f) => !q || `${f.home} ${f.away} ${f.home_long} ${f.away_long} ${f.competition} ${f.country}`.toLowerCase().includes(q));
-    const best = (f) => (f.sels.filter((x) => x.odds && x.odds >= 1.3 && !x.diff)[0] || {}).p || 0;
-    lst = lst.slice().sort((a, b) => key === 'ko' ? a.kickoff.localeCompare(b.kickoff) : key === 'safe' ? best(b) - best(a) : key === 'H' ? (b.x12.H || 0) - (a.x12.H || 0) : (b.p[key] || 0) - (a.p[key] || 0));
-    const parts = [`<div class="card compact"><div class="searchbar"><div class="field">${icon('search')}<input id="fx-search" placeholder="Search team or league" value="${esc(state.search || '')}"></div>
-      ${select('fx-sort', [['ko', 'Kick-off'], ['safe', 'Safest first'], ['O25', 'Over 2.5'], ['O15', 'Over 1.5'], ['BTTS', 'BTTS'], ['H', 'Home win']], key)}</div></div>`];
+    const d = state.data; const q = (state.search || '').toLowerCase(); const key = state.sort || 'ko'; const filt = state.matchFilter || 'all';
+    let lst = d.fixtures.filter((f) => !q || `${f.home} ${f.away} ${f.competition} ${f.country}`.toLowerCase().includes(q));
+    if (filt === 'priced') lst = lst.filter((f) => f.priced);
+    else if (filt === 'safe') lst = lst.filter((f) => f.safe);
+    else if (filt === 'major') lst = lst.filter((f) => f.major);
+    else if (filt === 'ok') lst = lst.filter((f) => f.data_ok);
+    const best = (f) => (f.top && f.top[2] >= 1.3 ? f.top[1] : 0);
+    lst = lst.slice().sort((a, b) => key === 'ko' ? a.kickoff.localeCompare(b.kickoff) || a.competition.localeCompare(b.competition) : key === 'safe' ? best(b) - best(a) : key === 'H' ? (b.x12[0] || 0) - (a.x12[0] || 0) : (b.p[key] || 0) - (a.p[key] || 0));
+    const parts = [`<div class="card compact"><div class="searchbar"><div class="field">${icon('search')}<input id="fx-search" placeholder="Search team, league or country" value="${esc(state.search || '')}"></div>
+      ${select('fx-sort', [['ko', 'Kick-off'], ['safe', 'Best bet first'], ['O25', 'Over 2.5'], ['O15', 'Over 1.5'], ['BTTS', 'BTTS'], ['H', 'Home win']], key)}</div>
+      <div class="chips small-chips" style="margin-top:6px">${[['all', `All ${d.fixtures.length}`], ['major', '🏆 Major leagues'], ['priced', 'Priced'], ['safe', '🔒 Safest bet'], ['ok', 'Enough data']].map(([k, l]) => `<button class="chip tapchip ${filt === k ? 'on' : ''}" data-mf="${k}">${l}</button>`).join('')}</div></div>`];
     if (!lst.length) parts.push(`<div class="card empty">No matches found.</div>`);
-    let lastDay = null, lastComp = null;
-    lst.forEach((f) => {
+    let lastDay = null, lastComp = null; const max = state.expanded.matches ? lst.length : 250;
+    lst.slice(0, max).forEach((f) => {
       const day = f.kickoff.slice(0, 10);
       if (key === 'ko' && day !== lastDay) { if (lastDay) parts.push('</div>'); parts.push(`<h2 class="section">${esc(dayName(day))}</h2><div class="card compact">`); lastDay = day; lastComp = null; }
       else if (key !== 'ko' && !lastDay) { parts.push('<div class="card compact">'); lastDay = 'x'; }
       if (key === 'ko' && f.competition !== lastComp) { parts.push(`<div class="comp-head">${flag(f.country)} ${esc(f.competition)}</div>`); lastComp = f.competition; }
-      const s = live.for(f); const b = f.sels.filter((x) => x.odds && x.odds >= 1.3 && !x.diff)[0];
-      const sub = `${key === 'ko' ? '' : flag(f.country) + ' ' + esc(f.competition) + ' · '}xG ${f1(f.xg.home)}–${f1(f.xg.away)}${b ? ` · <b>${esc(selShort(b.sel))}</b> ${pct(b.p)} @ ${f2(b.odds)}` : ''}${f.data_ok ? '' : ' · <span class="warn">low data</span>'}`;
+      const s = live.for(f); const b = f.safe || (f.top && f.top[2] >= 1.3 ? f.top : null);
+      const sub = `${key === 'ko' ? '' : flag(f.country) + ' ' + esc(f.competition) + ' · '}xG ${f1(f.xg[0])}–${f1(f.xg[1])}${b ? ` · ${f.safe ? '🔒 ' : ''}<b>${esc(selShort(b[0]))}</b> ${pct(b[1])} @ ${f2(b[2])}` : f.priced ? '' : ' · <span class="muted">no price</span>'}${f.data_ok ? '' : ' · <span class="warn">low data</span>'}${f.time_known === false ? ' · <span class="muted">time tbc</span>' : ''}`;
       parts.push(matchRow(f, { live: s, short: key === 'ko', sub, right: s && s.hg != null ? '' : `<span class="tiny muted">O2.5 ${pill(f.p.O25, 0.6, 0.5)}</span><span class="tiny muted">BTTS ${pill(f.p.BTTS, 0.6, 0.5)}</span>` }));
     });
     if (lastDay) parts.push('</div>');
+    if (lst.length > max) parts.push(`<button class="btn wide" data-more="matches">Show all ${lst.length}</button>`);
     view().innerHTML = parts.join('');
     $('#fx-search').oninput = (e) => { state.search = e.target.value; PR.render(); const i = $('#fx-search'); i.focus(); i.setSelectionRange(i.value.length, i.value.length); };
     $('#fx-sort').onchange = (e) => { state.sort = e.target.value; PR.render(); };
+    $$('[data-mf]').forEach((b) => { b.onclick = () => { state.matchFilter = b.dataset.mf; PR.render(); }; });
+    $$('[data-more]').forEach((b) => { b.onclick = () => { state.expanded[b.dataset.more] = true; PR.render(); }; });
   };
 
   // ------------------------------------------------------------------ DAYS
   PR.views.days = function () {
     const d = state.data; const days = (d.history && d.history.days) || []; const parts = [];
-    parts.push(`<div class="card small"><b>Day by day</b> — every match of each day with the final score, and how the picks, safest bets, trebles and parlays did. Days are added automatically; results fill in within a few hours of the final whistle.</div>`);
+    parts.push(`<div class="card small"><b>Day by day</b> — every analysed match of each day with the final score, and how the bets of the day, safest bets and shortlists did. Results fill in within a few hours of the final whistle; 60 days are kept.</div>`);
     if (!days.length) parts.push(`<div class="card empty">History starts with the next analysis.</div>`);
     const rate = (o, hitKey) => { if (!o || !o.n) return '–'; const settled = o.n - (o.pending || 0); return settled ? `${o[hitKey]}/${settled}${o.pending ? ' · ' + o.pending + ' open' : ''}` : `${o.n} open`; };
     parts.push(`<div class="card compact">${days.map((x) => `<div class="list-item tap day" data-day="${esc(x.date)}"><div class="main"><div class="match">${esc(dayName(x.date))}</div>
       <div class="meta">${x.n} matches${x.finished ? ` · ${x.finished} finished` : ''}${x.goals_avg != null ? ` · ${f1(x.goals_avg)} goals/match · O2.5 ${pct(x.o25_rate)} · BTTS ${pct(x.btts_rate)}` : ''}</div>
-      <div class="chips">${x.safes && x.safes.n ? `<span class="chip ${chipCls(x.safes, 'hit')}">${icon('target')} safest ${rate(x.safes, 'hit')}</span>` : ''}${x.accas && x.accas.n ? `<span class="chip ${chipCls(x.accas, 'won')}">${icon('lock')} trebles ${rate(x.accas, 'won')}</span>` : ''}${x.parlays && x.parlays.n ? `<span class="chip ${chipCls(x.parlays, 'won')}">${icon('ticket')} parlays ${rate(x.parlays, 'won')}</span>` : ''}${x.picks && x.picks.n ? `<span class="chip ${chipCls(x.picks, 'hit')}">${icon('star')} picks ${rate(x.picks, 'hit')}</span>` : ''}</div></div><div class="chev">${icon('next')}</div></div>`).join('')}</div>`);
+      <div class="chips">${x.botd && x.botd.n ? `<span class="chip ${chipCls(x.botd, 'hit')}">⭐ day card ${rate(x.botd, 'hit')}</span>` : ''}${x.safes && x.safes.n ? `<span class="chip ${chipCls(x.safes, 'hit')}">${icon('lock')} safest ${rate(x.safes, 'hit')}</span>` : ''}${x.picks && x.picks.n ? `<span class="chip ${chipCls(x.picks, 'hit')}">${icon('star')} shortlist ${rate(x.picks, 'hit')}</span>` : ''}</div></div><div class="chev">${icon('next')}</div></div>`).join('')}</div>`);
     view().innerHTML = parts.join('');
     $$('[data-day]').forEach((b) => { b.onclick = () => { state.dayView = 'results'; PR.push({ type: 'day', date: b.dataset.day }); }; });
   };

@@ -1,10 +1,9 @@
-/* PlayReport — stacked pages: match, team, day, analysis, performance, settings. */
+/* PlayReport — stacked pages: match, team, day, analysis, performance, guide, settings. */
 (function (PR) {
   'use strict';
-  const { $, $$, esc, pct, f1, f2, signed, state, settings, fx, pill, bar, koShort, koTime, dayName, niceDate, toast, selLabel, selShort, selGroup,
-    GROUPS, GROUP_ICON, liveVerdict, isLive, isFT, segmented, select, contactCard, teamLink, scoreBox, statusIcon, formBadges, wdl, md, settleSel, icon, flag, badge, fxBadge, matchRow, ring, skeleton } = PR;
+  const { $, $$, esc, pct, f1, f2, signed, state, settings, fx, pill, koShort, koTime, dayName, niceDate, toast, selLabel, selGroup,
+    GROUPS, liveVerdict, isLive, segmented, select, contactCard, teamLink, statusIcon, formBadges, wdl, md, icon, flag, badge, fxBadge, matchRow, ring, skeleton } = PR;
   const GICON = { result: 'shield', dc: 'swap', goals: 'ball', btts: 'swap', team: 'target', corners: 'corner', cards: 'card' };
-  const sh = (ico, title, cls) => `<h2><span class="ico ${cls || ''}">${icon(ico)}</span>${title}</h2>`;
   const view = () => $('#view');
   const live = PR.live;
   const MK = { O15: 'Over 1.5 goals', O25: 'Over 2.5 goals', BTTS: 'Both teams to score' };
@@ -12,61 +11,92 @@
   function wireBack() { const b = $('#back'); if (b) b.onclick = () => PR.back(); }
   function ensureTeams(div) { if (!PR.teamsCached(div)) PR.loadTeams(div).then(() => PR.render()).catch(() => { state.teams[PR.slug(div)] = { missing: true }; }); }
   const rec = (div, name) => { const t = PR.teamsCached(div); return t && t.teams ? t.teams[name] : null; };
+  const ord = (n) => { const s = ['th', 'st', 'nd', 'rd'], v = n % 100; return s[(v - 20) % 10] || s[v] || s[0]; };
+  // index rows keep xg/x12 as arrays, detail files as objects — read both
+  const xgH = (f) => Array.isArray(f.xg) ? f.xg[0] : (f.xg || {}).home;
+  const xgA = (f) => Array.isArray(f.xg) ? f.xg[1] : (f.xg || {}).away;
+  const x12 = (f, k) => Array.isArray(f.x12) ? f.x12[{ H: 0, D: 1, A: 2 }[k]] : (f.x12 || {})[k];
 
   // ------------------------------------------------------------------ MATCH PAGE
   PR.pages.match = function (page) {
-    const f = fx(page.id); if (!f) { PR.back(); return; }
+    const f0 = fx(page.id); const key = PR.detailKey(page.id, page.d);
+    let x = PR.detailCached(page.id, page.d);
+    if (!x && key && !state.details[key + '_loading']) {
+      state.details[key + '_loading'] = true;
+      PR.loadDetail(page.id, page.d).then(() => PR.render()).catch((e) => { state.details[key] = { error: e.message }; PR.render(); }).finally(() => { delete state.details[key + '_loading']; });
+    }
+    if (x && x.error) x = null;
+    const f = x || f0;
+    if (!f) { view().innerHTML = head('Match') + (state.details[key] && state.details[key].error ? `<div class="card empty">This match is no longer available (${esc(state.details[key].error)}).</div>` : skeleton(6)); wireBack(); return; }
     ensureTeams(f.div);
     const s = live.for(f); const d = state.data; const v = state.matchView || 'overview';
     const th = rec(f.div, f.home), ta = rec(f.div, f.away);
-    const parts = [head(`${flag(f.country)} ${esc(f.competition)}`, `${esc(dayName(f.kickoff))} · ${esc(koTime(f.kickoff))} ${esc(d.meta.tz)}${f.referee ? ' · referee ' + esc(f.referee) : ''}`)];
-    const form = (p) => formBadges((p.last5 || []).slice().reverse().map((m) => wdl(m.gf, m.ga)));
+    const parts = [head(`${flag(f.country)} ${esc(f.competition)}`, `${esc(dayName(f.kickoff))} · ${esc(koTime(f.kickoff))} ${esc(d.meta.tz)}${f.time_known === false ? ' (time to be confirmed)' : ''}${f.referee ? ' · referee ' + esc(f.referee) : ''}`)];
+    const form = (p) => p && p.last5 ? formBadges(p.last5.slice().reverse().map((m) => wdl(m.gf, m.ga))) : '';
+    const teams = (x && x.teams) || { home: {}, away: {} };
     parts.push(`<div class="card mhead"><div class="teams">
-      <div class="t">${fxBadge(f, 'home').replace('s24', 's56')}${teamLink(f, 'home')}<div class="tiny muted">${th && th.pos ? `${th.pos}${ord(th.pos)} · ${th.all.pts} pts` : 'Home'}</div>${form(f.teams.home)}</div>
+      <div class="t">${fxBadge(f, 'home').replace('s24', 's56')}${teamLink(f, 'home')}<div class="tiny muted">${th && th.pos ? `${th.pos}${ord(th.pos)} · ${th.all.pts} pts` : 'Home'}</div>${form(teams.home)}</div>
       <div class="mid">${s && s.hg != null ? `<div class="score big">${s.hg} – ${s.ag}</div><div class="minute ${isLive(s) ? 'on' : 'ft'}">${esc(s.status)}</div>` : `<div class="score big muted">${esc(koTime(f.kickoff))}</div><div class="tiny muted">${esc(koShort(f.kickoff).split(' ')[0])} · ${esc(d.meta.tz)}</div>`}</div>
-      <div class="t">${fxBadge(f, 'away').replace('s24', 's56')}${teamLink(f, 'away')}<div class="tiny muted">${ta && ta.pos ? `${ta.pos}${ord(ta.pos)} · ${ta.all.pts} pts` : 'Away'}</div>${form(f.teams.away)}</div></div>
-      <div class="x12"><div class="lbl"><span>${esc(f.home)} ${pct(f.x12.H)}</span><span>Draw ${pct(f.x12.D)}</span><span>${esc(f.away)} ${pct(f.x12.A)}</span></div>
-        <div class="tri"><span class="h" style="width:${Math.round(f.x12.H * 100)}%"></span><span class="d" style="width:${Math.round(f.x12.D * 100)}%"></span><span class="a" style="width:${Math.round(f.x12.A * 100)}%"></span></div></div>
-      ${f.data_ok ? '' : '<div class="chip warn" style="margin-top:6px">⚠️ low data — never shortlisted</div>'}</div>`);
-    parts.push(`<div class="card compact">${segmented([['overview', 'Overview'], ['markets', 'Markets'], ['stats', 'Stats'], ['h2h', 'H2H']], v, 'mv')}</div>`);
-    if (v === 'overview') matchOverview(parts, f, s);
-    else if (v === 'markets') matchMarkets(parts, f);
-    else if (v === 'stats') matchStats(parts, f, th, ta);
-    else matchH2H(parts, f);
+      <div class="t">${fxBadge(f, 'away').replace('s24', 's56')}${teamLink(f, 'away')}<div class="tiny muted">${ta && ta.pos ? `${ta.pos}${ord(ta.pos)} · ${ta.all.pts} pts` : 'Away'}</div>${form(teams.away)}</div></div>
+      <div class="x12"><div class="lbl"><span>${esc(f.home)} ${pct(x12(f, 'H'))}</span><span>Draw ${pct(x12(f, 'D'))}</span><span>${esc(f.away)} ${pct(x12(f, 'A'))}</span></div>
+        <div class="tri"><span class="h" style="width:${Math.round((x12(f, 'H') || 0) * 100)}%"></span><span class="d" style="width:${Math.round((x12(f, 'D') || 0) * 100)}%"></span><span class="a" style="width:${Math.round((x12(f, 'A') || 0) * 100)}%"></span></div></div>
+      ${f.data_ok ? '' : '<div class="chip warn" style="margin-top:6px">⚠️ low data — never shortlisted or used for safest bets</div>'}</div>`);
+    parts.push(`<div class="card compact">${segmented([['overview', 'Overview'], ['trends', 'Trends'], ['markets', 'Markets'], ['stats', 'Stats'], ['h2h', 'H2H']], v, 'mv')}</div>`);
+    if (!x) parts.push(skeleton(5));
+    else if (v === 'overview') matchOverview(parts, x, s);
+    else if (v === 'trends') matchTrends(parts, x);
+    else if (v === 'markets') matchMarkets(parts, x);
+    else if (v === 'stats') matchStats(parts, x, th, ta);
+    else matchH2H(parts, x);
     view().innerHTML = parts.join('');
     wireBack();
     $$('[data-mv]').forEach((b) => { b.onclick = () => { state.matchView = b.dataset.mv; PR.render(); }; });
   };
-  const ord = (n) => { const s = ['th', 'st', 'nd', 'rd'], v = n % 100; return s[(v - 20) % 10] || s[v] || s[0]; };
   function matchOverview(parts, f, s) {
-    const d = state.data;
-    parts.push(`<div class="card"><div class="row"><div class="grow"><div class="cell" style="display:inline-block"><div class="k">Expected goals</div><div class="v">${f1(f.xg.home)} – ${f1(f.xg.away)}</div><div class="tiny muted">total ${f2(f.xg.total)}</div></div></div>
+    parts.push(`<div class="card"><div class="row"><div class="grow"><div class="cell" style="display:inline-block"><div class="k">Expected goals</div><div class="v">${f1(xgH(f))} – ${f1(xgA(f))}</div><div class="tiny muted">total ${f2(f.xg.total)}</div></div></div>
       <div class="rings" style="flex:2">${ring(f.p.O15, 'Over 1.5')}${ring(f.p.O25, 'Over 2.5')}${ring(f.p.BTTS, 'BTTS')}</div></div>
-      <div class="tiny muted" style="margin-top:8px">${f.basis === 'market+model' ? '90% market / 10% team-form model' : 'team-form model only (no reference odds)'} · league avg ${f2((f.league_avg.home_goals || 0) + (f.league_avg.away_goals || 0))} goals, O2.5 in ${pct(f.league_avg.o25)}</div></div>`);
-    const best = f.sels.filter((x) => x.odds && x.odds >= 1.3 && !x.diff).slice(0, 4);
-    if (best.length) parts.push(`<div class="card compact"><div class="row"><div class="grow b">${icon('target', 'sm')} Best priced selections</div></div><table class="tbl">${best.map((x) => `<tr><td><div class="b">${esc(selLabel(x.sel, f.home, f.away))}</div><div class="tiny muted">${esc(GROUPS[selGroup(x.sel)])} · model ${pct(x.p_model)} · Sportybet ${pct(x.p_sb)}</div></td><td class="right"><b>${f2(x.odds)}</b></td><td class="right">${pill(x.p, 0.8, 0.7)}</td></tr>`).join('')}</table></div>`);
+      <div class="tiny muted" style="margin-top:8px">${f.basis === 'market+model' ? '90% market / 10% team-form model' : f.priced ? 'team-form model blended with the Sportybet price' : 'team-form model only (no price available)'} · league avg ${f2((f.league_avg.home_goals || 0) + (f.league_avg.away_goals || 0))} goals, O2.5 in ${pct(f.league_avg.o25)}</div></div>`);
     const bets = betsOn(f.id);
     if (bets.length) parts.push(`<div class="card compact"><div class="b">Bets on this match</div><div class="chips" style="margin-top:6px">${bets.map((b) => { const vd = liveVerdict(b.sel, s); return `<span class="chip ${vd.cls}">${esc(b.kind)}: ${esc(b.label)}${b.odds ? ' @ ' + f2(b.odds) : ''} · ${esc(vd.text)}</span>`; }).join('')}</div></div>`);
+    const best = f.sels.filter((x) => x.odds && x.odds >= 1.25 && !x.diff).slice(0, 5);
+    if (best.length) parts.push(`<div class="card compact"><div class="row"><div class="grow b">${icon('target', 'sm')} Best priced selections</div></div><table class="tbl">${best.map((x) => `<tr><td><div class="b">${esc(selLabel(x.sel, f.home, f.away))}</div><div class="tiny muted">${esc(GROUPS[selGroup(x.sel)])} · model ${pct(x.p_model)} · Sportybet ${pct(x.p_sb)}</div></td><td class="right"><b>${f2(x.odds)}</b></td><td class="right">${pill(x.p, 0.8, 0.7)}</td></tr>`).join('')}</table></div>`);
+    const tr = f.trends || {}; const topTrends = [].concat((tr.match || []).filter((t) => t.kind !== 'info'), (tr.home && tr.home.all || []).slice(0, 2), (tr.away && tr.away.all || []).slice(0, 2), (tr.h2h || []).slice(0, 1)).slice(0, 5);
+    if (topTrends.length) parts.push(`<div class="card compact tap" id="go-trends"><div class="row"><div class="grow b">${icon('trend', 'sm')} Trends</div><span class="tiny muted">all ${icon('next', 'sm')}</span></div><div class="trends">${topTrends.map(trendLine).join('')}</div></div>`);
     const sb = f.sportybet || {};
     if (Object.keys(sb).length) {
       const ou = sb.OU || {};
       parts.push(`<div class="card compact"><div class="b">Sportybet prices</div><table class="tbl head" style="margin-top:6px"><tr><th>Market</th><th class="right">1 / Over / Yes</th><th class="right">X</th><th class="right">2 / Under / No</th></tr>
         ${sb['1X2'] ? `<tr><td>Match result</td><td class="right">${f2(sb['1X2'][0])}</td><td class="right">${f2(sb['1X2'][1])}</td><td class="right">${f2(sb['1X2'][2])}</td></tr>` : ''}
         ${sb.DC ? `<tr><td>Double chance 1X · 12 · X2</td><td class="right">${f2(sb.DC['1X'])}</td><td class="right">${f2(sb.DC['12'])}</td><td class="right">${f2(sb.DC.X2)}</td></tr>` : ''}
-        ${['1.5', '2.5', '3.5'].filter((l) => ou[l]).map((l) => `<tr><td>Goals ${l}</td><td class="right">${f2(ou[l][0])}</td><td></td><td class="right">${f2(ou[l][1])}</td></tr>`).join('')}
+        ${['0.5', '1.5', '2.5', '3.5', '4.5'].filter((l) => ou[l]).map((l) => `<tr><td>Goals ${l}</td><td class="right">${f2(ou[l][0])}</td><td></td><td class="right">${f2(ou[l][1])}</td></tr>`).join('')}
         ${sb.BTTS ? `<tr><td>Both teams to score</td><td class="right">${f2(sb.BTTS[0])}</td><td></td><td class="right">${f2(sb.BTTS[1])}</td></tr>` : ''}</table>
-        <div class="tiny muted" style="margin-top:4px">Prices are payout information only; they never enter the model. All lines under Markets.</div></div>`);
-    } else parts.push(`<div class="card tiny muted">No Sportybet price for this match.</div>`);
+        <div class="tiny muted" style="margin-top:4px">Prices are payout information; the de-margined price is blended with the model. All lines under Markets.</div></div>`);
+    } else parts.push(`<div class="card tiny muted">No Sportybet price for this match — probabilities are model only.</div>`);
     const inc = f.livescore_id && state.incidents[f.livescore_id];
     if (inc && inc.items.length) parts.push(`<div class="card compact"><div class="b">Match events</div><div class="small" style="margin-top:6px">${inc.items.map((it) => `<div>${it.team === 'H' ? '' : '<span class="muted">(away) </span>'}${PR.incidentLine(it)}</div>`).join('')}</div></div>`);
-    const hl = [f.home_long, f.away_long, f.home, f.away].map((t) => d.headlines && d.headlines[t]).filter(Boolean);
-    if (hl.length) parts.push(`<div class="card compact"><div class="b">Recent headlines <span class="muted small">(context only)</span></div>${hl.map((items) => items.map((h) => `<div class="list-item"><div class="main"><a href="${esc(h.link)}">${esc(h.title)}</a><div class="meta">${esc(h.when || '')} · ${esc(h.source || '')}</div></div></div>`).join('')).join('')}</div>`);
+    setTimeout(() => { const g = $('#go-trends'); if (g) g.onclick = () => { state.matchView = 'trends'; PR.render(); }; }, 0);
+  }
+  const TICON = { goals: '⚽', ht: '⏱️', corners: '🚩', cards: '🟨', form: '📈', info: 'ℹ️' };
+  function trendLine(t) {
+    const r = t.r == null ? null : Math.round(t.r * 100);
+    return `<div class="trend ${t.kind}"><span class="ti">${TICON[t.kind] || '•'}</span><span class="tt">${esc(t.t)}</span>${r != null && t.n > 0 && t.kind !== 'form' ? `<span class="tr"><span class="bar"><span class="fill ${r >= 80 ? 'hi' : r >= 65 ? 'mid' : ''}" style="width:${r}%"></span></span><b>${r}%</b></span>` : ''}</div>`;
+  }
+  function matchTrends(parts, f) {
+    const tr = f.trends || {}; const any = (tr.match || []).length || (tr.home && tr.home.all.length) || (tr.away && tr.away.all.length) || (tr.h2h || []).length;
+    parts.push(`<div class="card tiny muted">Streaks and rates from the last 10 matches of each team (and the last 5 at this venue), all competitions. A trend is a pattern, not a prediction — the probabilities on the Overview already include recent form.</div>`);
+    if (!any) { parts.push(`<div class="card empty">Not enough recent matches for trends.</div>`); return; }
+    const block = (title, items, sub) => items && items.length ? `<div class="card compact"><div class="row"><div class="grow b">${title}</div>${sub ? `<span class="tiny muted">${sub}</span>` : ''}</div><div class="trends">${items.map(trendLine).join('')}</div></div>` : '';
+    parts.push(block(`${icon('swap', 'sm')} Match trends`, tr.match));
+    parts.push(block(`${fxBadge(f, 'home').replace('s24', 's20')} ${esc(f.home)}`, tr.home && tr.home.all, `last ${tr.home ? tr.home.n : 0}`));
+    parts.push(block(`${fxBadge(f, 'home').replace('s24', 's20')} ${esc(f.home)} at home`, tr.home && tr.home.venue));
+    parts.push(block(`${fxBadge(f, 'away').replace('s24', 's20')} ${esc(f.away)}`, tr.away && tr.away.all, `last ${tr.away ? tr.away.n : 0}`));
+    parts.push(block(`${fxBadge(f, 'away').replace('s24', 's20')} ${esc(f.away)} away`, tr.away && tr.away.venue));
+    parts.push(block(`${icon('history', 'sm')} Head to head`, tr.h2h));
   }
   function betsOn(fid) {
-    const d = state.data, out = [], sf = d.safe || { bets: [], trebles: [] };
-    sf.bets.filter((b) => b.fixture === fid).forEach((b) => out.push({ kind: 'Safest', label: b.label, sel: b.sel, odds: b.odds }));
-    sf.trebles.forEach((t, i) => t.legs.filter((l) => l.fixture === fid).forEach((l) => out.push({ kind: `Treble ${i + 1}`, label: l.label, sel: l.sel, odds: l.odds })));
-    (d.parlays || []).forEach((p, i) => p.legs.filter((l) => l.fixture === fid).forEach((l) => out.push({ kind: `Parlay ${i + 1}`, label: l.label || selLabel(l.sel), sel: l.sel, odds: l.odds })));
+    const d = state.data, out = [], sf = d.safe || { bets: [] };
+    ((sf.today && sf.today.bets) || []).filter((b) => b.fixture === fid).forEach((b) => out.push({ kind: '⭐ Bet of the day', label: b.label, sel: b.sel, odds: b.odds }));
+    sf.bets.filter((b) => b.fixture === fid && !out.some((o) => o.sel === b.sel)).forEach((b) => out.push({ kind: '🔒 Safest', label: b.label, sel: b.sel, odds: b.odds }));
     Object.entries(d.picks || {}).forEach(([mk, lst]) => lst.filter((p) => p.fixture === fid).forEach(() => out.push({ kind: 'Shortlist', label: MK[mk], sel: mk })));
     return out;
   }
@@ -85,6 +115,7 @@
     const lines = (obj, label) => obj ? `<tr><td>${label}</td><td colspan="4" class="tiny">${Object.entries(obj).sort((a, b) => +a[0] - +b[0]).map(([k, v]) => `<span class="chip">${k}: ${f2(v[0])} / ${f2(v[1])}</span>`).join(' ')}</td></tr>` : '';
     if (sb.CORN || sb.CARDS || sb.CORNH || sb.CORN1H) parts.push(`<div class="card compact"><div class="b">More Sportybet lines (over / under)</div><table class="tbl" style="margin-top:4px">${lines(sb.CORN, 'Corners')}${lines(sb.CORN1H, '1st-half corners')}${lines(sb.CORNH, 'Home corners')}${lines(sb.CORNA, 'Away corners')}${lines(sb.CARDS, 'Cards')}${lines(sb.CARDSH, 'Home cards')}${lines(sb.CARDSA, 'Away cards')}</table></div>`);
     if (f.corners || f.cards) parts.push(`<div class="card compact"><div class="b">Expected counts</div><div class="grid4" style="margin-top:6px">${f.corners ? `<div class="cell"><div class="k">Corners</div><div class="v">${f1(f.corners.total)}</div><div class="tiny muted">${f1(f.corners.home)} – ${f1(f.corners.away)}</div></div>` : ''}${f.cards ? `<div class="cell"><div class="k">Cards</div><div class="v">${f1(f.cards.total)}</div><div class="tiny muted">${f1(f.cards.home)} – ${f1(f.cards.away)}</div></div>` : ''}</div></div>`);
+    else parts.push(`<div class="card tiny muted">Corners and cards are modelled for the 22 main European leagues, where match statistics are published.</div>`);
   }
   function cmpRow(label, a, b, fmt, higherBetter) {
     fmt = fmt || f2; const av = a == null || isNaN(a) ? null : +a, bv = b == null || isNaN(b) ? null : +b;
@@ -94,17 +125,19 @@
     return `<tr><td class="right ${cls(av, bv)}">${fmt(av)}</td><td class="mid"><div class="k">${label}</div><div class="duo"><span class="l" style="width:${Math.round(wa * 100)}%"></span><span class="r" style="width:${Math.round((1 - wa) * 100)}%"></span></div></td><td class="${cls(bv, av)}">${fmt(bv)}</td></tr>`;
   }
   function matchStats(parts, f, th, ta) {
-    const H = f.teams.home, A = f.teams.away;
-    parts.push(`<div class="card compact"><div class="row"><div class="grow b row" style="gap:6px">${fxBadge(f, 'home')}${esc(f.home)}</div><div class="tiny muted">form model · last 2 seasons</div><div class="b row" style="gap:6px">${esc(f.away)}${fxBadge(f, 'away')}</div></div>
+    const H = f.teams.home || {}, A = f.teams.away || {};
+    const outOf = (n) => (x) => x == null ? '–' : `${x}/${n}`;
+    parts.push(`<div class="card compact"><div class="row"><div class="grow b row" style="gap:6px">${fxBadge(f, 'home')}${esc(f.home)}</div><div class="tiny muted">form model · recent seasons</div><div class="b row" style="gap:6px">${esc(f.away)}${fxBadge(f, 'away')}</div></div>
       <table class="cmp">${cmpRow('Goals scored / game', H.gf, A.gf, f2, true)}${cmpRow('Goals conceded / game', H.ga, A.ga, f2, false)}
       ${cmpRow('Home / away goals for', H.venue_gf, A.venue_gf, f2, true)}${cmpRow('Home / away goals against', H.venue_ga, A.venue_ga, f2, false)}
       ${cmpRow('Attack strength', H.att, A.att, f2, true)}${cmpRow('Defence (lower = better)', H.def, A.def, f2, false)}
       ${cmpRow('xG for (last 10)', H.xg_for, A.xg_for, f2, true)}${cmpRow('xG against (last 10)', H.xg_against, A.xg_against, f2, false)}
       ${cmpRow('Shots on target for', H.sot_for, A.sot_for, f1, true)}${cmpRow('Shots on target against', H.sot_against, A.sot_against, f1, false)}
       ${cmpRow('Over 1.5 rate', H.o15, A.o15, pct, true)}${cmpRow('Over 2.5 rate', H.o25, A.o25, pct, true)}${cmpRow('Over 3.5 rate', H.o35, A.o35, pct, true)}
+      ${cmpRow('Over 2.5 at home / away', H.venue_o25, A.venue_o25, pct, true)}${cmpRow('BTTS at home / away', H.venue_btts, A.venue_btts, pct, true)}
       ${cmpRow('BTTS rate', H.btts, A.btts, pct, true)}${cmpRow('Clean sheets', H.cs, A.cs, pct, true)}${cmpRow('Failed to score', H.fts, A.fts, pct, false)}
-      ${cmpRow('Goals / game, last 5', H.form5_goals, A.form5_goals, f2, true)}${cmpRow('Over 2.5 in last 10', H.last_o25, A.last_o25, (x) => x == null ? '–' : x + '/10', true)}${cmpRow('BTTS in last 10', H.last_btts, A.last_btts, (x) => x == null ? '–' : x + '/10', true)}</table>
-      <div class="tiny muted">${H.n} / ${A.n} matches used (time-weighted ${f1(H.n_eff)} / ${f1(A.n_eff)}). Bars compare the two teams.</div></div>`);
+      ${cmpRow('Goals / game, last 5', H.form5_goals, A.form5_goals, f2, true)}${cmpRow('Over 1.5 in last matches', H.last_o15, A.last_o15, outOf(H.last_n || 10), true)}${cmpRow('Over 2.5 in last matches', H.last_o25, A.last_o25, outOf(H.last_n || 10), true)}${cmpRow('BTTS in last matches', H.last_btts, A.last_btts, outOf(H.last_n || 10), true)}</table>
+      <div class="tiny muted">${H.n || 0} / ${A.n || 0} matches used (time-weighted ${f1(H.n_eff)} / ${f1(A.n_eff)}); ${H.venue_n || 0} home / ${A.venue_n || 0} away games in the venue splits. Bars compare the two teams.</div></div>`);
     const t = PR.teamsCached(f.div);
     if (th && ta) {
       const sp = (r) => r.all;
@@ -118,16 +151,27 @@
     } else if (t && t.missing) parts.push(`<div class="card tiny muted">Season table not available for this competition yet.</div>`);
     else parts.push(`<div class="card tiny muted">Loading season stats…</div>`);
   }
+  function h2hTable(rows, f) {
+    return `<table class="tbl" style="margin-top:6px">${rows.map((m) => `<tr><td class="tiny muted nowrap">${esc(m.date)}</td><td class="${m.hg > m.ag ? 'b' : ''}"><div class="row" style="gap:6px">${badge(m.home, m.home === f.home ? (f.badges || {}).home : m.home === f.away ? (f.badges || {}).away : null, 22)}<span>${esc(m.home)}</span></div></td><td class="right nowrap"><b>${m.hg} – ${m.ag}</b></td><td class="${m.ag > m.hg ? 'b' : ''}"><div class="row" style="gap:6px;justify-content:flex-end"><span>${esc(m.away)}</span>${badge(m.away, m.away === f.home ? (f.badges || {}).home : m.away === f.away ? (f.badges || {}).away : null, 22)}</div></td><td class="tiny muted">${esc(m.league || '')}</td></tr>`).join('')}</table>`;
+  }
   function matchH2H(parts, f) {
     const h2h = f.h2h || [];
     if (h2h.length) {
       const tot = h2h.map((m) => m.hg + m.ag);
-      parts.push(`<div class="card compact"><div class="row"><div class="grow b">Head to head</div><span class="chip">${f1(tot.reduce((a, b) => a + b, 0) / tot.length)} goals avg</span><span class="chip">O2.5 ${tot.filter((t) => t >= 3).length}/${tot.length}</span><span class="chip">BTTS ${h2h.filter((m) => m.hg > 0 && m.ag > 0).length}/${tot.length}</span></div>
-        <table class="tbl" style="margin-top:6px">${h2h.map((m) => `<tr><td class="tiny muted nowrap">${esc(m.date)}</td><td class="${m.hg > m.ag ? 'b' : ''}"><div class="row" style="gap:6px">${badge(m.home, null, 22)}<span>${esc(m.home)}</span></div></td><td class="right nowrap"><b>${m.hg} – ${m.ag}</b></td><td class="${m.ag > m.hg ? 'b' : ''}"><div class="row" style="gap:6px;justify-content:flex-end"><span>${esc(m.away)}</span>${badge(m.away, null, 22)}</div></td></tr>`).join('')}</table></div>`);
-    } else parts.push(`<div class="card tiny muted">No head-to-head in the last two seasons.</div>`);
-    const recent = (p, name, side) => `<div class="card compact"><div class="b row" style="gap:6px">${fxBadge(f, side)}${esc(name)} <span class="muted" style="font-weight:500">— last 5</span></div><table class="tbl" style="margin-top:4px">${(p.last5 || []).map((m) => `<tr><td class="tiny muted nowrap">${esc(m.date)}</td><td><div class="row" style="gap:6px"><i class="f ${wdl(m.gf, m.ga)}">${wdl(m.gf, m.ga)}</i>${badge(m.opp, null, 22)}<span class="nowrap">${m.venue === 'H' ? 'v' : '@'} ${esc(m.opp)}</span></div></td><td class="right nowrap"><b>${m.gf} – ${m.ga}</b></td><td class="tiny muted">${esc(m.league || '')}</td></tr>`).join('') || '<tr><td class="muted">no matches</td></tr>'}</table></div>`;
-    parts.push(recent(f.teams.home, f.home_long || f.home, 'home'));
-    parts.push(recent(f.teams.away, f.away_long || f.away, 'away'));
+      const wins = (name) => h2h.filter((m) => (m.home === name && m.hg > m.ag) || (m.away === name && m.ag > m.hg)).length;
+      const draws = h2h.filter((m) => m.hg === m.ag).length;
+      parts.push(`<div class="card compact"><div class="row"><div class="grow b">Head to head · last ${h2h.length}</div><span class="chip">${f1(tot.reduce((a, b) => a + b, 0) / tot.length)} goals avg</span><span class="chip">O2.5 ${tot.filter((t) => t >= 3).length}/${tot.length}</span><span class="chip">BTTS ${h2h.filter((m) => m.hg > 0 && m.ag > 0).length}/${tot.length}</span></div>
+        <div class="h2h-bar"><span class="h" style="flex:${wins(f.home) || 0.001}">${wins(f.home)}</span><span class="d" style="flex:${draws || 0.001}">${draws}</span><span class="a" style="flex:${wins(f.away) || 0.001}">${wins(f.away)}</span></div><div class="lbl tiny muted row"><span class="grow">${esc(f.home)} wins</span><span>draws</span><span class="grow right">${esc(f.away)} wins</span></div>
+        ${h2hTable(h2h.slice(0, 5), f)}${h2h.length > 5 ? `<details><summary class="tiny muted">Earlier meetings (${h2h.length - 5})</summary>${h2hTable(h2h.slice(5), f)}</details>` : ''}</div>`);
+      const venue = h2h.filter((m) => m.home === f.home);
+      if (venue.length) parts.push(`<div class="card compact"><div class="row"><div class="grow b">At ${esc(f.home)} · last ${Math.min(5, venue.length)}</div><span class="chip">O2.5 ${venue.slice(0, 5).filter((m) => m.hg + m.ag >= 3).length}/${Math.min(5, venue.length)}</span><span class="chip">BTTS ${venue.slice(0, 5).filter((m) => m.hg > 0 && m.ag > 0).length}/${Math.min(5, venue.length)}</span></div>${h2hTable(venue.slice(0, 5), f)}</div>`);
+    } else parts.push(`<div class="card tiny muted">No previous meeting on record between these two teams.</div>`);
+    const recent = (p, name, side, list, title) => `<div class="card compact"><div class="b row" style="gap:6px">${fxBadge(f, side)}${esc(name)} <span class="muted" style="font-weight:500">— ${title}</span></div><table class="tbl" style="margin-top:4px">${(list || []).map((m) => `<tr><td class="tiny muted nowrap">${esc(m.date)}</td><td><div class="row" style="gap:6px"><i class="f ${wdl(m.gf, m.ga)}">${wdl(m.gf, m.ga)}</i>${badge(m.opp, null, 22)}<span class="nowrap">${m.venue === 'H' ? 'v' : '@'} ${esc(m.opp)}</span></div></td><td class="right nowrap"><b>${m.gf} – ${m.ga}</b></td><td class="tiny muted">${esc(m.league || '')}</td></tr>`).join('') || '<tr><td class="muted">no matches</td></tr>'}</table></div>`;
+    const H = f.teams.home || {}, A = f.teams.away || {};
+    parts.push(recent(H, f.home_long || f.home, 'home', H.last5, 'last 5'));
+    parts.push(recent(H, f.home_long || f.home, 'home', H.venue_last5, 'last 5 at home'));
+    parts.push(recent(A, f.away_long || f.away, 'away', A.last5, 'last 5'));
+    parts.push(recent(A, f.away_long || f.away, 'away', A.venue_last5, 'last 5 away'));
   }
 
   // ------------------------------------------------------------------ TEAM PAGE
@@ -182,9 +226,11 @@
     const parts = [head(esc(dayName(page.date)), `${s.n || 0} matches · ${s.finished || 0} finished${s.goals_avg != null ? ` · ${f1(s.goals_avg)} goals/match` : ''}`)];
     const box = (label, o, k) => { if (!o || !o.n) return `<div class="cell"><div class="k">${label}</div><div class="v muted">–</div><div class="tiny muted">none</div></div>`; const settled = o.n - (o.pending || 0);
       return settled ? `<div class="cell"><div class="k">${label}</div><div class="v ${PR.chipCls(o, k)}">${o[k]}/${settled}</div><div class="tiny muted">${o.pending ? o.pending + ' still open' : 'all settled'}</div></div>` : `<div class="cell"><div class="k">${label}</div><div class="v">${o.n}</div><div class="tiny muted">open · not settled yet</div></div>`; };
-    parts.push(`<div class="card"><div class="grid4">${box(icon('target', 'sm') + ' Safest bets', s.safes, 'hit')}${box(icon('lock', 'sm') + ' Trebles', s.accas, 'won')}${box(icon('ticket', 'sm') + ' Parlays', s.parlays, 'won')}${box(icon('star', 'sm') + ' Shortlist', s.picks, 'hit')}</div>
+    parts.push(`<div class="card"><div class="grid4">${box('⭐ Bets of the day', s.botd, 'hit')}${box(icon('lock', 'sm') + ' Safest bets', s.safes, 'hit')}${box(icon('star', 'sm') + ' Shortlist', s.picks, 'hit')}</div>
       ${s.finished ? `<div class="tiny muted" style="margin-top:6px">Finished matches: Over 2.5 in ${pct(s.o25_rate)}, BTTS in ${pct(s.btts_rate)}.</div>` : ''}</div>`);
     parts.push(`<div class="card compact">${segmented([['results', 'Results'], ['bets', 'Bets']], v, 'dv')}</div>`);
+    const openable = (f) => fx(f.id) || f.d;
+    const tapAttrs = (f) => openable(f) ? `class="tap" data-fx="${esc(f.id)}" ${f.d ? `data-d="${esc(f.d)}"` : ''}` : '';
     if (v === 'results') {
       let lastComp = null;
       const fxs = day.fixtures.slice().sort((a, b) => a.competition.localeCompare(b.competition) || a.kickoff.localeCompare(b.kickoff));
@@ -193,56 +239,72 @@
         if (f.competition !== lastComp) { parts.push(`<div class="comp-head">${flag(f.country)} ${esc(f.competition)}</div>`); lastComp = f.competition; }
         const sc = f.score; const fin = sc && sc.hg != null;
         const seenB = new Set();
-        const marks = (f.bets || []).filter((b) => { const k = b.kind + '|' + b.sel; if (seenB.has(k)) return false; seenB.add(k); return true; }).map((b) => `<span class="chip ${b.status === 'hit' ? 'good' : b.status === 'miss' ? 'bad' : ''}">${icon(b.kind === 'safe' ? 'target' : b.kind === 'acca' ? 'lock' : b.kind === 'parlay' ? 'ticket' : 'star')} ${esc(b.label)}${b.odds ? ' @ ' + f2(b.odds) : ''} ${statusIcon(b.status)}</span>`).join('');
-        parts.push(matchRow(f, { tap: !!fx(f.id), short: true, sub: marks ? `<div class="chips">${marks}</div>` : '', right: fin ? '' : `<span class="tiny muted">xG ${f1(f.xg[0])}–${f1(f.xg[1])}</span><span class="tiny muted">O2.5 ${pct(f.p.O25)}</span>` }));
+        const marks = (f.bets || []).filter((b) => { const k = b.kind + '|' + b.sel; if (seenB.has(k)) return false; seenB.add(k); return true; }).map((b) => `<span class="chip ${b.status === 'hit' ? 'good' : b.status === 'miss' ? 'bad' : ''}">${b.botd ? '⭐' : icon(b.kind === 'safe' ? 'lock' : 'star')} ${esc(b.label)}${b.odds ? ' @ ' + f2(b.odds) : ''} ${statusIcon(b.status)}</span>`).join('');
+        const row = matchRow(f, { tap: !!openable(f), short: true, sub: marks ? `<div class="chips">${marks}</div>` : '', right: fin ? '' : `<span class="tiny muted">xG ${f1(f.xg[0])}–${f1(f.xg[1])}</span><span class="tiny muted">O2.5 ${pct(f.p.O25)}</span>` });
+        parts.push(f.d ? row.replace('<div class="mrow', `<div data-d="${esc(f.d)}" class="mrow`) : row);
       });
       parts.push('</div>');
     } else {
-      const safeBets = []; day.fixtures.forEach((f) => (f.bets || []).filter((b) => b.kind === 'safe').forEach((b) => safeBets.push({ f, b })));
-      const picks = []; day.fixtures.forEach((f) => (f.bets || []).filter((b) => b.kind === 'pick').forEach((b) => picks.push({ f, b })));
-      const multi = (lst, title, icon) => lst.length ? `<h2 class="section">${icon} ${title}</h2>` + lst.map((m, i) => `<div class="card acca"><div class="row"><div class="grow"><b>${title.replace(/s$/, '')} ${i + 1}</b> <span class="muted small">· odds ${f2(m.odds)} · win ${pct(m.p)}</span></div><span class="chip ${m.status === 'won' ? 'good' : m.status === 'lost' ? 'bad' : ''}">${esc(m.status)} ${statusIcon(m.status)}</span></div>
-        <table class="tbl legs">${m.legs.map((l) => `<tr><td class="tiny muted nowrap">${esc(koShort(l.kickoff))}</td><td><div class="b">${esc(l.home)} v ${esc(l.away)}</div><div class="sel">${esc(l.label)}</div></td><td class="right nowrap">${l.score ? `<b>${esc(l.score)}</b>` : '<span class="muted">–</span>'}</td><td class="right">${f2(l.odds)} ${statusIcon(l.status)}</td></tr>`).join('')}</table></div>`).join('') : '';
-      parts.push(multi(day.accas || [], 'Safest trebles', icon('lock')));
-      if (safeBets.length) parts.push(`<h2 class="section">${icon('target')} Safest bets</h2><div class="card compact"><table class="tbl">${safeBets.map(({ f, b }) => `<tr class="${fx(f.id) ? 'tap' : ''}" data-fx="${esc(f.id)}"><td class="tiny muted nowrap">${esc(koTime(f.kickoff))}</td><td><div class="b">${esc(f.home)} v ${esc(f.away)}</div><div class="tiny muted">${esc(b.label)}</div></td><td class="right nowrap">${f.score && f.score.hg != null ? `<b>${f.score.hg}–${f.score.ag}</b>` : '<span class="muted">–</span>'}</td><td class="right nowrap">${f2(b.odds)} ${statusIcon(b.status)}</td></tr>`).join('')}</table></div>`);
-      parts.push(multi(day.parlays || [], 'Parlays', icon('ticket')));
-      if (picks.length) parts.push(`<h2 class="section">${icon('star')} Shortlist picks</h2><div class="card compact"><table class="tbl">${picks.map(({ f, b }) => `<tr class="${fx(f.id) ? 'tap' : ''}" data-fx="${esc(f.id)}"><td class="tiny muted nowrap">${esc(koTime(f.kickoff))}</td><td><div class="b">${esc(f.home)} v ${esc(f.away)}</div><div class="tiny muted">${esc(b.label)} · ${pct(b.p)}</div></td><td class="right nowrap">${f.score && f.score.hg != null ? `<b>${f.score.hg}–${f.score.ag}</b>` : '<span class="muted">–</span>'}</td><td class="right">${statusIcon(b.status)}</td></tr>`).join('')}</table></div>`);
-      if (!safeBets.length && !picks.length && !(day.accas || []).length && !(day.parlays || []).length) parts.push(`<div class="card empty">No bets were recorded for this day.</div>`);
+      const botd = []; const safeBets = []; const picks = [];
+      day.fixtures.forEach((f) => (f.bets || []).forEach((b) => { if (b.kind === 'safe' && b.botd) botd.push({ f, b }); else if (b.kind === 'safe') safeBets.push({ f, b }); else if (b.kind === 'pick') picks.push({ f, b }); }));
+      const table = (lst, showP) => `<div class="card compact"><table class="tbl">${lst.map(({ f, b }) => `<tr ${tapAttrs(f)}><td class="tiny muted nowrap">${esc(koTime(f.kickoff))}</td><td><div class="b">${esc(f.home)} v ${esc(f.away)}</div><div class="tiny muted">${esc(b.label)}${showP ? ` · ${pct(b.p)}` : ''} · ${flag(f.country)} ${esc(f.competition)}</div></td><td class="right nowrap">${f.score && f.score.hg != null ? `<b>${f.score.hg}–${f.score.ag}</b>` : '<span class="muted">–</span>'}</td><td class="right nowrap">${b.odds ? f2(b.odds) + ' ' : ''}${statusIcon(b.status)}</td></tr>`).join('')}</table></div>`;
+      if (botd.length) parts.push(`<h2 class="section">⭐ Bets of the day</h2>` + table(botd));
+      if (safeBets.length) parts.push(`<h2 class="section">${icon('lock')} Safest bets</h2>` + table(safeBets));
+      if (picks.length) parts.push(`<h2 class="section">${icon('star')} Shortlist picks</h2>` + table(picks, true));
+      if (!botd.length && !safeBets.length && !picks.length) parts.push(`<div class="card empty">No bets were recorded for this day.</div>`);
     }
     view().innerHTML = parts.join('');
     wireBack();
     $$('[data-dv]').forEach((b) => { b.onclick = () => { state.dayView = b.dataset.dv; PR.render(); }; });
   };
 
-  // ------------------------------------------------------------------ ANALYSIS (report / dossier)
+  // ------------------------------------------------------------------ ANALYSIS (full report)
   PR.pages.analysis = function (page) {
-    const d = state.data; const dates = d.history.reports || []; const date = page.date || dates[0] || (d.meta.generated || '').slice(0, 10); const kind = page.kind || 'report';
-    const key = `${date}|${kind}`;
+    const d = state.data; const dates = d.history.reports || []; const date = page.date || dates[0] || (d.meta.generated || '').slice(0, 10);
+    const key = `${date}|report`;
     if (!state.reports[key]) {
       state.reports[key] = { loading: true };
-      PR.nfetch(PR.rawUrl(kind === 'dossier' ? `reports/${date}-parlays.md` : `reports/${date}.md`) + '?t=' + Math.floor(Date.now() / 60000)).then((r) => { state.reports[key] = r.code === 200 ? { md: r.body } : { md: `_This analysis could not be loaded (HTTP ${r.code})._` }; PR.render(); });
+      PR.nfetch(PR.rawUrl(`reports/${date}.md`) + '?t=' + Math.floor(Date.now() / 60000)).then((r) => { state.reports[key] = r.code === 200 ? { md: r.body } : { md: `_This analysis could not be loaded (HTTP ${r.code})._` }; PR.render(); });
     }
     const rep = state.reports[key];
-    const parts = [head(kind === 'report' ? 'Full analysis' : 'Parlay dossier', esc(niceDate(date)))];
-    parts.push(`<div class="card compact">${segmented([['report', `${icon('doc')} Full analysis`], ['dossier', `${icon('ticket')} Parlay dossier`]], kind, 'ak')}${dates.length > 1 ? `<div class="row" style="margin-top:8px"><div class="grow tiny muted">Archive</div>${select('an-date', dates.map((r) => [r, r]), date)}</div>` : ''}</div>`);
+    const parts = [head('Full analysis', esc(niceDate(date)))];
+    if (dates.length > 1) parts.push(`<div class="card compact"><div class="row"><div class="grow tiny muted">Archive</div>${select('an-date', dates.map((r) => [r, r]), date)}</div></div>`);
     parts.push(`<div class="card md">${rep.md ? md(rep.md) : '<div class="empty">Loading analysis…</div>'}</div>`);
     view().innerHTML = parts.join('');
     wireBack();
-    $$('[data-ak]').forEach((b) => { b.onclick = () => PR.replace({ type: 'analysis', kind: b.dataset.ak, date }); });
-    const sel = $('#an-date'); if (sel) sel.onchange = (e) => PR.replace({ type: 'analysis', kind, date: e.target.value });
+    const sel = $('#an-date'); if (sel) sel.onchange = (e) => PR.replace({ type: 'analysis', date: e.target.value });
   };
 
-  // ------------------------------------------------------------------ PERFORMANCE (ledgers)
+  // ------------------------------------------------------------------ PERFORMANCE
   PR.pages.performance = function () {
-    const d = state.data; const ps = d.parlay_summary || {}; const sf = (d.safe || {}).summary || {}; const parts = [head('Performance', 'Auto-graded from official results')];
+    const d = state.data; const sf = (d.safe || {}).summary || {}; const parts = [head('Performance', 'Auto-graded from official results')];
     const row = (name, s, wonKey) => s && s.n ? `<tr><td>${name}</td><td class="right">${s[wonKey || 'won']}/${s.n}</td><td class="right"><b>${pct(s.rate)}</b></td><td class="right muted">${pct(s.exp_rate)}</td><td class="right">${f2(s.avg_odds)}</td><td class="right ${s.roi > 0 ? 'good' : s.roi < 0 ? 'bad' : ''}"><b>${signed(s.roi)}</b></td></tr>` : `<tr><td>${name}</td><td class="right muted">0/0</td><td class="right muted">–</td><td class="right muted">–</td><td class="right muted">–</td><td class="right muted">–</td></tr>`;
     const tbl = (rows) => `<table class="tbl head perf" style="margin-top:6px"><tr><th>Scope</th><th class="right">Won</th><th class="right">Hit</th><th class="right">Exp.</th><th class="right">Odds</th><th class="right">Return</th></tr>${rows}</table>`;
-    parts.push(`<div class="card"><div class="row"><span class="ico">${icon('lock')}</span><b>Safest trebles</b></div>${tbl(row('All time', (sf.accas || {}).all) + row('Last 30 days', (sf.accas || {})['30d']))}<div class="tiny muted">${(sf.accas || {}).pending || 0} pending.</div></div>`);
+    const bo = sf.botd || {};
+    parts.push(`<div class="card"><div class="row"><span class="ico amber">${icon('star')}</span><b>Bets of the day</b></div>${tbl(row('All time', bo.all) + row('Last 30 days', bo['30d']))}<div class="tiny muted">${bo.pending || 0} pending. Five singles a day, picked at 07:00 from the safest bets.</div></div>`);
     const bg = (sf.bets || {}).by_group || {};
-    parts.push(`<div class="card"><div class="row"><span class="ico green">${icon('target')}</span><b>Safest bets</b></div>${tbl(row('All time', (sf.bets || {}).all) + row('Last 30 days', (sf.bets || {})['30d']) + Object.entries(bg).map(([g, s]) => row(GROUPS[g] || g, s)).join(''))}<div class="tiny muted">${(sf.bets || {}).pending || 0} pending. "Expected" is the model's own predicted hit rate — if the real rate stays below it for weeks, the model is over-confident.</div></div>`);
-    parts.push(`<div class="card"><div class="row"><span class="ico amber">${icon('ticket')}</span><b>Parlays</b></div>${tbl(row('All time', ps.all) + row('Last 30 days', ps['30d']) + Object.entries(ps.by_run || {}).filter(([k]) => /^\d\d:\d\d$/.test(k)).map(([k, v]) => row('Run ' + k, v)).join(''))}<div class="tiny muted">${ps.pending || 0} pending.</div></div>`);
+    parts.push(`<div class="card"><div class="row"><span class="ico green">${icon('lock')}</span><b>Safest bets</b></div>${tbl(row('All time', (sf.bets || {}).all) + row('Last 30 days', (sf.bets || {})['30d']) + Object.entries(bg).map(([g, s]) => row(GROUPS[g] || g, s)).join(''))}<div class="tiny muted">${(sf.bets || {}).pending || 0} pending. "Exp." is the model's own predicted hit rate — if the real rate stays below it for weeks, the model is over-confident. Return = flat-stake profit per unit staked.</div></div>`);
     const t = d.tracker || {};
-    parts.push(`<div class="card"><div class="row"><span class="ico">${icon('star')}</span><b>Shortlist tracker</b></div><table class="tbl head" style="margin-top:6px"><tr><th>Market</th><th class="right">Settled</th><th class="right">Hit</th><th class="right">30d</th><th class="right">Pending</th></tr>${['O15', 'O25', 'BTTS'].map((mk) => { const s = t[mk] || {}; return `<tr><td>${MK[mk]}</td><td class="right">${s.settled || 0}</td><td class="right">${pct(s.rate)}</td><td class="right">${pct(s.recent_rate)}</td><td class="right">${s.pending || 0}</td></tr>`; }).join('')}</table></div>`);
-    parts.push(`<div class="card compact"><b>Parlay ledger</b>${(d.ledger || []).map((p) => `<div class="list-item"><div class="main"><div class="match">${statusIcon(p.status)} ${esc(p.id)} <span class="muted small">· ${esc(p.created)} · run ${esc(p.run)}</span></div>${p.legs.map((l) => `<div class="small">${esc(l.home)} v ${esc(l.away)} — <b>${esc(selLabel(l.sel, l.home, l.away))}</b> @ ${f2(l.odds)}</div>`).join('')}${p.note ? `<div class="tiny muted">${esc(p.note)}</div>` : ''}</div><div class="nums"><div><b>${f2(p.odds)}</b></div><div class="muted">${pct(p.p)}</div></div></div>`).join('') || '<div class="empty small">No parlays recorded yet.</div>'}</div>`);
+    parts.push(`<div class="card"><div class="row"><span class="ico">${icon('trend')}</span><b>Goals shortlists</b></div><table class="tbl head" style="margin-top:6px"><tr><th>Market</th><th class="right">Settled</th><th class="right">Hit</th><th class="right">30d</th><th class="right">Pending</th></tr>${['O15', 'O25', 'BTTS'].map((mk) => { const s = t[mk] || {}; return `<tr><td>${MK[mk]}</td><td class="right">${s.settled || 0}</td><td class="right">${pct(s.rate)}</td><td class="right">${pct(s.recent_rate)}</td><td class="right">${s.pending || 0}</td></tr>`; }).join('')}</table>
+      <div class="tiny muted">Backtest 2023–26 (52,000 matches): Over 1.5 shortlist 87%, Over 2.5 67%, BTTS 64%.</div></div>`);
+    parts.push(`<div class="note">Everything on this page is graded automatically from final scores. Bookings and corner bets settle from the match statistics feed a few hours after full time. Statistical information, not betting advice.</div>`);
+    view().innerHTML = parts.join('');
+    wireBack();
+  };
+
+  // ------------------------------------------------------------------ GUIDE
+  PR.pages.guide = function () {
+    const parts = [head('Guide', 'Markets, probabilities and how to read PlayReport')];
+    const sec = (ico, title, body) => `<div class="card guide"><div class="row"><span class="ico">${icon(ico)}</span><b>${title}</b></div><div class="small" style="margin-top:6px">${body}</div></div>`;
+    parts.push(sec('ball', 'Over / Under goals', `<p><b>Over 1.5</b> wins when the match has 2 or more goals; <b>Over 2.5</b> needs 3 or more; <b>Under 3.5</b> wins with 3 or fewer. The half-goal line means there is never a push. Own goals count, extra time does not (90 minutes plus stoppage time only).</p><p>Typical prices: Over 1.5 around 1.20–1.40 in open leagues; Over 2.5 around 1.70–2.10.</p>`));
+    parts.push(sec('swap', 'Both teams to score (BTTS / GG)', `<p><b>Yes</b> wins if each team scores at least once, whatever the result — 1-1 and 3-2 win, 2-0 loses. <b>No</b> is the opposite. On Sportybet this is the "GG / NG" market.</p><p>PlayReport's BTTS shortlist looks for two teams that both score and both concede regularly.</p>`));
+    parts.push(sec('target', 'Team goals', `<p><b>Home team over 0.5</b> = the home team scores at least once; <b>away team over 1.5</b> = the away team scores twice or more; <b>under 1.5</b> = one goal or none for that team. These are good ways to back a strong attack (or a leaky defence) without needing the other team to do anything.</p>`));
+    parts.push(sec('corner', 'Corners', `<p><b>Over 9.5 corners</b> wins with 10 or more corners in the match (both teams together). Corners awarded but not taken before the final whistle still count. Modelled for the 22 main European leagues, from each team's corners for and against; average is about 10 per match.</p>`));
+    parts.push(sec('card', 'Cards / bookings', `<p><b>Over 3.5 cards</b> wins with 4 or more cards. On Sportybet a yellow counts 1 and a straight red 2 (a second yellow = yellow + red = 3 for that player); some books use "booking points" (10/25) instead — check the market name. Cards to the bench or after the whistle usually do not count. Modelled from team and referee averages in the main European leagues.</p>`));
+    parts.push(sec('shield', 'Match result & double chance', `<p><b>1X2</b>: home win, draw or away win after 90 minutes. <b>Double chance 1X</b> wins if the home team wins or draws — two of the three outcomes covered, at a shorter price. Shown on every match page for context; PlayReport's safest bets stay in the goals, corners and cards markets.</p>`));
+    parts.push(sec('trend', 'How the probabilities are made', `<p>Each team gets a time-weighted attack and defence rating from its recent results (about two seasons, recent games weighted most, home and away split). The ratings give expected goals for both teams, and a Poisson-style model turns those into a probability for every line. Where a Sportybet price exists, the bookmaker's margin is removed and the de-margined probability is averaged with the model.</p><p><b>Safest bet</b> = at least 70% on <i>both</i> views, price ≥ 1.30, goals/BTTS/team goals/corners/cards only. <b>⭐ Bets of the day</b> = the five best safest bets at 07:00, one per match. <b>Low data</b> = fewer than four useful matches for a team; those games are shown but never selected.</p>`));
+    parts.push(sec('info', 'Reading the numbers honestly', `<p>A 75% bet loses one time in four. A card of five 75% singles has all five winning only about 24% of the time — that is why PlayReport shows singles and grades every one of them, and does not build accumulators. Compare the <b>Hit</b> and <b>Exp.</b> columns under Performance: they should be close over a few weeks.</p><p>Coverage: every competition on the live feed, worldwide, including women's and youth leagues, priced by Sportybet South Africa. Prices move; check the price before you bet. Statistical information, not betting advice. 18+, bet responsibly.</p>`));
+    parts.push(contactCard(false));
     view().innerHTML = parts.join('');
     wireBack();
   };
@@ -253,13 +315,15 @@
     const parts = [head('Settings')];
     const allowed = notifState();
     parts.push(`<div class="card settings"><h2>${icon('bell')} Notifications</h2>
-      <div class="row"><div class="grow small">${allowed === false ? '<span class="chip bad">off</span> Allow notifications to get new-analysis, goal and update alerts.' : allowed ? '<span class="chip good">on</span> New analysis · goals in tracked matches · app updates' : 'Notifications are only available in the Android app.'}</div>
+      <div class="row"><div class="grow small">${allowed === false ? '<span class="chip bad">off</span> Allow notifications to get new bets, analysis, goal and update alerts.' : allowed ? '<span class="chip good">on</span> Checked about every 15 minutes in the background' : 'Notifications are only available in the Android app.'}</div>
       ${allowed === false ? '<button class="btn primary" id="s-notif">Allow</button>' : ''}</div>
-      <label class="row" style="margin-top:10px"><input type="checkbox" id="s-goals" ${settings.goalAlerts ? 'checked' : ''}> <span class="grow">Goal alerts with the scorer for tracked matches (safest bets, trebles, parlays, shortlist)</span></label>
-      <div class="tiny muted" style="margin-top:6px">Alerts arrive within about 15 minutes when the app is closed and instantly while the app is open.</div></div>`);
+      <label class="row" style="margin-top:10px"><input type="checkbox" id="s-bets" ${settings.betAlerts !== false ? 'checked' : ''}> <span class="grow">🔒 New safest bets (found by the half-hourly refresh)</span></label>
+      <label class="row" style="margin-top:6px"><input type="checkbox" id="s-reports" ${settings.reportAlerts !== false ? 'checked' : ''}> <span class="grow">📊 Full analysis published (07:00 · 12:00 · 17:00)</span></label>
+      <label class="row" style="margin-top:6px"><input type="checkbox" id="s-goals" ${settings.goalAlerts ? 'checked' : ''}> <span class="grow">⚽ Goals with the scorer in tracked matches (bets of the day, safest bets, shortlist)</span></label></div>`);
     parts.push(`<div class="card settings"><h2>${icon('moon')} Appearance</h2>${segmented([['system', 'System'], ['light', 'Light'], ['dark', 'Dark']], settings.theme || 'system', 'th')}
       <div class="tiny muted" style="margin-top:6px">System follows your phone's dark-mode setting.</div></div>`);
     parts.push(`<div class="card settings"><h2>${icon('clock')} Display</h2>
+      <label>Leagues shown in Bets and on Home</label>${segmented([['all', '🌍 All leagues'], ['major', '🏆 Major leagues only']], settings.leagues || 'all', 'lgs')}
       <label>Live auto-refresh (seconds, min 20)</label><input id="s-live" type="number" value="${settings.liveEvery}">
       <label>Analysis timezone offset from UTC (hours; South Africa = 2)</label><input id="s-tz" type="number" value="${settings.tzOffset}">
       <div style="margin-top:12px"><button class="btn primary" id="s-save">Save</button><button class="btn" id="s-clear">Clear saved data</button></div></div>`);
@@ -267,14 +331,18 @@
       ${state.update ? `<button class="btn primary" id="s-install">Update</button>` : `<button class="btn" id="s-check">Check for update</button>`}</div>
       <div class="tiny muted" style="margin-top:6px">PlayReport checks for updates automatically and downloads them for you; Android asks for one confirmation before installing.</div></div>`);
     parts.push(contactCard(false));
-    parts.push(`<div class="card small"><b>About PlayReport</b><div class="muted" style="margin-top:4px">Football analysis three times a day (07:00, 12:00 and 17:00 SAST): expected goals, probabilities for every market, safest bets and trebles, value parlays, live scores and an audited day-by-day record. Live scores come from a public feed and never influence the model.</div>
+    parts.push(`<div class="card small"><b>About PlayReport</b><div class="muted" style="margin-top:4px">Football analysis for every competition worldwide, refreshed every 30 minutes with a full report at 07:00, 12:00 and 17:00 SAST: expected goals, probabilities for every market, safest bets, bets of the day, trends, head-to-head, live scores and an audited day-by-day record. Live scores come from a public feed and never influence the model.</div>
       <div class="muted" style="margin-top:6px">Statistical information, not betting advice. Bet responsibly — 18+.</div></div>`);
     view().innerHTML = parts.join('');
     wireBack();
+    const pref = (k, v) => { if (PR.native && PR.native.setPref) { try { PR.native.setPref(k, !!v); } catch (e) { /* ignore */ } } };
     $('#s-save').onclick = () => { settings.liveEvery = Math.max(20, +$('#s-live').value || 60); settings.tzOffset = +$('#s-tz').value || 0; PR.saveSettings(); live.schedule(); toast('Saved'); PR.back(); };
-    $('#s-clear').onclick = () => { localStorage.removeItem('pr_latest'); state.data = null; state.days = {}; state.teams = {}; toast('Saved data cleared'); state.stack = []; PR.loadData(true); };
-    $('#s-goals').onchange = (e) => { settings.goalAlerts = e.target.checked; PR.saveSettings(); };
+    $('#s-clear').onclick = () => { localStorage.removeItem('pr_latest'); state.data = null; state.days = {}; state.teams = {}; state.details = {}; toast('Saved data cleared'); state.stack = []; PR.loadData(true); };
+    $('#s-goals').onchange = (e) => { settings.goalAlerts = e.target.checked; PR.saveSettings(); pref('goals', settings.goalAlerts); };
+    $('#s-bets').onchange = (e) => { settings.betAlerts = e.target.checked; PR.saveSettings(); pref('bets', settings.betAlerts); };
+    $('#s-reports').onchange = (e) => { settings.reportAlerts = e.target.checked; PR.saveSettings(); pref('reports', settings.reportAlerts); };
     $$('[data-th]').forEach((b) => { b.onclick = () => { settings.theme = b.dataset.th; PR.saveSettings(); PR.applyTheme(); PR.render(); }; });
+    $$('[data-lgs]').forEach((b) => { b.onclick = () => { settings.leagues = b.dataset.lgs; PR.saveSettings(); PR.render(); }; });
     const n = $('#s-notif'); if (n) n.onclick = () => { if (PR.native && PR.native.requestNotifications) PR.native.requestNotifications(); };
     const c = $('#s-check'); if (c) c.onclick = () => { toast('Checking…'); state.updateChecked = 'manual'; if (PR.native && PR.native.checkUpdate) PR.native.checkUpdate(); else toast('Updates are only available in the Android app'); };
     const i = $('#s-install'); if (i) i.onclick = () => PR.startUpdate();

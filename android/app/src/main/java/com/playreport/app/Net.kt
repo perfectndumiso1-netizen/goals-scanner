@@ -11,8 +11,10 @@ object Net {
 
     /** Where the published analysis lives. Not shown anywhere in the UI. */
     val REPO: String = BuildConfig.REPO
-    const val BRANCH = "main"
+    const val BRANCH = "data"
     val LATEST_JSON get() = "https://raw.githubusercontent.com/$REPO/$BRANCH/data/app/latest.json"
+    val META_JSON get() = "https://raw.githubusercontent.com/$REPO/$BRANCH/data/app/meta.json"
+    val ALERTS_JSON get() = "https://raw.githubusercontent.com/$REPO/$BRANCH/data/app/alerts.json"
     val RELEASES_LATEST get() = "https://api.github.com/repos/$REPO/releases/latest"
 
     data class Response(val code: Int, val body: String)

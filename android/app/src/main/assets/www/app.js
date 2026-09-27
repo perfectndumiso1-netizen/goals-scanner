@@ -7,7 +7,7 @@
   $$('#tabs button').forEach((b) => { b.onclick = () => PR.setTab(b.dataset.tab); });
   $('#btn-refresh').onclick = () => { PR.loadData(true); if (state.tab === 'live' || state.tab === 'home') PR.live.refresh(true); };
   $('#btn-menu').onclick = (e) => { e.stopPropagation(); PR.toggleMenu(); };
-  $$('#menu [data-page]').forEach((b) => { b.onclick = () => { PR.closeMenu(); const t = b.dataset.page; state.stack = []; PR.push(t === 'dossier' ? { type: 'analysis', kind: 'dossier' } : { type: t }); }; });
+  $$('#menu [data-page]').forEach((b) => { b.onclick = () => { PR.closeMenu(); const t = b.dataset.page; state.stack = []; PR.push({ type: t }); }; });
   $('#menu [data-contact]').onclick = () => { PR.closeMenu(); if (PR.native && PR.native.openUrl) PR.native.openUrl(`https://wa.me/${PR.CONTACT.whatsapp}`); else window.open(`https://wa.me/${PR.CONTACT.whatsapp}`); };
   document.addEventListener('visibilitychange', () => { if (!document.hidden && (state.tab === 'live' || state.tab === 'home')) PR.live.refresh(false); });
 
@@ -38,7 +38,7 @@
     back: () => PR.back(),
     setTab: (t) => PR.setTab(t),
     onResume() { if (state.data && Date.now() - (state.data._loadedAt || 0) > 5 * 60000) PR.loadData(false); if (state.tab === 'live' || state.tab === 'home') PR.live.refresh(false); const top = state.stack[state.stack.length - 1]; if (top && top.type === 'settings') PR.render(); },
-    onPermission(granted) { toast(granted ? 'Notifications on — you will hear about new analysis, goals and updates' : 'Notifications are off — you can enable them in Settings'); const top = state.stack[state.stack.length - 1]; if (top && top.type === 'settings') PR.render(); },
+    onPermission(granted) { toast(granted ? 'Notifications on — new bets, analysis, goals and updates' : 'Notifications are off — you can enable them in Settings'); const top = state.stack[state.stack.length - 1]; if (top && top.type === 'settings') PR.render(); },
     state, settings, PR,
   };
 
@@ -48,5 +48,6 @@
   PR.loadBadges().then(() => { if (state.data) PR.render(); });
   PR.loadData(false).then(() => { if (state.data) PR.live.refresh(false); });
   PR.live.schedule();
+  if (PR.native && PR.native.setPref) { try { PR.native.setPref('goals', !!settings.goalAlerts); PR.native.setPref('bets', settings.betAlerts !== false); PR.native.setPref('reports', settings.reportAlerts !== false); } catch (e) { /* ignore */ } }
   if (PR.native && PR.native.checkUpdate) setTimeout(() => { try { PR.native.checkUpdate(); } catch (e) { /* ignore */ } }, 4000);
 })(window.PR);

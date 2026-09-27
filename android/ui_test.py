@@ -49,10 +49,10 @@ with sync_playwright() as p:
     page.add_init_script("""
       window.__notified = [];
       window.Android = {
-        version: () => '1.0.3', dataUrl: () => 'https://data.test/data/app/latest.json', rawBase: () => 'https://data.test/',
+        version: () => '1.1.0', dataUrl: () => 'https://data.test/data/app/latest.json', rawBase: () => 'https://data.test/', setPref: () => {}, setTheme: () => {},
         notificationsAllowed: () => true, requestNotifications: () => {}, refreshDone: () => {}, openUrl: (u) => { window.__opened = u; },
         notifyGoal: (eid, score, title, text) => window.__notified.push({eid, score, title, text}),
-        checkUpdate: () => setTimeout(() => window.__updateInfo({version: '1.0.4', url: 'https://data.test/PlayReport.apk', notes: ''}), 200),
+        checkUpdate: () => setTimeout(() => window.__updateInfo({version: '1.1.1', url: 'https://data.test/PlayReport.apk', notes: ''}), 200),
         installUpdate: (u) => { window.__installed = u; setTimeout(() => window.__updateProgress('downloading'), 50); },
       };
     """)
@@ -76,34 +76,41 @@ with sync_playwright() as p:
 
     # ---- home
     t = shot(page, 'home')
-    for needle in ['Safest trebles', 'Safest bets', 'Next kick-offs']: assert needle in t, f'home missing {needle}'
+    for needle in ['Bets of the day', 'Safest bets', 'Next kick-offs']: assert needle in t, f'home missing {needle}'
     assert page.locator('#view .badge img').count() >= 4, 'badges rendered'
     assert page.locator('#view .whatsnew').count() == 1, "what's new card"
     page.click('#wn-close'); page.wait_for_timeout(150); assert page.locator('#view .whatsnew').count() == 0, "what's new dismissed"
-    assert page.locator('#status-line').inner_text().startswith('Analysis'), 'status line'
+    assert page.locator('#status-line').inner_text().startswith('Updated'), 'status line'
     # ---- bets segments
     page.click('#tabs button[data-tab=bets]'); page.wait_for_timeout(200)
-    for seg in ['safest', 'trebles', 'high', 'parlays', 'picks']:
-        page.click(f'[data-bv={seg}]'); page.wait_for_timeout(150); shot(page, f'bets_{seg}')
-    page.click('[data-bv=high]'); page.select_option('#f-hip', '0.8'); page.wait_for_timeout(150); shot(page, 'bets_high_80')
-    page.click('[data-bv=safest]'); page.select_option('#f-minodds', '1.5'); page.wait_for_timeout(150); shot(page, 'bets_safest_150')
+    for seg in ['today', 'safest', 'goals', 'corners', 'cards', 'picks']:
+        page.click(f'[data-bv={seg}]'); page.wait_for_timeout(150); t = shot(page, f'bets_{seg}')
+        if seg == 'today': assert 'How the card is picked' in t and page.locator('#view .botd tr.tap').count() >= 1, 'bets of the day card'
+    page.click('[data-bv=goals]'); page.select_option('#f-hip', '0.8'); page.wait_for_timeout(150); shot(page, 'bets_goals_80')
+    page.click('[data-bv=safest]'); page.click('[data-lg=major]'); page.wait_for_timeout(150); t = shot(page, 'bets_safest_major')
+    page.click('[data-lg=all]'); page.wait_for_timeout(150); assert page.locator('#view .tbl tr.tap').count() >= 5, 'safest list'
+    page.click('#guide-link'); page.wait_for_timeout(200); t = shot(page, 'guide'); assert 'Both teams to score' in t and 'Corners' in t, 'guide page'
+    page.evaluate('window.app.back()'); page.wait_for_timeout(100)
     # ---- live
     page.click('#tabs button[data-tab=live]'); page.wait_for_timeout(600); t = shot(page, 'live')
     assert "34'" in t and 'In play'.upper() in t.upper(), 'live tab shows no in-play match'
-    page.click('[data-lv=trebles]'); page.wait_for_timeout(150); t = shot(page, 'live_trebles'); assert 'Treble 1' in t
-    page.click('[data-lv=parlays]'); page.wait_for_timeout(150); shot(page, 'live_parlays')
-    page.click('[data-lv=matches]'); page.wait_for_timeout(150)
+    page.click('[data-lv=all]'); page.wait_for_timeout(400); t = shot(page, 'live_all'); assert 'in play worldwide' in t and "34'" in t, 'all-in-play view'
+    page.click('[data-lv=tracked]'); page.wait_for_timeout(150)
     # ---- matches
     page.click('#tabs button[data-tab=matches]'); page.wait_for_timeout(200); shot(page, 'matches')
     page.fill('#fx-search', DATA['fixtures'][0]['home'][:5]); page.wait_for_timeout(200); t = shot(page, 'matches_search')
     assert DATA['fixtures'][0]['home'] in t, 'search filter'
     page.fill('#fx-search', ''); page.wait_for_timeout(200)
     page.select_option('#fx-sort', 'O25'); page.wait_for_timeout(150); shot(page, 'matches_sort')
+    page.select_option('#fx-sort', 'ko'); page.click('[data-mf=safe]'); page.wait_for_timeout(150); t = shot(page, 'matches_safe'); assert '🔒' in t or 'Safest' in t
+    page.click('[data-mf=major]'); page.wait_for_timeout(150); shot(page, 'matches_major'); page.click('[data-mf=all]'); page.wait_for_timeout(150)
     # ---- match page from matches list
-    page.click('#view .mrow.tap[data-fx] >> nth=0'); page.wait_for_timeout(500); t = shot(page, 'match_overview')
+    page.click('#view .mrow.tap[data-fx] >> nth=0'); page.wait_for_timeout(700); t = shot(page, 'match_overview')
     assert 'expected goals' in t.lower() and 'over 2.5' in t.lower(), 'match overview'
-    for seg in ['markets', 'stats', 'h2h']:
+    for seg in ['trends', 'markets', 'stats', 'h2h']:
         page.click(f'[data-mv={seg}]'); page.wait_for_timeout(300); t = shot(page, f'match_{seg}')
+        if seg == 'trends': assert 'Trends' in t and ('of 10' in t or 'of 5' in t or 'Not enough' in t or 'in the last' in t), 'trends segment'
+        if seg == 'h2h': assert 'last 5' in t.lower(), 'h2h/form segment'
     page.click('[data-mv=stats]'); page.wait_for_timeout(600); t = shot(page, 'match_stats2')
     assert 'this season' in t.lower() or 'not available' in t or 'Loading' in t, 'season block'
     # ---- team page via team link
@@ -126,7 +133,8 @@ with sync_playwright() as p:
     page.click('[data-dv=bets]'); page.wait_for_timeout(200); shot(page, 'day_bets')
     # match page from a day row (only if present in current analysis)
     if page.locator('#view .tap[data-fx]').count():
-        page.click('#view .tap[data-fx] >> nth=0'); page.wait_for_timeout(300); shot(page, 'day_to_match')
+        page.click('#view .tap[data-fx] >> nth=0'); page.wait_for_timeout(600); t = shot(page, 'day_to_match')
+        assert 'Overview' in t, 'day row opens the match page'
         page.evaluate('window.app.back()'); page.wait_for_timeout(100)
     page.evaluate('window.app.back()'); page.wait_for_timeout(100)
     # ---- menu pages
@@ -134,13 +142,14 @@ with sync_playwright() as p:
     assert page.locator('#menu.open').count() == 1, 'menu opens'
     page.click('#menu [data-page=analysis]'); page.wait_for_timeout(800); t = shot(page, 'analysis')
     assert 'PlayReport' in t or 'Safest' in t or 'analysis' in t.lower(), 'analysis page'
-    page.click('[data-ak=dossier]'); page.wait_for_timeout(800); shot(page, 'dossier')
+    page.evaluate('window.app.back()')
+    page.click('#btn-menu'); page.click('#menu [data-page=guide]'); page.wait_for_timeout(200); t = shot(page, 'guide_menu'); assert 'How the probabilities are made' in t
     page.evaluate('window.app.back()')
     page.click('#btn-menu'); page.click('#menu [data-page=performance]'); page.wait_for_timeout(200); t = shot(page, 'performance')
-    assert 'Safest trebles' in t and 'Parlays' in t, 'performance'
+    assert 'Bets of the day' in t and 'Safest bets' in t and 'Parlay' not in t and 'Treble' not in t, 'performance'
     page.evaluate('window.app.back()')
     page.click('#btn-menu'); page.click('#menu [data-page=settings]'); page.wait_for_timeout(200); t = shot(page, 'settings')
-    for sel in ['#s-goals', '#s-live', '#s-tz', '#s-save', '#s-clear']: assert page.locator(sel).count() == 1, f'settings control {sel}'
+    for sel in ['#s-goals', '#s-bets', '#s-reports', '#s-live', '#s-tz', '#s-save', '#s-clear']: assert page.locator(sel).count() == 1, f'settings control {sel}'
     page.click('[data-th=dark]'); page.wait_for_timeout(200)
     assert page.evaluate("document.documentElement.dataset.theme") == 'dark', 'dark theme applied'
     assert page.evaluate("getComputedStyle(document.body).backgroundColor") == 'rgb(11, 15, 20)', 'dark background'

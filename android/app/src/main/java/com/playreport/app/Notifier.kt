@@ -17,6 +17,7 @@ object Notifier {
     const val CH_REPORTS = "reports"
     const val CH_GOALS = "goals"
     const val CH_UPDATES = "updates"
+    const val CH_BETS = "bets"
     const val PREFS = "playreport"
 
     fun createChannels(ctx: Context) {
@@ -25,7 +26,10 @@ object Notifier {
             description = "A new PlayReport analysis has been published"
         })
         nm.createNotificationChannel(NotificationChannel(CH_GOALS, "Goals in tracked matches", NotificationManager.IMPORTANCE_HIGH).apply {
-            description = "Score changes in parlay legs and shortlisted matches"
+            description = "Score changes in safest-bet and shortlisted matches"
+        })
+        nm.createNotificationChannel(NotificationChannel(CH_BETS, "New safest bets", NotificationManager.IMPORTANCE_HIGH).apply {
+            description = "A new bet met the safety rules (checked every half hour)"
         })
         nm.createNotificationChannel(NotificationChannel(CH_UPDATES, "App updates", NotificationManager.IMPORTANCE_LOW).apply {
             description = "A newer PlayReport version is available"
@@ -51,7 +55,7 @@ object Notifier {
                 .setStyle(NotificationCompat.BigTextStyle().bigText(text))
                 .setContentIntent(pi)
                 .setAutoCancel(true)
-                .setPriority(if (channel == CH_GOALS) NotificationCompat.PRIORITY_HIGH else NotificationCompat.PRIORITY_DEFAULT)
+                .setPriority(if (channel == CH_GOALS || channel == CH_BETS) NotificationCompat.PRIORITY_HIGH else NotificationCompat.PRIORITY_DEFAULT)
                 .build()
             NotificationManagerCompat.from(ctx).notify(id, n)
         } catch (_: SecurityException) {

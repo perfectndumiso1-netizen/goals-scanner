@@ -4,15 +4,15 @@
 window.PR = (function () {
   'use strict';
   const native = window.Android || null;
-  const RAW_BASE = (native && native.rawBase && native.rawBase()) || 'https://raw.githubusercontent.com/perfectndumiso1-netizen/goals-scanner/main/';
+  const RAW_BASE = (native && native.rawBase && native.rawBase()) || 'https://raw.githubusercontent.com/perfectndumiso1-netizen/goals-scanner/data/';
   const DATA_URL = (native && native.dataUrl && native.dataUrl()) || (RAW_BASE + 'data/app/latest.json');
   const CONTACT = { whatsapp: '27738212664', whatsappShown: '073 821 2664', email: 'msanindumiso@gmail.com' };
   const APP_VERSION = (native && native.version && native.version()) || '';
-  const settings = Object.assign({ liveEvery: 60, tzOffset: 2, goalAlerts: true, minP: 0.70, minOdds: 1.30, hiP: 0.70, theme: 'system', seenVersion: '' },
+  const settings = Object.assign({ liveEvery: 60, tzOffset: 2, goalAlerts: true, betAlerts: true, reportAlerts: true, minP: 0.70, minOdds: 1.30, hiP: 0.70, theme: 'system', seenVersion: '', leagues: 'all' },
     JSON.parse(localStorage.getItem('pr_settings') || '{}'));
   const state = { data: null, tab: 'home', stack: [], live: {}, incidents: {}, liveTimer: null, lastLive: 0, loading: false,
-    update: null, updateStage: null, days: {}, teams: {}, reports: {}, betsView: 'safest', search: '', sort: 'ko',
-    dayView: 'results', matchView: 'overview', teamView: 'overview', menuOpen: false, expanded: {}, badges: {}, dark: false };
+    update: null, updateStage: null, days: {}, teams: {}, reports: {}, details: {}, betsView: 'today', search: '', sort: 'ko', matchFilter: 'all',
+    liveView: 'tracked', liveAll: null, lastLiveAll: 0, dayView: 'results', matchView: 'overview', teamView: 'overview', menuOpen: false, expanded: {}, badges: {}, dark: false };
   const BADGE_BASE = 'https://lsm-static-prod.livescore.com/medium/';
 
   const $ = (sel, root) => (root || document).querySelector(sel);
@@ -52,8 +52,17 @@ window.PR = (function () {
   const icon = (name, cls) => `<svg class="ic ${cls || ''}" aria-hidden="true"><use href="#i-${name}"/></svg>`;
   const FLAGS = { England: '🏴󠁧󠁢󠁥󠁮󠁧󠁿', Scotland: '🏴󠁧󠁢󠁳󠁣󠁴󠁿', Wales: '🏴󠁧󠁢󠁷󠁬󠁳󠁿', Spain: '🇪🇸', Italy: '🇮🇹', Germany: '🇩🇪', France: '🇫🇷', Netherlands: '🇳🇱', Belgium: '🇧🇪', Portugal: '🇵🇹', Turkey: '🇹🇷', Greece: '🇬🇷',
     USA: '🇺🇸', Mexico: '🇲🇽', Argentina: '🇦🇷', Brazil: '🇧🇷', Japan: '🇯🇵', China: '🇨🇳', Norway: '🇳🇴', Sweden: '🇸🇪', Denmark: '🇩🇰', Finland: '🇫🇮', Poland: '🇵🇱', Romania: '🇷🇴', Russia: '🇷🇺',
-    Austria: '🇦🇹', Switzerland: '🇨🇭', Ireland: '🇮🇪', Australia: '🇦🇺', 'South Africa': '🇿🇦' };
-  const flag = (country) => FLAGS[country] || '🌍';
+    Austria: '🇦🇹', Switzerland: '🇨🇭', Ireland: '🇮🇪', Australia: '🇦🇺', 'South Africa': '🇿🇦', Turkiye: '🇹🇷', Croatia: '🇭🇷', Serbia: '🇷🇸', Czechia: '🇨🇿', 'Czech Republic': '🇨🇿',
+    Slovakia: '🇸🇰', Slovenia: '🇸🇮', Hungary: '🇭🇺', Bulgaria: '🇧🇬', Ukraine: '🇺🇦', Israel: '🇮🇱', Egypt: '🇪🇬', Morocco: '🇲🇦', Algeria: '🇩🇿', Tunisia: '🇹🇳', Nigeria: '🇳🇬', Ghana: '🇬🇭', Kenya: '🇰🇪',
+    'Saudi Arabia': '🇸🇦', Qatar: '🇶🇦', 'United Arab Emirates': '🇦🇪', UAE: '🇦🇪', Iran: '🇮🇷', Iraq: '🇮🇶', India: '🇮🇳', 'South Korea': '🇰🇷', 'Korea Republic': '🇰🇷', Colombia: '🇨🇴', Chile: '🇨🇱',
+    Uruguay: '🇺🇾', Peru: '🇵🇪', Ecuador: '🇪🇨', Paraguay: '🇵🇾', Bolivia: '🇧🇴', Venezuela: '🇻🇪', Canada: '🇨🇦', Iceland: '🇮🇸', Cyprus: '🇨🇾', 'Northern Ireland': '🇬🇧', Guatemala: '🇬🇹', 'Costa Rica': '🇨🇷',
+    Honduras: '🇭🇳', 'El Salvador': '🇸🇻', Panama: '🇵🇦', Jamaica: '🇯🇲', Estonia: '🇪🇪', Latvia: '🇱🇻', Lithuania: '🇱🇹', Belarus: '🇧🇾', Kazakhstan: '🇰🇿', Georgia: '🇬🇪', Armenia: '🇦🇲', Azerbaijan: '🇦🇿',
+    Uzbekistan: '🇺🇿', Vietnam: '🇻🇳', Thailand: '🇹🇭', Indonesia: '🇮🇩', Malaysia: '🇲🇾', Singapore: '🇸🇬', Philippines: '🇵🇭', 'New Zealand': '🇳🇿', Bosnia: '🇧🇦', 'Bosnia and Herzegovina': '🇧🇦',
+    'North Macedonia': '🇲🇰', Albania: '🇦🇱', Montenegro: '🇲🇪', Kosovo: '🇽🇰', Moldova: '🇲🇩', Luxembourg: '🇱🇺', Malta: '🇲🇹', 'Faroe Islands': '🇫🇴', Andorra: '🇦🇩', Gibraltar: '🇬🇮', Tanzania: '🇹🇿',
+    Uganda: '🇺🇬', Zambia: '🇿🇲', Zimbabwe: '🇿🇼', Cameroon: '🇨🇲', Senegal: '🇸🇳', 'Ivory Coast': '🇨🇮', "Cote d'Ivoire": '🇨🇮', Angola: '🇦🇴', Mozambique: '🇲🇿', Botswana: '🇧🇼', Namibia: '🇳🇦',
+    Ethiopia: '🇪🇹', Rwanda: '🇷🇼', Sudan: '🇸🇩', Libya: '🇱🇾', Jordan: '🇯🇴', Kuwait: '🇰🇼', Bahrain: '🇧🇭', Oman: '🇴🇲', Lebanon: '🇱🇧', Syria: '🇸🇾', 'Hong Kong': '🇭🇰', Bangladesh: '🇧🇩',
+    'Costa Rica ': '🇨🇷', Nicaragua: '🇳🇮', 'Dominican Republic': '🇩🇴', Cuba: '🇨🇺', 'Trinidad and Tobago': '🇹🇹', Haiti: '🇭🇹', Fiji: '🇫🇯' };
+  const flag = (country) => FLAGS[country] || (/^(UEFA|CONMEBOL|CONCACAF|CAF|AFC|FIFA|World|Europe|International|Friendl|Olympic|Africa|Asia|Copa)/i.test(country || '') ? '🏆' : '🌍');
   function hue(name) { let h = 0; for (const c of String(name || '')) h = (h * 31 + c.charCodeAt(0)) % 360; return h; }
   const initials = (name) => String(name || '?').replace(/\b(FC|CF|SC|AFC|Utd|United|City|Town|Athletic|Club|De|Los|Las|La|El)\b/g, '').trim().split(/\s+/).map((w) => w[0]).join('').slice(0, 2).toUpperCase() || '?';
   /** team badge: Livescore image when known, otherwise an initials disc coloured from the name */
@@ -165,11 +174,24 @@ window.PR = (function () {
   const isFT = (s) => s && ['FT', 'AET', 'AP'].includes(s.status);
 
   // ------------------------------------------------------------------ data
+  const selObj = (x) => Array.isArray(x) ? { sel: x[0], p: x[1], p_model: x[2], p_sb: x[3], odds: x[4], diff: !!x[5] } : x;
   function indexData(d) {
-    d._byId = {}; (d.fixtures || []).forEach((f) => { d._byId[f.id] = f; f.sels = (f.sels || []).map((x) => Array.isArray(x) ? { sel: x[0], p: x[1], p_model: x[2], p_sb: x[3], odds: x[4], diff: !!x[5] } : x); });
+    d._byId = {}; (d.fixtures || []).forEach((f) => { d._byId[f.id] = f; f.sels = (f.sels || []).map(selObj); f.p = f.p || {}; f.xg = f.xg || [null, null]; f.x12 = f.x12 || [null, null, null]; f.major = f.tier !== 'world'; });
+    if (d.safe && d.safe.bets) d.safe.bets.forEach((b) => { const f = d._byId[b.fixture]; b.major = f ? f.major : true; });
     return d;
   }
   const fx = (id) => state.data && state.data._byId[id];
+  /** full analysis of one match (per-match file); cached for the session */
+  const detailKey = (id, d) => d || (fx(id) && fx(id).d) || null;
+  function detailCached(id, d) { const k = detailKey(id, d); return k ? state.details[k] || null : null; }
+  async function loadDetail(id, d) {
+    const k = detailKey(id, d); if (!k) throw new Error('no detail key');
+    if (state.details[k] && !state.details[k].error) return state.details[k];
+    const stamp = state.data && state.data.meta ? state.data.meta.generated.replace(/\D/g, '') : Math.floor(Date.now() / 900000);
+    const j = await getJson(rawUrl(`data/app/fx/${k}.json`) + '?t=' + stamp);
+    j.sels = (j.sels || []).map(selObj); j.trends = j.trends || {}; j.teams = j.teams || { home: {}, away: {} }; j.h2h = j.h2h || [];
+    state.details[k] = j; return j;
+  }
   async function loadData(force) {
     if (state.loading) return; state.loading = true; $('#btn-refresh').classList.add('spin');
     try {
@@ -184,7 +206,7 @@ window.PR = (function () {
   }
   function statusLine() {
     const m = state.data && state.data.meta; if (!m) return;
-    $('#status-line').textContent = `Analysis ${m.generated} · next ${koShort(m.next_run || '')} · ${m.fixtures} fixtures`;
+    $('#status-line').textContent = `Updated ${koShort(m.generated)} · next ${koTime(m.next_run || '')} · ${m.fixtures} matches`;
   }
   async function loadDay(date) {
     if (state.days[date] && state.days[date].fixtures) return state.days[date];
@@ -209,7 +231,7 @@ window.PR = (function () {
     if (!state.data && !(state.stack.length && state.stack[state.stack.length - 1].type === 'settings')) return;
     closeMenu();
     const top = state.stack[state.stack.length - 1];
-    if (state.data && (state.data.version || 1) < 2 && !(top && top.type === 'settings')) {
+    if (state.data && (state.data.version || 1) < 3 && !(top && top.type === 'settings')) {
       $('#view').innerHTML = `<div class="card empty">This version of PlayReport needs the new analysis format.<br>It arrives with the next scheduled analysis — pull down to refresh later.</div>`;
       return;
     }
@@ -234,7 +256,7 @@ window.PR = (function () {
     if (state.tab !== 'home') { setTab('home'); return true; }
     return false;
   }
-  function openMatch(id) { if (fx(id)) { state.matchView = 'overview'; push({ type: 'match', id }); } else toast('This match is not in the current analysis'); }
+  function openMatch(id, d) { if (fx(id) || d) { state.matchView = 'overview'; push({ type: 'match', id, d: d || null }); } else toast('This match is no longer in the current analysis'); }
   function openTeam(name, country, div) { state.teamView = 'overview'; push({ type: 'team', name, country, div }); }
   function toggleMenu() { state.menuOpen = !state.menuOpen; $('#menu').classList.toggle('open', state.menuOpen); }
   function closeMenu() { state.menuOpen = false; const m = $('#menu'); if (m) m.classList.remove('open'); }
@@ -267,7 +289,7 @@ window.PR = (function () {
     const t = e.target.closest('[data-team]');
     if (t) { e.preventDefault(); e.stopPropagation(); openTeam(t.dataset.team, t.dataset.country, t.dataset.div); return; }
     const m = e.target.closest('[data-fx]');
-    if (m && (m.classList.contains('tap') || m.tagName === 'A' || m.tagName === 'BUTTON')) { e.preventDefault(); openMatch(m.dataset.fx); return; }
+    if (m && (m.classList.contains('tap') || m.tagName === 'A' || m.tagName === 'BUTTON')) { e.preventDefault(); openMatch(m.dataset.fx, m.dataset.d || null); return; }
     const a = e.target.closest('a[href]');
     if (a && /^(https?:|mailto:|tel:)/.test(a.getAttribute('href')) && native && native.openUrl) { e.preventDefault(); native.openUrl(a.href); return; }
     if (state.menuOpen && !e.target.closest('#menu') && !e.target.closest('#btn-menu')) closeMenu();
@@ -275,7 +297,7 @@ window.PR = (function () {
 
   return { native, settings, state, $, $$, saveSettings, nfetch, getJson, rawUrl, esc, pct, f1, f2, signed, DAYS, MONTHS, parseLocal, tzNow, ymd,
     dayName, niceDate, koTime, koShort, toast, pill, bar, wdl, formBadges, md, GROUPS, GROUP_ICON, selGroup, selLabel, selShort, settleSel,
-    liveVerdict, isLive, isFT, indexData, fx, loadData, statusLine, loadDay, loadTeams, teamsCached, slug, TABS, render, setTab, push, replace,
+    liveVerdict, isLive, isFT, indexData, fx, loadDetail, detailCached, detailKey, loadData, statusLine, loadDay, loadTeams, teamsCached, slug, TABS, render, setTab, push, replace,
     back, openMatch, openTeam, toggleMenu, closeMenu, contactCard, teamLink, matchLine, matchRow, segmented, select, scoreBox, statusIcon, CONTACT, APP_VERSION,
     icon, flag, badge, fxBadge, skeleton, ring, applyTheme, loadBadges, BADGE_BASE,
     views: {}, pages: {}, live: {} };

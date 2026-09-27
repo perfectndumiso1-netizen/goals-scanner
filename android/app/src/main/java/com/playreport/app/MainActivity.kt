@@ -213,6 +213,12 @@ class MainActivity : AppCompatActivity() {
         @JavascriptInterface
         fun rawBase(): String = "https://raw.githubusercontent.com/${Net.REPO}/${Net.BRANCH}/"
 
+        /** Notification preferences shared with the background checker. */
+        @JavascriptInterface
+        fun setPref(key: String, value: Boolean) {
+            getSharedPreferences(Notifier.PREFS, MODE_PRIVATE).edit().putBoolean("pref_$key", value).apply()
+        }
+
         /** Called by the page whenever its theme resolves (system / light / dark). */
         @JavascriptInterface
         fun setTheme(dark: Boolean) = runOnUiThread { applyTheme(dark) }

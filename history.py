@@ -14,6 +14,7 @@ from pathlib import Path
 
 import pandas as pd
 
+import appdata
 import livescore
 import safe
 
@@ -64,7 +65,7 @@ class Days:
             ls = ls_map.get(fx.name) or {}
             x12 = r.extra.x12 or {}
             rec = {
-                "id": fid, "kickoff": fx["kickoff"].strftime("%Y-%m-%d %H:%M"), "country": fx["country"],
+                "id": fid, "d": appdata.detail_key(fid), "kickoff": fx["kickoff"].strftime("%Y-%m-%d %H:%M"), "country": fx["country"],
                 "league": fx["league"], "div": fx["div"], "competition": comp(r), "home": fx["home"], "away": fx["away"],
                 "home_long": (r.sb_event or {}).get("home") or ls.get("home") or fx["home"],
                 "away_long": (r.sb_event or {}).get("away") or ls.get("away") or fx["away"],
@@ -161,8 +162,9 @@ class Days:
                 if f is None:
                     continue
                 st = r.status if r.status in ("hit", "miss", "void") else outcome(f, r.sel)
+                botd = str(getattr(r, "botd", "") or "") == "1"
                 f["bets"].append({"kind": "safe", "sel": r.sel, "label": safe.label(r.sel, f["home"], f["away"]),
-                                  "p": _f(r.p), "odds": _f(r.odds, 2), "status": st})
+                                  "p": _f(r.p), "odds": _f(r.odds, 2), "status": st, "botd": botd})
 
         def add_multi(df, kind, id_col):
             if df is None or df.empty:
@@ -209,9 +211,12 @@ class Days:
                  "goals_avg": round(sum(goals) / len(goals), 2) if goals else None,
                  "o25_rate": round(sum(1 for g in goals if g >= 3) / len(goals), 3) if goals else None,
                  "btts_rate": round(sum(1 for f in fin if f["score"]["hg"] > 0 and f["score"]["ag"] > 0) / len(fin), 3) if fin else None}
-            for kind in ("pick", "safe"):
-                b = [x for f in fx for x in f.get("bets", []) if x["kind"] == kind]
-                s[kind + "s"] = {"n": len(b), "hit": sum(1 for x in b if x["status"] == "hit"),
+            for kind in ("pick", "safe", "botd"):
+                if kind == "botd":
+                    b = [x for f in fx for x in f.get("bets", []) if x["kind"] == "safe" and x.get("botd")]
+                else:
+                    b = [x for f in fx for x in f.get("bets", []) if x["kind"] == kind]
+                s[kind if kind == "botd" else kind + "s"] = {"n": len(b), "hit": sum(1 for x in b if x["status"] == "hit"),
                                  "miss": sum(1 for x in b if x["status"] == "miss"),
                                  "pending": sum(1 for x in b if x["status"] == "pending")}
             for kind in ("accas", "parlays"):

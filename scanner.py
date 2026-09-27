@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Goals Scanner (v3)
+PlayReport scanner (v4)
 ==================
 Automated football scanner, three times a day (07:00 / 12:00 / 17:00 SAST):
   * goals shortlists  – Over 1.5, Over 2.5, Both Teams To Score (backtested, calibrated model v2)
@@ -52,6 +52,8 @@ import news as news_mod
 import parlays as parlay_mod
 import sporty
 import livescore
+import trends as trends_mod
+import worldfeed
 import appdata
 import safe as safe_mod
 import history as history_mod
@@ -64,8 +66,14 @@ except Exception:  # noqa: BLE001 - reportlab missing: Markdown/Telegram text st
 
 # ----------------------------------------------------------------------------- paths
 ROOT = Path(__file__).resolve().parent
-REPORTS_DIR = ROOT / "reports"
-DATA_DIR = ROOT / "data"
+# machine-written state (ledgers, archives, app data, reports) lives in STATE_DIR — on GitHub that is the `data`
+# branch checkout, so the code branch's history never grows with the half-hourly runs
+STATE = Path(os.getenv("STATE_DIR") or ROOT).resolve()
+REPORTS_DIR = STATE / "reports"
+DATA_DIR = STATE / "data"
+FX_DIR = DATA_DIR / "app" / "fx"
+LS_DIR = DATA_DIR / "ls"
+CACHE_DIR = DATA_DIR / "cache"
 TRACKER_FILE = DATA_DIR / "tracker.csv"
 PARLAY_FILE = DATA_DIR / "parlays.csv"
 APP_FILE = DATA_DIR / "app" / "latest.json"
@@ -134,6 +142,11 @@ CONFIG = {
     "NEWS": os.getenv("NEWS", "1") != "0",
     "PDF": os.getenv("PDF", "1") != "0",
     "LIVESCORE": os.getenv("LIVESCORE", "1") != "0",   # Livescore.com ids for the app's live tab
+    "WORLD": os.getenv("WORLD", "1") != "0",           # every competition on Livescore (priced by Sportybet) — v4
+    "FULL_MARKETS_MAX": int(_env_float("FULL_MARKETS_MAX", 160)),   # per-event Sportybet market fetches (corners / cards)
+    "BOTD_N": int(_env_float("BOTD_N", 5)),            # bets of the day
+    "REPORT_MAX_ROWS": int(_env_float("REPORT_MAX_ROWS", 120)),
+    "H2H_SEASONS": int(_env_float("H2H_SEASONS", 5)),  # seasons of main-league history kept for head-to-head
     "REQUEST_TIMEOUT": 30,
     "USER_AGENT": "Mozilla/5.0 (compatible; GoalsScanner/1.0)",
     # optional: restrict to some competitions, e.g. LEAGUES="E0,SP1,I1,D1,F1,BRA"
@@ -330,8 +343,8 @@ def market_lambdas(odds_h, odds_d, odds_a, odds_over, odds_under):
 
 
 # ----------------------------------------------------------------------------- data loading
-NUM_RESULT_COLS = ("hg", "ag", "hxg", "axg", "hst", "ast", "hc", "ac", "hy", "ay", "hr", "ar")
-RESULT_COLS = ["country", "div", "league", "date", "home", "away", *NUM_RESULT_COLS, "referee"]
+NUM_RESULT_COLS = ("hg", "ag", "hxg", "axg", "hst", "ast", "hc", "ac", "hy", "ay", "hr", "ar", "hth", "hta")
+RESULT_COLS = ["country", "div", "league", "date", "home", "away", *NUM_RESULT_COLS, "referee", "home_id", "away_id"]
 
 
 def empty_results() -> pd.DataFrame:
@@ -340,11 +353,27 @@ def empty_results() -> pd.DataFrame:
                          for c in RESULT_COLS})
 
 
-def load_main_results(divs: set[str], seasons: list[str]) -> pd.DataFrame:
+def fetch_cached(url: str, name: str) -> bytes | None:
+    """Immutable downloads (finished seasons) are kept under data/cache so the half-hourly runs stay light."""
+    p = CACHE_DIR / name
+    if p.exists():
+        return p.read_bytes()
+    content = fetch(url)
+    if content:
+        try:
+            CACHE_DIR.mkdir(parents=True, exist_ok=True)
+            p.write_bytes(content)
+        except OSError:
+            pass
+    return content
+
+
+def load_main_results(divs: set[str], seasons: list[str], live_seasons: tuple[str, ...] = ()) -> pd.DataFrame:
     frames = []
     for div in sorted(divs):
         for season in seasons:
-            df = read_csv(fetch(f"{BASE}/mmz4281/{season}/{div}.csv"))
+            url = f"{BASE}/mmz4281/{season}/{div}.csv"
+            df = read_csv(fetch(url) if season in live_seasons else fetch_cached(url, f"fd_{season}_{div}.csv"))
             if df is None or not {"Date", "HomeTeam", "AwayTeam", "FTHG", "FTAG"} <= set(df.columns):
                 log.info("No data for %s %s", div, season)
                 continue
@@ -362,7 +391,9 @@ def load_main_results(divs: set[str], seasons: list[str]) -> pd.DataFrame:
                 "hst": num(df, "HST"), "ast": num(df, "AST"),
                 "hc": num(df, "HC"), "ac": num(df, "AC"),
                 "hy": num(df, "HY"), "ay": num(df, "AY"), "hr": num(df, "HR"), "ar": num(df, "AR"),
+                "hth": num(df, "HTHG"), "hta": num(df, "HTAG"),
                 "referee": df["Referee"].astype(str).str.strip() if "Referee" in df.columns else "",
+                "home_id": None, "away_id": None,
             }))
             log.info("Loaded %s %s: %d matches", div, season, len(df))
     return pd.concat(frames, ignore_index=True) if frames else empty_results()
@@ -385,7 +416,8 @@ def load_extra_results(codes: set[str], since: datetime) -> pd.DataFrame:
             "away": df["Away"].astype(str).str.strip(),
             "hg": num(df, "HG"), "ag": num(df, "AG"),
             "hxg": np.nan, "axg": np.nan, "hst": np.nan, "ast": np.nan,
-            "hc": np.nan, "ac": np.nan, "hy": np.nan, "ay": np.nan, "hr": np.nan, "ar": np.nan, "referee": "",
+            "hc": np.nan, "ac": np.nan, "hy": np.nan, "ay": np.nan, "hr": np.nan, "ar": np.nan, "hth": np.nan, "hta": np.nan,
+            "referee": "", "home_id": None, "away_id": None,
         })
         out = out[out["date"] >= since]
         frames.append(out)
@@ -524,12 +556,14 @@ def make_long(results: pd.DataFrame, div_avgs: dict[str, DivAvg]) -> pd.DataFram
     mu_a = results["div"].map(lambda d: div_avgs.get(d, g).mu_a).astype(float)
     common = {"country": results["country"], "date": results["date"], "div": results["div"],
               "league": results["league"]}
-    home = pd.DataFrame({**common, "team": results["home"], "opp": results["away"], "venue": "H",
+    hid = results["home_id"] if "home_id" in results.columns else pd.Series(None, index=results.index, dtype="object")
+    aid = results["away_id"] if "away_id" in results.columns else pd.Series(None, index=results.index, dtype="object")
+    home = pd.DataFrame({**common, "team_id": hid, "opp_id": aid, "team": results["home"], "opp": results["away"], "venue": "H",
                          "gf": results["hg"], "ga": results["ag"],
                          "gf_norm": results["hg"] / mu_h, "ga_norm": results["ag"] / mu_a,
                          "xg_for": results["hxg"], "xg_against": results["axg"],
                          "sot_for": results["hst"], "sot_against": results["ast"]})
-    away = pd.DataFrame({**common, "team": results["away"], "opp": results["home"], "venue": "A",
+    away = pd.DataFrame({**common, "team_id": aid, "opp_id": hid, "team": results["away"], "opp": results["home"], "venue": "A",
                          "gf": results["ag"], "ga": results["hg"],
                          "gf_norm": results["ag"] / mu_a, "ga_norm": results["hg"] / mu_h,
                          "xg_for": results["axg"], "xg_against": results["hxg"],
@@ -573,17 +607,36 @@ class TeamProfile:
     sot_for: float = float("nan")
     sot_against: float = float("nan")
     last5: list = field(default_factory=list)
+    venue_rate_o25: float = float("nan")
+    venue_rate_btts: float = float("nan")
+    venue_rate_o15: float = float("nan")
+    venue_last5: list = field(default_factory=list)
 
     @property
     def ok(self) -> bool:
         return self.n_eff >= CONFIG["MIN_EFF_MATCHES"]
 
 
-def build_profile(long: pd.DataFrame, country: str, team: str, venue: str, now: datetime) -> TeamProfile:
+def _valid_id(x) -> bool:
+    return isinstance(x, str) and x.strip() != ""
+
+
+def team_history(long: pd.DataFrame, country: str, team: str, team_id=None) -> pd.DataFrame:
+    """A team's perspective rows: by Livescore id when known (any competition), else by country + name."""
+    if long.empty:
+        return long
+    if _valid_id(team_id) and "team_id" in long.columns:
+        rows = long[long["team_id"] == team_id]
+        if not rows.empty:
+            return rows
+    return long[(long["country"] == country) & (long["team"] == team)]
+
+
+def build_profile(long: pd.DataFrame, country: str, team: str, venue: str, now: datetime, team_id=None) -> TeamProfile:
     p = TeamProfile(name=team)
     if long.empty:
         return p
-    rows = long[(long["country"] == country) & (long["team"] == team)].head(CONFIG["MAX_MATCHES_PER_TEAM"])
+    rows = team_history(long, country, team, team_id).head(CONFIG["MAX_MATCHES_PER_TEAM"])
     if rows.empty:
         return p
     w = decay_weights(rows["date"], now)
@@ -601,6 +654,12 @@ def build_profile(long: pd.DataFrame, country: str, team: str, venue: str, now: 
         share = wv.sum() / (wv.sum() + CONFIG["VENUE_K"])
         att = share * wmean(rows["gf_norm"][vmask], wv) + (1 - share) * att_all
         dfc = share * wmean(rows["ga_norm"][vmask], wv) + (1 - share) * def_all
+        vrows = rows[vmask]
+        p.venue_rate_o15 = wmean(vrows["o15"], wv)
+        p.venue_rate_o25 = wmean(vrows["o25"], wv)
+        p.venue_rate_btts = wmean(vrows["btts"], wv)
+        p.venue_last5 = [{"date": r.date, "venue": r.venue, "opp": r.opp, "gf": int(r.gf), "ga": int(r.ga),
+                          "league": r.league} for r in vrows.head(5).itertuples()]
     else:
         att, dfc = att_all, def_all
 
@@ -630,12 +689,17 @@ def build_profile(long: pd.DataFrame, country: str, team: str, venue: str, now: 
     return p
 
 
-def head_to_head(results: pd.DataFrame, country: str, home: str, away: str, limit: int = 6) -> list[dict]:
+def head_to_head(results: pd.DataFrame, country: str, home: str, away: str, limit: int = 10,
+                 home_id=None, away_id=None) -> list[dict]:
     if results.empty:
         return []
-    m = results[(results["country"] == country) &
-                (((results["home"] == home) & (results["away"] == away)) |
-                 ((results["home"] == away) & (results["away"] == home)))]
+    if _valid_id(home_id) and _valid_id(away_id) and "home_id" in results.columns:
+        m = results[((results["home_id"] == home_id) & (results["away_id"] == away_id)) |
+                    ((results["home_id"] == away_id) & (results["away_id"] == home_id))]
+    else:
+        m = results[(results["country"] == country) &
+                    (((results["home"] == home) & (results["away"] == away)) |
+                     ((results["home"] == away) & (results["away"] == home)))]
     m = m.sort_values("date", ascending=False).head(limit)
     return [{"date": r.date, "home": r.home, "away": r.away, "hg": int(r.hg), "ag": int(r.ag),
              "league": r.league} for r in m.itertuples()]
@@ -663,6 +727,7 @@ class MatchRow:
     sb_event: dict | None = None  # Sportybet event meta (id, names)
     sb_full: dict | None = None   # full Sportybet market list (corners / cards), dossier matches only
     fair: dict = field(default_factory=dict)   # calibrated probabilities for priced selections
+    trends: dict = field(default_factory=dict) # plain-language team / match / h2h trends (v4)
 
     @property
     def basis(self) -> str:
@@ -678,11 +743,12 @@ class MatchRow:
 
 
 def analyse(fx: pd.Series, long: pd.DataFrame, results: pd.DataFrame,
-            div_avgs: dict[str, DivAvg], now: datetime) -> MatchRow:
+            div_avgs: dict[str, DivAvg], now: datetime, h2h_pool: pd.DataFrame | None = None) -> MatchRow:
     g = div_avgs.get("__global__", DivAvg(1.45, 1.2, 0, float("nan"), float("nan")))
     da = div_avgs.get(fx["div"], g)
-    H = build_profile(long, fx["country"], fx["home"], "H", now)
-    A = build_profile(long, fx["country"], fx["away"], "A", now)
+    hid, aid = fx.get("home_id"), fx.get("away_id")
+    H = build_profile(long, fx["country"], fx["home"], "H", now, hid)
+    A = build_profile(long, fx["country"], fx["away"], "A", now, aid)
 
     rho = CONFIG["DC_RHO"]
     mod_h = min(max(da.mu_h * H.att * A.dfc, 0.15), 4.5)
@@ -712,7 +778,8 @@ def analyse(fx: pd.Series, long: pd.DataFrame, results: pd.DataFrame,
         "BTTS": float(np.nanmean([H.rate_btts, A.rate_btts])) if H.n and A.n else float("nan"),
     }
     row = MatchRow(fx, H, A, lam_h, lam_a, mod_h, mod_a, mkt_h, mkt_a, p_model, p_mkt, p_final, hist,
-                   head_to_head(results, fx["country"], fx["home"], fx["away"]), da)
+                   head_to_head(h2h_pool if h2h_pool is not None else results, fx["country"], fx["home"], fx["away"],
+                                home_id=hid, away_id=aid), da)
     # ---- extra markets (v3): 1X2 / DC from the score matrix + sharp market, team goals, corners, cards
     ex = row.extra
     oh, od, oa = sharp_1x2(fx)
@@ -829,16 +896,22 @@ def run_desc(label: str, tz: bool = False) -> str:
 
 
 def run_schedule(now: datetime) -> tuple[str, datetime]:
-    """(run label, parlay window end). The window ends at the next scheduled run."""
+    """(run label, window end). Runs close to a report hour (07/12/17) are the full-report runs and keep the
+    plain 'HH:MM' label; the half-hourly refreshes in between are 'auto HH:MM'; dispatches are 'manual HH:MM'."""
     hours = CONFIG["RUN_HOURS"]
     todays = [now.replace(hour=h, minute=0, second=0, microsecond=0) for h in hours]
-    label = f"manual {now:%H:%M}"
+    event = os.getenv("GITHUB_EVENT_NAME", "")
+    label = f"manual {now:%H:%M}" if event == "workflow_dispatch" or not event else f"auto {now:%H:%M}"
     for t in todays:
-        if abs((now - t).total_seconds()) <= 75 * 60:
+        if -5 * 60 <= (now - t).total_seconds() <= 20 * 60:
             label = f"{t:%H:%M}"
-    nxt = [t for t in todays if t > now + timedelta(minutes=30)]
+    nxt = [t for t in todays if t > now + timedelta(minutes=20)]
     window_end = nxt[0] if nxt else (todays[0] + timedelta(days=1))
     return label, window_end
+
+
+def is_report_run(label: str) -> bool:
+    return not label.startswith(("auto", "manual"))
 
 
 def build_run_parlays(rows: list[MatchRow], now: datetime, window_end: datetime, sb_ok: bool) -> dict:
@@ -1230,47 +1303,40 @@ def render_safest(ctx: dict) -> list[str]:
     if not sf:
         return []
     L = [f"## 🔒 Safest bets — {run_desc(ctx['run'])}", ""]
-    L.append(f"_Selections across every modelled market whose probability is at least {pct(sf['min_p'])} on **both** views "
-             f"(calibrated model and the de-margined Sportybet price) at a Sportybet price of {sf['min_odds']:.2f} or more. "
-             f"Three trebles are built from that pool — one leg per match, no match repeated — ranked by probability. "
-             f"{'Legs from the whole 24 h window (too few before the next run). ' if sf.get('extended') else ''}"
-             f"Both lists are graded automatically (`data/safe_bets.csv`, `data/safe_accas.csv`)._")
+    L.append(f"_Goals, corners and cards selections whose probability is at least {pct(sf['min_p'])} on **both** views "
+             f"(calibrated model and the de-margined Sportybet price) at a Sportybet price of {sf['min_odds']:.2f} or more, "
+             f"ranked by probability. Graded automatically (`data/safe_bets.csv`)._")
     L.append("")
-    trebles, ids = sf.get("trebles") or [], sf.get("ids") or []
-    if not trebles:
-        L.append("_No treble possible: fewer than three priced matches met the safety rules._")
-    for i, legs in enumerate(trebles):
-        odds, p = safe_mod.acca_odds(legs), safe_mod.acca_p(legs)
-        aid = ids[i] if i < len(ids) else ""
-        L.append(f"### Safest treble {i + 1} — odds **{odds:.2f}** · win probability **{pct(p)}** · id `{aid}`")
+    botd = ctx.get("botd") or []
+    if botd:
+        L.append(f"### ⭐ Bets of the day — {ctx['now']:%A %d %B}")
         L.append("")
-        L.append("| Kick-off | Match | Competition | Selection | Price | Probability |")
-        L.append("|---|---|---|---|---|---|")
-        for l in legs:
-            L.append(f"| {l.kickoff[5:]} | **{l.home} v {l.away}** | {l.league} | **{l.label}** | **{l.odds:.2f}** | {pct(l.p)} |")
+        L.append("| Kick-off | Match | Competition | Selection | Price | Probability | Status |")
+        L.append("|---|---|---|---|---|---|---|")
+        icon = {"hit": "✅ hit", "miss": "❌ miss", "pending": "⏳", "void": "void"}
+        for b in botd:
+            L.append(f"| {b['kickoff'][11:]} | **{b['home']} v {b['away']}** | {b['league']} | **{b['label']}** | "
+                     f"**{b['odds']:.2f}** | {pct(b['p'])} | {icon.get(b['status'], b['status'])} |")
         L.append("")
     bets = sf.get("bets") or []
-    L.append(f"### Safest single bets — top {min(len(bets), 15)} of {len(bets)}")
+    L.append(f"### Safest single bets — top {min(len(bets), 25)} of {len(bets)}")
     L.append("")
     if bets:
         L.append("| Kick-off | Match | Competition | Selection | Price | Probability | Model | Sportybet |")
         L.append("|---|---|---|---|---|---|---|---|")
-        for b in bets[:15]:
+        for b in bets[:25]:
             L.append(f"| {b.kickoff[5:]} | {b.home} v {b.away} | {b.league} | **{b.label}** | **{b.odds:.2f}** | **{pct(b.p)}** | "
                      f"{pct(b.p_model)} | {pct(b.p_sb) if b.p_sb is not None else '–'} |")
     else:
         L.append("_Nothing priced met the rules in this window._")
     L.append("")
     ss = ctx.get("safe_summary") or {}
-    if ss:
-        b, a = ss.get("bets", {}), ss.get("accas", {})
-        ba, aa = b.get("all") or {}, a.get("all") or {}
-        if ba.get("n") or aa.get("n"):
-            L.append(f"_Track record — safest bets: {ba.get('won', 0)}/{ba.get('n', 0)} hit"
-                     f"{' (' + pct(ba['rate']) + ', expected ' + pct(ba['exp_rate']) + ')' if ba.get('n') else ''}; "
-                     f"trebles: {aa.get('won', 0)}/{aa.get('n', 0)} won"
-                     f"{' (' + pct(aa['rate']) + ', expected ' + pct(aa['exp_rate']) + ')' if aa.get('n') else ''}._")
-            L.append("")
+    ba = (ss.get("bets") or {}).get("all") or {}
+    bd = (ss.get("botd") or {}).get("all") or {}
+    if ba.get("n"):
+        L.append(f"_Track record — safest bets: {ba.get('won', 0)}/{ba.get('n', 0)} hit ({pct(ba['rate'])}, expected {pct(ba['exp_rate'])})"
+                 f"{'; bets of the day: ' + str(bd.get('won', 0)) + '/' + str(bd.get('n', 0)) + ' hit' if bd.get('n') else ''}._")
+        L.append("")
     return L
 
 
@@ -1361,7 +1427,7 @@ def render_parlay_history(psum: dict, rec: list[dict]) -> list[str]:
 
 def render_report(ctx: dict, rows: list[MatchRow], picks: dict, summary: dict, notes: list[str]) -> str:
     now = ctx["now"]
-    L = [f"# ⚽ Goals Scanner — {now:%A %d %B %Y}", ""]
+    L = [f"# ⚽ PlayReport — {now:%A %d %B %Y}", ""]
     comps = {comp(r) for r in rows}
     L.append(f"**{run_desc(ctx.get('run', ''), True).capitalize()}** · scan window {ctx['start']:%a %d %b %H:%M} → {ctx['end']:%a %d %b %H:%M} · "
              f"**{len(rows)} fixtures** across **{len(comps)} competitions** · generated {now:%H:%M} {TZL} · "
@@ -1372,7 +1438,6 @@ def render_report(ctx: dict, rows: list[MatchRow], picks: dict, summary: dict, n
         L.append("")
     if ctx.get("digest"):
         L += ctx["digest"]
-    L += render_parlays(ctx, ctx["parlays"], ctx["parlay_ids"], ctx["parlay_summary"])
     L += render_safest(ctx)
 
     L.append("## 🎯 Shortlist")
@@ -1386,27 +1451,36 @@ def render_report(ctx: dict, rows: list[MatchRow], picks: dict, summary: dict, n
         L += render_pick_table(picks.get(mkt, []), mkt)
         L.append("")
 
-    L.append("## 📊 Full scan — every fixture, ranked by Over 2.5 probability")
+    cap = CONFIG["REPORT_MAX_ROWS"]
+    ranked = sorted([r for r in rows if r.data_ok], key=lambda r: r.p_final["O25"], reverse=True)
+    L.append(f"## 📊 Full scan — top {min(cap, len(ranked))} of {len(rows)} fixtures by Over 2.5 probability")
     L.append("")
-    if rows:
-        L.append(f"| Kick-off ({TZL}) | Competition | Match | Exp. goals | O1.5 | O2.5 | BTTS | Market O2.5 (odds) | Model O2.5 | Basis | O2.5 last-10 form | Data |")
-        L.append("|---|---|---|---|---|---|---|---|---|---|---|---|")
-        for r in sorted(rows, key=lambda r: r.p_final["O25"], reverse=True):
-            flag = "✅" if r.data_ok else f"⚠️ {r.home.n}/{r.away.n} games"
+    if ranked:
+        L.append(f"| Kick-off ({TZL}) | Competition | Match | Exp. goals | O1.5 | O2.5 | BTTS | Market O2.5 (odds) | Model O2.5 | Basis | O2.5 last-10 form |")
+        L.append("|---|---|---|---|---|---|---|---|---|---|---|")
+        for r in ranked[:cap]:
             L.append(f"| {ko(r)} | {comp(r)} | {r.label} | {r.lam_h:.1f} – {r.lam_a:.1f} | {pct(r.p_final['O15'])} | "
                      f"**{pct(r.p_final['O25'])}** | {pct(r.p_final['BTTS'])} | {market_str(r)} | {pct(r.p_model['O25'])} | "
-                     f"{basis_str(r)} | {form_str(r, 'O25')} | {flag} |")
+                     f"{basis_str(r)} | {form_str(r, 'O25')} |")
+        if len(rows) > cap:
+            L.append("")
+            L.append(f"_{len(rows) - cap} more fixtures (including {sum(1 for r in rows if not r.data_ok)} with too little history) are in the PlayReport app._")
     else:
         L.append("_No fixtures found in the scan window._")
     L.append("")
 
-    L += render_value_check(picks, ctx["parlays"]["source"] == "Sportybet")
-    L += render_other_markets(rows)
+    L += render_value_check(picks, bool(ctx.get("sb_ok")))
+    focus_keys = {id(r) for m in picks.values() for r in m}
+    for b in (ctx.get("safe") or {}).get("bets") or []:
+        focus_keys.add(b.key)
+    focus = [r for r in rows if id(r) in focus_keys or
+             (r.fx["date"].strftime("%Y-%m-%d"), r.fx["country"], r.fx["home"], r.fx["away"]) in focus_keys]
+    L += render_other_markets([r for r in focus if r.fx["source"] == "main"] or focus[:cap])
 
-    if rows:
-        L.append("## 🔍 Match details (click to expand)")
+    if focus:
+        L.append("## 🔍 Match details — shortlisted and safest-bet matches (click to expand)")
         L.append("")
-        for r in sorted(rows, key=lambda r: (r.fx["kickoff"], comp(r))):
+        for r in sorted(focus, key=lambda r: (r.fx["kickoff"], comp(r))):
             L += render_details(r)
 
     L.append("## 📈 Trackers (auto-settled from results)")
@@ -1417,7 +1491,6 @@ def render_report(ctx: dict, rows: list[MatchRow], picks: dict, summary: dict, n
     L.append("")
     L.append("_Flat-stake return is for model evaluation only: 1 unit on every Over 2.5 pick at the average market odds._")
     L.append("")
-    L += render_parlay_history(ctx["parlay_summary"], ctx.get("parlay_recent", []))
 
     L.append("## ℹ️ Method")
     L.append("")
@@ -1441,13 +1514,14 @@ def render_report(ctx: dict, rows: list[MatchRow], picks: dict, summary: dict, n
         "totals; cards include a referee factor where the referee is published (UK leagues). Both are calibrated "
         "within ~2 points on the standard lines (`backtest/MARKETS_RESULTS.md`). Half-time corners have no free data "
         "source and are shown as Sportybet prices only, without a model.",
-        "* **Parlays:** legs only from 1X2, double chance and Over/Under 2.5 at real Sportybet prices; each parlay "
-        "maximises calibrated probability × price inside the 2.70-3.50 band, 2-4 legs, distinct matches. Backtest "
-        "2023-26: win rate 30-33%, return −4% to −13% per unit — see the warning in the parlay section.",
-        "* **Sportybet prices** are display / payout information only; they never enter the probability model. "
-        "Headlines in the parlay dossier come from Google News and are context only.",
-        f"* Data: football-data.co.uk. All times are {TZL} ({CONFIG['TIMEZONE']}). ⚠️ marks teams with too little history "
-        "(typically newly promoted from a division not covered) — they are never shortlisted.",
+        "* **World coverage (v4):** every competition on Livescore.com that Sportybet prices is analysed with the same "
+        "team-form model from Livescore's season results (goals markets only; corners and cards need the richer "
+        "football-data feed of the 22 main European leagues). Sportybet's de-margined prices are the market view there.",
+        "* **Safest bets** = goals, corners and cards selections at ≥70% on both the model and the de-margined Sportybet "
+        "price, priced 1.30 or better; parlays and accumulators are no longer produced (the backtest showed they lose money).",
+        "* **Sportybet prices** never enter the probability model except as the market view they represent.",
+        f"* Data: football-data.co.uk, Livescore.com. All times are {TZL} ({CONFIG['TIMEZONE']}). ⚠️ marks teams with too little history "
+        "— they are never shortlisted.",
         "* This is statistical information, not advice. Past hit-rates do not guarantee future results.",
     ]
     L.append("")
@@ -1687,40 +1761,50 @@ def send_telegram_document(path: Path, caption: str) -> bool:
 
 def telegram_text(ctx: dict, rows: list[MatchRow], picks: dict, report_url: str | None) -> str:
     now = ctx["now"]
-    L = [f"⚽ <b>Goals Scanner — {now:%a %d %b}, {run_desc(ctx.get('run', ''))}</b>", f"{len(rows)} fixtures scanned · times in {TZL}"]
-    pr = ctx.get("parlays") or {}
-    if pr:
+    cov = ctx.get("coverage") or {}
+    L = [f"⚽ <b>PlayReport — {now:%a %d %b}, {run_desc(ctx.get('run', ''))}</b>",
+         f"{len(rows)} fixtures · {cov.get('competitions', 0)} competitions · {cov.get('priced', 0)} priced by Sportybet · times in {TZL}"]
+    botd = ctx.get("botd") or []
+    if botd:
         L.append("")
-        lo, hi = CONFIG["PARLAY_ODDS"]
-        L.append(f"🎟️ <b>Parlays</b> ({pr['source']}, odds {lo:.2f}–{hi:.2f})")
-        if not pr["parlays"]:
-            L.append("none possible in this window")
-        for i, pl in enumerate(pr["parlays"], 1):
-            odds, p = parlay_mod.parlay_odds(pl), parlay_mod.parlay_p(pl)
-            L.append(f"<b>#{i} @ {odds:.2f}</b> · P(win) {pct(p)} · EV {100 * (p * odds - 1):+.0f}%")
-            for l in pl:
-                L.append(f"   • {l.kickoff[11:]} {html.escape(l.match)} — {html.escape(l.label)} @ {l.odds:.2f}")
+        L.append(f"⭐ <b>Bets of the day</b>")
+        icon = {"hit": "✅", "miss": "❌", "pending": "", "void": "⚪"}
+        for b in botd:
+            L.append(f"• {b['kickoff'][11:]} {html.escape(b['home'])} v {html.escape(b['away'])} — <b>{html.escape(b['label'])}</b> "
+                     f"@ {b['odds']:.2f} · {pct(b['p'])} {icon.get(b['status'], '')}")
     sf = ctx.get("safe") or {}
-    if sf.get("trebles"):
-        L.append("")
-        L.append(f"🔒 <b>Safest trebles</b> (≥{pct(sf['min_p'])} on both views, price ≥ {sf['min_odds']:.2f})")
-        for i, legs in enumerate(sf["trebles"], 1):
-            L.append(f"<b>#{i} @ {safe_mod.acca_odds(legs):.2f}</b> · P(win) {pct(safe_mod.acca_p(legs))}")
-            for l in legs:
-                L.append(f"   • {l.kickoff[11:]} {html.escape(l.home)} v {html.escape(l.away)} — {html.escape(l.label)} @ {l.odds:.2f}")
+    bets = sf.get("bets") or []
+    L.append("")
+    L.append(f"🔒 <b>Safest bets</b> (≥{pct(sf.get('min_p', 0.7))} on both views, price ≥ {sf.get('min_odds', 1.3):.2f}) — {len(bets)}")
+    if not bets:
+        L.append("nothing priced met the rules in this window")
+    for b in bets[:12]:
+        L.append(f"• {b.kickoff[5:]} {html.escape(b.home)} v {html.escape(b.away)} — <b>{html.escape(b.label)}</b> @ {b.odds:.2f} · {pct(b.p)}")
+    if len(bets) > 12:
+        L.append(f"… +{len(bets) - 12} more in the app")
     for mkt, name in MARKETS.items():
         sel = picks.get(mkt, [])
         L.append("")
         L.append(f"<b>{name}</b> ({len(sel)})")
         if not sel:
             L.append("none today")
-        for r in sel[:8]:
+        for r in sel[:6]:
             L.append(f"• {r.fx['kickoff']:%H:%M} {html.escape(r.label)} — {html.escape(r.fx['league'])} — "
                      f"<b>{pct(r.p_final[mkt])}</b> {stars(r.p_final[mkt], mkt)}")
-        if len(sel) > 8:
-            L.append(f"… +{len(sel) - 8} more")
+        if len(sel) > 6:
+            L.append(f"… +{len(sel) - 6} more")
     if report_url:
         L += ["", f'<a href="{report_url}">Full report</a>']
+    return "\n".join(L)
+
+
+def alert_text(new_bets: list, now: datetime) -> str:
+    L = [f"🎯 <b>New safest bet{'s' if len(new_bets) > 1 else ''} found</b> · {now:%a %H:%M} {TZL}"]
+    for b in new_bets[:10]:
+        L.append(f"• {b.kickoff[5:]} {html.escape(b.home)} v {html.escape(b.away)} ({html.escape(b.league)}) — "
+                 f"<b>{html.escape(b.label)}</b> @ {b.odds:.2f} · {pct(b.p)}")
+    if len(new_bets) > 10:
+        L.append(f"… +{len(new_bets) - 10} more in the app")
     return "\n".join(L)
 
 
@@ -1764,43 +1848,94 @@ def main() -> None:
     tz = ZoneInfo(CONFIG["TIMEZONE"])
     override = os.getenv("SCAN_NOW")  # e.g. "2026-09-26 07:00" for testing
     now = datetime.strptime(override, "%Y-%m-%d %H:%M").replace(tzinfo=tz) if override else datetime.now(tz)
+    tz_off = int(now.utcoffset().total_seconds() // 3600)
     start = now - timedelta(minutes=5)
     end = now + timedelta(hours=CONFIG["WINDOW_HOURS"])
     run_label, window_end = run_schedule(now)
+    report_run = is_report_run(run_label)
     ctx = {"now": now, "start": start, "end": end, "run": run_label, "window_end": window_end}
-    log.info("Run %s: scan window %s -> %s, parlay window until %s", run_label, start, end, window_end)
+    log.info("Run %s (%s): scan window %s -> %s, state %s", run_label, "report" if report_run else "refresh", start, end, STATE)
 
-    REPORTS_DIR.mkdir(exist_ok=True)
-    DATA_DIR.mkdir(exist_ok=True)
-    PDF_DIR.mkdir(exist_ok=True)
+    REPORTS_DIR.mkdir(parents=True, exist_ok=True)
+    DATA_DIR.mkdir(parents=True, exist_ok=True)
+    PDF_DIR.mkdir(parents=True, exist_ok=True)
 
     fixtures = load_fixtures(tz)
     todays = fixtures[(fixtures["kickoff"] >= start) & (fixtures["kickoff"] <= end)] if not fixtures.empty else fixtures
-    log.info("%d upcoming fixtures in feed, %d inside the window", len(fixtures), len(todays))
+    log.info("football-data: %d upcoming fixtures in feed, %d inside the window", len(fixtures), len(todays))
+
+    # ---- world spine (Livescore): every match in the window that the feeds above do not cover
+    ls_events, ls_map, archive = [], {}, None
+    if CONFIG["LIVESCORE"]:
+        try:
+            ls_events = worldfeed.fetch_window(start, end, tz_off)
+            log.info("Livescore: %d events on the window days", len(ls_events))
+        except Exception as exc:  # noqa: BLE001
+            log.warning("Livescore window failed: %s", exc)
+    if ls_events and not todays.empty:
+        try:
+            ls_map = livescore.match_fixtures(todays, now, tz_off, events=ls_events)
+        except Exception as exc:  # noqa: BLE001
+            log.warning("Livescore matching failed: %s", exc)
+    if CONFIG["WORLD"] and ls_events:
+        used = {v["eid"] for v in ls_map.values()}
+        world_events = [e for e in worldfeed.upcoming(ls_events, start, end) if e["eid"] not in used]
+        world_fx = worldfeed.fixtures_frame(world_events, tz)
+        if not world_fx.empty:
+            base = todays.copy()
+            base["home_id"] = None
+            base["away_id"] = None
+            base["eid"] = None
+            todays = pd.concat([base, world_fx], ignore_index=True).sort_values(["kickoff", "country", "league"]).reset_index(drop=True)
+            # rebuild the fixture-index -> livescore map on the new index
+            by_eid = {e["eid"]: e for e in ls_events}
+            old_eids = {}
+            for i, row in base.iterrows():
+                if i in ls_map:
+                    old_eids[(row["kickoff"], row["country"], row["home"], row["away"])] = ls_map[i]
+            ls_map = {}
+            for i, row in todays.iterrows():
+                if row.get("eid") and row["eid"] in by_eid:
+                    ls_map[i] = worldfeed.ls_entry(by_eid[row["eid"]])
+                else:
+                    ev = old_eids.get((row["kickoff"], row["country"], row["home"], row["away"]))
+                    if ev:
+                        ls_map[i] = ev
+        log.info("World spine: %d Livescore fixtures added (%d matched to feed fixtures)", len(world_fx), len(used))
+        try:
+            archive = worldfeed.Archive(LS_DIR)
+            archive.absorb_days(ls_events, now)
+            archive.refresh(worldfeed.stage_priorities(todays), now, tz_off)
+            archive.save()
+        except Exception as exc:  # noqa: BLE001
+            log.warning("Livescore archive failed: %s", exc)
+    elif todays.empty:
+        pass
 
     tracker = load_tracker()
-    ledger = parlay_mod.load_ledger(PARLAY_FILE)
     pending = tracker[tracker["status"] == "pending"] if not tracker.empty else tracker
-    pending_parlays = ledger[ledger["status"] == "pending"] if not ledger.empty else ledger
 
     # which history files do we need? whole country systems, so promoted/relegated teams keep their history
     countries = set(todays["country"]) if not todays.empty else set()
     countries |= set(pending["country"]) if not pending.empty else set()
-    for legs_json in (pending_parlays["legs"] if not pending_parlays.empty else []):
-        try:
-            countries |= {d.get("country") for d in json.loads(legs_json)}
-        except ValueError:
-            pass
     main_divs = {d for d, (c, _) in MAIN_LEAGUES.items() if c in countries}
     extra_codes = {code for c, code in EXTRA_LEAGUES.items() if c in countries}
 
     seasons = season_codes(now)
+    older = []
+    y = now.year if now.month >= 7 else now.year - 1
+    for k in range(2, CONFIG["H2H_SEASONS"]):
+        older.append(f"{(y - k) % 100:02d}{(y - k + 1) % 100:02d}")
     since = datetime(now.year, now.month, now.day) - timedelta(days=CONFIG["MAX_HISTORY_DAYS"])
-    results = pd.concat([load_main_results(main_divs, seasons), load_extra_results(extra_codes, since)],
-                        ignore_index=True)
-    results = results.dropna(subset=["date", "hg", "ag"])
-    results = results[results["date"] >= since].sort_values("date", ascending=False).reset_index(drop=True)
-    log.info("History pool: %d matches", len(results))
+    main_all = load_main_results(main_divs, seasons + older, live_seasons=(seasons[0],))
+    extra_all = load_extra_results(extra_codes, since - timedelta(days=365 * 3))
+    world_all = archive.results_frame(since - timedelta(days=365 * 3)) if archive is not None else pd.DataFrame()
+    pool = pd.concat([f for f in (main_all, extra_all, world_all) if f is not None and not f.empty] or [empty_results()],
+                     ignore_index=True)
+    pool = pool.dropna(subset=["date", "hg", "ag"]).sort_values("date", ascending=False).reset_index(drop=True)
+    results = pool[pool["date"] >= since].reset_index(drop=True)
+    log.info("History pool: %d matches for the model (%d incl. older seasons for head-to-head; %d from Livescore)",
+             len(results), len(pool), 0 if world_all is None or world_all.empty else len(world_all))
 
     div_avgs = compute_div_avgs(results, now)
     long = make_long(results, div_avgs)
@@ -1810,24 +1945,37 @@ def main() -> None:
     cards_df.loc[results["hy"].isna(), ["hcards", "acards"]] = np.nan
     MODELS["cards"] = markets.CountModel(cards_df, "hcards", "acards", now, markets.CARDS, use_ref=True)
 
-    rows = [analyse(fx, long, results, div_avgs, now) for _, fx in todays.iterrows()]
+    rows = [analyse(fx, long, results, div_avgs, now, pool) for _, fx in todays.iterrows()]
 
-    # ---- Sportybet prices (display / payout only)
+    # ---- Sportybet prices
     sbmap, sb_ok = {}, False
     if CONFIG["SPORTYBET"] and rows:
         events = sporty.fetch_upcoming(CONFIG["WINDOW_HOURS"] + 6)
         sb_ok = bool(events)
         sbmap = sporty.match_fixtures(todays, events) if events else {}
     attach_prices(rows, sbmap, todays)
+    ctx["sb_ok"] = sb_ok
+    # full market lists (corners / cards) for the main-league matches the count models cover
+    n_full = 0
+    if sb_ok:
+        for r in sorted(rows, key=lambda r: r.fx["kickoff"]):
+            if n_full >= CONFIG["FULL_MARKETS_MAX"]:
+                break
+            if r.fx["source"] == "main" and r.sb_event and r.sb_event.get("id") and (r.extra.corners or r.extra.cards):
+                r.sb_full = sporty.fetch_event_markets(r.sb_event["id"])
+                n_full += 1
+    log.info("Sportybet: %d fixtures priced, %d full market lists", len(sbmap), n_full)
     picks = select_picks(rows)
 
-    # ---- Livescore ids (so the app can follow matches live) + day history with late scores
-    ls_map = {}
-    if CONFIG["LIVESCORE"] and rows:
-        try:
-            ls_map = livescore.match_fixtures(todays, now, int(now.utcoffset().total_seconds() // 3600))
-        except Exception as exc:  # noqa: BLE001
-            log.warning("Livescore matching failed: %s", exc)
+    # ---- trends (team / match / head-to-head)
+    try:
+        lg_tr = trends_mod._long(pool)
+        for r in rows:
+            r.trends = trends_mod.for_fixture(lg_tr, r.fx, r.h2h)
+    except Exception as exc:  # noqa: BLE001
+        log.warning("Trends failed: %s", exc)
+
+    # ---- day history with late scores
     days = None
     results_s = results
     try:
@@ -1840,60 +1988,55 @@ def main() -> None:
     except Exception as exc:  # noqa: BLE001
         log.warning("Day history failed: %s", exc)
 
-    # ---- parlays
-    pr = build_run_parlays(rows, now, window_end, sb_ok and bool(sbmap))
-    ledger = parlay_mod.settle(ledger, results_s, now)
-    ledger, parlay_ids = parlay_mod.add_parlays(ledger, pr["parlays"], now, run_label, window_end, pr["source"])
-    ledger.to_csv(PARLAY_FILE, index=False)
-    ctx.update({"parlays": pr, "parlay_ids": parlay_ids, "parlay_summary": parlay_mod.summary(ledger, now),
-                "parlay_recent": parlay_mod.recent(ledger, 12)})
-    log.info("Parlays: %d built from %d legs (%s%s)", len(pr["parlays"]), len(pr["legs"]), pr["source"],
-             ", extended window" if pr["extended"] else "")
+    # ---- legacy ledgers (parlays / trebles are no longer produced; pending ones are still graded)
+    ledger = parlay_mod.load_ledger(PARLAY_FILE)
+    if not ledger.empty and (ledger["status"] == "pending").any():
+        ledger = parlay_mod.settle(ledger, results_s, now)
+        ledger.to_csv(PARLAY_FILE, index=False)
+    pr = {"parlays": [], "legs": [], "source": "none", "extended": False}
+    ctx.update({"parlays": pr, "parlay_ids": [], "parlay_summary": parlay_mod.summary(ledger, now), "parlay_recent": []})
 
-    # ---- safest bets & safest trebles (all markets, both views agree, price >= 1.30)
-    safe_res = safe_mod.safest(rows, now, window_end)
+    # ---- safest bets (goals / corners / cards, both views agree, price >= 1.30) + bets of the day
+    safe_res = safe_mod.safest(rows, now, window_end, groups=safe_mod.SAFE_GROUPS, trebles=False)
     bets_df = safe_mod.load_csv(SAFE_BETS_FILE, safe_mod.SAFE_BET_COLS)
     accas_df = safe_mod.load_csv(SAFE_ACCAS_FILE, safe_mod.ACCA_COLS)
     bets_df = safe_mod.settle_bets(bets_df, results_s, now)
-    accas_df = safe_mod.settle_accas(accas_df, results_s, now)
-    bets_df = safe_mod.add_bets(bets_df, safe_res["bets"], now, run_label)
-    accas_df, acca_ids = safe_mod.add_accas(accas_df, safe_res["trebles"], now, run_label, window_end)
+    if not accas_df.empty and (accas_df["status"] == "pending").any():
+        accas_df = safe_mod.settle_accas(accas_df, results_s, now)
+        accas_df.to_csv(SAFE_ACCAS_FILE, index=False)
+    bets_df, new_bets = safe_mod.add_bets(bets_df, safe_res["bets"], now, run_label)
+    bets_df = safe_mod.pick_bets_of_the_day(bets_df, now, CONFIG["BOTD_N"])
     bets_df.to_csv(SAFE_BETS_FILE, index=False)
-    accas_df.to_csv(SAFE_ACCAS_FILE, index=False)
-    safe_res["ids"] = acca_ids
+    safe_res["ids"] = []
     ctx["safe"] = safe_res
     ctx["safe_summary"] = safe_mod.summary(bets_df, accas_df, now)
-    log.info("Safest: %d bets, %d trebles%s", len(safe_res["bets"]), len(safe_res["trebles"]),
-             " (extended window)" if safe_res["extended"] else "")
+    ctx["botd"] = safe_mod.bets_of_the_day(bets_df, now)
+    log.info("Safest: %d bets (%d new), bets of the day: %d", len(safe_res["bets"]), len(new_bets), len(ctx["botd"]))
 
-    # ---- dossier inputs: full Sportybet markets (corners / cards) + headlines for the parlay matches
-    rows_by_key = {(r.fx["date"].strftime("%Y-%m-%d"), r.fx["country"], r.fx["home"], r.fx["away"]): r for r in rows}
-    dossier_rows, seen_keys = [], set()
-    for pl in pr["parlays"]:
-        for l in pl:
-            r = rows_by_key.get(l.key)
-            if r is not None and l.key not in seen_keys:
-                seen_keys.add(l.key)
-                dossier_rows.append(r)
-    for r in dossier_rows:
-        if sb_ok and r.sb_event and r.sb_event.get("id"):
-            r.sb_full = sporty.fetch_event_markets(r.sb_event["id"])
-    headlines = {}
-    if CONFIG["NEWS"] and dossier_rows:
-        headlines = news_mod.headlines_for_matches(
-            [(r.fx["home"], r.fx["away"], r.fx["country"],
-              (r.sb_event or {}).get("home"), (r.sb_event or {}).get("away")) for r in dossier_rows])
+    # ---- alerts for the app (new safest bets), kept in state
+    alerts_file = DATA_DIR / "app" / "alerts.json"
+    try:
+        alerts = json.loads(alerts_file.read_text(encoding="utf-8")) if alerts_file.exists() else []
+    except (OSError, ValueError):
+        alerts = []
+    for b in new_bets:
+        alerts.append({"id": safe_mod.bet_id(b.key[0], b.home, b.away, b.sel), "ts": now.strftime("%Y-%m-%d %H:%M"),
+                       "title": f"New safest bet · {b.label}", "kickoff": b.kickoff,
+                       "text": f"{b.home} v {b.away} · {b.kickoff[5:]} · {b.odds:.2f} · {pct(b.p)}",
+                       "fixture": appdata.fixture_id(b.key[0], b.key[1], b.home, b.away)})
+    alerts = alerts[-50:]
 
     notes = []
-    missing = sorted({comp(r) for r in rows if r.fx["div"] not in div_avgs})
-    if missing:
-        notes.append("No results history found yet for: " + ", ".join(missing) + " (season may not have started in the feed).")
     lowdata = sum(1 for r in rows if not r.data_ok)
     if lowdata:
         notes.append(f"{lowdata} fixture(s) flagged ⚠️ low data and excluded from shortlists.")
     if CONFIG["SPORTYBET"]:
         notes.append(f"Sportybet ({sporty.CC.upper()}): {len(sbmap)} of {len(rows)} fixtures priced." if sb_ok
                      else "Sportybet prices unavailable this run — average market prices shown instead.")
+    coverage = {"fixtures": len(rows), "competitions": len({comp(r) for r in rows}), "priced": len(sbmap),
+                "main": sum(1 for r in rows if r.fx["source"] == "main"), "extra": sum(1 for r in rows if r.fx["source"] == "extra"),
+                "world": sum(1 for r in rows if r.fx["source"] == "world"), "data_ok": sum(1 for r in rows if r.data_ok)}
+    ctx["coverage"] = coverage
 
     today_str = now.strftime("%Y-%m-%d")
     tracker = settle_tracker(tracker, results_s, now)
@@ -1923,44 +2066,44 @@ def main() -> None:
     report_md = render_report(ctx, rows, picks, summary, notes)
     (REPORTS_DIR / f"{today_str}.md").write_text(report_md, encoding="utf-8")
     (REPORTS_DIR / "latest.md").write_text(report_md, encoding="utf-8")
-    dossier_md = render_dossier(ctx, pr, parlay_ids, rows_by_key, headlines)
-    (REPORTS_DIR / f"{today_str}-parlays.md").write_text(dossier_md, encoding="utf-8")
     rows_to_csv(rows, REPORTS_DIR / f"{today_str}.csv")
     # ---- structured export for the Android app
     try:
-        ctx["parlay_band"] = CONFIG["PARLAY_ODDS"]
-        appdata.export(APP_FILE, ctx=ctx, rows=rows, picks=picks, pr=pr, parlay_ids=parlay_ids, ledger=ledger,
-                       tracker_summary=summary, notes=notes, headlines=headlines, ls_map=ls_map,
+        appdata.export(APP_FILE, ctx=ctx, rows=rows, picks=picks, tracker_summary=summary, notes=notes, ls_map=ls_map,
                        helpers={"render_details": render_details, "stars": stars, "comp": comp, "sb_price": sb_price,
                                 "selections": all_sels},
                        reports_dir=REPORTS_DIR, tz_label=TZL, thresholds=CONFIG["THRESHOLDS"],
                        backtest=CONFIG["BACKTEST"], repo=os.getenv("GITHUB_REPOSITORY", "perfectndumiso1-netizen/goals-scanner"),
-                       days_index=days_index, safe_summary=ctx["safe_summary"])
+                       days_index=days_index, safe_summary=ctx["safe_summary"], botd=ctx["botd"], alerts=alerts,
+                       coverage=coverage, safe_groups=safe_mod.SAFE_GROUPS,
+                       extra_badges=archive.badge_map() if archive is not None else None, report_run=report_run)
         log.info("App data: %s", APP_FILE)
     except Exception as exc:  # noqa: BLE001 - never lose the run because of the app export
-        log.warning("App data export failed: %s", exc)
-    update_readme(render_readme_block(ctx, rows, picks, summary, f"reports/{today_str}.md"))
+        log.exception("App data export failed: %s", exc)
+    if os.getenv("README_AUTO") == "1":
+        update_readme(render_readme_block(ctx, rows, picks, summary, f"reports/{today_str}.md"))
 
-    pdf_report = pdf_dossier = None
-    if CONFIG["PDF"] and pdfgen is not None:
+    pdf_report = None
+    if report_run and CONFIG["PDF"] and pdfgen is not None:
         stamp = f"{today_str}-{now:%H%M}"
         try:
-            pdf_report = pdfgen.markdown_to_pdf(report_md, PDF_DIR / f"goals-scanner-{stamp}.pdf", "Goals Scanner",
+            pdf_report = pdfgen.markdown_to_pdf(report_md, PDF_DIR / f"playreport-{stamp}.pdf", "PlayReport",
                                                 f"{run_desc(run_label, True).capitalize()} · full report")
-            pdf_dossier = pdfgen.markdown_to_pdf(dossier_md, PDF_DIR / f"parlays-{stamp}.pdf", "Parlay dossier",
-                                                 f"{run_desc(run_label, True).capitalize()} · parlay match data")
         except Exception as exc:  # noqa: BLE001 - never lose the run because of the PDF
             log.warning("PDF generation failed: %s", exc)
+    # keep only the newest PDFs in state
+    for old_pdf in sorted(PDF_DIR.glob("*.pdf"), key=lambda p: p.stat().st_mtime, reverse=True)[12:]:
+        old_pdf.unlink(missing_ok=True)
 
     repo = os.getenv("GITHUB_REPOSITORY")
     server = os.getenv("GITHUB_SERVER_URL", "https://github.com")
-    branch = os.getenv("GITHUB_REF_NAME", "main")
-    report_url = f"{server}/{repo}/blob/{branch}/reports/{today_str}.md" if repo else None
-    send_telegram(telegram_text(ctx, rows, picks, report_url))
-    if pdf_report:
-        send_telegram_document(pdf_report, f"📄 Full report — {now:%a %d %b}, {run_desc(run_label, True)} ({len(rows)} fixtures)")
-    if pdf_dossier and pr["parlays"]:
-        send_telegram_document(pdf_dossier, f"🎟️ Parlay dossier — {len(pr['parlays'])} parlay(s), full match data")
+    report_url = f"{server}/{repo}/blob/data/reports/{today_str}.md" if repo else None
+    if report_run:
+        send_telegram(telegram_text(ctx, rows, picks, report_url))
+        if pdf_report:
+            send_telegram_document(pdf_report, f"📄 PlayReport — {now:%a %d %b}, {run_desc(run_label, True)} ({len(rows)} fixtures)")
+    elif new_bets:
+        send_telegram(alert_text(new_bets, now))
     if digest_lines:
         send_telegram(digest_text(digest_lines))
 

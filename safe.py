@@ -34,7 +34,9 @@ GROUPS = {"result": "Match result", "dc": "Double chance", "goals": "Total goals
           "team": "Team goals", "corners": "Corners", "cards": "Cards"}
 
 SAFE_BET_COLS = ["match_date", "kickoff", "country", "div", "league", "home", "away", "sel", "label", "p", "p_model",
-                 "p_sb", "odds", "status", "score", "settled_on", "run", "report_date"]
+                 "p_sb", "odds", "status", "score", "settled_on", "run", "report_date", "botd"]
+# v4: safest bets specialise in goals, corners and cards (match-result / double-chance stay on the match page only)
+SAFE_GROUPS = ("goals", "btts", "team", "corners", "cards")
 ACCA_COLS = ["acca_id", "created", "run", "window_end", "n_legs", "legs", "odds", "p", "status", "settled_on", "note"]
 
 
@@ -252,7 +254,8 @@ class Bet:
         return group(self.sel)
 
 
-def safest(rows: list, now: datetime, window_end: datetime, min_odds: float = MIN_ODDS, min_p: float = MIN_P) -> dict:
+def safest(rows: list, now: datetime, window_end: datetime, min_odds: float = MIN_ODDS, min_p: float = MIN_P,
+           groups: tuple = SAFE_GROUPS, trebles: bool = False) -> dict:
     start = now + timedelta(minutes=10)
     bets: list[Bet] = []
     for r in rows:
@@ -261,7 +264,7 @@ def safest(rows: list, now: datetime, window_end: datetime, min_odds: float = MI
         fx = r.fx
         key = (fx["date"].strftime("%Y-%m-%d"), fx["country"], fx["home"], fx["away"])
         for s in selections(r):
-            if not s.priced or s.odds < min_odds or s.p < min_p or s.diff:
+            if not s.priced or s.odds < min_odds or s.p < min_p or s.diff or s.group not in groups:
                 continue
             bets.append(Bet(key, fx["div"], fx["league"], fx["home"], fx["away"], fx["kickoff"].strftime("%Y-%m-%d %H:%M"),
                             s.sel, s.p, s.p_model, s.p_sb, s.odds))
@@ -281,13 +284,14 @@ def safest(rows: list, now: datetime, window_end: datetime, min_odds: float = MI
     if len(pool) < TREBLES * LEGS:
         pool = pool_for(bets)
         extended = True
-    trebles = []
-    for i in range(TREBLES):
-        chunk = pool[i * LEGS:(i + 1) * LEGS]
-        if len(chunk) < LEGS:
-            break
-        trebles.append(sorted(chunk, key=lambda b: b.kickoff))
-    return {"bets": bets, "trebles": trebles, "extended": extended, "min_odds": min_odds, "min_p": min_p}
+    out_trebles = []
+    if trebles:
+        for i in range(TREBLES):
+            chunk = pool[i * LEGS:(i + 1) * LEGS]
+            if len(chunk) < LEGS:
+                break
+            out_trebles.append(sorted(chunk, key=lambda b: b.kickoff))
+    return {"bets": bets, "trebles": out_trebles, "extended": extended, "min_odds": min_odds, "min_p": min_p}
 
 
 def acca_odds(legs: list[Bet]) -> float:
@@ -315,22 +319,75 @@ def load_csv(path: Path, cols: list[str]) -> pd.DataFrame:
     return pd.DataFrame(columns=cols)
 
 
-def add_bets(df: pd.DataFrame, bets: list[Bet], now: datetime, run: str) -> pd.DataFrame:
+def add_bets(df: pd.DataFrame, bets: list[Bet], now: datetime, run: str) -> tuple[pd.DataFrame, list[Bet]]:
+    """Append bets not yet in the ledger; returns (ledger, newly added bets) so new finds can be announced."""
     existing = set(zip(df["match_date"], df["home"], df["away"], df["sel"]))
-    new = []
+    new, added = [], []
     for b in bets:
         k = (b.key[0], b.home, b.away, b.sel)
         if k in existing:
             continue
         existing.add(k)
+        added.append(b)
         new.append({"match_date": b.key[0], "kickoff": b.kickoff, "country": b.key[1], "div": b.div, "league": b.league,
                     "home": b.home, "away": b.away, "sel": b.sel, "label": b.label, "p": f"{b.p:.3f}",
                     "p_model": f"{b.p_model:.3f}", "p_sb": f"{b.p_sb:.3f}" if b.p_sb is not None else "",
                     "odds": f"{b.odds:.2f}", "status": "pending", "score": "", "settled_on": "", "run": run,
-                    "report_date": now.strftime("%Y-%m-%d")})
+                    "report_date": now.strftime("%Y-%m-%d"), "botd": ""})
     if new:
         df = pd.concat([df, pd.DataFrame(new, columns=SAFE_BET_COLS)], ignore_index=True)
+    return df, added
+
+
+def bet_id(match_date: str, home: str, away: str, sel: str) -> str:
+    return f"{match_date}|{home}|{away}|{sel}"
+
+
+def pick_bets_of_the_day(df: pd.DataFrame, now: datetime, n: int = 5) -> pd.DataFrame:
+    """Sticky 'bets of the day': the n most probable safe bets on today's matches. Picked from the first run that
+    sees them, kept for the day (graded like every other safe bet); topped up only when fewer than n exist."""
+    today = now.strftime("%Y-%m-%d")
+    if df.empty:
+        return df
+    df = df.copy()
+    if "botd" not in df.columns:
+        df["botd"] = ""
+    cur = df[(df["match_date"] == today) & (df["botd"] == "1")]
+    have = len(cur)
+    used = set(zip(cur["home"], cur["away"]))
+    if have >= n:
+        return df
+    cand = df[(df["match_date"] == today) & (df["botd"] != "1") & (df["status"] == "pending")].copy()
+    if cand.empty:
+        return df
+    cand["_p"] = pd.to_numeric(cand["p"], errors="coerce")
+    cand["_ko"] = pd.to_datetime(cand["kickoff"], errors="coerce")
+    cand = cand[cand["_ko"] > pd.Timestamp(now.replace(tzinfo=None)) + pd.Timedelta(minutes=10)]
+    cand = cand.sort_values(["_p", "odds"], ascending=[False, False])
+    for i, r in cand.iterrows():
+        if have >= n:
+            break
+        if (r["home"], r["away"]) in used:
+            continue
+        used.add((r["home"], r["away"]))
+        df.loc[i, "botd"] = "1"
+        have += 1
     return df
+
+
+def bets_of_the_day(df: pd.DataFrame, now: datetime) -> list[dict]:
+    today = now.strftime("%Y-%m-%d")
+    if df.empty or "botd" not in df.columns:
+        return []
+    rows = df[(df["match_date"] == today) & (df["botd"] == "1")]
+    out = []
+    for r in rows.itertuples():
+        out.append({"id": bet_id(r.match_date, r.home, r.away, r.sel), "kickoff": r.kickoff, "country": r.country,
+                    "league": r.league, "home": r.home, "away": r.away, "sel": r.sel, "group": group(r.sel),
+                    "label": r.label, "p": float(r.p) if r.p else None, "odds": float(r.odds) if r.odds else None,
+                    "status": r.status, "score": r.score or None})
+    out.sort(key=lambda b: b["kickoff"])
+    return out
 
 
 def legs_json(legs: list[Bet]) -> str:
@@ -461,4 +518,10 @@ def summary(bets: pd.DataFrame, accas: pd.DataFrame, today: datetime) -> dict:
             if len(sub):
                 by_group[g] = _stats(sub, "hit")
     out["bets"]["by_group"] = by_group
+    if not bets.empty and "botd" in bets.columns:
+        bd = bets[bets["botd"] == "1"]
+        out["botd"] = {"all": _stats(bd, "hit"), "30d": _stats(bd[bd["match_date"] >= cut], "hit"),
+                       "pending": int((bd["status"] == "pending").sum())}
+    else:
+        out["botd"] = {"all": _stats(bets.iloc[0:0], "hit"), "30d": _stats(bets.iloc[0:0], "hit"), "pending": 0}
     return out

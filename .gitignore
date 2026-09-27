@@ -13,3 +13,4 @@ android/local.properties
 android/.idea/
 *.jks
 *.p12
+state/

@@ -10,7 +10,10 @@ from pathlib import Path
 
 import pandas as pd
 
-CALENDAR_YEAR = {"USA", "Brazil", "Argentina", "Japan", "China", "Norway", "Sweden", "Finland", "Ireland"}
+CALENDAR_YEAR = {"USA", "Brazil", "Argentina", "Japan", "China", "Norway", "Sweden", "Finland", "Ireland", "Canada",
+                 "Chile", "Colombia", "Uruguay", "Paraguay", "Peru", "Ecuador", "Bolivia", "Venezuela", "Iceland",
+                 "Estonia", "Latvia", "Lithuania", "Belarus", "Kazakhstan", "South Korea", "Korea Republic", "Vietnam",
+                 "Faroe Islands", "Georgia", "Armenia", "Uzbekistan", "Singapore", "Philippines", "Thailand"}
 
 
 def slug(div: str) -> str:

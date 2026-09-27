@@ -3,55 +3,48 @@ package com.playreport.app
 import android.content.Context
 import androidx.work.Worker
 import androidx.work.WorkerParameters
+import org.json.JSONArray
 import org.json.JSONObject
-import java.time.LocalDateTime
-import java.time.ZoneId
-import java.time.ZonedDateTime
-import java.time.format.DateTimeFormatter
 
 /**
- * Runs every ~15 minutes in the background (WorkManager):
- *  1. new analysis published  -> notification
- *  2. goals in tracked matches (safest bets, trebles, parlay legs, shortlisted picks) -> notification with the scorer
- *  3. newer app version       -> notification (every 6 h at most)
+ * Runs every ~15 minutes in the background (WorkManager). Reads the tiny meta.json heartbeat first, so the
+ * half-hourly refreshes cost almost no data:
+ *  1. a full analysis (07:00 / 12:00 / 17:00 run) was published -> notification
+ *  2. new safest bets found by any run                          -> notification per bet (max 4, then a summary)
+ *  3. goals in tracked matches (safest bets, bets of the day, shortlist) -> notification with the scorer
+ *  4. newer app version                                          -> notification (every 6 h at most)
  */
 class CheckWorker(ctx: Context, params: WorkerParameters) : Worker(ctx, params) {
-
-    private val zone: ZoneId = ZoneId.of("Africa/Johannesburg")
-    private val fmt: DateTimeFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm")
 
     override fun doWork(): Result {
         val ctx = applicationContext
         val prefs = ctx.getSharedPreferences(Notifier.PREFS, Context.MODE_PRIVATE)
-        val r = Net.get(Net.LATEST_JSON + "?t=" + System.currentTimeMillis())
+        val r = Net.get(Net.META_JSON + "?t=" + System.currentTimeMillis())
         if (r.code != 200) return Result.success()
-        val data = try { JSONObject(r.body) } catch (e: Exception) { return Result.success() }
+        val meta = try { JSONObject(r.body) } catch (e: Exception) { return Result.success() }
 
-        // 1. new analysis
-        val meta = data.optJSONObject("meta") ?: JSONObject()
+        // 1. full analysis published
         val generated = meta.optString("generated")
+        val reportRun = meta.optBoolean("report_run", false)
         val lastGen = prefs.getString("last_generated", null)
-        if (generated.isNotEmpty() && generated != lastGen) {
+        if (generated.isNotEmpty() && generated != lastGen && reportRun) {
             prefs.edit().putString("last_generated", generated).apply()
-            if (lastGen != null) {
-                val parlays = data.optJSONArray("parlays")?.length() ?: 0
-                val picks = data.optJSONObject("picks")
-                val n15 = picks?.optJSONArray("O15")?.length() ?: 0
-                val n25 = picks?.optJSONArray("O25")?.length() ?: 0
-                val nb = picks?.optJSONArray("BTTS")?.length() ?: 0
-                val safe = data.optJSONObject("safe")
-                val nSafe = safe?.optJSONArray("bets")?.length() ?: 0
-                val nTrebles = safe?.optJSONArray("trebles")?.length() ?: 0
-                val run = meta.optString("run").let { if (it.startsWith("manual")) "update" else "$it run" }
+            if (lastGen != null && prefs.getBoolean("pref_reports", true)) {
+                val run = meta.optString("run").let { if (it.startsWith("manual") || it.startsWith("auto")) "update" else "$it run" }
                 Notifier.notify(ctx, Notifier.CH_REPORTS, 1001, "New PlayReport analysis ($run)",
-                    "$nTrebles safest trebles · $nSafe safest bets · $parlays parlays · shortlist O1.5 $n15 / O2.5 $n25 / BTTS $nb · ${meta.optInt("fixtures")} fixtures", "home")
+                    "${meta.optInt("safe_bets")} safest bets · ${meta.optJSONArray("botd")?.length() ?: 0} bets of the day · ${meta.optInt("fixtures")} fixtures worldwide", "home")
             }
+        } else if (lastGen == null && generated.isNotEmpty()) {
+            prefs.edit().putString("last_generated", generated).apply()
         }
 
-        // 2. goals in tracked matches
-        try { checkGoals(ctx, data) } catch (_: Exception) { }
+        // 2. new safest bets
+        try { checkAlerts(ctx, meta) } catch (_: Exception) { }
 
-        // 3. app update (at most every 6 hours)
+        // 3. goals in tracked matches
+        try { checkGoals(ctx, meta) } catch (_: Exception) { }
+
+        // 4. app update (at most every 6 hours)
         val lastUpd = prefs.getLong("last_update_check", 0L)
         if (System.currentTimeMillis() - lastUpd > 6 * 3600 * 1000L) {
             prefs.edit().putLong("last_update_check", System.currentTimeMillis()).apply()
@@ -66,47 +59,69 @@ class CheckWorker(ctx: Context, params: WorkerParameters) : Worker(ctx, params) 
         return Result.success()
     }
 
-    private fun checkGoals(ctx: Context, data: JSONObject) {
-        val tracked = HashSet<String>()
-        data.optJSONArray("tracked")?.let { for (i in 0 until it.length()) tracked.add(it.getString(i)) }
-        if (tracked.isEmpty()) return
-        val now = ZonedDateTime.now(zone).toLocalDateTime()
-        // fixtures worth checking: tracked, with a live id, kicked off in the last 3 h (or starting within 10 min)
-        val watch = HashMap<String, JSONObject>()   // livescore id -> fixture
-        val fixtures = data.optJSONArray("fixtures") ?: return
-        for (i in 0 until fixtures.length()) {
-            val f = fixtures.getJSONObject(i)
-            if (!tracked.contains(f.optString("id"))) continue
-            val eid = f.optString("livescore_id")
-            if (eid.isEmpty() || eid == "null") continue
-            val ko = try { LocalDateTime.parse(f.optString("kickoff"), fmt) } catch (e: Exception) { continue }
-            if (ko.isAfter(now.plusMinutes(10)) || ko.isBefore(now.minusHours(3))) continue
-            watch[eid] = f
+    private fun checkAlerts(ctx: Context, meta: JSONObject) {
+        val prefs = ctx.getSharedPreferences(Notifier.PREFS, Context.MODE_PRIVATE)
+        val ids = meta.optJSONArray("alerts") ?: return
+        val seen = (prefs.getString("alerts_seen", "") ?: "").split("\n").filter { it.isNotEmpty() }.toMutableSet()
+        val fresh = ArrayList<String>()
+        for (i in 0 until ids.length()) { val id = ids.getString(i); if (!seen.contains(id)) fresh.add(id) }
+        if (fresh.isEmpty()) return
+        val firstSync = seen.isEmpty()
+        seen.addAll(fresh)
+        prefs.edit().putString("alerts_seen", seen.toList().takeLast(300).joinToString("\n")).apply()
+        if (firstSync || !prefs.getBoolean("pref_bets", true)) return   // first run: just remember what exists
+        val r = Net.get(Net.ALERTS_JSON + "?t=" + System.currentTimeMillis())
+        if (r.code != 200) return
+        val all = try { JSONArray(r.body) } catch (e: Exception) { return }
+        val byId = HashMap<String, JSONObject>()
+        for (i in 0 until all.length()) { val a = all.getJSONObject(i); byId[a.optString("id")] = a }
+        val items = fresh.mapNotNull { byId[it] }
+        if (items.isEmpty()) return
+        if (items.size <= 4) {
+            for (a in items) Notifier.notify(ctx, Notifier.CH_BETS, 2000 + (a.optString("id").hashCode() and 0xffff),
+                a.optString("title", "New safest bet"), a.optString("text"), "bets")
+        } else {
+            val body = items.take(6).joinToString("\n") { "• " + it.optString("text") } + if (items.size > 6) "\n…and ${items.size - 6} more" else ""
+            Notifier.notify(ctx, Notifier.CH_BETS, 2001, "${items.size} new safest bets found", body, "bets")
         }
-        if (watch.isEmpty()) return
-        val days = watch.values.map { it.optString("kickoff").substring(0, 10).replace("-", "") }.toSet()
+    }
+
+    private fun checkGoals(ctx: Context, meta: JSONObject) {
+        val prefs = ctx.getSharedPreferences(Notifier.PREFS, Context.MODE_PRIVATE)
+        if (!prefs.getBoolean("pref_goals", true)) return
+        val want = HashSet<String>()
+        meta.optJSONArray("tracked_eids")?.let { for (i in 0 until it.length()) want.add(it.getString(i)) }
+        if (want.isEmpty()) return
+        val zone = java.time.ZoneId.of("Africa/Johannesburg")
+        val today = java.time.LocalDate.now(zone)
+        val days = listOf(today, today.minusDays(1))
         for (day in days) {
-            val r = Net.get("https://prod-public-api.livescore.com/v1/api/app/date/soccer/$day/2?MD=1")
+            val ymd = day.toString().replace("-", "")
+            val r = Net.get("https://prod-public-api.livescore.com/v1/api/app/date/soccer/$ymd/2?MD=1")
             if (r.code != 200) continue
             val stages = JSONObject(r.body).optJSONArray("Stages") ?: continue
             for (s in 0 until stages.length()) {
-                val events = stages.getJSONObject(s).optJSONArray("Events") ?: continue
+                val st = stages.getJSONObject(s)
+                val events = st.optJSONArray("Events") ?: continue
                 for (e in 0 until events.length()) {
                     val ev = events.getJSONObject(e)
                     val eid = ev.optString("Eid")
-                    val f = watch[eid] ?: continue
+                    if (!want.contains(eid)) continue
+                    val status = ev.optString("Eps")
+                    if (status == "NS") continue
                     val hg = ev.optString("Tr1").toIntOrNull() ?: continue
                     val ag = ev.optString("Tr2").toIntOrNull() ?: continue
-                    val status = ev.optString("Eps")
                     val score = "$hg-$ag"
-                    val prev = ctx.getSharedPreferences(Notifier.PREFS, Context.MODE_PRIVATE).getString("score_$eid", null)
+                    val prev = prefs.getString("score_$eid", null)
                     if (Notifier.goalSeen(ctx, eid, score)) continue          // unchanged
                     if (prev == null || hg + ag == 0) continue                 // first sighting: just remember it
-                    val home = f.optString("home_long", f.optString("home"))
-                    val away = f.optString("away_long", f.optString("away"))
+                    if (status == "FT" || status == "AET" || status == "AP") continue   // final scores are not goal alerts
+                    val home = ev.optJSONArray("T1")?.optJSONObject(0)?.optString("Nm") ?: "Home"
+                    val away = ev.optJSONArray("T2")?.optJSONObject(0)?.optString("Nm") ?: "Away"
+                    val comp = listOf(st.optString("Cnm"), st.optString("Snm")).filter { it.isNotEmpty() }.joinToString(" · ")
                     val scorer = latestScorer(eid)
                     val title = "⚽ GOAL  $home $hg – $ag $away"
-                    val body = (if (scorer.isNotEmpty()) "$scorer · " else "") + "$status · ${f.optString("competition")}"
+                    val body = (if (scorer.isNotEmpty()) "$scorer · " else "") + "$status · $comp"
                     Notifier.notify(ctx, Notifier.CH_GOALS, eid.hashCode(), title, body, "live")
                 }
             }
@@ -136,8 +151,6 @@ class CheckWorker(ctx: Context, params: WorkerParameters) : Worker(ctx, params) 
             val name = b.optString("Pn").ifEmpty { listOf(b.optString("Fn"), b.optString("Ln")).filter { it.isNotEmpty() }.joinToString(" ") }
             val kind = when (b.optInt("IT")) { 37 -> " (own goal)"; 39 -> " (penalty)"; else -> "" }
             "$name ${b.optInt("Min")}'$kind".trim()
-        } catch (e: Exception) {
-            ""
-        }
+        } catch (e: Exception) { "" }
     }
 }

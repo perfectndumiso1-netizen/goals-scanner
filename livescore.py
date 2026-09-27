@@ -64,14 +64,15 @@ def _int(x):
 
 
 def match_fixtures(fixtures: pd.DataFrame, now: datetime, tz_offset_hours: int = 2,
-                   min_sim: float = 0.72, tol_min: int = 20) -> dict:
+                   min_sim: float = 0.72, tol_min: int = 20, events: list[dict] | None = None) -> dict:
     """{fixture index: livescore event dict} for fixtures in the scan window (today + tomorrow)."""
     if fixtures is None or fixtures.empty:
         return {}
-    days = sorted({d.date() for d in fixtures["kickoff"]})
-    events = []
-    for day in days[:3]:
-        events += fetch_day(datetime(day.year, day.month, day.day), tz_offset_hours)
+    if events is None:
+        days = sorted({d.date() for d in fixtures["kickoff"]})
+        events = []
+        for day in days[:3]:
+            events += fetch_day(datetime(day.year, day.month, day.day), tz_offset_hours)
     if not events:
         return {}
     out = {}

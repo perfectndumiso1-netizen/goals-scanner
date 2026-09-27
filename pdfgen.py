@@ -270,11 +270,11 @@ def _split_row(line: str) -> list[str]:
 def markdown_to_pdf(md: str, path: Path, title: str = "", subtitle: str = "") -> Path:
     st = _styles()
     doc = SimpleDocTemplate(str(path), pagesize=PAGE, leftMargin=MARGIN_LR, rightMargin=MARGIN_LR,
-                            topMargin=MARGIN_TB, bottomMargin=MARGIN_TB + 4 * mm, title=title or "Goals Scanner",
-                            author="Goals Scanner")
+                            topMargin=MARGIN_TB, bottomMargin=MARGIN_TB + 4 * mm, title=title or "PlayReport",
+                            author="PlayReport")
     width = PAGE[0] - 2 * MARGIN_LR
     foot_font = _fonts()["regular"]
-    foot_left = clean(title or "Goals Scanner")
+    foot_left = clean(title or "PlayReport")
 
     def _footer(canvas, doc_):
         canvas.saveState()
