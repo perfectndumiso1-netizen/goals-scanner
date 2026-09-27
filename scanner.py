@@ -145,7 +145,8 @@ CONFIG = {
     "WORLD": os.getenv("WORLD", "1") != "0",           # every competition on Livescore (priced by Sportybet) — v4
     "FULL_MARKETS_MAX": int(_env_float("FULL_MARKETS_MAX", 160)),   # per-event Sportybet market fetches (corners / cards)
     "BOTD_N": int(_env_float("BOTD_N", 5)),            # bets of the day
-    "REPORT_MAX_ROWS": int(_env_float("REPORT_MAX_ROWS", 120)),
+    "REPORT_MAX_ROWS": int(_env_float("REPORT_MAX_ROWS", 60)),
+    "DETAIL_MAX": int(os.getenv("DETAIL_MAX", "12")),        # match dossiers in the report / PDF
     "H2H_SEASONS": int(_env_float("H2H_SEASONS", 5)),  # seasons of main-league history kept for head-to-head
     "REQUEST_TIMEOUT": 30,
     "USER_AGENT": "Mozilla/5.0 (compatible; GoalsScanner/1.0)",
@@ -1497,16 +1498,28 @@ def render_report(ctx: dict, rows: list[MatchRow], picks: dict, summary: dict, n
     L.append("")
 
     L += render_value_check(picks, bool(ctx.get("sb_ok")))
-    focus_keys = {id(r) for m in picks.values() for r in m}
-    for b in (ctx.get("safe") or {}).get("bets") or []:
-        focus_keys.add(b.key)
-    focus = [r for r in rows if id(r) in focus_keys or
-             (r.fx["date"].strftime("%Y-%m-%d"), r.fx["country"], r.fx["home"], r.fx["away"]) in focus_keys]
+    # match dossiers: bets of the day first, then the safest bets, then the ⭐⭐⭐ / ⭐⭐ shortlist picks — capped so
+    # the PDF stays readable (everything else is one tap away in the app)
+    key_of = lambda r: (r.fx["date"].strftime("%Y-%m-%d"), r.fx["country"], r.fx["home"], r.fx["away"])  # noqa: E731
+    priority: dict[tuple, int] = {}
+    for b in ctx.get("botd") or []:
+        priority.setdefault((str(b.get("kickoff", ""))[:10], b.get("country"), b.get("home"), b.get("away")), 0)
+    for i, b in enumerate((ctx.get("safe") or {}).get("bets") or []):
+        priority.setdefault(b.key, 100 + i)
+    for mkt, m in picks.items():
+        for i, r in enumerate(m):
+            n_stars = len(stars(r.p_final[mkt], mkt))
+            priority.setdefault(key_of(r), 1000 + i - 100 * n_stars)
+    focus_all = [r for r in rows if key_of(r) in priority]
+    focus = sorted(focus_all, key=lambda r: priority[key_of(r)])[:CONFIG.get("DETAIL_MAX", 20)]
     L += render_other_markets([r for r in focus if r.fx["source"] == "main"] or focus[:cap])
 
     if focus:
-        L.append("## 🔍 Match details — shortlisted and safest-bet matches (click to expand)")
+        L.append(f"## 🔍 Match details — {len(focus)} key matches (bets of the day, safest bets, top shortlist picks)")
         L.append("")
+        if len(focus_all) > len(focus):
+            L.append(f"_{len(focus_all) - len(focus)} more shortlisted matches have their full analysis in the PlayReport app._")
+            L.append("")
         for r in sorted(focus, key=lambda r: (r.fx["kickoff"], comp(r))):
             L += render_details(r)
 
