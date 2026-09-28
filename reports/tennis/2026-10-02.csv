@@ -1,0 +1,735 @@
+start_utc,tour,category,tournament,surface,best_of,player_a,player_b,market,selection,line,model_probability,fair_odds,bookmaker_odds,implied_fair,edge_pp,ev,low_confidence,data_quality,match_id
+2026-10-02 19:50,atp,ATP Challenger,"Curitiba, Brazil",Clay,3,Gustavo Heide,Lautaro Midon,winner,player_a,,0.629,1.59,,,,,0,94,1901803
+2026-10-02 19:50,atp,ATP Challenger,"Curitiba, Brazil",Clay,3,Gustavo Heide,Lautaro Midon,winner,player_b,,0.371,2.7,,,,,0,94,1901803
+2026-10-02 19:50,atp,ATP Challenger,"Curitiba, Brazil",Clay,3,Gustavo Heide,Lautaro Midon,total_games,over,22.5,0.4414,2.27,,,,,0,94,1901803
+2026-10-02 19:50,atp,ATP Challenger,"Curitiba, Brazil",Clay,3,Gustavo Heide,Lautaro Midon,total_games,under,22.5,0.5586,1.79,,,,,0,94,1901803
+2026-10-02 19:50,atp,ATP Challenger,"Curitiba, Brazil",Clay,3,Gustavo Heide,Lautaro Midon,p1_games,over,12.5,0.4663,2.14,,,,,0,94,1901803
+2026-10-02 19:50,atp,ATP Challenger,"Curitiba, Brazil",Clay,3,Gustavo Heide,Lautaro Midon,p1_games,under,12.5,0.5337,1.87,,,,,0,94,1901803
+2026-10-02 19:50,atp,ATP Challenger,"Curitiba, Brazil",Clay,3,Gustavo Heide,Lautaro Midon,p2_games,over,12.5,0.3783,2.64,,,,,0,94,1901803
+2026-10-02 19:50,atp,ATP Challenger,"Curitiba, Brazil",Clay,3,Gustavo Heide,Lautaro Midon,p2_games,under,12.5,0.6217,1.61,,,,,0,94,1901803
+2026-10-02 19:50,atp,ATP Challenger,"Curitiba, Brazil",Clay,3,Gustavo Heide,Lautaro Midon,game_handicap,player_a,-2.5,0.5385,1.86,,,,,0,94,1901803
+2026-10-02 19:50,atp,ATP Challenger,"Curitiba, Brazil",Clay,3,Gustavo Heide,Lautaro Midon,game_handicap,player_b,2.5,0.4615,2.17,,,,,0,94,1901803
+2026-10-03 03:00,atp,ATP 500,China Open,Hard,3,Alex de Minaur,Quentin Halys,winner,player_a,,0.7662,1.31,1.34,0.7173,4.9,0.0267,0,100,1901974
+2026-10-03 03:00,atp,ATP 500,China Open,Hard,3,Alex de Minaur,Quentin Halys,winner,player_b,,0.2338,4.28,3.4,0.2827,-4.9,-0.2051,0,100,1901974
+2026-10-03 03:00,atp,ATP 500,China Open,Hard,3,Alex de Minaur,Quentin Halys,total_games,over,19.5,0.6412,1.56,1.38,0.6885,-4.7,-0.1152,0,100,1901974
+2026-10-03 03:00,atp,ATP 500,China Open,Hard,3,Alex de Minaur,Quentin Halys,total_games,under,19.5,0.3588,2.79,3.05,0.3115,4.7,0.0944,0,100,1901974
+2026-10-03 03:00,atp,ATP 500,China Open,Hard,3,Alex de Minaur,Quentin Halys,total_games,over,20.5,0.559,1.79,1.58,0.602,-4.3,-0.1168,0,100,1901974
+2026-10-03 03:00,atp,ATP 500,China Open,Hard,3,Alex de Minaur,Quentin Halys,total_games,under,20.5,0.441,2.27,2.39,0.398,4.3,0.054,0,100,1901974
+2026-10-03 03:00,atp,ATP 500,China Open,Hard,3,Alex de Minaur,Quentin Halys,total_games,over,21.5,0.5042,1.98,1.73,0.5506,-4.6,-0.1277,0,100,1901974
+2026-10-03 03:00,atp,ATP 500,China Open,Hard,3,Alex de Minaur,Quentin Halys,total_games,under,21.5,0.4958,2.02,2.12,0.4494,4.6,0.0511,0,100,1901974
+2026-10-03 03:00,atp,ATP 500,China Open,Hard,3,Alex de Minaur,Quentin Halys,total_games,over,22.5,0.4268,2.34,2.03,0.47,-4.3,-0.1336,0,100,1901974
+2026-10-03 03:00,atp,ATP 500,China Open,Hard,3,Alex de Minaur,Quentin Halys,total_games,under,22.5,0.5732,1.74,1.8,0.53,4.3,0.0318,0,100,1901974
+2026-10-03 03:00,atp,ATP 500,China Open,Hard,3,Alex de Minaur,Quentin Halys,total_games,over,23.5,0.3713,2.69,2.3,0.4148,-4.3,-0.1459,0,100,1901974
+2026-10-03 03:00,atp,ATP 500,China Open,Hard,3,Alex de Minaur,Quentin Halys,total_games,under,23.5,0.6287,1.59,1.63,0.5852,4.3,0.0247,0,100,1901974
+2026-10-03 03:00,atp,ATP 500,China Open,Hard,3,Alex de Minaur,Quentin Halys,total_games,over,24.5,0.3613,2.77,2.37,0.4015,-4.0,-0.1438,0,100,1901974
+2026-10-03 03:00,atp,ATP 500,China Open,Hard,3,Alex de Minaur,Quentin Halys,total_games,under,24.5,0.6387,1.57,1.59,0.5985,4.0,0.0156,0,100,1901974
+2026-10-03 03:00,atp,ATP 500,China Open,Hard,3,Alex de Minaur,Quentin Halys,total_games,over,25.5,0.3317,3.01,2.6,0.3674,-3.6,-0.1376,0,100,1901974
+2026-10-03 03:00,atp,ATP 500,China Open,Hard,3,Alex de Minaur,Quentin Halys,total_games,under,25.5,0.6683,1.5,1.51,0.6326,3.6,0.0091,0,100,1901974
+2026-10-03 03:00,atp,ATP 500,China Open,Hard,3,Alex de Minaur,Quentin Halys,p1_games,over,11.5,0.8775,1.14,1.14,0.8202,5.7,0.0003,0,100,1901974
+2026-10-03 03:00,atp,ATP 500,China Open,Hard,3,Alex de Minaur,Quentin Halys,p1_games,under,11.5,0.1225,8.16,5.2,0.1798,-5.7,-0.3628,0,100,1901974
+2026-10-03 03:00,atp,ATP 500,China Open,Hard,3,Alex de Minaur,Quentin Halys,p1_games,over,12.5,0.5182,1.93,1.65,0.5669,-4.9,-0.145,0,100,1901974
+2026-10-03 03:00,atp,ATP 500,China Open,Hard,3,Alex de Minaur,Quentin Halys,p1_games,under,12.5,0.4818,2.08,2.16,0.4331,4.9,0.0407,0,100,1901974
+2026-10-03 03:00,atp,ATP 500,China Open,Hard,3,Alex de Minaur,Quentin Halys,p1_games,over,13.5,0.3159,3.17,2.55,0.3672,-5.1,-0.1945,0,100,1901974
+2026-10-03 03:00,atp,ATP 500,China Open,Hard,3,Alex de Minaur,Quentin Halys,p1_games,under,13.5,0.6841,1.46,1.48,0.6328,5.1,0.0125,0,100,1901974
+2026-10-03 03:00,atp,ATP 500,China Open,Hard,3,Alex de Minaur,Quentin Halys,p2_games,over,10.5,0.4569,2.19,1.74,0.5372,-8.0,-0.2051,0,100,1901974
+2026-10-03 03:00,atp,ATP 500,China Open,Hard,3,Alex de Minaur,Quentin Halys,p2_games,under,10.5,0.5431,1.84,2.02,0.4628,8.0,0.0971,0,100,1901974
+2026-10-03 03:00,atp,ATP 500,China Open,Hard,3,Alex de Minaur,Quentin Halys,p2_games,over,11.5,0.4214,2.37,1.86,0.5027,-8.1,-0.2163,0,100,1901974
+2026-10-03 03:00,atp,ATP 500,China Open,Hard,3,Alex de Minaur,Quentin Halys,p2_games,under,11.5,0.5786,1.73,1.88,0.4973,8.1,0.0878,0,100,1901974
+2026-10-03 03:00,atp,ATP 500,China Open,Hard,3,Alex de Minaur,Quentin Halys,p2_games,over,12.5,0.3285,3.04,2.34,0.4,-7.1,-0.2312,0,100,1901974
+2026-10-03 03:00,atp,ATP 500,China Open,Hard,3,Alex de Minaur,Quentin Halys,p2_games,under,12.5,0.6715,1.49,1.56,0.6,7.1,0.0475,0,100,1901974
+2026-10-03 03:00,atp,ATP 500,China Open,Hard,3,Alex de Minaur,Quentin Halys,game_handicap,player_a,-3.5,0.5752,1.74,,,,,0,100,1901974
+2026-10-03 03:00,atp,ATP 500,China Open,Hard,3,Alex de Minaur,Quentin Halys,game_handicap,player_b,3.5,0.4248,2.35,,,,,0,100,1901974
+2026-10-03 05:00,atp,ATP 500,China Open,Hard,3,Andrey Rublev,Roman Safiullin,winner,player_a,,0.6547,1.53,1.7,0.5663,8.8,0.113,0,100,1902132
+2026-10-03 05:00,atp,ATP 500,China Open,Hard,3,Andrey Rublev,Roman Safiullin,winner,player_b,,0.3453,2.9,2.22,0.4337,-8.8,-0.2335,0,100,1902132
+2026-10-03 05:00,atp,ATP 500,China Open,Hard,3,Andrey Rublev,Roman Safiullin,total_games,over,20.5,0.6144,1.63,1.36,0.6984,-8.4,-0.1644,0,100,1902132
+2026-10-03 05:00,atp,ATP 500,China Open,Hard,3,Andrey Rublev,Roman Safiullin,total_games,under,20.5,0.3856,2.59,3.15,0.3016,8.4,0.2145,0,100,1902132
+2026-10-03 05:00,atp,ATP 500,China Open,Hard,3,Andrey Rublev,Roman Safiullin,total_games,over,21.5,0.5604,1.78,1.47,0.6475,-8.7,-0.1762,0,100,1902132
+2026-10-03 05:00,atp,ATP 500,China Open,Hard,3,Andrey Rublev,Roman Safiullin,total_games,under,21.5,0.4396,2.27,2.7,0.3525,8.7,0.1868,0,100,1902132
+2026-10-03 05:00,atp,ATP 500,China Open,Hard,3,Andrey Rublev,Roman Safiullin,total_games,over,22.5,0.4804,2.08,1.7,0.5596,-7.9,-0.1833,0,100,1902132
+2026-10-03 05:00,atp,ATP 500,China Open,Hard,3,Andrey Rublev,Roman Safiullin,total_games,under,22.5,0.5196,1.92,2.16,0.4404,7.9,0.1223,0,100,1902132
+2026-10-03 05:00,atp,ATP 500,China Open,Hard,3,Andrey Rublev,Roman Safiullin,total_games,over,23.5,0.4215,2.37,1.97,0.4843,-6.3,-0.1697,0,100,1902132
+2026-10-03 05:00,atp,ATP 500,China Open,Hard,3,Andrey Rublev,Roman Safiullin,total_games,under,23.5,0.5785,1.73,1.85,0.5157,6.3,0.0703,0,100,1902132
+2026-10-03 05:00,atp,ATP 500,China Open,Hard,3,Andrey Rublev,Roman Safiullin,total_games,over,24.5,0.4106,2.44,2.0,0.4764,-6.6,-0.1788,0,100,1902132
+2026-10-03 05:00,atp,ATP 500,China Open,Hard,3,Andrey Rublev,Roman Safiullin,total_games,under,24.5,0.5894,1.7,1.82,0.5236,6.6,0.0727,0,100,1902132
+2026-10-03 05:00,atp,ATP 500,China Open,Hard,3,Andrey Rublev,Roman Safiullin,total_games,over,25.5,0.3783,2.64,2.16,0.4419,-6.4,-0.1829,0,100,1902132
+2026-10-03 05:00,atp,ATP 500,China Open,Hard,3,Andrey Rublev,Roman Safiullin,total_games,under,25.5,0.6217,1.61,1.71,0.5581,6.4,0.0631,0,100,1902132
+2026-10-03 05:00,atp,ATP 500,China Open,Hard,3,Andrey Rublev,Roman Safiullin,total_games,over,26.5,0.3355,2.98,2.44,0.39,-5.5,-0.1814,0,100,1902132
+2026-10-03 05:00,atp,ATP 500,China Open,Hard,3,Andrey Rublev,Roman Safiullin,total_games,under,26.5,0.6645,1.5,1.56,0.61,5.5,0.0367,0,100,1902132
+2026-10-03 05:00,atp,ATP 500,China Open,Hard,3,Andrey Rublev,Roman Safiullin,p1_games,over,11.5,0.8024,1.25,1.27,0.7392,6.3,0.0191,0,100,1902132
+2026-10-03 05:00,atp,ATP 500,China Open,Hard,3,Andrey Rublev,Roman Safiullin,p1_games,under,11.5,0.1976,5.06,3.6,0.2608,-6.3,-0.2888,0,100,1902132
+2026-10-03 05:00,atp,ATP 500,China Open,Hard,3,Andrey Rublev,Roman Safiullin,p1_games,over,12.5,0.5259,1.9,1.65,0.5658,-4.0,-0.1322,0,100,1902132
+2026-10-03 05:00,atp,ATP 500,China Open,Hard,3,Andrey Rublev,Roman Safiullin,p1_games,under,12.5,0.4741,2.11,2.15,0.4342,4.0,0.0192,0,100,1902132
+2026-10-03 05:00,atp,ATP 500,China Open,Hard,3,Andrey Rublev,Roman Safiullin,p1_games,over,13.5,0.3409,2.93,2.37,0.3954,-5.5,-0.1922,0,100,1902132
+2026-10-03 05:00,atp,ATP 500,China Open,Hard,3,Andrey Rublev,Roman Safiullin,p1_games,under,13.5,0.6591,1.52,1.55,0.6046,5.5,0.0217,0,100,1902132
+2026-10-03 05:00,atp,ATP 500,China Open,Hard,3,Andrey Rublev,Roman Safiullin,p2_games,over,11.5,0.5418,1.85,1.45,0.6463,-10.5,-0.2144,0,100,1902132
+2026-10-03 05:00,atp,ATP 500,China Open,Hard,3,Andrey Rublev,Roman Safiullin,p2_games,under,11.5,0.4582,2.18,2.65,0.3537,10.5,0.2143,0,100,1902132
+2026-10-03 05:00,atp,ATP 500,China Open,Hard,3,Andrey Rublev,Roman Safiullin,p2_games,over,12.5,0.4114,2.43,1.83,0.5107,-9.9,-0.2472,0,100,1902132
+2026-10-03 05:00,atp,ATP 500,China Open,Hard,3,Andrey Rublev,Roman Safiullin,p2_games,under,12.5,0.5886,1.7,1.91,0.4893,9.9,0.1243,0,100,1902132
+2026-10-03 05:00,atp,ATP 500,China Open,Hard,3,Andrey Rublev,Roman Safiullin,p2_games,over,13.5,0.2901,3.45,2.55,0.3672,-7.7,-0.2602,0,100,1902132
+2026-10-03 05:00,atp,ATP 500,China Open,Hard,3,Andrey Rublev,Roman Safiullin,p2_games,under,13.5,0.7099,1.41,1.48,0.6328,7.7,0.0506,0,100,1902132
+2026-10-03 05:00,atp,ATP 500,China Open,Hard,3,Andrey Rublev,Roman Safiullin,game_handicap,player_a,-2.5,0.5457,1.83,,,,,0,100,1902132
+2026-10-03 05:00,atp,ATP 500,China Open,Hard,3,Andrey Rublev,Roman Safiullin,game_handicap,player_b,2.5,0.4543,2.2,,,,,0,100,1902132
+2026-10-03 09:00,atp,ATP 500,China Open,Hard,3,Daniil Medvedev,Jan-Lennard Struff,winner,player_a,,0.8288,1.21,1.16,0.8284,0.0,-0.0386,0,100,1902322
+2026-10-03 09:00,atp,ATP 500,China Open,Hard,3,Daniil Medvedev,Jan-Lennard Struff,winner,player_b,,0.1712,5.84,5.6,0.1716,-0.0,-0.0411,0,100,1902322
+2026-10-03 09:00,atp,ATP 500,China Open,Hard,3,Daniil Medvedev,Jan-Lennard Struff,total_games,over,20.5,0.4814,2.08,1.76,0.5319,-5.1,-0.1527,0,100,1902322
+2026-10-03 09:00,atp,ATP 500,China Open,Hard,3,Daniil Medvedev,Jan-Lennard Struff,total_games,under,20.5,0.5186,1.93,2.0,0.4681,5.1,0.0372,0,100,1902322
+2026-10-03 09:00,atp,ATP 500,China Open,Hard,3,Daniil Medvedev,Jan-Lennard Struff,total_games,over,21.5,0.4284,2.33,1.96,0.4773,-4.9,-0.1603,0,100,1902322
+2026-10-03 09:00,atp,ATP 500,China Open,Hard,3,Daniil Medvedev,Jan-Lennard Struff,total_games,under,21.5,0.5716,1.75,1.79,0.5227,4.9,0.0231,0,100,1902322
+2026-10-03 09:00,atp,ATP 500,China Open,Hard,3,Daniil Medvedev,Jan-Lennard Struff,total_games,over,22.5,0.3618,2.76,2.31,0.4046,-4.3,-0.1643,0,100,1902322
+2026-10-03 09:00,atp,ATP 500,China Open,Hard,3,Daniil Medvedev,Jan-Lennard Struff,total_games,under,22.5,0.6382,1.57,1.57,0.5954,4.3,0.002,0,100,1902322
+2026-10-03 09:00,atp,ATP 500,China Open,Hard,3,Daniil Medvedev,Jan-Lennard Struff,p1_games,over,11.5,0.9114,1.1,1.06,0.883,2.8,-0.0339,0,100,1902322
+2026-10-03 09:00,atp,ATP 500,China Open,Hard,3,Daniil Medvedev,Jan-Lennard Struff,p1_games,under,11.5,0.0886,11.28,8.0,0.117,-2.8,-0.291,0,100,1902322
+2026-10-03 09:00,atp,ATP 500,China Open,Hard,3,Daniil Medvedev,Jan-Lennard Struff,p1_games,over,12.5,0.4708,2.12,1.77,0.528,-5.7,-0.1666,0,100,1902322
+2026-10-03 09:00,atp,ATP 500,China Open,Hard,3,Daniil Medvedev,Jan-Lennard Struff,p1_games,under,12.5,0.5292,1.89,1.98,0.472,5.7,0.0478,0,100,1902322
+2026-10-03 09:00,atp,ATP 500,China Open,Hard,3,Daniil Medvedev,Jan-Lennard Struff,p1_games,over,13.5,0.2746,3.64,2.95,0.3171,-4.3,-0.1899,0,100,1902322
+2026-10-03 09:00,atp,ATP 500,China Open,Hard,3,Daniil Medvedev,Jan-Lennard Struff,p1_games,under,13.5,0.7254,1.38,1.37,0.6829,4.3,-0.0062,0,100,1902322
+2026-10-03 09:00,atp,ATP 500,China Open,Hard,3,Daniil Medvedev,Jan-Lennard Struff,p2_games,over,7.5,0.5598,1.79,1.55,0.6036,-4.4,-0.1323,0,100,1902322
+2026-10-03 09:00,atp,ATP 500,China Open,Hard,3,Daniil Medvedev,Jan-Lennard Struff,p2_games,under,7.5,0.4402,2.27,2.36,0.3964,4.4,0.0389,0,100,1902322
+2026-10-03 09:00,atp,ATP 500,China Open,Hard,3,Daniil Medvedev,Jan-Lennard Struff,p2_games,over,8.5,0.4759,2.1,1.81,0.516,-4.0,-0.1387,0,100,1902322
+2026-10-03 09:00,atp,ATP 500,China Open,Hard,3,Daniil Medvedev,Jan-Lennard Struff,p2_games,under,8.5,0.5241,1.91,1.93,0.484,4.0,0.0116,0,100,1902322
+2026-10-03 09:00,atp,ATP 500,China Open,Hard,3,Daniil Medvedev,Jan-Lennard Struff,p2_games,over,9.5,0.4153,2.41,2.08,0.4497,-3.4,-0.1363,0,100,1902322
+2026-10-03 09:00,atp,ATP 500,China Open,Hard,3,Daniil Medvedev,Jan-Lennard Struff,p2_games,under,9.5,0.5847,1.71,1.7,0.5503,3.4,-0.0059,0,100,1902322
+2026-10-03 09:00,atp,ATP 500,China Open,Hard,3,Daniil Medvedev,Jan-Lennard Struff,game_handicap,player_a,-4.5,0.5446,1.84,,,,,0,100,1902322
+2026-10-03 09:00,atp,ATP 500,China Open,Hard,3,Daniil Medvedev,Jan-Lennard Struff,game_handicap,player_b,4.5,0.4554,2.2,,,,,0,100,1902322
+2026-10-03 09:00,atp,ATP 500,China Open,Hard,3,Francisco Cerundolo,Jakub Mensik,winner,player_a,,0.7661,1.31,2.65,0.363,40.3,1.0302,0,78,1902148
+2026-10-03 09:00,atp,ATP 500,China Open,Hard,3,Francisco Cerundolo,Jakub Mensik,winner,player_b,,0.2339,4.28,1.51,0.637,-40.3,-0.6469,0,78,1902148
+2026-10-03 09:00,atp,ATP 500,China Open,Hard,3,Francisco Cerundolo,Jakub Mensik,total_games,over,21.5,0.4545,2.2,1.62,0.577,-12.3,-0.2638,1,78,1902148
+2026-10-03 09:00,atp,ATP 500,China Open,Hard,3,Francisco Cerundolo,Jakub Mensik,total_games,under,21.5,0.5455,1.83,2.21,0.423,12.3,0.2056,1,78,1902148
+2026-10-03 09:00,atp,ATP 500,China Open,Hard,3,Francisco Cerundolo,Jakub Mensik,total_games,over,22.5,0.3916,2.55,1.87,0.5,-10.8,-0.2677,1,78,1902148
+2026-10-03 09:00,atp,ATP 500,China Open,Hard,3,Francisco Cerundolo,Jakub Mensik,total_games,under,22.5,0.6084,1.64,1.87,0.5,10.8,0.1377,1,78,1902148
+2026-10-03 09:00,atp,ATP 500,China Open,Hard,3,Francisco Cerundolo,Jakub Mensik,total_games,over,23.5,0.3501,2.86,2.11,0.4433,-9.3,-0.2613,1,78,1902148
+2026-10-03 09:00,atp,ATP 500,China Open,Hard,3,Francisco Cerundolo,Jakub Mensik,total_games,under,23.5,0.6499,1.54,1.68,0.5567,9.3,0.0918,1,78,1902148
+2026-10-03 09:00,atp,ATP 500,China Open,Hard,3,Francisco Cerundolo,Jakub Mensik,p1_games,over,10.5,0.8817,1.13,1.61,0.5796,30.2,0.4195,1,78,1902148
+2026-10-03 09:00,atp,ATP 500,China Open,Hard,3,Francisco Cerundolo,Jakub Mensik,p1_games,under,10.5,0.1183,8.45,2.22,0.4204,-30.2,-0.7374,1,78,1902148
+2026-10-03 09:00,atp,ATP 500,China Open,Hard,3,Francisco Cerundolo,Jakub Mensik,p1_games,over,11.5,0.8671,1.15,1.72,0.5438,32.3,0.4914,1,78,1902148
+2026-10-03 09:00,atp,ATP 500,China Open,Hard,3,Francisco Cerundolo,Jakub Mensik,p1_games,under,11.5,0.1329,7.53,2.05,0.4562,-32.3,-0.7276,1,78,1902148
+2026-10-03 09:00,atp,ATP 500,China Open,Hard,3,Francisco Cerundolo,Jakub Mensik,p1_games,over,12.5,0.4715,2.12,2.28,0.4109,6.1,0.075,1,78,1902148
+2026-10-03 09:00,atp,ATP 500,China Open,Hard,3,Francisco Cerundolo,Jakub Mensik,p1_games,under,12.5,0.5285,1.89,1.59,0.5891,-6.1,-0.1597,1,78,1902148
+2026-10-03 09:00,atp,ATP 500,China Open,Hard,3,Francisco Cerundolo,Jakub Mensik,p2_games,over,11.5,0.396,2.53,1.22,0.7663,-37.0,-0.5169,1,78,1902148
+2026-10-03 09:00,atp,ATP 500,China Open,Hard,3,Francisco Cerundolo,Jakub Mensik,p2_games,under,11.5,0.604,1.66,4.0,0.2337,37.0,1.416,1,78,1902148
+2026-10-03 09:00,atp,ATP 500,China Open,Hard,3,Francisco Cerundolo,Jakub Mensik,p2_games,over,12.5,0.296,3.38,1.79,0.5227,-22.7,-0.4702,1,78,1902148
+2026-10-03 09:00,atp,ATP 500,China Open,Hard,3,Francisco Cerundolo,Jakub Mensik,p2_games,under,12.5,0.704,1.42,1.96,0.4773,22.7,0.3799,1,78,1902148
+2026-10-03 09:00,atp,ATP 500,China Open,Hard,3,Francisco Cerundolo,Jakub Mensik,p2_games,over,13.5,0.2065,4.84,2.65,0.3521,-14.6,-0.4527,1,78,1902148
+2026-10-03 09:00,atp,ATP 500,China Open,Hard,3,Francisco Cerundolo,Jakub Mensik,p2_games,under,13.5,0.7935,1.26,1.44,0.6479,14.6,0.1426,1,78,1902148
+2026-10-03 09:00,atp,ATP 500,China Open,Hard,3,Francisco Cerundolo,Jakub Mensik,game_handicap,player_a,-3.5,0.6105,1.64,,,,,1,78,1902148
+2026-10-03 09:00,atp,ATP 500,China Open,Hard,3,Francisco Cerundolo,Jakub Mensik,game_handicap,player_b,3.5,0.3895,2.57,,,,,1,78,1902148
+2026-10-03 11:00,atp,ATP 500,China Open,Hard,3,Alexander Zverev,Juncheng Shang,winner,player_a,,0.8629,1.16,1.09,0.8851,-2.2,-0.0594,0,100,1902080
+2026-10-03 11:00,atp,ATP 500,China Open,Hard,3,Alexander Zverev,Juncheng Shang,winner,player_b,,0.1371,7.29,8.4,0.1149,2.2,0.1517,0,100,1902080
+2026-10-03 11:00,atp,ATP 500,China Open,Hard,3,Alexander Zverev,Juncheng Shang,total_games,over,19.5,0.5734,1.74,1.71,0.5464,2.7,-0.0195,0,100,1902080
+2026-10-03 11:00,atp,ATP 500,China Open,Hard,3,Alexander Zverev,Juncheng Shang,total_games,under,19.5,0.4266,2.34,2.06,0.4536,-2.7,-0.1212,0,100,1902080
+2026-10-03 11:00,atp,ATP 500,China Open,Hard,3,Alexander Zverev,Juncheng Shang,total_games,over,20.5,0.4873,2.05,2.01,0.4654,2.2,-0.0205,0,100,1902080
+2026-10-03 11:00,atp,ATP 500,China Open,Hard,3,Alexander Zverev,Juncheng Shang,total_games,under,20.5,0.5127,1.95,1.75,0.5346,-2.2,-0.1028,0,100,1902080
+2026-10-03 11:00,atp,ATP 500,China Open,Hard,3,Alexander Zverev,Juncheng Shang,total_games,over,21.5,0.4313,2.32,2.29,0.4083,2.3,-0.0124,0,100,1902080
+2026-10-03 11:00,atp,ATP 500,China Open,Hard,3,Alexander Zverev,Juncheng Shang,total_games,under,21.5,0.5687,1.76,1.58,0.5917,-2.3,-0.1014,0,100,1902080
+2026-10-03 11:00,atp,ATP 500,China Open,Hard,3,Alexander Zverev,Juncheng Shang,p1_games,over,11.5,0.9362,1.07,1.02,0.9151,2.1,-0.0451,0,100,1902080
+2026-10-03 11:00,atp,ATP 500,China Open,Hard,3,Alexander Zverev,Juncheng Shang,p1_games,under,11.5,0.0638,15.68,11.0,0.0849,-2.1,-0.2984,0,100,1902080
+2026-10-03 11:00,atp,ATP 500,China Open,Hard,3,Alexander Zverev,Juncheng Shang,p1_games,over,12.5,0.4876,2.05,1.89,0.4947,-0.7,-0.0785,0,100,1902080
+2026-10-03 11:00,atp,ATP 500,China Open,Hard,3,Alexander Zverev,Juncheng Shang,p1_games,under,12.5,0.5124,1.95,1.85,0.5053,0.7,-0.052,0,100,1902080
+2026-10-03 11:00,atp,ATP 500,China Open,Hard,3,Alexander Zverev,Juncheng Shang,p1_games,over,13.5,0.2699,3.71,3.4,0.2751,-0.5,-0.0824,0,100,1902080
+2026-10-03 11:00,atp,ATP 500,China Open,Hard,3,Alexander Zverev,Juncheng Shang,p1_games,under,13.5,0.7301,1.37,1.29,0.7249,0.5,-0.0582,0,100,1902080
+2026-10-03 11:00,atp,ATP 500,China Open,Hard,3,Alexander Zverev,Juncheng Shang,p2_games,over,6.5,0.6668,1.5,1.48,0.6328,3.4,-0.0131,0,100,1902080
+2026-10-03 11:00,atp,ATP 500,China Open,Hard,3,Alexander Zverev,Juncheng Shang,p2_games,under,6.5,0.3332,3.0,2.55,0.3672,-3.4,-0.1504,0,100,1902080
+2026-10-03 11:00,atp,ATP 500,China Open,Hard,3,Alexander Zverev,Juncheng Shang,p2_games,over,7.5,0.5601,1.79,1.77,0.528,3.2,-0.0087,0,100,1902080
+2026-10-03 11:00,atp,ATP 500,China Open,Hard,3,Alexander Zverev,Juncheng Shang,p2_games,under,7.5,0.4399,2.27,1.98,0.472,-3.2,-0.1289,0,100,1902080
+2026-10-03 11:00,atp,ATP 500,China Open,Hard,3,Alexander Zverev,Juncheng Shang,p2_games,over,8.5,0.4623,2.16,2.16,0.4331,2.9,-0.0014,0,100,1902080
+2026-10-03 11:00,atp,ATP 500,China Open,Hard,3,Alexander Zverev,Juncheng Shang,p2_games,under,8.5,0.5377,1.86,1.65,0.5669,-2.9,-0.1128,0,100,1902080
+2026-10-03 11:00,atp,ATP 500,China Open,Hard,3,Alexander Zverev,Juncheng Shang,game_handicap,player_a,-4.5,0.5424,1.84,,,,,0,100,1902080
+2026-10-03 11:00,atp,ATP 500,China Open,Hard,3,Alexander Zverev,Juncheng Shang,game_handicap,player_b,4.5,0.4576,2.19,,,,,0,100,1902080
+2026-10-03 02:00,atp,ATP 500,Japan Open (Tokyo),Hard,3,Denis Shapovalov,Alejandro Tabilo,winner,player_a,,0.569,1.76,1.67,0.5751,-0.6,-0.0498,0,100,1902033
+2026-10-03 02:00,atp,ATP 500,Japan Open (Tokyo),Hard,3,Denis Shapovalov,Alejandro Tabilo,winner,player_b,,0.431,2.32,2.26,0.4249,0.6,-0.026,0,100,1902033
+2026-10-03 02:00,atp,ATP 500,Japan Open (Tokyo),Hard,3,Denis Shapovalov,Alejandro Tabilo,total_games,over,19.5,0.7191,1.39,1.32,0.7203,-0.1,-0.0508,0,100,1902033
+2026-10-03 02:00,atp,ATP 500,Japan Open (Tokyo),Hard,3,Denis Shapovalov,Alejandro Tabilo,total_games,under,19.5,0.2809,3.56,3.4,0.2797,0.1,-0.0449,0,100,1902033
+2026-10-03 02:00,atp,ATP 500,Japan Open (Tokyo),Hard,3,Denis Shapovalov,Alejandro Tabilo,total_games,over,20.5,0.6393,1.56,1.48,0.6459,-0.7,-0.0538,0,100,1902033
+2026-10-03 02:00,atp,ATP 500,Japan Open (Tokyo),Hard,3,Denis Shapovalov,Alejandro Tabilo,total_games,under,20.5,0.3607,2.77,2.7,0.3541,0.7,-0.0261,0,100,1902033
+2026-10-03 02:00,atp,ATP 500,Japan Open (Tokyo),Hard,3,Denis Shapovalov,Alejandro Tabilo,total_games,over,21.5,0.5857,1.71,1.61,0.5914,-0.6,-0.057,0,100,1902033
+2026-10-03 02:00,atp,ATP 500,Japan Open (Tokyo),Hard,3,Denis Shapovalov,Alejandro Tabilo,total_games,under,21.5,0.4143,2.41,2.33,0.4086,0.6,-0.0348,0,100,1902033
+2026-10-03 02:00,atp,ATP 500,Japan Open (Tokyo),Hard,3,Denis Shapovalov,Alejandro Tabilo,total_games,over,22.5,0.5038,1.99,1.86,0.5118,-0.8,-0.063,0,100,1902033
+2026-10-03 02:00,atp,ATP 500,Japan Open (Tokyo),Hard,3,Denis Shapovalov,Alejandro Tabilo,total_games,under,22.5,0.4962,2.02,1.95,0.4882,0.8,-0.0323,0,100,1902033
+2026-10-03 02:00,atp,ATP 500,Japan Open (Tokyo),Hard,3,Denis Shapovalov,Alejandro Tabilo,total_games,over,23.5,0.4423,2.26,2.1,0.4531,-1.1,-0.0712,0,100,1902033
+2026-10-03 02:00,atp,ATP 500,Japan Open (Tokyo),Hard,3,Denis Shapovalov,Alejandro Tabilo,total_games,under,23.5,0.5577,1.79,1.74,0.5469,1.1,-0.0296,0,100,1902033
+2026-10-03 02:00,atp,ATP 500,Japan Open (Tokyo),Hard,3,Denis Shapovalov,Alejandro Tabilo,total_games,over,24.5,0.4315,2.32,2.16,0.4404,-0.9,-0.068,0,100,1902033
+2026-10-03 02:00,atp,ATP 500,Japan Open (Tokyo),Hard,3,Denis Shapovalov,Alejandro Tabilo,total_games,under,24.5,0.5685,1.76,1.7,0.5596,0.9,-0.0335,0,100,1902033
+2026-10-03 02:00,atp,ATP 500,Japan Open (Tokyo),Hard,3,Denis Shapovalov,Alejandro Tabilo,total_games,over,25.5,0.3984,2.51,2.35,0.4051,-0.7,-0.0638,0,100,1902033
+2026-10-03 02:00,atp,ATP 500,Japan Open (Tokyo),Hard,3,Denis Shapovalov,Alejandro Tabilo,total_games,under,25.5,0.6016,1.66,1.6,0.5949,0.7,-0.0374,0,100,1902033
+2026-10-03 02:00,atp,ATP 500,Japan Open (Tokyo),Hard,3,Denis Shapovalov,Alejandro Tabilo,p1_games,over,11.5,0.7401,1.35,1.29,0.7249,1.5,-0.0453,0,100,1902033
+2026-10-03 02:00,atp,ATP 500,Japan Open (Tokyo),Hard,3,Denis Shapovalov,Alejandro Tabilo,p1_games,under,11.5,0.2599,3.85,3.4,0.2751,-1.5,-0.1162,0,100,1902033
+2026-10-03 02:00,atp,ATP 500,Japan Open (Tokyo),Hard,3,Denis Shapovalov,Alejandro Tabilo,p1_games,over,12.5,0.5151,1.94,1.78,0.5253,-1.0,-0.0832,0,100,1902033
+2026-10-03 02:00,atp,ATP 500,Japan Open (Tokyo),Hard,3,Denis Shapovalov,Alejandro Tabilo,p1_games,under,12.5,0.4849,2.06,1.97,0.4747,1.0,-0.0447,0,100,1902033
+2026-10-03 02:00,atp,ATP 500,Japan Open (Tokyo),Hard,3,Denis Shapovalov,Alejandro Tabilo,p1_games,over,13.5,0.3449,2.9,2.6,0.3596,-1.5,-0.1031,0,100,1902033
+2026-10-03 02:00,atp,ATP 500,Japan Open (Tokyo),Hard,3,Denis Shapovalov,Alejandro Tabilo,p1_games,under,13.5,0.6551,1.53,1.46,0.6404,1.5,-0.0436,0,100,1902033
+2026-10-03 02:00,atp,ATP 500,Japan Open (Tokyo),Hard,3,Denis Shapovalov,Alejandro Tabilo,p2_games,over,11.5,0.6247,1.6,1.52,0.6142,1.0,-0.0505,0,100,1902033
+2026-10-03 02:00,atp,ATP 500,Japan Open (Tokyo),Hard,3,Denis Shapovalov,Alejandro Tabilo,p2_games,under,11.5,0.3753,2.66,2.42,0.3858,-1.0,-0.0918,0,100,1902033
+2026-10-03 02:00,atp,ATP 500,Japan Open (Tokyo),Hard,3,Denis Shapovalov,Alejandro Tabilo,p2_games,over,12.5,0.4629,2.16,2.0,0.4667,-0.4,-0.0742,0,100,1902033
+2026-10-03 02:00,atp,ATP 500,Japan Open (Tokyo),Hard,3,Denis Shapovalov,Alejandro Tabilo,p2_games,under,12.5,0.5371,1.86,1.75,0.5333,0.4,-0.0601,0,100,1902033
+2026-10-03 02:00,atp,ATP 500,Japan Open (Tokyo),Hard,3,Denis Shapovalov,Alejandro Tabilo,p2_games,over,13.5,0.3217,3.11,2.85,0.3294,-0.8,-0.0831,0,100,1902033
+2026-10-03 02:00,atp,ATP 500,Japan Open (Tokyo),Hard,3,Denis Shapovalov,Alejandro Tabilo,p2_games,under,13.5,0.6783,1.47,1.4,0.6706,0.8,-0.0504,0,100,1902033
+2026-10-03 02:00,atp,ATP 500,Japan Open (Tokyo),Hard,3,Denis Shapovalov,Alejandro Tabilo,game_handicap,player_a,-1.5,0.5147,1.94,,,,,0,100,1902033
+2026-10-03 02:00,atp,ATP 500,Japan Open (Tokyo),Hard,3,Denis Shapovalov,Alejandro Tabilo,game_handicap,player_b,1.5,0.4853,2.06,,,,,0,100,1902033
+2026-10-03 03:30,atp,ATP 500,Japan Open (Tokyo),Hard,3,Carlos Alcaraz,Matteo Arnaldi,winner,player_a,,0.9343,1.07,1.06,0.9121,2.2,-0.0096,0,100,1902079
+2026-10-03 03:30,atp,ATP 500,Japan Open (Tokyo),Hard,3,Carlos Alcaraz,Matteo Arnaldi,winner,player_b,,0.0657,15.22,11.0,0.0879,-2.2,-0.2773,0,100,1902079
+2026-10-03 03:30,atp,ATP 500,Japan Open (Tokyo),Hard,3,Carlos Alcaraz,Matteo Arnaldi,total_games,over,15.5,0.7935,1.26,1.12,0.8511,-5.8,-0.1112,0,100,1902079
+2026-10-03 03:30,atp,ATP 500,Japan Open (Tokyo),Hard,3,Carlos Alcaraz,Matteo Arnaldi,total_games,under,15.5,0.2065,4.84,6.4,0.1489,5.8,0.3214,0,100,1902079
+2026-10-03 03:30,atp,ATP 500,Japan Open (Tokyo),Hard,3,Carlos Alcaraz,Matteo Arnaldi,total_games,over,16.5,0.6722,1.49,1.28,0.743,-7.1,-0.1395,0,100,1902079
+2026-10-03 03:30,atp,ATP 500,Japan Open (Tokyo),Hard,3,Carlos Alcaraz,Matteo Arnaldi,total_games,under,16.5,0.3278,3.05,3.7,0.257,7.1,0.2127,0,100,1902079
+2026-10-03 03:30,atp,ATP 500,Japan Open (Tokyo),Hard,3,Carlos Alcaraz,Matteo Arnaldi,total_games,over,17.5,0.5479,1.83,1.48,0.6416,-9.4,-0.1891,0,100,1902079
+2026-10-03 03:30,atp,ATP 500,Japan Open (Tokyo),Hard,3,Carlos Alcaraz,Matteo Arnaldi,total_games,under,17.5,0.4521,2.21,2.65,0.3584,9.4,0.1981,0,100,1902079
+2026-10-03 03:30,atp,ATP 500,Japan Open (Tokyo),Hard,3,Carlos Alcaraz,Matteo Arnaldi,total_games,over,18.5,0.4441,2.25,1.82,0.5236,-7.9,-0.1918,0,100,1902079
+2026-10-03 03:30,atp,ATP 500,Japan Open (Tokyo),Hard,3,Carlos Alcaraz,Matteo Arnaldi,total_games,under,18.5,0.5559,1.8,2.0,0.4764,7.9,0.1118,0,100,1902079
+2026-10-03 03:30,atp,ATP 500,Japan Open (Tokyo),Hard,3,Carlos Alcaraz,Matteo Arnaldi,total_games,over,19.5,0.3642,2.75,2.13,0.4468,-8.3,-0.2242,0,100,1902079
+2026-10-03 03:30,atp,ATP 500,Japan Open (Tokyo),Hard,3,Carlos Alcaraz,Matteo Arnaldi,total_games,under,19.5,0.6358,1.57,1.72,0.5532,8.3,0.0935,0,100,1902079
+2026-10-03 03:30,atp,ATP 500,Japan Open (Tokyo),Hard,3,Carlos Alcaraz,Matteo Arnaldi,total_games,over,20.5,0.2994,3.34,2.65,0.3599,-6.0,-0.2065,0,100,1902079
+2026-10-03 03:30,atp,ATP 500,Japan Open (Tokyo),Hard,3,Carlos Alcaraz,Matteo Arnaldi,total_games,under,20.5,0.7006,1.43,1.49,0.6401,6.0,0.0438,0,100,1902079
+2026-10-03 03:30,atp,ATP 500,Japan Open (Tokyo),Hard,3,Carlos Alcaraz,Matteo Arnaldi,total_games,over,21.5,0.2567,3.9,3.0,0.3166,-6.0,-0.23,0,100,1902079
+2026-10-03 03:30,atp,ATP 500,Japan Open (Tokyo),Hard,3,Carlos Alcaraz,Matteo Arnaldi,total_games,under,21.5,0.7433,1.35,1.39,0.6834,6.0,0.0333,0,100,1902079
+2026-10-03 03:30,atp,ATP 500,Japan Open (Tokyo),Hard,3,Carlos Alcaraz,Matteo Arnaldi,p1_games,over,11.5,0.9687,1.03,1.01,0.9224,4.6,-0.0216,0,100,1902079
+2026-10-03 03:30,atp,ATP 500,Japan Open (Tokyo),Hard,3,Carlos Alcaraz,Matteo Arnaldi,p1_games,under,11.5,0.0313,31.99,12.0,0.0776,-4.6,-0.6249,0,100,1902079
+2026-10-03 03:30,atp,ATP 500,Japan Open (Tokyo),Hard,3,Carlos Alcaraz,Matteo Arnaldi,p1_games,over,12.5,0.3352,2.98,2.34,0.4,-6.5,-0.2157,0,100,1902079
+2026-10-03 03:30,atp,ATP 500,Japan Open (Tokyo),Hard,3,Carlos Alcaraz,Matteo Arnaldi,p1_games,under,12.5,0.6648,1.5,1.56,0.6,6.5,0.0372,0,100,1902079
+2026-10-03 03:30,atp,ATP 500,Japan Open (Tokyo),Hard,3,Carlos Alcaraz,Matteo Arnaldi,p1_games,over,13.5,0.1713,5.84,4.4,0.2129,-4.2,-0.2465,0,100,1902079
+2026-10-03 03:30,atp,ATP 500,Japan Open (Tokyo),Hard,3,Carlos Alcaraz,Matteo Arnaldi,p1_games,under,13.5,0.8287,1.21,1.19,0.7871,4.2,-0.0138,0,100,1902079
+2026-10-03 03:30,atp,ATP 500,Japan Open (Tokyo),Hard,3,Carlos Alcaraz,Matteo Arnaldi,p2_games,over,5.5,0.5466,1.83,1.5,0.6222,-7.6,-0.1802,0,100,1902079
+2026-10-03 03:30,atp,ATP 500,Japan Open (Tokyo),Hard,3,Carlos Alcaraz,Matteo Arnaldi,p2_games,under,5.5,0.4534,2.21,2.47,0.3778,7.6,0.12,0,100,1902079
+2026-10-03 03:30,atp,ATP 500,Japan Open (Tokyo),Hard,3,Carlos Alcaraz,Matteo Arnaldi,p2_games,over,6.5,0.4313,2.32,1.89,0.4947,-6.3,-0.1848,0,100,1902079
+2026-10-03 03:30,atp,ATP 500,Japan Open (Tokyo),Hard,3,Carlos Alcaraz,Matteo Arnaldi,p2_games,under,6.5,0.5687,1.76,1.85,0.5053,6.3,0.052,0,100,1902079
+2026-10-03 03:30,atp,ATP 500,Japan Open (Tokyo),Hard,3,Carlos Alcaraz,Matteo Arnaldi,p2_games,over,7.5,0.3397,2.94,2.32,0.4021,-6.2,-0.212,0,100,1902079
+2026-10-03 03:30,atp,ATP 500,Japan Open (Tokyo),Hard,3,Carlos Alcaraz,Matteo Arnaldi,p2_games,under,7.5,0.6603,1.51,1.56,0.5979,6.2,0.0301,0,100,1902079
+2026-10-03 03:30,atp,ATP 500,Japan Open (Tokyo),Hard,3,Carlos Alcaraz,Matteo Arnaldi,game_handicap,player_a,-5.5,0.6367,1.57,,,,,0,100,1902079
+2026-10-03 03:30,atp,ATP 500,Japan Open (Tokyo),Hard,3,Carlos Alcaraz,Matteo Arnaldi,game_handicap,player_b,5.5,0.3633,2.75,,,,,0,100,1902079
+2026-10-03 07:00,atp,ATP 500,Japan Open (Tokyo),Hard,3,Matteo Berrettini,Adolfo Vallejo,winner,player_a,,0.7536,1.33,1.63,0.5894,16.4,0.2284,0,94,1902129
+2026-10-03 07:00,atp,ATP 500,Japan Open (Tokyo),Hard,3,Matteo Berrettini,Adolfo Vallejo,winner,player_b,,0.2464,4.06,2.34,0.4106,-16.4,-0.4235,0,94,1902129
+2026-10-03 07:00,atp,ATP 500,Japan Open (Tokyo),Hard,3,Matteo Berrettini,Adolfo Vallejo,total_games,over,19.5,0.6394,1.56,1.34,0.7081,-6.9,-0.1433,0,94,1902129
+2026-10-03 07:00,atp,ATP 500,Japan Open (Tokyo),Hard,3,Matteo Berrettini,Adolfo Vallejo,total_games,under,19.5,0.3606,2.77,3.25,0.2919,6.9,0.1721,0,94,1902129
+2026-10-03 07:00,atp,ATP 500,Japan Open (Tokyo),Hard,3,Matteo Berrettini,Adolfo Vallejo,total_games,over,20.5,0.5584,1.79,1.5,0.6341,-7.6,-0.1624,0,94,1902129
+2026-10-03 07:00,atp,ATP 500,Japan Open (Tokyo),Hard,3,Matteo Berrettini,Adolfo Vallejo,total_games,under,20.5,0.4416,2.26,2.6,0.3659,7.6,0.1481,0,94,1902129
+2026-10-03 07:00,atp,ATP 500,Japan Open (Tokyo),Hard,3,Matteo Berrettini,Adolfo Vallejo,total_games,over,21.5,0.5041,1.98,1.64,0.5806,-7.7,-0.1733,0,94,1902129
+2026-10-03 07:00,atp,ATP 500,Japan Open (Tokyo),Hard,3,Matteo Berrettini,Adolfo Vallejo,total_games,under,21.5,0.4959,2.02,2.27,0.4194,7.7,0.1258,0,94,1902129
+2026-10-03 07:00,atp,ATP 500,Japan Open (Tokyo),Hard,3,Matteo Berrettini,Adolfo Vallejo,total_games,over,22.5,0.4286,2.33,1.89,0.5039,-7.5,-0.1899,0,94,1902129
+2026-10-03 07:00,atp,ATP 500,Japan Open (Tokyo),Hard,3,Matteo Berrettini,Adolfo Vallejo,total_games,under,22.5,0.5714,1.75,1.92,0.4961,7.5,0.0971,0,94,1902129
+2026-10-03 07:00,atp,ATP 500,Japan Open (Tokyo),Hard,3,Matteo Berrettini,Adolfo Vallejo,total_games,over,23.5,0.3751,2.67,2.14,0.4456,-7.0,-0.1972,0,94,1902129
+2026-10-03 07:00,atp,ATP 500,Japan Open (Tokyo),Hard,3,Matteo Berrettini,Adolfo Vallejo,total_games,under,23.5,0.6249,1.6,1.72,0.5544,7.0,0.0748,0,94,1902129
+2026-10-03 07:00,atp,ATP 500,Japan Open (Tokyo),Hard,3,Matteo Berrettini,Adolfo Vallejo,total_games,over,24.5,0.3643,2.75,2.2,0.433,-6.9,-0.1986,0,94,1902129
+2026-10-03 07:00,atp,ATP 500,Japan Open (Tokyo),Hard,3,Matteo Berrettini,Adolfo Vallejo,total_games,under,24.5,0.6357,1.57,1.68,0.567,6.9,0.068,0,94,1902129
+2026-10-03 07:00,atp,ATP 500,Japan Open (Tokyo),Hard,3,Matteo Berrettini,Adolfo Vallejo,total_games,over,25.5,0.3341,2.99,2.4,0.397,-6.3,-0.1982,0,94,1902129
+2026-10-03 07:00,atp,ATP 500,Japan Open (Tokyo),Hard,3,Matteo Berrettini,Adolfo Vallejo,total_games,under,25.5,0.6659,1.5,1.58,0.603,6.3,0.0522,0,94,1902129
+2026-10-03 07:00,atp,ATP 500,Japan Open (Tokyo),Hard,3,Matteo Berrettini,Adolfo Vallejo,p1_games,over,11.5,0.8677,1.15,1.27,0.7338,13.4,0.102,0,94,1902129
+2026-10-03 07:00,atp,ATP 500,Japan Open (Tokyo),Hard,3,Matteo Berrettini,Adolfo Vallejo,p1_games,under,11.5,0.1323,7.56,3.5,0.2662,-13.4,-0.5371,0,94,1902129
+2026-10-03 07:00,atp,ATP 500,Japan Open (Tokyo),Hard,3,Matteo Berrettini,Adolfo Vallejo,p1_games,over,12.5,0.5133,1.95,1.79,0.5227,-0.9,-0.0812,0,94,1902129
+2026-10-03 07:00,atp,ATP 500,Japan Open (Tokyo),Hard,3,Matteo Berrettini,Adolfo Vallejo,p1_games,under,12.5,0.4867,2.05,1.96,0.4773,0.9,-0.0461,0,94,1902129
+2026-10-03 07:00,atp,ATP 500,Japan Open (Tokyo),Hard,3,Matteo Berrettini,Adolfo Vallejo,p1_games,over,13.5,0.3158,3.17,2.6,0.358,-4.2,-0.1788,0,94,1902129
+2026-10-03 07:00,atp,ATP 500,Japan Open (Tokyo),Hard,3,Matteo Berrettini,Adolfo Vallejo,p1_games,under,13.5,0.6842,1.46,1.45,0.642,4.2,-0.008,0,94,1902129
+2026-10-03 07:00,atp,ATP 500,Japan Open (Tokyo),Hard,3,Matteo Berrettini,Adolfo Vallejo,p2_games,over,11.5,0.4319,2.32,1.56,0.5979,-16.6,-0.3263,0,94,1902129
+2026-10-03 07:00,atp,ATP 500,Japan Open (Tokyo),Hard,3,Matteo Berrettini,Adolfo Vallejo,p2_games,under,11.5,0.5681,1.76,2.32,0.4021,16.6,0.318,0,94,1902129
+2026-10-03 07:00,atp,ATP 500,Japan Open (Tokyo),Hard,3,Matteo Berrettini,Adolfo Vallejo,p2_games,over,12.5,0.3338,3.0,2.07,0.4524,-11.9,-0.3089,0,94,1902129
+2026-10-03 07:00,atp,ATP 500,Japan Open (Tokyo),Hard,3,Matteo Berrettini,Adolfo Vallejo,p2_games,under,12.5,0.6662,1.5,1.71,0.5476,11.9,0.1391,0,94,1902129
+2026-10-03 07:00,atp,ATP 500,Japan Open (Tokyo),Hard,3,Matteo Berrettini,Adolfo Vallejo,p2_games,over,13.5,0.2378,4.21,2.9,0.3208,-8.3,-0.3104,0,94,1902129
+2026-10-03 07:00,atp,ATP 500,Japan Open (Tokyo),Hard,3,Matteo Berrettini,Adolfo Vallejo,p2_games,under,13.5,0.7622,1.31,1.37,0.6792,8.3,0.0442,0,94,1902129
+2026-10-03 07:00,atp,ATP 500,Japan Open (Tokyo),Hard,3,Matteo Berrettini,Adolfo Vallejo,game_handicap,player_a,-3.5,0.5667,1.76,,,,,0,94,1902129
+2026-10-03 07:00,atp,ATP 500,Japan Open (Tokyo),Hard,3,Matteo Berrettini,Adolfo Vallejo,game_handicap,player_b,3.5,0.4333,2.31,,,,,0,94,1902129
+2026-10-03 08:30,atp,ATP 500,Japan Open (Tokyo),Hard,3,Ugo Humbert,Jiri Lehecka,winner,player_a,,0.4359,2.29,2.55,0.378,5.8,0.1116,0,100,1901976
+2026-10-03 08:30,atp,ATP 500,Japan Open (Tokyo),Hard,3,Ugo Humbert,Jiri Lehecka,winner,player_b,,0.5641,1.77,1.55,0.622,-5.8,-0.1257,0,100,1901976
+2026-10-03 08:30,atp,ATP 500,Japan Open (Tokyo),Hard,3,Ugo Humbert,Jiri Lehecka,total_games,over,19.5,0.7542,1.33,1.33,0.7188,3.5,0.0031,0,100,1901976
+2026-10-03 08:30,atp,ATP 500,Japan Open (Tokyo),Hard,3,Ugo Humbert,Jiri Lehecka,total_games,under,19.5,0.2458,4.07,3.4,0.2812,-3.5,-0.1644,0,100,1901976
+2026-10-03 08:30,atp,ATP 500,Japan Open (Tokyo),Hard,3,Ugo Humbert,Jiri Lehecka,total_games,over,20.5,0.6734,1.49,1.5,0.6341,3.9,0.01,0,100,1901976
+2026-10-03 08:30,atp,ATP 500,Japan Open (Tokyo),Hard,3,Ugo Humbert,Jiri Lehecka,total_games,under,20.5,0.3266,3.06,2.6,0.3659,-3.9,-0.1508,0,100,1901976
+2026-10-03 08:30,atp,ATP 500,Japan Open (Tokyo),Hard,3,Ugo Humbert,Jiri Lehecka,total_games,over,21.5,0.6205,1.61,1.63,0.5852,3.5,0.0115,0,100,1901976
+2026-10-03 08:30,atp,ATP 500,Japan Open (Tokyo),Hard,3,Ugo Humbert,Jiri Lehecka,total_games,under,21.5,0.3795,2.64,2.3,0.4148,-3.5,-0.1273,0,100,1901976
+2026-10-03 08:30,atp,ATP 500,Japan Open (Tokyo),Hard,3,Ugo Humbert,Jiri Lehecka,total_games,over,22.5,0.5302,1.89,1.89,0.5039,2.6,0.0021,0,100,1901976
+2026-10-03 08:30,atp,ATP 500,Japan Open (Tokyo),Hard,3,Ugo Humbert,Jiri Lehecka,total_games,under,22.5,0.4698,2.13,1.92,0.4961,-2.6,-0.098,0,100,1901976
+2026-10-03 08:30,atp,ATP 500,Japan Open (Tokyo),Hard,3,Ugo Humbert,Jiri Lehecka,total_games,over,23.5,0.4582,2.18,2.14,0.4456,1.3,-0.0194,0,100,1901976
+2026-10-03 08:30,atp,ATP 500,Japan Open (Tokyo),Hard,3,Ugo Humbert,Jiri Lehecka,total_games,under,23.5,0.5418,1.85,1.72,0.5544,-1.3,-0.0682,0,100,1901976
+2026-10-03 08:30,atp,ATP 500,Japan Open (Tokyo),Hard,3,Ugo Humbert,Jiri Lehecka,total_games,over,24.5,0.4498,2.22,2.2,0.433,1.7,-0.0104,0,100,1901976
+2026-10-03 08:30,atp,ATP 500,Japan Open (Tokyo),Hard,3,Ugo Humbert,Jiri Lehecka,total_games,under,24.5,0.5502,1.82,1.68,0.567,-1.7,-0.0757,0,100,1901976
+2026-10-03 08:30,atp,ATP 500,Japan Open (Tokyo),Hard,3,Ugo Humbert,Jiri Lehecka,total_games,over,25.5,0.4174,2.4,2.39,0.398,1.9,-0.0024,0,100,1901976
+2026-10-03 08:30,atp,ATP 500,Japan Open (Tokyo),Hard,3,Ugo Humbert,Jiri Lehecka,total_games,under,25.5,0.5826,1.72,1.58,0.602,-1.9,-0.0795,0,100,1901976
+2026-10-03 08:30,atp,ATP 500,Japan Open (Tokyo),Hard,3,Ugo Humbert,Jiri Lehecka,p1_games,over,11.5,0.6432,1.55,1.6,0.5844,5.9,0.0291,0,100,1901976
+2026-10-03 08:30,atp,ATP 500,Japan Open (Tokyo),Hard,3,Ugo Humbert,Jiri Lehecka,p1_games,under,11.5,0.3568,2.8,2.25,0.4156,-5.9,-0.1971,0,100,1901976
+2026-10-03 08:30,atp,ATP 500,Japan Open (Tokyo),Hard,3,Ugo Humbert,Jiri Lehecka,p1_games,over,12.5,0.4895,2.04,2.06,0.4536,3.6,0.0084,0,100,1901976
+2026-10-03 08:30,atp,ATP 500,Japan Open (Tokyo),Hard,3,Ugo Humbert,Jiri Lehecka,p1_games,under,12.5,0.5105,1.96,1.71,0.5464,-3.6,-0.127,0,100,1901976
+2026-10-03 08:30,atp,ATP 500,Japan Open (Tokyo),Hard,3,Ugo Humbert,Jiri Lehecka,p1_games,over,13.5,0.344,2.91,2.85,0.3278,1.6,-0.0197,0,100,1901976
+2026-10-03 08:30,atp,ATP 500,Japan Open (Tokyo),Hard,3,Ugo Humbert,Jiri Lehecka,p1_games,under,13.5,0.656,1.52,1.39,0.6722,-1.6,-0.0881,0,100,1901976
+2026-10-03 08:30,atp,ATP 500,Japan Open (Tokyo),Hard,3,Ugo Humbert,Jiri Lehecka,p2_games,over,11.5,0.7464,1.34,1.23,0.7602,-1.4,-0.0819,0,100,1901976
+2026-10-03 08:30,atp,ATP 500,Japan Open (Tokyo),Hard,3,Ugo Humbert,Jiri Lehecka,p2_games,under,11.5,0.2536,3.94,3.9,0.2398,1.4,-0.011,0,100,1901976
+2026-10-03 08:30,atp,ATP 500,Japan Open (Tokyo),Hard,3,Ugo Humbert,Jiri Lehecka,p2_games,over,12.5,0.5396,1.85,1.71,0.5464,-0.7,-0.0773,0,100,1901976
+2026-10-03 08:30,atp,ATP 500,Japan Open (Tokyo),Hard,3,Ugo Humbert,Jiri Lehecka,p2_games,under,12.5,0.4604,2.17,2.06,0.4536,0.7,-0.0516,0,100,1901976
+2026-10-03 08:30,atp,ATP 500,Japan Open (Tokyo),Hard,3,Ugo Humbert,Jiri Lehecka,p2_games,over,13.5,0.3648,2.74,2.55,0.3672,-0.2,-0.0697,0,100,1901976
+2026-10-03 08:30,atp,ATP 500,Japan Open (Tokyo),Hard,3,Ugo Humbert,Jiri Lehecka,p2_games,under,13.5,0.6352,1.57,1.48,0.6328,0.2,-0.06,0,100,1901976
+2026-10-03 08:30,atp,ATP 500,Japan Open (Tokyo),Hard,3,Ugo Humbert,Jiri Lehecka,game_handicap,player_a,1.5,0.495,2.02,,,,,0,100,1901976
+2026-10-03 08:30,atp,ATP 500,Japan Open (Tokyo),Hard,3,Ugo Humbert,Jiri Lehecka,game_handicap,player_b,-1.5,0.505,1.98,,,,,0,100,1901976
+2026-10-03 03:00,wta,WTA 1000,China Open,Hard,3,Ashlyn Krueger,Ann Li,winner,player_a,,0.4793,2.09,2.07,0.4637,1.6,-0.0079,0,100,1901945
+2026-10-03 03:00,wta,WTA 1000,China Open,Hard,3,Ashlyn Krueger,Ann Li,winner,player_b,,0.5207,1.92,1.79,0.5363,-1.6,-0.0679,0,100,1901945
+2026-10-03 03:00,wta,WTA 1000,China Open,Hard,3,Ashlyn Krueger,Ann Li,total_games,over,19.5,0.59,1.69,1.38,0.6885,-9.8,-0.1858,0,100,1901945
+2026-10-03 03:00,wta,WTA 1000,China Open,Hard,3,Ashlyn Krueger,Ann Li,total_games,under,19.5,0.41,2.44,3.05,0.3115,9.8,0.2505,0,100,1901945
+2026-10-03 03:00,wta,WTA 1000,China Open,Hard,3,Ashlyn Krueger,Ann Li,total_games,over,20.5,0.5215,1.92,1.56,0.611,-8.9,-0.1864,0,100,1901945
+2026-10-03 03:00,wta,WTA 1000,China Open,Hard,3,Ashlyn Krueger,Ann Li,total_games,under,20.5,0.4785,2.09,2.45,0.389,8.9,0.1723,0,100,1901945
+2026-10-03 03:00,wta,WTA 1000,China Open,Hard,3,Ashlyn Krueger,Ann Li,total_games,over,21.5,0.4722,2.12,1.71,0.557,-8.5,-0.1926,0,100,1901945
+2026-10-03 03:00,wta,WTA 1000,China Open,Hard,3,Ashlyn Krueger,Ann Li,total_games,under,21.5,0.5278,1.89,2.15,0.443,8.5,0.1349,0,100,1901945
+2026-10-03 03:00,wta,WTA 1000,China Open,Hard,3,Ashlyn Krueger,Ann Li,total_games,over,22.5,0.4136,2.42,1.97,0.4829,-6.9,-0.1853,0,100,1901945
+2026-10-03 03:00,wta,WTA 1000,China Open,Hard,3,Ashlyn Krueger,Ann Li,total_games,under,22.5,0.5864,1.71,1.84,0.5171,6.9,0.0791,0,100,1901945
+2026-10-03 03:00,wta,WTA 1000,China Open,Hard,3,Ashlyn Krueger,Ann Li,total_games,over,23.5,0.3751,2.67,2.21,0.4304,-5.5,-0.1711,0,100,1901945
+2026-10-03 03:00,wta,WTA 1000,China Open,Hard,3,Ashlyn Krueger,Ann Li,total_games,under,23.5,0.6249,1.6,1.67,0.5696,5.5,0.0436,0,100,1901945
+2026-10-03 03:00,wta,WTA 1000,China Open,Hard,3,Ashlyn Krueger,Ann Li,total_games,over,24.5,0.356,2.81,2.29,0.4158,-6.0,-0.1846,0,100,1901945
+2026-10-03 03:00,wta,WTA 1000,China Open,Hard,3,Ashlyn Krueger,Ann Li,total_games,under,24.5,0.644,1.55,1.63,0.5842,6.0,0.0496,0,100,1901945
+2026-10-03 03:00,wta,WTA 1000,China Open,Hard,3,Ashlyn Krueger,Ann Li,total_games,over,25.5,0.3207,3.12,2.5,0.3812,-6.0,-0.1981,0,100,1901945
+2026-10-03 03:00,wta,WTA 1000,China Open,Hard,3,Ashlyn Krueger,Ann Li,total_games,under,25.5,0.6793,1.47,1.54,0.6188,6.0,0.046,0,100,1901945
+2026-10-03 03:00,wta,WTA 1000,China Open,Hard,3,Ashlyn Krueger,Ann Li,p1_games,over,11.5,0.6212,1.61,1.53,0.6107,1.1,-0.0495,0,100,1901945
+2026-10-03 03:00,wta,WTA 1000,China Open,Hard,3,Ashlyn Krueger,Ann Li,p1_games,under,11.5,0.3788,2.64,2.4,0.3893,-1.1,-0.091,0,100,1901945
+2026-10-03 03:00,wta,WTA 1000,China Open,Hard,3,Ashlyn Krueger,Ann Li,p1_games,over,12.5,0.3909,2.56,2.19,0.4267,-3.6,-0.1439,0,100,1901945
+2026-10-03 03:00,wta,WTA 1000,China Open,Hard,3,Ashlyn Krueger,Ann Li,p1_games,under,12.5,0.6091,1.64,1.63,0.5733,3.6,-0.0072,0,100,1901945
+2026-10-03 03:00,wta,WTA 1000,China Open,Hard,3,Ashlyn Krueger,Ann Li,p1_games,over,13.5,0.2592,3.86,3.2,0.292,-3.3,-0.1706,0,100,1901945
+2026-10-03 03:00,wta,WTA 1000,China Open,Hard,3,Ashlyn Krueger,Ann Li,p1_games,under,13.5,0.7408,1.35,1.32,0.708,3.3,-0.0221,0,100,1901945
+2026-10-03 03:00,wta,WTA 1000,China Open,Hard,3,Ashlyn Krueger,Ann Li,p2_games,over,11.5,0.6563,1.52,1.39,0.6722,-1.6,-0.0877,0,100,1901945
+2026-10-03 03:00,wta,WTA 1000,China Open,Hard,3,Ashlyn Krueger,Ann Li,p2_games,under,11.5,0.3437,2.91,2.85,0.3278,1.6,-0.0205,0,100,1901945
+2026-10-03 03:00,wta,WTA 1000,China Open,Hard,3,Ashlyn Krueger,Ann Li,p2_games,over,12.5,0.403,2.48,2.05,0.4548,-5.2,-0.1737,0,100,1901945
+2026-10-03 03:00,wta,WTA 1000,China Open,Hard,3,Ashlyn Krueger,Ann Li,p2_games,under,12.5,0.597,1.68,1.71,0.5452,5.2,0.0208,0,100,1901945
+2026-10-03 03:00,wta,WTA 1000,China Open,Hard,3,Ashlyn Krueger,Ann Li,p2_games,over,13.5,0.2654,3.77,3.05,0.3068,-4.1,-0.1904,0,100,1901945
+2026-10-03 03:00,wta,WTA 1000,China Open,Hard,3,Ashlyn Krueger,Ann Li,p2_games,under,13.5,0.7346,1.36,1.35,0.6932,4.1,-0.0083,0,100,1901945
+2026-10-03 03:00,wta,WTA 1000,China Open,Hard,3,Ashlyn Krueger,Ann Li,game_handicap,player_a,0.5,0.4936,2.03,,,,,0,100,1901945
+2026-10-03 03:00,wta,WTA 1000,China Open,Hard,3,Ashlyn Krueger,Ann Li,game_handicap,player_b,-0.5,0.5064,1.97,,,,,0,100,1901945
+2026-10-03 03:00,wta,WTA 1000,China Open,Hard,3,Coco Gauff,Maria Osorio,winner,player_a,,0.9442,1.06,,,,,0,62,1902135
+2026-10-03 03:00,wta,WTA 1000,China Open,Hard,3,Coco Gauff,Maria Osorio,winner,player_b,,0.0558,17.91,,,,,0,62,1902135
+2026-10-03 03:00,wta,WTA 1000,China Open,Hard,3,Coco Gauff,Maria Osorio,total_games,over,16.5,0.4676,2.14,,,,,1,62,1902135
+2026-10-03 03:00,wta,WTA 1000,China Open,Hard,3,Coco Gauff,Maria Osorio,total_games,under,16.5,0.5324,1.88,,,,,1,62,1902135
+2026-10-03 03:00,wta,WTA 1000,China Open,Hard,3,Coco Gauff,Maria Osorio,p1_games,over,12.5,0.2321,4.31,,,,,1,62,1902135
+2026-10-03 03:00,wta,WTA 1000,China Open,Hard,3,Coco Gauff,Maria Osorio,p1_games,under,12.5,0.7679,1.3,,,,,1,62,1902135
+2026-10-03 03:00,wta,WTA 1000,China Open,Hard,3,Coco Gauff,Maria Osorio,p2_games,over,4.5,0.471,2.12,,,,,1,62,1902135
+2026-10-03 03:00,wta,WTA 1000,China Open,Hard,3,Coco Gauff,Maria Osorio,p2_games,under,4.5,0.529,1.89,,,,,1,62,1902135
+2026-10-03 03:00,wta,WTA 1000,China Open,Hard,3,Coco Gauff,Maria Osorio,game_handicap,player_a,-7.5,0.5472,1.83,,,,,1,62,1902135
+2026-10-03 03:00,wta,WTA 1000,China Open,Hard,3,Coco Gauff,Maria Osorio,game_handicap,player_b,7.5,0.4528,2.21,,,,,1,62,1902135
+2026-10-03 03:00,wta,WTA 1000,China Open,Hard,3,Donna Vekic,Lin Zhu,winner,player_a,,0.5582,1.79,1.54,0.6235,-6.5,-0.1404,0,94,1902093
+2026-10-03 03:00,wta,WTA 1000,China Open,Hard,3,Donna Vekic,Lin Zhu,winner,player_b,,0.4418,2.26,2.55,0.3765,6.5,0.1267,0,94,1902093
+2026-10-03 03:00,wta,WTA 1000,China Open,Hard,3,Donna Vekic,Lin Zhu,total_games,over,18.5,0.6489,1.54,1.37,0.6969,-4.8,-0.111,1,94,1902093
+2026-10-03 03:00,wta,WTA 1000,China Open,Hard,3,Donna Vekic,Lin Zhu,total_games,under,18.5,0.3511,2.85,3.15,0.3031,4.8,0.1061,1,94,1902093
+2026-10-03 03:00,wta,WTA 1000,China Open,Hard,3,Donna Vekic,Lin Zhu,total_games,over,19.5,0.5721,1.75,1.55,0.6154,-4.3,-0.1132,1,94,1902093
+2026-10-03 03:00,wta,WTA 1000,China Open,Hard,3,Donna Vekic,Lin Zhu,total_games,under,19.5,0.4279,2.34,2.48,0.3846,4.3,0.0611,1,94,1902093
+2026-10-03 03:00,wta,WTA 1000,China Open,Hard,3,Donna Vekic,Lin Zhu,total_games,over,20.5,0.5062,1.98,1.75,0.5443,-3.8,-0.1141,1,94,1902093
+2026-10-03 03:00,wta,WTA 1000,China Open,Hard,3,Donna Vekic,Lin Zhu,total_games,under,20.5,0.4938,2.03,2.09,0.4557,3.8,0.032,1,94,1902093
+2026-10-03 03:00,wta,WTA 1000,China Open,Hard,3,Donna Vekic,Lin Zhu,total_games,over,21.5,0.4581,2.18,1.93,0.4934,-3.5,-0.1158,1,94,1902093
+2026-10-03 03:00,wta,WTA 1000,China Open,Hard,3,Donna Vekic,Lin Zhu,total_games,under,21.5,0.5419,1.85,1.88,0.5066,3.5,0.0187,1,94,1902093
+2026-10-03 03:00,wta,WTA 1000,China Open,Hard,3,Donna Vekic,Lin Zhu,total_games,over,22.5,0.4024,2.48,2.22,0.4293,-2.7,-0.1066,1,94,1902093
+2026-10-03 03:00,wta,WTA 1000,China Open,Hard,3,Donna Vekic,Lin Zhu,total_games,under,22.5,0.5976,1.67,1.67,0.5707,2.7,-0.0021,1,94,1902093
+2026-10-03 03:00,wta,WTA 1000,China Open,Hard,3,Donna Vekic,Lin Zhu,total_games,over,23.5,0.3663,2.73,2.45,0.389,-2.3,-0.1026,1,94,1902093
+2026-10-03 03:00,wta,WTA 1000,China Open,Hard,3,Donna Vekic,Lin Zhu,total_games,under,23.5,0.6337,1.58,1.56,0.611,2.3,-0.0114,1,94,1902093
+2026-10-03 03:00,wta,WTA 1000,China Open,Hard,3,Donna Vekic,Lin Zhu,total_games,over,24.5,0.3456,2.89,2.6,0.3674,-2.2,-0.1015,1,94,1902093
+2026-10-03 03:00,wta,WTA 1000,China Open,Hard,3,Donna Vekic,Lin Zhu,total_games,under,24.5,0.6544,1.53,1.51,0.6326,2.2,-0.0118,1,94,1902093
+2026-10-03 03:00,wta,WTA 1000,China Open,Hard,3,Donna Vekic,Lin Zhu,p1_games,over,11.5,0.6843,1.46,1.28,0.7322,-4.8,-0.1241,1,94,1902093
+2026-10-03 03:00,wta,WTA 1000,China Open,Hard,3,Donna Vekic,Lin Zhu,p1_games,under,11.5,0.3157,3.17,3.5,0.2678,4.8,0.1048,1,94,1902093
+2026-10-03 03:00,wta,WTA 1000,China Open,Hard,3,Donna Vekic,Lin Zhu,p1_games,over,12.5,0.4018,2.49,2.06,0.4536,-5.2,-0.1722,1,94,1902093
+2026-10-03 03:00,wta,WTA 1000,China Open,Hard,3,Donna Vekic,Lin Zhu,p1_games,under,12.5,0.5982,1.67,1.71,0.5464,5.2,0.0229,1,94,1902093
+2026-10-03 03:00,wta,WTA 1000,China Open,Hard,3,Donna Vekic,Lin Zhu,p1_games,over,13.5,0.2622,3.81,3.15,0.2969,-3.5,-0.1742,1,94,1902093
+2026-10-03 03:00,wta,WTA 1000,China Open,Hard,3,Donna Vekic,Lin Zhu,p1_games,under,13.5,0.7378,1.36,1.33,0.7031,3.5,-0.0187,1,94,1902093
+2026-10-03 03:00,wta,WTA 1000,China Open,Hard,3,Donna Vekic,Lin Zhu,p2_games,over,10.5,0.6112,1.64,1.69,0.5529,5.8,0.0329,1,94,1902093
+2026-10-03 03:00,wta,WTA 1000,China Open,Hard,3,Donna Vekic,Lin Zhu,p2_games,under,10.5,0.3888,2.57,2.09,0.4471,-5.8,-0.1873,1,94,1902093
+2026-10-03 03:00,wta,WTA 1000,China Open,Hard,3,Donna Vekic,Lin Zhu,p2_games,over,11.5,0.5812,1.72,1.8,0.5187,6.2,0.0461,1,94,1902093
+2026-10-03 03:00,wta,WTA 1000,China Open,Hard,3,Donna Vekic,Lin Zhu,p2_games,under,11.5,0.4188,2.39,1.94,0.4813,-6.2,-0.1875,1,94,1902093
+2026-10-03 03:00,wta,WTA 1000,China Open,Hard,3,Donna Vekic,Lin Zhu,p2_games,over,12.5,0.3671,2.72,2.55,0.3657,0.1,-0.064,1,94,1902093
+2026-10-03 03:00,wta,WTA 1000,China Open,Hard,3,Donna Vekic,Lin Zhu,p2_games,under,12.5,0.6329,1.58,1.47,0.6343,-0.1,-0.0696,1,94,1902093
+2026-10-03 03:00,wta,WTA 1000,China Open,Hard,3,Donna Vekic,Lin Zhu,game_handicap,player_a,-1.5,0.5171,1.93,,,,,1,94,1902093
+2026-10-03 03:00,wta,WTA 1000,China Open,Hard,3,Donna Vekic,Lin Zhu,game_handicap,player_b,1.5,0.4829,2.07,,,,,1,94,1902093
+2026-10-03 03:00,wta,WTA 1000,China Open,Hard,3,Katie Volynets,Elise Mertens,winner,player_a,,0.3154,3.17,2.03,0.4741,-15.9,-0.3598,0,100,1901948
+2026-10-03 03:00,wta,WTA 1000,China Open,Hard,3,Katie Volynets,Elise Mertens,winner,player_b,,0.6846,1.46,1.83,0.5259,15.9,0.2529,0,100,1901948
+2026-10-03 03:00,wta,WTA 1000,China Open,Hard,3,Katie Volynets,Elise Mertens,total_games,over,19.5,0.5235,1.91,1.43,0.6659,-14.2,-0.2514,0,100,1901948
+2026-10-03 03:00,wta,WTA 1000,China Open,Hard,3,Katie Volynets,Elise Mertens,total_games,under,19.5,0.4765,2.1,2.85,0.3341,14.2,0.3579,0,100,1901948
+2026-10-03 03:00,wta,WTA 1000,China Open,Hard,3,Katie Volynets,Elise Mertens,total_games,over,20.5,0.4611,2.17,1.61,0.5914,-13.0,-0.2577,0,100,1901948
+2026-10-03 03:00,wta,WTA 1000,China Open,Hard,3,Katie Volynets,Elise Mertens,total_games,under,20.5,0.5389,1.86,2.33,0.4086,13.0,0.2557,0,100,1901948
+2026-10-03 03:00,wta,WTA 1000,China Open,Hard,3,Katie Volynets,Elise Mertens,total_games,over,21.5,0.4152,2.41,1.77,0.5379,-12.3,-0.2651,0,100,1901948
+2026-10-03 03:00,wta,WTA 1000,China Open,Hard,3,Katie Volynets,Elise Mertens,total_games,under,21.5,0.5848,1.71,2.06,0.4621,12.3,0.2047,0,100,1901948
+2026-10-03 03:00,wta,WTA 1000,China Open,Hard,3,Katie Volynets,Elise Mertens,total_games,over,22.5,0.364,2.75,2.04,0.4674,-10.3,-0.2574,0,100,1901948
+2026-10-03 03:00,wta,WTA 1000,China Open,Hard,3,Katie Volynets,Elise Mertens,total_games,under,22.5,0.636,1.57,1.79,0.5326,10.3,0.1384,0,100,1901948
+2026-10-03 03:00,wta,WTA 1000,China Open,Hard,3,Katie Volynets,Elise Mertens,total_games,over,23.5,0.3314,3.02,2.27,0.4194,-8.8,-0.2476,0,100,1901948
+2026-10-03 03:00,wta,WTA 1000,China Open,Hard,3,Katie Volynets,Elise Mertens,total_games,under,23.5,0.6686,1.5,1.64,0.5806,8.8,0.0964,0,100,1901948
+2026-10-03 03:00,wta,WTA 1000,China Open,Hard,3,Katie Volynets,Elise Mertens,total_games,over,24.5,0.3102,3.22,2.37,0.4015,-9.1,-0.2649,0,100,1901948
+2026-10-03 03:00,wta,WTA 1000,China Open,Hard,3,Katie Volynets,Elise Mertens,total_games,under,24.5,0.6898,1.45,1.59,0.5985,9.1,0.0968,0,100,1901948
+2026-10-03 03:00,wta,WTA 1000,China Open,Hard,3,Katie Volynets,Elise Mertens,total_games,over,25.5,0.2757,3.63,2.6,0.3659,-9.0,-0.2832,0,100,1901948
+2026-10-03 03:00,wta,WTA 1000,China Open,Hard,3,Katie Volynets,Elise Mertens,total_games,under,25.5,0.7243,1.38,1.5,0.6341,9.0,0.0865,0,100,1901948
+2026-10-03 03:00,wta,WTA 1000,China Open,Hard,3,Katie Volynets,Elise Mertens,p1_games,over,11.5,0.4482,2.23,1.53,0.6107,-16.3,-0.3143,0,100,1901948
+2026-10-03 03:00,wta,WTA 1000,China Open,Hard,3,Katie Volynets,Elise Mertens,p1_games,under,11.5,0.5518,1.81,2.4,0.3893,16.3,0.3244,0,100,1901948
+2026-10-03 03:00,wta,WTA 1000,China Open,Hard,3,Katie Volynets,Elise Mertens,p1_games,over,12.5,0.2957,3.38,2.26,0.413,-11.7,-0.3318,0,100,1901948
+2026-10-03 03:00,wta,WTA 1000,China Open,Hard,3,Katie Volynets,Elise Mertens,p1_games,under,12.5,0.7043,1.42,1.59,0.587,11.7,0.1199,0,100,1901948
+2026-10-03 03:00,wta,WTA 1000,China Open,Hard,3,Katie Volynets,Elise Mertens,p1_games,over,13.5,0.1974,5.06,3.35,0.2796,-8.2,-0.3386,0,100,1901948
+2026-10-03 03:00,wta,WTA 1000,China Open,Hard,3,Katie Volynets,Elise Mertens,p1_games,under,13.5,0.8026,1.25,1.3,0.7204,8.2,0.0433,0,100,1901948
+2026-10-03 03:00,wta,WTA 1000,China Open,Hard,3,Katie Volynets,Elise Mertens,p2_games,over,11.5,0.7832,1.28,1.43,0.6538,12.9,0.1199,0,100,1901948
+2026-10-03 03:00,wta,WTA 1000,China Open,Hard,3,Katie Volynets,Elise Mertens,p2_games,under,11.5,0.2168,4.61,2.7,0.3462,-12.9,-0.4146,0,100,1901948
+2026-10-03 03:00,wta,WTA 1000,China Open,Hard,3,Katie Volynets,Elise Mertens,p2_games,over,12.5,0.4006,2.5,2.16,0.4316,-3.1,-0.1348,0,100,1901948
+2026-10-03 03:00,wta,WTA 1000,China Open,Hard,3,Katie Volynets,Elise Mertens,p2_games,under,12.5,0.5994,1.67,1.64,0.5684,3.1,-0.0169,0,100,1901948
+2026-10-03 03:00,wta,WTA 1000,China Open,Hard,3,Katie Volynets,Elise Mertens,p2_games,over,13.5,0.2517,3.97,3.25,0.2873,-3.6,-0.1819,0,100,1901948
+2026-10-03 03:00,wta,WTA 1000,China Open,Hard,3,Katie Volynets,Elise Mertens,p2_games,under,13.5,0.7483,1.34,1.31,0.7127,3.6,-0.0198,0,100,1901948
+2026-10-03 03:00,wta,WTA 1000,China Open,Hard,3,Katie Volynets,Elise Mertens,game_handicap,player_a,3.5,0.4386,2.28,,,,,0,100,1901948
+2026-10-03 03:00,wta,WTA 1000,China Open,Hard,3,Katie Volynets,Elise Mertens,game_handicap,player_b,-3.5,0.5614,1.78,,,,,0,100,1901948
+2026-10-03 04:30,wta,WTA 1000,China Open,Hard,3,Jelena Ostapenko,Paula Badosa,winner,player_a,,0.1806,5.54,2.39,0.4025,-22.2,-0.5684,0,69,1902013
+2026-10-03 04:30,wta,WTA 1000,China Open,Hard,3,Jelena Ostapenko,Paula Badosa,winner,player_b,,0.8194,1.22,1.61,0.5975,22.2,0.3193,0,69,1902013
+2026-10-03 04:30,wta,WTA 1000,China Open,Hard,3,Jelena Ostapenko,Paula Badosa,total_games,over,18.5,0.5093,1.96,1.34,0.7112,-20.2,-0.3176,1,69,1902013
+2026-10-03 04:30,wta,WTA 1000,China Open,Hard,3,Jelena Ostapenko,Paula Badosa,total_games,under,18.5,0.4907,2.04,3.3,0.2888,20.2,0.6193,1,69,1902013
+2026-10-03 04:30,wta,WTA 1000,China Open,Hard,3,Jelena Ostapenko,Paula Badosa,total_games,over,19.5,0.4367,2.29,1.51,0.6281,-19.1,-0.3406,1,69,1902013
+2026-10-03 04:30,wta,WTA 1000,China Open,Hard,3,Jelena Ostapenko,Paula Badosa,total_games,under,19.5,0.5633,1.78,2.55,0.3719,19.1,0.4364,1,69,1902013
+2026-10-03 04:30,wta,WTA 1000,China Open,Hard,3,Jelena Ostapenko,Paula Badosa,total_games,over,20.5,0.3772,2.65,1.71,0.557,-18.0,-0.3549,1,69,1902013
+2026-10-03 04:30,wta,WTA 1000,China Open,Hard,3,Jelena Ostapenko,Paula Badosa,total_games,under,20.5,0.6228,1.61,2.15,0.443,18.0,0.3389,1,69,1902013
+2026-10-03 04:30,wta,WTA 1000,China Open,Hard,3,Jelena Ostapenko,Paula Badosa,total_games,over,21.5,0.335,2.99,1.89,0.5039,-16.9,-0.3669,1,69,1902013
+2026-10-03 04:30,wta,WTA 1000,China Open,Hard,3,Jelena Ostapenko,Paula Badosa,total_games,under,21.5,0.665,1.5,1.92,0.4961,16.9,0.2768,1,69,1902013
+2026-10-03 04:30,wta,WTA 1000,China Open,Hard,3,Jelena Ostapenko,Paula Badosa,total_games,over,22.5,0.29,3.45,2.16,0.4404,-15.0,-0.3736,1,69,1902013
+2026-10-03 04:30,wta,WTA 1000,China Open,Hard,3,Jelena Ostapenko,Paula Badosa,total_games,under,22.5,0.71,1.41,1.7,0.5596,15.0,0.207,1,69,1902013
+2026-10-03 04:30,wta,WTA 1000,China Open,Hard,3,Jelena Ostapenko,Paula Badosa,total_games,over,23.5,0.262,3.82,2.4,0.397,-13.5,-0.3712,1,69,1902013
+2026-10-03 04:30,wta,WTA 1000,China Open,Hard,3,Jelena Ostapenko,Paula Badosa,total_games,under,23.5,0.738,1.36,1.58,0.603,13.5,0.166,1,69,1902013
+2026-10-03 04:30,wta,WTA 1000,China Open,Hard,3,Jelena Ostapenko,Paula Badosa,total_games,over,24.5,0.2449,4.08,2.5,0.3797,-13.5,-0.3877,1,69,1902013
+2026-10-03 04:30,wta,WTA 1000,China Open,Hard,3,Jelena Ostapenko,Paula Badosa,total_games,under,24.5,0.7551,1.32,1.53,0.6203,13.5,0.1552,1,69,1902013
+2026-10-03 04:30,wta,WTA 1000,China Open,Hard,3,Jelena Ostapenko,Paula Badosa,p1_games,over,10.5,0.3211,3.11,1.59,0.587,-26.6,-0.4894,1,69,1902013
+2026-10-03 04:30,wta,WTA 1000,China Open,Hard,3,Jelena Ostapenko,Paula Badosa,p1_games,under,10.5,0.6789,1.47,2.26,0.413,26.6,0.5343,1,69,1902013
+2026-10-03 04:30,wta,WTA 1000,China Open,Hard,3,Jelena Ostapenko,Paula Badosa,p1_games,over,11.5,0.2903,3.45,1.69,0.5529,-26.3,-0.5095,1,69,1902013
+2026-10-03 04:30,wta,WTA 1000,China Open,Hard,3,Jelena Ostapenko,Paula Badosa,p1_games,under,11.5,0.7097,1.41,2.09,0.4471,26.3,0.4834,1,69,1902013
+2026-10-03 04:30,wta,WTA 1000,China Open,Hard,3,Jelena Ostapenko,Paula Badosa,p1_games,over,12.5,0.2045,4.89,2.39,0.3903,-18.6,-0.5113,1,69,1902013
+2026-10-03 04:30,wta,WTA 1000,China Open,Hard,3,Jelena Ostapenko,Paula Badosa,p1_games,under,12.5,0.7955,1.26,1.53,0.6097,18.6,0.2171,1,69,1902013
+2026-10-03 04:30,wta,WTA 1000,China Open,Hard,3,Jelena Ostapenko,Paula Badosa,p2_games,over,11.5,0.8879,1.13,1.31,0.7158,17.2,0.1632,1,69,1902013
+2026-10-03 04:30,wta,WTA 1000,China Open,Hard,3,Jelena Ostapenko,Paula Badosa,p2_games,under,11.5,0.1121,8.92,3.3,0.2842,-17.2,-0.6301,1,69,1902013
+2026-10-03 04:30,wta,WTA 1000,China Open,Hard,3,Jelena Ostapenko,Paula Badosa,p2_games,over,12.5,0.3669,2.73,2.03,0.4601,-9.3,-0.2552,1,69,1902013
+2026-10-03 04:30,wta,WTA 1000,China Open,Hard,3,Jelena Ostapenko,Paula Badosa,p2_games,under,12.5,0.6331,1.58,1.73,0.5399,9.3,0.0953,1,69,1902013
+2026-10-03 04:30,wta,WTA 1000,China Open,Hard,3,Jelena Ostapenko,Paula Badosa,p2_games,over,13.5,0.2149,4.65,3.05,0.3052,-9.0,-0.3446,1,69,1902013
+2026-10-03 04:30,wta,WTA 1000,China Open,Hard,3,Jelena Ostapenko,Paula Badosa,p2_games,under,13.5,0.7851,1.27,1.34,0.6948,9.0,0.0521,1,69,1902013
+2026-10-03 04:30,wta,WTA 1000,China Open,Hard,3,Jelena Ostapenko,Paula Badosa,game_handicap,player_a,5.5,0.4608,2.17,,,,,1,69,1902013
+2026-10-03 04:30,wta,WTA 1000,China Open,Hard,3,Jelena Ostapenko,Paula Badosa,game_handicap,player_b,-5.5,0.5392,1.85,,,,,1,69,1902013
+2026-10-03 04:30,wta,WTA 1000,China Open,Hard,3,Katerina Siniakova,Elina Svitolina,winner,player_a,,0.1908,5.24,3.95,0.2433,-5.2,-0.2461,0,100,1901977
+2026-10-03 04:30,wta,WTA 1000,China Open,Hard,3,Katerina Siniakova,Elina Svitolina,winner,player_b,,0.8092,1.24,1.27,0.7567,5.2,0.0276,0,100,1901977
+2026-10-03 04:30,wta,WTA 1000,China Open,Hard,3,Katerina Siniakova,Elina Svitolina,total_games,over,17.5,0.5977,1.67,1.35,0.7065,-10.9,-0.1931,0,100,1901977
+2026-10-03 04:30,wta,WTA 1000,China Open,Hard,3,Katerina Siniakova,Elina Svitolina,total_games,under,17.5,0.4023,2.49,3.25,0.2935,10.9,0.3076,0,100,1901977
+2026-10-03 04:30,wta,WTA 1000,China Open,Hard,3,Katerina Siniakova,Elina Svitolina,total_games,over,18.5,0.5117,1.95,1.53,0.6203,-10.9,-0.217,0,100,1901977
+2026-10-03 04:30,wta,WTA 1000,China Open,Hard,3,Katerina Siniakova,Elina Svitolina,total_games,under,18.5,0.4883,2.05,2.5,0.3797,10.9,0.2207,0,100,1901977
+2026-10-03 04:30,wta,WTA 1000,China Open,Hard,3,Katerina Siniakova,Elina Svitolina,total_games,over,19.5,0.4398,2.27,1.76,0.5405,-10.1,-0.2259,0,100,1901977
+2026-10-03 04:30,wta,WTA 1000,China Open,Hard,3,Katerina Siniakova,Elina Svitolina,total_games,under,19.5,0.5602,1.79,2.07,0.4595,10.1,0.1596,0,100,1901977
+2026-10-03 04:30,wta,WTA 1000,China Open,Hard,3,Katerina Siniakova,Elina Svitolina,total_games,over,20.5,0.3811,2.62,2.01,0.4738,-9.3,-0.2339,0,100,1901977
+2026-10-03 04:30,wta,WTA 1000,China Open,Hard,3,Katerina Siniakova,Elina Svitolina,total_games,under,20.5,0.6189,1.62,1.81,0.5262,9.3,0.1201,0,100,1901977
+2026-10-03 04:30,wta,WTA 1000,China Open,Hard,3,Katerina Siniakova,Elina Svitolina,total_games,over,21.5,0.3391,2.95,2.25,0.4231,-8.4,-0.2371,0,100,1901977
+2026-10-03 04:30,wta,WTA 1000,China Open,Hard,3,Katerina Siniakova,Elina Svitolina,total_games,under,21.5,0.6609,1.51,1.65,0.5769,8.4,0.0905,0,100,1901977
+2026-10-03 04:30,wta,WTA 1000,China Open,Hard,3,Katerina Siniakova,Elina Svitolina,total_games,over,22.5,0.2944,3.4,2.6,0.3674,-7.3,-0.2347,0,100,1901977
+2026-10-03 04:30,wta,WTA 1000,China Open,Hard,3,Katerina Siniakova,Elina Svitolina,total_games,under,22.5,0.7056,1.42,1.51,0.6326,7.3,0.0655,0,100,1901977
+2026-10-03 04:30,wta,WTA 1000,China Open,Hard,3,Katerina Siniakova,Elina Svitolina,total_games,over,23.5,0.2665,3.75,2.85,0.3341,-6.8,-0.2404,0,100,1901977
+2026-10-03 04:30,wta,WTA 1000,China Open,Hard,3,Katerina Siniakova,Elina Svitolina,total_games,under,23.5,0.7335,1.36,1.43,0.6659,6.8,0.0489,0,100,1901977
+2026-10-03 04:30,wta,WTA 1000,China Open,Hard,3,Katerina Siniakova,Elina Svitolina,p1_games,over,7.5,0.4658,2.15,1.68,0.5567,-9.1,-0.2175,0,100,1901977
+2026-10-03 04:30,wta,WTA 1000,China Open,Hard,3,Katerina Siniakova,Elina Svitolina,p1_games,under,7.5,0.5342,1.87,2.11,0.4433,9.1,0.1272,0,100,1901977
+2026-10-03 04:30,wta,WTA 1000,China Open,Hard,3,Katerina Siniakova,Elina Svitolina,p1_games,over,8.5,0.4096,2.44,1.88,0.4973,-8.8,-0.2299,0,100,1901977
+2026-10-03 04:30,wta,WTA 1000,China Open,Hard,3,Katerina Siniakova,Elina Svitolina,p1_games,under,8.5,0.5904,1.69,1.86,0.5027,8.8,0.0981,0,100,1901977
+2026-10-03 04:30,wta,WTA 1000,China Open,Hard,3,Katerina Siniakova,Elina Svitolina,p1_games,over,9.5,0.3668,2.73,2.08,0.4497,-8.3,-0.2371,0,100,1901977
+2026-10-03 04:30,wta,WTA 1000,China Open,Hard,3,Katerina Siniakova,Elina Svitolina,p1_games,under,9.5,0.6332,1.58,1.7,0.5503,8.3,0.0765,0,100,1901977
+2026-10-03 04:30,wta,WTA 1000,China Open,Hard,3,Katerina Siniakova,Elina Svitolina,p2_games,over,11.5,0.8798,1.14,1.13,0.827,5.3,-0.0058,0,100,1901977
+2026-10-03 04:30,wta,WTA 1000,China Open,Hard,3,Katerina Siniakova,Elina Svitolina,p2_games,under,11.5,0.1202,8.32,5.4,0.173,-5.3,-0.3509,0,100,1901977
+2026-10-03 04:30,wta,WTA 1000,China Open,Hard,3,Katerina Siniakova,Elina Svitolina,p2_games,over,12.5,0.3673,2.72,2.13,0.4395,-7.2,-0.2177,0,100,1901977
+2026-10-03 04:30,wta,WTA 1000,China Open,Hard,3,Katerina Siniakova,Elina Svitolina,p2_games,under,12.5,0.6327,1.58,1.67,0.5605,7.2,0.0566,0,100,1901977
+2026-10-03 04:30,wta,WTA 1000,China Open,Hard,3,Katerina Siniakova,Elina Svitolina,p2_games,over,13.5,0.2167,4.61,3.4,0.2751,-5.8,-0.2631,0,100,1901977
+2026-10-03 04:30,wta,WTA 1000,China Open,Hard,3,Katerina Siniakova,Elina Svitolina,p2_games,under,13.5,0.7833,1.28,1.29,0.7249,5.8,0.0104,0,100,1901977
+2026-10-03 04:30,wta,WTA 1000,China Open,Hard,3,Katerina Siniakova,Elina Svitolina,game_handicap,player_a,5.5,0.4667,2.14,,,,,0,100,1901977
+2026-10-03 04:30,wta,WTA 1000,China Open,Hard,3,Katerina Siniakova,Elina Svitolina,game_handicap,player_b,-5.5,0.5333,1.88,,,,,0,100,1901977
+2026-10-03 04:30,wta,WTA 1000,China Open,Hard,3,Maria Sakkari,Storm Hunter,winner,player_a,,0.6842,1.46,1.38,0.6954,-1.1,-0.0557,0,100,1902022
+2026-10-03 04:30,wta,WTA 1000,China Open,Hard,3,Maria Sakkari,Storm Hunter,winner,player_b,,0.3158,3.17,3.15,0.3046,1.1,-0.0054,0,100,1902022
+2026-10-03 04:30,wta,WTA 1000,China Open,Hard,3,Maria Sakkari,Storm Hunter,total_games,over,18.5,0.6068,1.65,1.4,0.6818,-7.5,-0.1504,0,100,1902022
+2026-10-03 04:30,wta,WTA 1000,China Open,Hard,3,Maria Sakkari,Storm Hunter,total_games,under,18.5,0.3932,2.54,3.0,0.3182,7.5,0.1795,0,100,1902022
+2026-10-03 04:30,wta,WTA 1000,China Open,Hard,3,Maria Sakkari,Storm Hunter,total_games,over,19.5,0.5312,1.88,1.59,0.5985,-6.7,-0.1554,0,100,1902022
+2026-10-03 04:30,wta,WTA 1000,China Open,Hard,3,Maria Sakkari,Storm Hunter,total_games,under,19.5,0.4688,2.13,2.37,0.4015,6.7,0.1111,0,100,1902022
+2026-10-03 04:30,wta,WTA 1000,China Open,Hard,3,Maria Sakkari,Storm Hunter,total_games,over,20.5,0.4672,2.14,1.81,0.5262,-5.9,-0.1544,0,100,1902022
+2026-10-03 04:30,wta,WTA 1000,China Open,Hard,3,Maria Sakkari,Storm Hunter,total_games,under,20.5,0.5328,1.88,2.01,0.4738,5.9,0.0709,0,100,1902022
+2026-10-03 04:30,wta,WTA 1000,China Open,Hard,3,Maria Sakkari,Storm Hunter,total_games,over,21.5,0.4205,2.38,2.01,0.4738,-5.3,-0.1547,0,100,1902022
+2026-10-03 04:30,wta,WTA 1000,China Open,Hard,3,Maria Sakkari,Storm Hunter,total_games,under,21.5,0.5795,1.73,1.81,0.5262,5.3,0.0488,0,100,1902022
+2026-10-03 04:30,wta,WTA 1000,China Open,Hard,3,Maria Sakkari,Storm Hunter,total_games,over,22.5,0.368,2.72,2.31,0.4122,-4.4,-0.1498,0,100,1902022
+2026-10-03 04:30,wta,WTA 1000,China Open,Hard,3,Maria Sakkari,Storm Hunter,total_games,under,22.5,0.632,1.58,1.62,0.5878,4.4,0.0238,0,100,1902022
+2026-10-03 04:30,wta,WTA 1000,China Open,Hard,3,Maria Sakkari,Storm Hunter,total_games,over,23.5,0.3345,2.99,2.55,0.3735,-3.9,-0.1471,0,100,1902022
+2026-10-03 04:30,wta,WTA 1000,China Open,Hard,3,Maria Sakkari,Storm Hunter,total_games,under,23.5,0.6655,1.5,1.52,0.6265,3.9,0.0116,0,100,1902022
+2026-10-03 04:30,wta,WTA 1000,China Open,Hard,3,Maria Sakkari,Storm Hunter,total_games,over,24.5,0.3142,3.18,2.7,0.3525,-3.8,-0.1517,0,100,1902022
+2026-10-03 04:30,wta,WTA 1000,China Open,Hard,3,Maria Sakkari,Storm Hunter,total_games,under,24.5,0.6858,1.46,1.47,0.6475,3.8,0.0082,0,100,1902022
+2026-10-03 04:30,wta,WTA 1000,China Open,Hard,3,Maria Sakkari,Storm Hunter,p1_games,over,11.5,0.786,1.27,1.19,0.7871,-0.1,-0.0647,0,100,1902022
+2026-10-03 04:30,wta,WTA 1000,China Open,Hard,3,Maria Sakkari,Storm Hunter,p1_games,under,11.5,0.214,4.67,4.4,0.2129,0.1,-0.0582,0,100,1902022
+2026-10-03 04:30,wta,WTA 1000,China Open,Hard,3,Maria Sakkari,Storm Hunter,p1_games,over,12.5,0.4064,2.46,2.01,0.4654,-5.9,-0.1832,0,100,1902022
+2026-10-03 04:30,wta,WTA 1000,China Open,Hard,3,Maria Sakkari,Storm Hunter,p1_games,under,12.5,0.5936,1.68,1.75,0.5346,5.9,0.0388,0,100,1902022
+2026-10-03 04:30,wta,WTA 1000,China Open,Hard,3,Maria Sakkari,Storm Hunter,p1_games,over,13.5,0.2553,3.92,3.15,0.2969,-4.2,-0.196,0,100,1902022
+2026-10-03 04:30,wta,WTA 1000,China Open,Hard,3,Maria Sakkari,Storm Hunter,p1_games,under,13.5,0.7447,1.34,1.33,0.7031,4.2,-0.0095,0,100,1902022
+2026-10-03 04:30,wta,WTA 1000,China Open,Hard,3,Maria Sakkari,Storm Hunter,p2_games,over,9.5,0.5198,1.92,1.77,0.528,-0.8,-0.0799,0,100,1902022
+2026-10-03 04:30,wta,WTA 1000,China Open,Hard,3,Maria Sakkari,Storm Hunter,p2_games,under,9.5,0.4802,2.08,1.98,0.472,0.8,-0.0493,0,100,1902022
+2026-10-03 04:30,wta,WTA 1000,China Open,Hard,3,Maria Sakkari,Storm Hunter,p2_games,over,10.5,0.4832,2.07,1.92,0.4866,-0.3,-0.0722,0,100,1902022
+2026-10-03 04:30,wta,WTA 1000,China Open,Hard,3,Maria Sakkari,Storm Hunter,p2_games,under,10.5,0.5168,1.94,1.82,0.5134,0.3,-0.0595,0,100,1902022
+2026-10-03 04:30,wta,WTA 1000,China Open,Hard,3,Maria Sakkari,Storm Hunter,p2_games,over,11.5,0.4502,2.22,2.07,0.4509,-0.1,-0.068,0,100,1902022
+2026-10-03 04:30,wta,WTA 1000,China Open,Hard,3,Maria Sakkari,Storm Hunter,p2_games,under,11.5,0.5498,1.82,1.7,0.5491,0.1,-0.0654,0,100,1902022
+2026-10-03 04:30,wta,WTA 1000,China Open,Hard,3,Maria Sakkari,Storm Hunter,game_handicap,player_a,-3.5,0.5591,1.79,,,,,0,100,1902022
+2026-10-03 04:30,wta,WTA 1000,China Open,Hard,3,Maria Sakkari,Storm Hunter,game_handicap,player_b,3.5,0.4409,2.27,,,,,0,100,1902022
+2026-10-03 05:00,wta,WTA 1000,China Open,Hard,3,Xinyu Gao,Iga Swiatek,winner,player_a,,0.041,24.4,19.0,0.0505,-0.9,-0.2214,0,94,1902140
+2026-10-03 05:00,wta,WTA 1000,China Open,Hard,3,Xinyu Gao,Iga Swiatek,winner,player_b,,0.959,1.04,1.01,0.9495,0.9,-0.0314,0,94,1902140
+2026-10-03 05:00,wta,WTA 1000,China Open,Hard,3,Xinyu Gao,Iga Swiatek,total_games,over,13.5,0.8471,1.18,1.09,0.8746,-2.7,-0.0767,1,94,1902140
+2026-10-03 05:00,wta,WTA 1000,China Open,Hard,3,Xinyu Gao,Iga Swiatek,total_games,under,13.5,0.1529,6.54,7.6,0.1254,2.7,0.162,1,94,1902140
+2026-10-03 05:00,wta,WTA 1000,China Open,Hard,3,Xinyu Gao,Iga Swiatek,total_games,over,14.5,0.7095,1.41,1.27,0.7495,-4.0,-0.099,1,94,1902140
+2026-10-03 05:00,wta,WTA 1000,China Open,Hard,3,Xinyu Gao,Iga Swiatek,total_games,under,14.5,0.2905,3.44,3.8,0.2505,4.0,0.104,1,94,1902140
+2026-10-03 05:00,wta,WTA 1000,China Open,Hard,3,Xinyu Gao,Iga Swiatek,total_games,over,15.5,0.5647,1.77,1.59,0.5995,-3.5,-0.1021,1,94,1902140
+2026-10-03 05:00,wta,WTA 1000,China Open,Hard,3,Xinyu Gao,Iga Swiatek,total_games,under,15.5,0.4353,2.3,2.38,0.4005,3.5,0.0359,1,94,1902140
+2026-10-03 05:00,wta,WTA 1000,China Open,Hard,3,Xinyu Gao,Iga Swiatek,total_games,over,16.5,0.4331,2.31,2.09,0.4557,-2.3,-0.0947,1,94,1902140
+2026-10-03 05:00,wta,WTA 1000,China Open,Hard,3,Xinyu Gao,Iga Swiatek,total_games,under,16.5,0.5669,1.76,1.75,0.5443,2.3,-0.008,1,94,1902140
+2026-10-03 05:00,wta,WTA 1000,China Open,Hard,3,Xinyu Gao,Iga Swiatek,total_games,over,17.5,0.3327,3.01,2.75,0.3452,-1.3,-0.0851,1,94,1902140
+2026-10-03 05:00,wta,WTA 1000,China Open,Hard,3,Xinyu Gao,Iga Swiatek,total_games,under,17.5,0.6673,1.5,1.45,0.6548,1.3,-0.0324,1,94,1902140
+2026-10-03 05:00,wta,WTA 1000,China Open,Hard,3,Xinyu Gao,Iga Swiatek,total_games,over,18.5,0.2615,3.82,3.5,0.2723,-1.1,-0.0848,1,94,1902140
+2026-10-03 05:00,wta,WTA 1000,China Open,Hard,3,Xinyu Gao,Iga Swiatek,total_games,under,18.5,0.7385,1.35,1.31,0.7277,1.1,-0.0326,1,94,1902140
+2026-10-03 05:00,wta,WTA 1000,China Open,Hard,3,Xinyu Gao,Iga Swiatek,total_games,over,19.5,0.2104,4.75,4.4,0.2171,-0.7,-0.074,1,94,1902140
+2026-10-03 05:00,wta,WTA 1000,China Open,Hard,3,Xinyu Gao,Iga Swiatek,total_games,under,19.5,0.7896,1.27,1.22,0.7829,0.7,-0.0367,1,94,1902140
+2026-10-03 05:00,wta,WTA 1000,China Open,Hard,3,Xinyu Gao,Iga Swiatek,p1_games,over,3.5,0.5657,1.77,1.56,0.599,-3.3,-0.1175,1,94,1902140
+2026-10-03 05:00,wta,WTA 1000,China Open,Hard,3,Xinyu Gao,Iga Swiatek,p1_games,under,3.5,0.4343,2.3,2.33,0.401,3.3,0.0119,1,94,1902140
+2026-10-03 05:00,wta,WTA 1000,China Open,Hard,3,Xinyu Gao,Iga Swiatek,p1_games,over,4.5,0.4353,2.3,2.04,0.4574,-2.2,-0.1121,1,94,1902140
+2026-10-03 05:00,wta,WTA 1000,China Open,Hard,3,Xinyu Gao,Iga Swiatek,p1_games,under,4.5,0.5647,1.77,1.72,0.5426,2.2,-0.0286,1,94,1902140
+2026-10-03 05:00,wta,WTA 1000,China Open,Hard,3,Xinyu Gao,Iga Swiatek,p1_games,over,5.5,0.3295,3.03,2.75,0.3405,-1.1,-0.0938,1,94,1902140
+2026-10-03 05:00,wta,WTA 1000,China Open,Hard,3,Xinyu Gao,Iga Swiatek,p1_games,under,5.5,0.6705,1.49,1.42,0.6595,1.1,-0.0479,1,94,1902140
+2026-10-03 05:00,wta,WTA 1000,China Open,Hard,3,Xinyu Gao,Iga Swiatek,p2_games,over,12.5,0.2071,4.83,3.9,0.2398,-3.3,-0.1924,1,94,1902140
+2026-10-03 05:00,wta,WTA 1000,China Open,Hard,3,Xinyu Gao,Iga Swiatek,p2_games,under,12.5,0.7929,1.26,1.23,0.7602,3.3,-0.0247,1,94,1902140
+2026-10-03 05:00,wta,WTA 1000,China Open,Hard,3,Xinyu Gao,Iga Swiatek,p2_games,over,13.5,0.104,9.61,7.2,0.1304,-2.6,-0.2509,1,94,1902140
+2026-10-03 05:00,wta,WTA 1000,China Open,Hard,3,Xinyu Gao,Iga Swiatek,p2_games,under,13.5,0.896,1.12,1.08,0.8696,2.6,-0.0324,1,94,1902140
+2026-10-03 05:00,wta,WTA 1000,China Open,Hard,3,Xinyu Gao,Iga Swiatek,game_handicap,player_a,7.5,0.4187,2.39,,,,,1,94,1902140
+2026-10-03 05:00,wta,WTA 1000,China Open,Hard,3,Xinyu Gao,Iga Swiatek,game_handicap,player_b,-7.5,0.5813,1.72,,,,,1,94,1902140
+2026-10-03 06:00,wta,WTA 1000,China Open,Hard,3,Iva Jovic,Harriet Dart,winner,player_a,,0.7786,1.28,1.09,0.8827,-10.4,-0.1513,0,94,1902094
+2026-10-03 06:00,wta,WTA 1000,China Open,Hard,3,Iva Jovic,Harriet Dart,winner,player_b,,0.2214,4.52,8.2,0.1173,10.4,0.8153,0,94,1902094
+2026-10-03 06:00,wta,WTA 1000,China Open,Hard,3,Iva Jovic,Harriet Dart,total_games,over,15.5,0.8175,1.22,1.21,0.7881,2.9,-0.0109,1,94,1902094
+2026-10-03 06:00,wta,WTA 1000,China Open,Hard,3,Iva Jovic,Harriet Dart,total_games,under,15.5,0.1825,5.48,4.5,0.2119,-2.9,-0.1786,1,94,1902094
+2026-10-03 06:00,wta,WTA 1000,China Open,Hard,3,Iva Jovic,Harriet Dart,total_games,over,16.5,0.7202,1.39,1.4,0.6818,3.8,0.0083,1,94,1902094
+2026-10-03 06:00,wta,WTA 1000,China Open,Hard,3,Iva Jovic,Harriet Dart,total_games,under,16.5,0.2798,3.57,3.0,0.3182,-3.8,-0.1607,1,94,1902094
+2026-10-03 06:00,wta,WTA 1000,China Open,Hard,3,Iva Jovic,Harriet Dart,total_games,over,17.5,0.6231,1.6,1.68,0.567,5.6,0.0468,1,94,1902094
+2026-10-03 06:00,wta,WTA 1000,China Open,Hard,3,Iva Jovic,Harriet Dart,total_games,under,17.5,0.3769,2.65,2.2,0.433,-5.6,-0.1708,1,94,1902094
+2026-10-03 06:00,wta,WTA 1000,China Open,Hard,3,Iva Jovic,Harriet Dart,total_games,over,18.5,0.5376,1.86,1.98,0.4803,5.7,0.0644,1,94,1902094
+2026-10-03 06:00,wta,WTA 1000,China Open,Hard,3,Iva Jovic,Harriet Dart,total_games,under,18.5,0.4624,2.16,1.83,0.5197,-5.7,-0.1538,1,94,1902094
+2026-10-03 06:00,wta,WTA 1000,China Open,Hard,3,Iva Jovic,Harriet Dart,total_games,over,19.5,0.4648,2.15,2.37,0.4015,6.3,0.1016,1,94,1902094
+2026-10-03 06:00,wta,WTA 1000,China Open,Hard,3,Iva Jovic,Harriet Dart,total_games,under,19.5,0.5352,1.87,1.59,0.5985,-6.3,-0.1491,1,94,1902094
+2026-10-03 06:00,wta,WTA 1000,China Open,Hard,3,Iva Jovic,Harriet Dart,total_games,over,20.5,0.4051,2.47,2.75,0.3452,6.0,0.1139,1,94,1902094
+2026-10-03 06:00,wta,WTA 1000,China Open,Hard,3,Iva Jovic,Harriet Dart,total_games,under,20.5,0.5949,1.68,1.45,0.6548,-6.0,-0.1373,1,94,1902094
+2026-10-03 06:00,wta,WTA 1000,China Open,Hard,3,Iva Jovic,Harriet Dart,total_games,over,21.5,0.3618,2.76,3.15,0.3016,6.0,0.1395,1,94,1902094
+2026-10-03 06:00,wta,WTA 1000,China Open,Hard,3,Iva Jovic,Harriet Dart,total_games,under,21.5,0.6382,1.57,1.36,0.6984,-6.0,-0.132,1,94,1902094
+2026-10-03 06:00,wta,WTA 1000,China Open,Hard,3,Iva Jovic,Harriet Dart,p1_games,over,11.5,0.8564,1.17,1.04,0.9023,-4.6,-0.1093,1,94,1902094
+2026-10-03 06:00,wta,WTA 1000,China Open,Hard,3,Iva Jovic,Harriet Dart,p1_games,under,11.5,0.1436,6.97,9.6,0.0977,4.6,0.3782,1,94,1902094
+2026-10-03 06:00,wta,WTA 1000,China Open,Hard,3,Iva Jovic,Harriet Dart,p1_games,over,12.5,0.3795,2.64,2.4,0.3893,-1.0,-0.0892,1,94,1902094
+2026-10-03 06:00,wta,WTA 1000,China Open,Hard,3,Iva Jovic,Harriet Dart,p1_games,under,12.5,0.6205,1.61,1.53,0.6107,1.0,-0.0506,1,94,1902094
+2026-10-03 06:00,wta,WTA 1000,China Open,Hard,3,Iva Jovic,Harriet Dart,p1_games,over,13.5,0.2282,4.38,4.1,0.2279,0.0,-0.0645,1,94,1902094
+2026-10-03 06:00,wta,WTA 1000,China Open,Hard,3,Iva Jovic,Harriet Dart,p1_games,under,13.5,0.7718,1.3,1.21,0.7721,-0.0,-0.0661,1,94,1902094
+2026-10-03 06:00,wta,WTA 1000,China Open,Hard,3,Iva Jovic,Harriet Dart,p2_games,over,5.5,0.6556,1.53,1.61,0.5807,7.5,0.0555,1,94,1902094
+2026-10-03 06:00,wta,WTA 1000,China Open,Hard,3,Iva Jovic,Harriet Dart,p2_games,under,5.5,0.3444,2.9,2.23,0.4193,-7.5,-0.232,1,94,1902094
+2026-10-03 06:00,wta,WTA 1000,China Open,Hard,3,Iva Jovic,Harriet Dart,p2_games,over,6.5,0.574,1.74,1.93,0.484,9.0,0.1079,1,94,1902094
+2026-10-03 06:00,wta,WTA 1000,China Open,Hard,3,Iva Jovic,Harriet Dart,p2_games,under,6.5,0.426,2.35,1.81,0.516,-9.0,-0.229,1,94,1902094
+2026-10-03 06:00,wta,WTA 1000,China Open,Hard,3,Iva Jovic,Harriet Dart,p2_games,over,7.5,0.5049,1.98,2.34,0.4,10.5,0.1816,1,94,1902094
+2026-10-03 06:00,wta,WTA 1000,China Open,Hard,3,Iva Jovic,Harriet Dart,p2_games,under,7.5,0.4951,2.02,1.56,0.6,-10.5,-0.2277,1,94,1902094
+2026-10-03 06:00,wta,WTA 1000,China Open,Hard,3,Iva Jovic,Harriet Dart,game_handicap,player_a,-4.5,0.5915,1.69,,,,,1,94,1902094
+2026-10-03 06:00,wta,WTA 1000,China Open,Hard,3,Iva Jovic,Harriet Dart,game_handicap,player_b,4.5,0.4085,2.45,,,,,1,94,1902094
+2026-10-03 06:00,wta,WTA 1000,China Open,Hard,3,Kamilla Rakhimova,Leylah Fernandez,winner,player_a,,0.265,3.77,3.75,0.256,0.9,-0.0063,0,100,1902035
+2026-10-03 06:00,wta,WTA 1000,China Open,Hard,3,Kamilla Rakhimova,Leylah Fernandez,winner,player_b,,0.735,1.36,1.29,0.744,-0.9,-0.0518,0,100,1902035
+2026-10-03 06:00,wta,WTA 1000,China Open,Hard,3,Kamilla Rakhimova,Leylah Fernandez,total_games,over,17.5,0.6684,1.5,1.29,0.7362,-6.8,-0.1377,0,100,1902035
+2026-10-03 06:00,wta,WTA 1000,China Open,Hard,3,Kamilla Rakhimova,Leylah Fernandez,total_games,under,17.5,0.3316,3.02,3.6,0.2638,6.8,0.1937,0,100,1902035
+2026-10-03 06:00,wta,WTA 1000,China Open,Hard,3,Kamilla Rakhimova,Leylah Fernandez,total_games,over,18.5,0.5817,1.72,1.47,0.6475,-6.6,-0.1449,0,100,1902035
+2026-10-03 06:00,wta,WTA 1000,China Open,Hard,3,Kamilla Rakhimova,Leylah Fernandez,total_games,under,18.5,0.4183,2.39,2.7,0.3525,6.6,0.1294,0,100,1902035
+2026-10-03 06:00,wta,WTA 1000,China Open,Hard,3,Kamilla Rakhimova,Leylah Fernandez,total_games,over,19.5,0.5063,1.98,1.68,0.567,-6.1,-0.1494,0,100,1902035
+2026-10-03 06:00,wta,WTA 1000,China Open,Hard,3,Kamilla Rakhimova,Leylah Fernandez,total_games,under,19.5,0.4937,2.03,2.2,0.433,6.1,0.0861,0,100,1902035
+2026-10-03 06:00,wta,WTA 1000,China Open,Hard,3,Kamilla Rakhimova,Leylah Fernandez,total_games,over,20.5,0.4429,2.26,1.92,0.4961,-5.3,-0.1496,0,100,1902035
+2026-10-03 06:00,wta,WTA 1000,China Open,Hard,3,Kamilla Rakhimova,Leylah Fernandez,total_games,under,20.5,0.5571,1.8,1.89,0.5039,5.3,0.0529,0,100,1902035
+2026-10-03 06:00,wta,WTA 1000,China Open,Hard,3,Kamilla Rakhimova,Leylah Fernandez,total_games,over,21.5,0.3971,2.52,2.14,0.4456,-4.9,-0.1502,0,100,1902035
+2026-10-03 06:00,wta,WTA 1000,China Open,Hard,3,Kamilla Rakhimova,Leylah Fernandez,total_games,under,21.5,0.6029,1.66,1.72,0.5544,4.9,0.037,0,100,1902035
+2026-10-03 06:00,wta,WTA 1000,China Open,Hard,3,Kamilla Rakhimova,Leylah Fernandez,total_games,over,22.5,0.3461,2.89,2.46,0.3865,-4.0,-0.1486,0,100,1902035
+2026-10-03 06:00,wta,WTA 1000,China Open,Hard,3,Kamilla Rakhimova,Leylah Fernandez,total_games,under,22.5,0.6539,1.53,1.55,0.6135,4.0,0.0135,0,100,1902035
+2026-10-03 06:00,wta,WTA 1000,China Open,Hard,3,Kamilla Rakhimova,Leylah Fernandez,total_games,over,23.5,0.3138,3.19,2.75,0.3468,-3.3,-0.137,0,100,1902035
+2026-10-03 06:00,wta,WTA 1000,China Open,Hard,3,Kamilla Rakhimova,Leylah Fernandez,total_games,under,23.5,0.6862,1.46,1.46,0.6532,3.3,0.0018,0,100,1902035
+2026-10-03 06:00,wta,WTA 1000,China Open,Hard,3,Kamilla Rakhimova,Leylah Fernandez,p1_games,over,8.5,0.5081,1.97,1.77,0.528,-2.0,-0.1007,0,100,1902035
+2026-10-03 06:00,wta,WTA 1000,China Open,Hard,3,Kamilla Rakhimova,Leylah Fernandez,p1_games,under,8.5,0.4919,2.03,1.98,0.472,2.0,-0.026,0,100,1902035
+2026-10-03 06:00,wta,WTA 1000,China Open,Hard,3,Kamilla Rakhimova,Leylah Fernandez,p1_games,over,9.5,0.4642,2.15,1.95,0.4786,-1.4,-0.0949,0,100,1902035
+2026-10-03 06:00,wta,WTA 1000,China Open,Hard,3,Kamilla Rakhimova,Leylah Fernandez,p1_games,under,9.5,0.5358,1.87,1.79,0.5214,1.4,-0.0408,0,100,1902035
+2026-10-03 06:00,wta,WTA 1000,China Open,Hard,3,Kamilla Rakhimova,Leylah Fernandez,p1_games,over,10.5,0.427,2.34,2.14,0.4368,-1.0,-0.0863,0,100,1902035
+2026-10-03 06:00,wta,WTA 1000,China Open,Hard,3,Kamilla Rakhimova,Leylah Fernandez,p1_games,under,10.5,0.573,1.75,1.66,0.5632,1.0,-0.0488,0,100,1902035
+2026-10-03 06:00,wta,WTA 1000,China Open,Hard,3,Kamilla Rakhimova,Leylah Fernandez,p2_games,over,11.5,0.8258,1.21,1.14,0.8202,0.6,-0.0586,0,100,1902035
+2026-10-03 06:00,wta,WTA 1000,China Open,Hard,3,Kamilla Rakhimova,Leylah Fernandez,p2_games,under,11.5,0.1742,5.74,5.2,0.1798,-0.6,-0.0941,0,100,1902035
+2026-10-03 06:00,wta,WTA 1000,China Open,Hard,3,Kamilla Rakhimova,Leylah Fernandez,p2_games,over,12.5,0.4004,2.5,2.03,0.4601,-6.0,-0.1871,0,100,1902035
+2026-10-03 06:00,wta,WTA 1000,China Open,Hard,3,Kamilla Rakhimova,Leylah Fernandez,p2_games,under,12.5,0.5996,1.67,1.73,0.5399,6.0,0.0373,0,100,1902035
+2026-10-03 06:00,wta,WTA 1000,China Open,Hard,3,Kamilla Rakhimova,Leylah Fernandez,p2_games,over,13.5,0.246,4.07,3.25,0.2873,-4.1,-0.2005,0,100,1902035
+2026-10-03 06:00,wta,WTA 1000,China Open,Hard,3,Kamilla Rakhimova,Leylah Fernandez,p2_games,under,13.5,0.754,1.33,1.31,0.7127,4.1,-0.0123,0,100,1902035
+2026-10-03 06:00,wta,WTA 1000,China Open,Hard,3,Kamilla Rakhimova,Leylah Fernandez,game_handicap,player_a,4.5,0.4695,2.13,,,,,0,100,1902035
+2026-10-03 06:00,wta,WTA 1000,China Open,Hard,3,Kamilla Rakhimova,Leylah Fernandez,game_handicap,player_b,-4.5,0.5305,1.89,,,,,0,100,1902035
+2026-10-03 06:30,wta,WTA 1000,China Open,Hard,3,Belinda Bencic,Anastasia Zakharova,winner,player_a,,0.8816,1.13,,,,,0,94,1902034
+2026-10-03 06:30,wta,WTA 1000,China Open,Hard,3,Belinda Bencic,Anastasia Zakharova,winner,player_b,,0.1184,8.45,,,,,0,94,1902034
+2026-10-03 06:30,wta,WTA 1000,China Open,Hard,3,Belinda Bencic,Anastasia Zakharova,total_games,over,18.5,0.4301,2.33,,,,,0,94,1902034
+2026-10-03 06:30,wta,WTA 1000,China Open,Hard,3,Belinda Bencic,Anastasia Zakharova,total_games,under,18.5,0.5699,1.75,,,,,0,94,1902034
+2026-10-03 06:30,wta,WTA 1000,China Open,Hard,3,Belinda Bencic,Anastasia Zakharova,p1_games,over,12.5,0.3211,3.11,,,,,0,94,1902034
+2026-10-03 06:30,wta,WTA 1000,China Open,Hard,3,Belinda Bencic,Anastasia Zakharova,p1_games,under,12.5,0.6789,1.47,,,,,0,94,1902034
+2026-10-03 06:30,wta,WTA 1000,China Open,Hard,3,Belinda Bencic,Anastasia Zakharova,p2_games,over,6.5,0.4322,2.31,,,,,0,94,1902034
+2026-10-03 06:30,wta,WTA 1000,China Open,Hard,3,Belinda Bencic,Anastasia Zakharova,p2_games,under,6.5,0.5678,1.76,,,,,0,94,1902034
+2026-10-03 06:30,wta,WTA 1000,China Open,Hard,3,Belinda Bencic,Anastasia Zakharova,game_handicap,player_a,-6.5,0.5173,1.93,,,,,0,94,1902034
+2026-10-03 06:30,wta,WTA 1000,China Open,Hard,3,Belinda Bencic,Anastasia Zakharova,game_handicap,player_b,6.5,0.4827,2.07,,,,,0,94,1902034
+2026-10-03 06:30,wta,WTA 1000,China Open,Hard,3,Qinwen Zheng,Anna Kalinskaya,winner,player_a,,0.5665,1.77,,,,,0,94,1901967
+2026-10-03 06:30,wta,WTA 1000,China Open,Hard,3,Qinwen Zheng,Anna Kalinskaya,winner,player_b,,0.4335,2.31,,,,,0,94,1901967
+2026-10-03 06:30,wta,WTA 1000,China Open,Hard,3,Qinwen Zheng,Anna Kalinskaya,total_games,over,21.5,0.4703,2.13,,,,,0,94,1901967
+2026-10-03 06:30,wta,WTA 1000,China Open,Hard,3,Qinwen Zheng,Anna Kalinskaya,total_games,under,21.5,0.5297,1.89,,,,,0,94,1901967
+2026-10-03 06:30,wta,WTA 1000,China Open,Hard,3,Qinwen Zheng,Anna Kalinskaya,p1_games,over,12.5,0.4155,2.41,,,,,0,94,1901967
+2026-10-03 06:30,wta,WTA 1000,China Open,Hard,3,Qinwen Zheng,Anna Kalinskaya,p1_games,under,12.5,0.5845,1.71,,,,,0,94,1901967
+2026-10-03 06:30,wta,WTA 1000,China Open,Hard,3,Qinwen Zheng,Anna Kalinskaya,p2_games,over,12.5,0.3757,2.66,,,,,0,94,1901967
+2026-10-03 06:30,wta,WTA 1000,China Open,Hard,3,Qinwen Zheng,Anna Kalinskaya,p2_games,under,12.5,0.6243,1.6,,,,,0,94,1901967
+2026-10-03 06:30,wta,WTA 1000,China Open,Hard,3,Qinwen Zheng,Anna Kalinskaya,game_handicap,player_a,-1.5,0.5233,1.91,,,,,0,94,1901967
+2026-10-03 06:30,wta,WTA 1000,China Open,Hard,3,Qinwen Zheng,Anna Kalinskaya,game_handicap,player_b,1.5,0.4767,2.1,,,,,0,94,1901967
+2026-10-03 07:30,wta,WTA 1000,China Open,Hard,3,Marie Bouzkova,Kimberly Birrell,winner,player_a,,0.6157,1.62,,,,,0,94,1901972
+2026-10-03 07:30,wta,WTA 1000,China Open,Hard,3,Marie Bouzkova,Kimberly Birrell,winner,player_b,,0.3843,2.6,,,,,0,94,1901972
+2026-10-03 07:30,wta,WTA 1000,China Open,Hard,3,Marie Bouzkova,Kimberly Birrell,total_games,over,20.5,0.4911,2.04,,,,,0,94,1901972
+2026-10-03 07:30,wta,WTA 1000,China Open,Hard,3,Marie Bouzkova,Kimberly Birrell,total_games,under,20.5,0.5089,1.97,,,,,0,94,1901972
+2026-10-03 07:30,wta,WTA 1000,China Open,Hard,3,Marie Bouzkova,Kimberly Birrell,p1_games,over,12.5,0.4062,2.46,,,,,0,94,1901972
+2026-10-03 07:30,wta,WTA 1000,China Open,Hard,3,Marie Bouzkova,Kimberly Birrell,p1_games,under,12.5,0.5938,1.68,,,,,0,94,1901972
+2026-10-03 07:30,wta,WTA 1000,China Open,Hard,3,Marie Bouzkova,Kimberly Birrell,p2_games,over,12.5,0.3381,2.96,,,,,0,94,1901972
+2026-10-03 07:30,wta,WTA 1000,China Open,Hard,3,Marie Bouzkova,Kimberly Birrell,p2_games,under,12.5,0.6619,1.51,,,,,0,94,1901972
+2026-10-03 07:30,wta,WTA 1000,China Open,Hard,3,Marie Bouzkova,Kimberly Birrell,game_handicap,player_a,-2.5,0.54,1.85,,,,,0,94,1901972
+2026-10-03 07:30,wta,WTA 1000,China Open,Hard,3,Marie Bouzkova,Kimberly Birrell,game_handicap,player_b,2.5,0.46,2.17,,,,,0,94,1901972
+2026-10-03 07:30,wta,WTA 1000,China Open,Hard,3,Xinran Sun,Cristina Bucsa,winner,player_a,,0.377,2.65,,,,,0,59,1902130
+2026-10-03 07:30,wta,WTA 1000,China Open,Hard,3,Xinran Sun,Cristina Bucsa,winner,player_b,,0.623,1.61,,,,,0,59,1902130
+2026-10-03 07:30,wta,WTA 1000,China Open,Hard,3,Xinran Sun,Cristina Bucsa,total_games,over,20.5,0.4873,2.05,,,,,1,59,1902130
+2026-10-03 07:30,wta,WTA 1000,China Open,Hard,3,Xinran Sun,Cristina Bucsa,total_games,under,20.5,0.5127,1.95,,,,,1,59,1902130
+2026-10-03 07:30,wta,WTA 1000,China Open,Hard,3,Xinran Sun,Cristina Bucsa,p1_games,over,12.5,0.3329,3.0,,,,,1,59,1902130
+2026-10-03 07:30,wta,WTA 1000,China Open,Hard,3,Xinran Sun,Cristina Bucsa,p1_games,under,12.5,0.6671,1.5,,,,,1,59,1902130
+2026-10-03 07:30,wta,WTA 1000,China Open,Hard,3,Xinran Sun,Cristina Bucsa,p2_games,over,12.5,0.4051,2.47,,,,,1,59,1902130
+2026-10-03 07:30,wta,WTA 1000,China Open,Hard,3,Xinran Sun,Cristina Bucsa,p2_games,under,12.5,0.5949,1.68,,,,,1,59,1902130
+2026-10-03 07:30,wta,WTA 1000,China Open,Hard,3,Xinran Sun,Cristina Bucsa,game_handicap,player_a,2.5,0.4517,2.21,,,,,1,59,1902130
+2026-10-03 07:30,wta,WTA 1000,China Open,Hard,3,Xinran Sun,Cristina Bucsa,game_handicap,player_b,-2.5,0.5483,1.82,,,,,1,59,1902130
+2026-10-03 11:00,wta,WTA 1000,China Open,Hard,3,Sonay Kartal,Xinyu Wang,winner,player_a,,0.6955,1.44,,,,,0,72,1901966
+2026-10-03 11:00,wta,WTA 1000,China Open,Hard,3,Sonay Kartal,Xinyu Wang,winner,player_b,,0.3045,3.28,,,,,0,72,1901966
+2026-10-03 11:00,wta,WTA 1000,China Open,Hard,3,Sonay Kartal,Xinyu Wang,total_games,over,20.5,0.4734,2.11,,,,,1,72,1901966
+2026-10-03 11:00,wta,WTA 1000,China Open,Hard,3,Sonay Kartal,Xinyu Wang,total_games,under,20.5,0.5266,1.9,,,,,1,72,1901966
+2026-10-03 11:00,wta,WTA 1000,China Open,Hard,3,Sonay Kartal,Xinyu Wang,p1_games,over,12.5,0.415,2.41,,,,,1,72,1901966
+2026-10-03 11:00,wta,WTA 1000,China Open,Hard,3,Sonay Kartal,Xinyu Wang,p1_games,under,12.5,0.585,1.71,,,,,1,72,1901966
+2026-10-03 11:00,wta,WTA 1000,China Open,Hard,3,Sonay Kartal,Xinyu Wang,p2_games,over,10.5,0.4777,2.09,,,,,1,72,1901966
+2026-10-03 11:00,wta,WTA 1000,China Open,Hard,3,Sonay Kartal,Xinyu Wang,p2_games,under,10.5,0.5223,1.91,,,,,1,72,1901966
+2026-10-03 11:00,wta,WTA 1000,China Open,Hard,3,Sonay Kartal,Xinyu Wang,game_handicap,player_a,-3.5,0.5642,1.77,,,,,1,72,1901966
+2026-10-03 11:00,wta,WTA 1000,China Open,Hard,3,Sonay Kartal,Xinyu Wang,game_handicap,player_b,3.5,0.4358,2.29,,,,,1,72,1901966
+2026-10-03 12:30,wta,WTA 1000,China Open,Hard,3,Elena Rybakina,Alina Charaeva,winner,player_a,,0.9466,1.06,,,,,0,88,1901969
+2026-10-03 12:30,wta,WTA 1000,China Open,Hard,3,Elena Rybakina,Alina Charaeva,winner,player_b,,0.0534,18.72,,,,,0,88,1901969
+2026-10-03 12:30,wta,WTA 1000,China Open,Hard,3,Elena Rybakina,Alina Charaeva,total_games,over,17.5,0.4072,2.46,,,,,1,88,1901969
+2026-10-03 12:30,wta,WTA 1000,China Open,Hard,3,Elena Rybakina,Alina Charaeva,total_games,under,17.5,0.5928,1.69,,,,,1,88,1901969
+2026-10-03 12:30,wta,WTA 1000,China Open,Hard,3,Elena Rybakina,Alina Charaeva,p1_games,over,12.5,0.2475,4.04,,,,,1,88,1901969
+2026-10-03 12:30,wta,WTA 1000,China Open,Hard,3,Elena Rybakina,Alina Charaeva,p1_games,under,12.5,0.7525,1.33,,,,,1,88,1901969
+2026-10-03 12:30,wta,WTA 1000,China Open,Hard,3,Elena Rybakina,Alina Charaeva,p2_games,over,5.5,0.4057,2.47,,,,,1,88,1901969
+2026-10-03 12:30,wta,WTA 1000,China Open,Hard,3,Elena Rybakina,Alina Charaeva,p2_games,under,5.5,0.5943,1.68,,,,,1,88,1901969
+2026-10-03 12:30,wta,WTA 1000,China Open,Hard,3,Elena Rybakina,Alina Charaeva,game_handicap,player_a,-6.5,0.6301,1.59,,,,,1,88,1901969
+2026-10-03 12:30,wta,WTA 1000,China Open,Hard,3,Elena Rybakina,Alina Charaeva,game_handicap,player_b,6.5,0.3699,2.7,,,,,1,88,1901969
+2026-10-03 10:30,atp,ATP Challenger,"Bari, Italy",Hard,3,Vitaliy Sachko,Samuele Pieri,winner,player_a,,0.6648,1.5,1.28,0.7294,-6.5,-0.1491,0,97,1902466
+2026-10-03 10:30,atp,ATP Challenger,"Bari, Italy",Hard,3,Vitaliy Sachko,Samuele Pieri,winner,player_b,,0.3352,2.98,3.45,0.2706,6.5,0.1565,0,97,1902466
+2026-10-03 10:30,atp,ATP Challenger,"Bari, Italy",Hard,3,Vitaliy Sachko,Samuele Pieri,total_games,over,20.5,0.5722,1.75,1.79,0.5175,5.5,0.0243,0,97,1902466
+2026-10-03 10:30,atp,ATP Challenger,"Bari, Italy",Hard,3,Vitaliy Sachko,Samuele Pieri,total_games,under,20.5,0.4278,2.34,1.92,0.4825,-5.5,-0.1786,0,97,1902466
+2026-10-03 10:30,atp,ATP Challenger,"Bari, Italy",Hard,3,Vitaliy Sachko,Samuele Pieri,p1_games,over,12.5,0.4935,2.03,1.92,0.4825,1.1,-0.0525,0,97,1902466
+2026-10-03 10:30,atp,ATP Challenger,"Bari, Italy",Hard,3,Vitaliy Sachko,Samuele Pieri,p1_games,under,12.5,0.5065,1.97,1.79,0.5175,-1.1,-0.0934,0,97,1902466
+2026-10-03 10:30,atp,ATP Challenger,"Bari, Italy",Hard,3,Vitaliy Sachko,Samuele Pieri,p2_games,over,9.5,0.5926,1.69,1.85,0.5,9.3,0.0964,0,97,1902466
+2026-10-03 10:30,atp,ATP Challenger,"Bari, Italy",Hard,3,Vitaliy Sachko,Samuele Pieri,p2_games,under,9.5,0.4074,2.45,1.85,0.5,-9.3,-0.2464,0,97,1902466
+2026-10-03 10:30,atp,ATP Challenger,"Bari, Italy",Hard,3,Vitaliy Sachko,Samuele Pieri,game_handicap,player_a,-2.5,0.5681,1.76,,,,,0,97,1902466
+2026-10-03 10:30,atp,ATP Challenger,"Bari, Italy",Hard,3,Vitaliy Sachko,Samuele Pieri,game_handicap,player_b,2.5,0.4319,2.32,,,,,0,97,1902466
+2026-10-03 13:00,atp,ATP Challenger,"Bari, Italy",Hard,3,Juan Martin,Matthew Donald,winner,player_a,,0.4607,2.17,,,,,0,78,1902490
+2026-10-03 13:00,atp,ATP Challenger,"Bari, Italy",Hard,3,Juan Martin,Matthew Donald,winner,player_b,,0.5393,1.85,,,,,0,78,1902490
+2026-10-03 13:00,atp,ATP Challenger,"Bari, Italy",Hard,3,Juan Martin,Matthew Donald,total_games,over,22.5,0.4694,2.13,,,,,1,78,1902490
+2026-10-03 13:00,atp,ATP Challenger,"Bari, Italy",Hard,3,Juan Martin,Matthew Donald,total_games,under,22.5,0.5306,1.88,,,,,1,78,1902490
+2026-10-03 13:00,atp,ATP Challenger,"Bari, Italy",Hard,3,Juan Martin,Matthew Donald,p1_games,over,12.5,0.4365,2.29,,,,,1,78,1902490
+2026-10-03 13:00,atp,ATP Challenger,"Bari, Italy",Hard,3,Juan Martin,Matthew Donald,p1_games,under,12.5,0.5635,1.77,,,,,1,78,1902490
+2026-10-03 13:00,atp,ATP Challenger,"Bari, Italy",Hard,3,Juan Martin,Matthew Donald,p2_games,over,12.5,0.4644,2.15,,,,,1,78,1902490
+2026-10-03 13:00,atp,ATP Challenger,"Bari, Italy",Hard,3,Juan Martin,Matthew Donald,p2_games,under,12.5,0.5356,1.87,,,,,1,78,1902490
+2026-10-03 13:00,atp,ATP Challenger,"Bari, Italy",Hard,3,Juan Martin,Matthew Donald,game_handicap,player_a,0.5,0.4763,2.1,,,,,1,78,1902490
+2026-10-03 13:00,atp,ATP Challenger,"Bari, Italy",Hard,3,Juan Martin,Matthew Donald,game_handicap,player_b,-0.5,0.5237,1.91,,,,,1,78,1902490
+2026-10-03 15:00,atp,ATP Challenger,"Columbus, USA",Hard,3,Abedallah Shelbayh,Mitchell Krueger,winner,player_a,,0.5432,1.84,1.56,0.599,-5.6,-0.1526,0,100,1902508
+2026-10-03 15:00,atp,ATP Challenger,"Columbus, USA",Hard,3,Abedallah Shelbayh,Mitchell Krueger,winner,player_b,,0.4568,2.19,2.33,0.401,5.6,0.0643,0,100,1902508
+2026-10-03 15:00,atp,ATP Challenger,"Columbus, USA",Hard,3,Abedallah Shelbayh,Mitchell Krueger,total_games,over,22.5,0.4819,2.07,,,,,0,100,1902508
+2026-10-03 15:00,atp,ATP Challenger,"Columbus, USA",Hard,3,Abedallah Shelbayh,Mitchell Krueger,total_games,under,22.5,0.5181,1.93,,,,,0,100,1902508
+2026-10-03 15:00,atp,ATP Challenger,"Columbus, USA",Hard,3,Abedallah Shelbayh,Mitchell Krueger,p1_games,over,12.5,0.4803,2.08,,,,,0,100,1902508
+2026-10-03 15:00,atp,ATP Challenger,"Columbus, USA",Hard,3,Abedallah Shelbayh,Mitchell Krueger,p1_games,under,12.5,0.5197,1.92,,,,,0,100,1902508
+2026-10-03 15:00,atp,ATP Challenger,"Columbus, USA",Hard,3,Abedallah Shelbayh,Mitchell Krueger,p2_games,over,12.5,0.4495,2.22,,,,,0,100,1902508
+2026-10-03 15:00,atp,ATP Challenger,"Columbus, USA",Hard,3,Abedallah Shelbayh,Mitchell Krueger,p2_games,under,12.5,0.5505,1.82,,,,,0,100,1902508
+2026-10-03 15:00,atp,ATP Challenger,"Columbus, USA",Hard,3,Abedallah Shelbayh,Mitchell Krueger,game_handicap,player_a,-0.5,0.5263,1.9,,,,,0,100,1902508
+2026-10-03 15:00,atp,ATP Challenger,"Columbus, USA",Hard,3,Abedallah Shelbayh,Mitchell Krueger,game_handicap,player_b,0.5,0.4737,2.11,,,,,0,100,1902508
+2026-10-03 15:00,atp,ATP Challenger,"Columbus, USA",Hard,3,Dylan Dietrich,Andres Andrade,winner,player_a,,0.6228,1.61,1.37,0.6829,-6.0,-0.1467,0,100,1902499
+2026-10-03 15:00,atp,ATP Challenger,"Columbus, USA",Hard,3,Dylan Dietrich,Andres Andrade,winner,player_b,,0.3772,2.65,2.95,0.3171,6.0,0.1127,0,100,1902499
+2026-10-03 15:00,atp,ATP Challenger,"Columbus, USA",Hard,3,Dylan Dietrich,Andres Andrade,total_games,over,22.5,0.4624,2.16,,,,,0,100,1902499
+2026-10-03 15:00,atp,ATP Challenger,"Columbus, USA",Hard,3,Dylan Dietrich,Andres Andrade,total_games,under,22.5,0.5376,1.86,,,,,0,100,1902499
+2026-10-03 15:00,atp,ATP Challenger,"Columbus, USA",Hard,3,Dylan Dietrich,Andres Andrade,p1_games,over,12.5,0.4899,2.04,,,,,0,100,1902499
+2026-10-03 15:00,atp,ATP Challenger,"Columbus, USA",Hard,3,Dylan Dietrich,Andres Andrade,p1_games,under,12.5,0.5101,1.96,,,,,0,100,1902499
+2026-10-03 15:00,atp,ATP Challenger,"Columbus, USA",Hard,3,Dylan Dietrich,Andres Andrade,p2_games,over,12.5,0.4032,2.48,,,,,0,100,1902499
+2026-10-03 15:00,atp,ATP Challenger,"Columbus, USA",Hard,3,Dylan Dietrich,Andres Andrade,p2_games,under,12.5,0.5968,1.68,,,,,0,100,1902499
+2026-10-03 15:00,atp,ATP Challenger,"Columbus, USA",Hard,3,Dylan Dietrich,Andres Andrade,game_handicap,player_a,-2.5,0.524,1.91,,,,,0,100,1902499
+2026-10-03 15:00,atp,ATP Challenger,"Columbus, USA",Hard,3,Dylan Dietrich,Andres Andrade,game_handicap,player_b,2.5,0.476,2.1,,,,,0,100,1902499
+2026-10-03 13:00,atp,ATP Challenger,"Curitiba, Brazil",Clay,3,Guido Justo,Marcelo Barrios,winner,player_a,,0.7336,1.36,,,,,0,72,1902497
+2026-10-03 13:00,atp,ATP Challenger,"Curitiba, Brazil",Clay,3,Guido Justo,Marcelo Barrios,winner,player_b,,0.2664,3.75,,,,,0,72,1902497
+2026-10-03 13:00,atp,ATP Challenger,"Curitiba, Brazil",Clay,3,Guido Justo,Marcelo Barrios,total_games,over,21.5,0.4506,2.22,,,,,1,72,1902497
+2026-10-03 13:00,atp,ATP Challenger,"Curitiba, Brazil",Clay,3,Guido Justo,Marcelo Barrios,total_games,under,21.5,0.5494,1.82,,,,,1,72,1902497
+2026-10-03 13:00,atp,ATP Challenger,"Curitiba, Brazil",Clay,3,Guido Justo,Marcelo Barrios,p1_games,over,12.5,0.4545,2.2,,,,,1,72,1902497
+2026-10-03 13:00,atp,ATP Challenger,"Curitiba, Brazil",Clay,3,Guido Justo,Marcelo Barrios,p1_games,under,12.5,0.5455,1.83,,,,,1,72,1902497
+2026-10-03 13:00,atp,ATP Challenger,"Curitiba, Brazil",Clay,3,Guido Justo,Marcelo Barrios,p2_games,over,9.5,0.4987,2.01,,,,,1,72,1902497
+2026-10-03 13:00,atp,ATP Challenger,"Curitiba, Brazil",Clay,3,Guido Justo,Marcelo Barrios,p2_games,under,9.5,0.5013,1.99,,,,,1,72,1902497
+2026-10-03 13:00,atp,ATP Challenger,"Curitiba, Brazil",Clay,3,Guido Justo,Marcelo Barrios,game_handicap,player_a,-3.5,0.5897,1.7,,,,,1,72,1902497
+2026-10-03 13:00,atp,ATP Challenger,"Curitiba, Brazil",Clay,3,Guido Justo,Marcelo Barrios,game_handicap,player_b,3.5,0.4103,2.44,,,,,1,72,1902497
+2026-10-03 03:00,atp,ATP Challenger,"Jingshan, China",Hard,3,Lloyd Harris,Alex Bolt,winner,player_a,,0.6987,1.43,1.14,0.8202,-12.1,-0.2035,0,100,1902311
+2026-10-03 03:00,atp,ATP Challenger,"Jingshan, China",Hard,3,Lloyd Harris,Alex Bolt,winner,player_b,,0.3013,3.32,5.2,0.1798,12.1,0.5666,0,100,1902311
+2026-10-03 03:00,atp,ATP Challenger,"Jingshan, China",Hard,3,Lloyd Harris,Alex Bolt,total_games,over,21.5,0.5928,1.69,1.73,0.5349,5.8,0.0255,0,100,1902311
+2026-10-03 03:00,atp,ATP Challenger,"Jingshan, China",Hard,3,Lloyd Harris,Alex Bolt,total_games,under,21.5,0.4072,2.46,1.99,0.4651,-5.8,-0.1897,0,100,1902311
+2026-10-03 03:00,atp,ATP Challenger,"Jingshan, China",Hard,3,Lloyd Harris,Alex Bolt,p1_games,over,12.5,0.5685,1.76,1.66,0.5573,1.1,-0.0562,0,100,1902311
+2026-10-03 03:00,atp,ATP Challenger,"Jingshan, China",Hard,3,Lloyd Harris,Alex Bolt,p1_games,under,12.5,0.4315,2.32,2.09,0.4427,-1.1,-0.0982,0,100,1902311
+2026-10-03 03:00,atp,ATP Challenger,"Jingshan, China",Hard,3,Lloyd Harris,Alex Bolt,p2_games,over,9.5,0.6096,1.64,2.0,0.4624,14.7,0.2192,0,100,1902311
+2026-10-03 03:00,atp,ATP Challenger,"Jingshan, China",Hard,3,Lloyd Harris,Alex Bolt,p2_games,under,9.5,0.3904,2.56,1.72,0.5376,-14.7,-0.3285,0,100,1902311
+2026-10-03 03:00,atp,ATP Challenger,"Jingshan, China",Hard,3,Lloyd Harris,Alex Bolt,game_handicap,player_a,-2.5,0.5742,1.74,,,,,0,100,1902311
+2026-10-03 03:00,atp,ATP Challenger,"Jingshan, China",Hard,3,Lloyd Harris,Alex Bolt,game_handicap,player_b,2.5,0.4258,2.35,,,,,0,100,1902311
+2026-10-03 05:30,atp,ATP Challenger,"Jingshan, China",Hard,3,Yanki Erel,Mattia Bellucci,winner,player_a,,0.267,3.75,3.75,0.2485,1.8,0.0012,0,100,1902398
+2026-10-03 05:30,atp,ATP Challenger,"Jingshan, China",Hard,3,Yanki Erel,Mattia Bellucci,winner,player_b,,0.733,1.36,1.24,0.7515,-1.8,-0.0911,0,100,1902398
+2026-10-03 05:30,atp,ATP Challenger,"Jingshan, China",Hard,3,Yanki Erel,Mattia Bellucci,total_games,over,21.5,0.5174,1.93,1.95,0.4744,4.3,0.009,0,100,1902398
+2026-10-03 05:30,atp,ATP Challenger,"Jingshan, China",Hard,3,Yanki Erel,Mattia Bellucci,total_games,under,21.5,0.4826,2.07,1.76,0.5256,-4.3,-0.1507,0,100,1902398
+2026-10-03 05:30,atp,ATP Challenger,"Jingshan, China",Hard,3,Yanki Erel,Mattia Bellucci,p1_games,over,9.5,0.5407,1.85,1.89,0.4892,5.1,0.0219,0,100,1902398
+2026-10-03 05:30,atp,ATP Challenger,"Jingshan, China",Hard,3,Yanki Erel,Mattia Bellucci,p1_games,under,9.5,0.4593,2.18,1.81,0.5108,-5.1,-0.1686,0,100,1902398
+2026-10-03 05:30,atp,ATP Challenger,"Jingshan, China",Hard,3,Yanki Erel,Mattia Bellucci,p2_games,over,12.5,0.5176,1.93,1.86,0.4973,2.0,-0.0373,0,100,1902398
+2026-10-03 05:30,atp,ATP Challenger,"Jingshan, China",Hard,3,Yanki Erel,Mattia Bellucci,p2_games,under,12.5,0.4824,2.07,1.84,0.5027,-2.0,-0.1124,0,100,1902398
+2026-10-03 05:30,atp,ATP Challenger,"Jingshan, China",Hard,3,Yanki Erel,Mattia Bellucci,game_handicap,player_a,3.5,0.4572,2.19,,,,,0,100,1902398
+2026-10-03 05:30,atp,ATP Challenger,"Jingshan, China",Hard,3,Yanki Erel,Mattia Bellucci,game_handicap,player_b,-3.5,0.5428,1.84,,,,,0,100,1902398
+2026-10-03 09:00,atp,ATP Challenger,"Mouilleron-Le-Captif, France",Hard,3,Clement Chidekh,Henry Bernet,winner,player_a,,0.7112,1.41,1.66,0.5643,14.7,0.1806,0,100,1902528
+2026-10-03 09:00,atp,ATP Challenger,"Mouilleron-Le-Captif, France",Hard,3,Clement Chidekh,Henry Bernet,winner,player_b,,0.2888,3.46,2.15,0.4357,-14.7,-0.3791,0,100,1902528
+2026-10-03 09:00,atp,ATP Challenger,"Mouilleron-Le-Captif, France",Hard,3,Clement Chidekh,Henry Bernet,total_games,over,22.5,0.4392,2.28,,,,,0,100,1902528
+2026-10-03 09:00,atp,ATP Challenger,"Mouilleron-Le-Captif, France",Hard,3,Clement Chidekh,Henry Bernet,total_games,under,22.5,0.5608,1.78,,,,,0,100,1902528
+2026-10-03 09:00,atp,ATP Challenger,"Mouilleron-Le-Captif, France",Hard,3,Clement Chidekh,Henry Bernet,p1_games,over,13.5,0.3177,3.15,,,,,0,100,1902528
+2026-10-03 09:00,atp,ATP Challenger,"Mouilleron-Le-Captif, France",Hard,3,Clement Chidekh,Henry Bernet,p1_games,under,13.5,0.6823,1.47,,,,,0,100,1902528
+2026-10-03 09:00,atp,ATP Challenger,"Mouilleron-Le-Captif, France",Hard,3,Clement Chidekh,Henry Bernet,p2_games,over,11.5,0.4711,2.12,,,,,0,100,1902528
+2026-10-03 09:00,atp,ATP Challenger,"Mouilleron-Le-Captif, France",Hard,3,Clement Chidekh,Henry Bernet,p2_games,under,11.5,0.5289,1.89,,,,,0,100,1902528
+2026-10-03 09:00,atp,ATP Challenger,"Mouilleron-Le-Captif, France",Hard,3,Clement Chidekh,Henry Bernet,game_handicap,player_a,-3.5,0.5313,1.88,,,,,0,100,1902528
+2026-10-03 09:00,atp,ATP Challenger,"Mouilleron-Le-Captif, France",Hard,3,Clement Chidekh,Henry Bernet,game_handicap,player_b,3.5,0.4687,2.13,,,,,0,100,1902528
+2026-10-03 12:30,atp,ATP Challenger,"Mouilleron-Le-Captif, France",Hard,3,Joel Schwaerzler,Sascha Gueymard-Wayenburg,winner,player_a,,0.4572,2.19,2.11,0.4433,1.4,-0.0354,0,100,1902487
+2026-10-03 12:30,atp,ATP Challenger,"Mouilleron-Le-Captif, France",Hard,3,Joel Schwaerzler,Sascha Gueymard-Wayenburg,winner,player_b,,0.5428,1.84,1.68,0.5567,-1.4,-0.0881,0,100,1902487
+2026-10-03 12:30,atp,ATP Challenger,"Mouilleron-Le-Captif, France",Hard,3,Joel Schwaerzler,Sascha Gueymard-Wayenburg,total_games,over,23.5,0.444,2.25,,,,,0,100,1902487
+2026-10-03 12:30,atp,ATP Challenger,"Mouilleron-Le-Captif, France",Hard,3,Joel Schwaerzler,Sascha Gueymard-Wayenburg,total_games,under,23.5,0.556,1.8,,,,,0,100,1902487
+2026-10-03 12:30,atp,ATP Challenger,"Mouilleron-Le-Captif, France",Hard,3,Joel Schwaerzler,Sascha Gueymard-Wayenburg,p1_games,over,12.5,0.4738,2.11,,,,,0,100,1902487
+2026-10-03 12:30,atp,ATP Challenger,"Mouilleron-Le-Captif, France",Hard,3,Joel Schwaerzler,Sascha Gueymard-Wayenburg,p1_games,under,12.5,0.5262,1.9,,,,,0,100,1902487
+2026-10-03 12:30,atp,ATP Challenger,"Mouilleron-Le-Captif, France",Hard,3,Joel Schwaerzler,Sascha Gueymard-Wayenburg,p2_games,over,13.5,0.3412,2.93,,,,,0,100,1902487
+2026-10-03 12:30,atp,ATP Challenger,"Mouilleron-Le-Captif, France",Hard,3,Joel Schwaerzler,Sascha Gueymard-Wayenburg,p2_games,under,13.5,0.6588,1.52,,,,,0,100,1902487
+2026-10-03 12:30,atp,ATP Challenger,"Mouilleron-Le-Captif, France",Hard,3,Joel Schwaerzler,Sascha Gueymard-Wayenburg,game_handicap,player_a,0.5,0.4754,2.1,,,,,0,100,1902487
+2026-10-03 12:30,atp,ATP Challenger,"Mouilleron-Le-Captif, France",Hard,3,Joel Schwaerzler,Sascha Gueymard-Wayenburg,game_handicap,player_b,-0.5,0.5246,1.91,,,,,0,100,1902487
+2026-10-03 10:00,atp,ATP Challenger,"Porto 2, Portugal",Clay,3,David Jorda Sanchis,Inaki Montes,winner,player_a,,0.556,1.8,,,,,0,69,1902462
+2026-10-03 10:00,atp,ATP Challenger,"Porto 2, Portugal",Clay,3,David Jorda Sanchis,Inaki Montes,winner,player_b,,0.444,2.25,,,,,0,69,1902462
+2026-10-03 10:00,atp,ATP Challenger,"Porto 2, Portugal",Clay,3,David Jorda Sanchis,Inaki Montes,total_games,over,22.5,0.4681,2.14,,,,,1,69,1902462
+2026-10-03 10:00,atp,ATP Challenger,"Porto 2, Portugal",Clay,3,David Jorda Sanchis,Inaki Montes,total_games,under,22.5,0.5319,1.88,,,,,1,69,1902462
+2026-10-03 10:00,atp,ATP Challenger,"Porto 2, Portugal",Clay,3,David Jorda Sanchis,Inaki Montes,p1_games,over,12.5,0.4694,2.13,,,,,1,69,1902462
+2026-10-03 10:00,atp,ATP Challenger,"Porto 2, Portugal",Clay,3,David Jorda Sanchis,Inaki Montes,p1_games,under,12.5,0.5306,1.88,,,,,1,69,1902462
+2026-10-03 10:00,atp,ATP Challenger,"Porto 2, Portugal",Clay,3,David Jorda Sanchis,Inaki Montes,p2_games,over,12.5,0.4295,2.33,,,,,1,69,1902462
+2026-10-03 10:00,atp,ATP Challenger,"Porto 2, Portugal",Clay,3,David Jorda Sanchis,Inaki Montes,p2_games,under,12.5,0.5705,1.75,,,,,1,69,1902462
+2026-10-03 10:00,atp,ATP Challenger,"Porto 2, Portugal",Clay,3,David Jorda Sanchis,Inaki Montes,game_handicap,player_a,-1.5,0.5072,1.97,,,,,1,69,1902462
+2026-10-03 10:00,atp,ATP Challenger,"Porto 2, Portugal",Clay,3,David Jorda Sanchis,Inaki Montes,game_handicap,player_b,1.5,0.4928,2.03,,,,,1,69,1902462
+2026-10-03 11:30,atp,ATP Challenger,"Porto 2, Portugal",Clay,3,Henrique Rocha,Jerome Kym,winner,player_a,,0.5324,1.88,1.72,0.5438,-1.1,-0.0843,0,97,1902489
+2026-10-03 11:30,atp,ATP Challenger,"Porto 2, Portugal",Clay,3,Henrique Rocha,Jerome Kym,winner,player_b,,0.4676,2.14,2.05,0.4562,1.1,-0.0414,0,97,1902489
+2026-10-03 11:30,atp,ATP Challenger,"Porto 2, Portugal",Clay,3,Henrique Rocha,Jerome Kym,total_games,over,23.5,0.4292,2.33,1.94,0.4771,-4.8,-0.1673,0,97,1902489
+2026-10-03 11:30,atp,ATP Challenger,"Porto 2, Portugal",Clay,3,Henrique Rocha,Jerome Kym,total_games,under,23.5,0.5708,1.75,1.77,0.5229,4.8,0.0103,0,97,1902489
+2026-10-03 11:30,atp,ATP Challenger,"Porto 2, Portugal",Clay,3,Henrique Rocha,Jerome Kym,p1_games,over,12.5,0.474,2.11,1.68,0.5508,-7.7,-0.2037,0,97,1902489
+2026-10-03 11:30,atp,ATP Challenger,"Porto 2, Portugal",Clay,3,Henrique Rocha,Jerome Kym,p1_games,under,12.5,0.526,1.9,2.06,0.4492,7.7,0.0836,0,97,1902489
+2026-10-03 11:30,atp,ATP Challenger,"Porto 2, Portugal",Clay,3,Henrique Rocha,Jerome Kym,p2_games,over,12.5,0.4509,2.22,1.8,0.5135,-6.3,-0.1883,0,97,1902489
+2026-10-03 11:30,atp,ATP Challenger,"Porto 2, Portugal",Clay,3,Henrique Rocha,Jerome Kym,p2_games,under,12.5,0.5491,1.82,1.9,0.4865,6.3,0.0433,0,97,1902489
+2026-10-03 11:30,atp,ATP Challenger,"Porto 2, Portugal",Clay,3,Henrique Rocha,Jerome Kym,game_handicap,player_a,-0.5,0.5158,1.94,,,,,0,97,1902489
+2026-10-03 11:30,atp,ATP Challenger,"Porto 2, Portugal",Clay,3,Henrique Rocha,Jerome Kym,game_handicap,player_b,0.5,0.4842,2.07,,,,,0,97,1902489
+2026-10-03 12:00,wta,WTA,"Adana, Turkiye",N/A,3,Erika Andreeva,Lois Boisson,winner,player_a,,0.2896,3.45,2.5,0.3734,-8.4,-0.276,0,81,1902470
+2026-10-03 12:00,wta,WTA,"Adana, Turkiye",N/A,3,Erika Andreeva,Lois Boisson,winner,player_b,,0.7104,1.41,1.49,0.6266,8.4,0.0585,0,81,1902470
+2026-10-03 12:00,wta,WTA,"Adana, Turkiye",N/A,3,Erika Andreeva,Lois Boisson,total_games,over,21.5,0.4292,2.33,1.87,0.4946,-6.5,-0.1974,1,81,1902470
+2026-10-03 12:00,wta,WTA,"Adana, Turkiye",N/A,3,Erika Andreeva,Lois Boisson,total_games,under,21.5,0.5708,1.75,1.83,0.5054,6.5,0.0446,1,81,1902470
+2026-10-03 12:00,wta,WTA,"Adana, Turkiye",N/A,3,Erika Andreeva,Lois Boisson,p1_games,over,11.5,0.4331,2.31,1.79,0.5162,-8.3,-0.2248,1,81,1902470
+2026-10-03 12:00,wta,WTA,"Adana, Turkiye",N/A,3,Erika Andreeva,Lois Boisson,p1_games,under,11.5,0.5669,1.76,1.91,0.4838,8.3,0.0828,1,81,1902470
+2026-10-03 12:00,wta,WTA,"Adana, Turkiye",N/A,3,Erika Andreeva,Lois Boisson,p2_games,over,12.5,0.4238,2.36,1.98,0.4677,-4.4,-0.1608,1,81,1902470
+2026-10-03 12:00,wta,WTA,"Adana, Turkiye",N/A,3,Erika Andreeva,Lois Boisson,p2_games,under,12.5,0.5762,1.74,1.74,0.5323,4.4,0.0025,1,81,1902470
+2026-10-03 12:00,wta,WTA,"Adana, Turkiye",N/A,3,Erika Andreeva,Lois Boisson,game_handicap,player_a,3.5,0.4254,2.35,,,,,1,81,1902470
+2026-10-03 12:00,wta,WTA,"Adana, Turkiye",N/A,3,Erika Andreeva,Lois Boisson,game_handicap,player_b,-3.5,0.5746,1.74,,,,,1,81,1902470
+2026-10-03 04:30,wta,WTA Challenger,"Jingshan, China",Hard,3,Emerson Jones,Alexandra Shubladze,winner,player_a,,0.5271,1.9,2.22,0.4204,10.7,0.1702,0,69,1902393
+2026-10-03 04:30,wta,WTA Challenger,"Jingshan, China",Hard,3,Emerson Jones,Alexandra Shubladze,winner,player_b,,0.4729,2.11,1.61,0.5796,-10.7,-0.2386,0,69,1902393
+2026-10-03 04:30,wta,WTA Challenger,"Jingshan, China",Hard,3,Emerson Jones,Alexandra Shubladze,total_games,over,20.5,0.5019,1.99,1.78,0.5202,-1.8,-0.1067,1,69,1902393
+2026-10-03 04:30,wta,WTA Challenger,"Jingshan, China",Hard,3,Emerson Jones,Alexandra Shubladze,total_games,under,20.5,0.4981,2.01,1.93,0.4798,1.8,-0.0386,1,69,1902393
+2026-10-03 04:30,wta,WTA Challenger,"Jingshan, China",Hard,3,Emerson Jones,Alexandra Shubladze,p1_games,over,11.5,0.6547,1.53,1.74,0.531,12.4,0.1391,1,69,1902393
+2026-10-03 04:30,wta,WTA Challenger,"Jingshan, China",Hard,3,Emerson Jones,Alexandra Shubladze,p1_games,under,11.5,0.3453,2.9,1.97,0.469,-12.4,-0.3197,1,69,1902393
+2026-10-03 04:30,wta,WTA Challenger,"Jingshan, China",Hard,3,Emerson Jones,Alexandra Shubladze,p2_games,over,12.5,0.3729,2.68,2.33,0.3979,-2.5,-0.1312,1,69,1902393
+2026-10-03 04:30,wta,WTA Challenger,"Jingshan, China",Hard,3,Emerson Jones,Alexandra Shubladze,p2_games,under,12.5,0.6271,1.59,1.54,0.6021,2.5,-0.0342,1,69,1902393
+2026-10-03 04:30,wta,WTA Challenger,"Jingshan, China",Hard,3,Emerson Jones,Alexandra Shubladze,game_handicap,player_a,-0.5,0.5139,1.95,,,,,1,69,1902393
+2026-10-03 04:30,wta,WTA Challenger,"Jingshan, China",Hard,3,Emerson Jones,Alexandra Shubladze,game_handicap,player_b,0.5,0.4861,2.06,,,,,1,69,1902393
+2026-10-03 05:30,wta,WTA Challenger,"Jingshan, China",Hard,3,Jessica Bouzas Maneiro,Aliona Falei,winner,player_a,,0.5979,1.67,1.26,0.7434,-14.5,-0.2467,0,91,1902313
+2026-10-03 05:30,wta,WTA Challenger,"Jingshan, China",Hard,3,Jessica Bouzas Maneiro,Aliona Falei,winner,player_b,,0.4021,2.49,3.65,0.2566,14.5,0.4677,0,91,1902313
+2026-10-03 05:30,wta,WTA Challenger,"Jingshan, China",Hard,3,Jessica Bouzas Maneiro,Aliona Falei,total_games,over,19.5,0.5529,1.81,1.8,0.5135,3.9,-0.0048,1,91,1902313
+2026-10-03 05:30,wta,WTA Challenger,"Jingshan, China",Hard,3,Jessica Bouzas Maneiro,Aliona Falei,total_games,under,19.5,0.4471,2.24,1.9,0.4865,-3.9,-0.1505,1,91,1902313
+2026-10-03 05:30,wta,WTA Challenger,"Jingshan, China",Hard,3,Jessica Bouzas Maneiro,Aliona Falei,p1_games,over,12.5,0.3993,2.5,2.21,0.4199,-2.1,-0.1176,1,91,1902313
+2026-10-03 05:30,wta,WTA Challenger,"Jingshan, China",Hard,3,Jessica Bouzas Maneiro,Aliona Falei,p1_games,under,12.5,0.6007,1.66,1.6,0.5801,2.1,-0.0388,1,91,1902313
+2026-10-03 05:30,wta,WTA Challenger,"Jingshan, China",Hard,3,Jessica Bouzas Maneiro,Aliona Falei,p2_games,over,8.5,0.6422,1.56,1.91,0.4852,15.7,0.2265,1,91,1902313
+2026-10-03 05:30,wta,WTA Challenger,"Jingshan, China",Hard,3,Jessica Bouzas Maneiro,Aliona Falei,p2_games,under,8.5,0.3578,2.79,1.8,0.5148,-15.7,-0.3559,1,91,1902313
+2026-10-03 05:30,wta,WTA Challenger,"Jingshan, China",Hard,3,Jessica Bouzas Maneiro,Aliona Falei,game_handicap,player_a,-2.5,0.5229,1.91,,,,,1,91,1902313
+2026-10-03 05:30,wta,WTA Challenger,"Jingshan, China",Hard,3,Jessica Bouzas Maneiro,Aliona Falei,game_handicap,player_b,2.5,0.4771,2.1,,,,,1,91,1902313
