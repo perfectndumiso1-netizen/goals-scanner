@@ -64,7 +64,10 @@ jobs:
 
 
       - name: Unit tests (tennis only)
-        run: python -m pytest tennis/tests -q
+        # pytest is a test-time tool for this job only; it is deliberately not added to requirements.txt
+        run: |
+          pip install --only-binary=:all: --retries 10 --timeout 60 -q pytest
+          python -m pytest tennis/tests -q
 
       - name: Run tennis scanner
         run: python -m tennis.scanner
