@@ -55,9 +55,13 @@ with sync_playwright() as p:
     check('Tennis · selections of the day' in fb_home and page.evaluate("() => !!document.querySelector('#tn-fb-card')"), 'tennis selections card on the FOOTBALL home screen')
     sels0 = TENNIS.get('selections') or []
     if sels0: check(any(s['label'] in fb_home for s in sels0[:8]), 'football home: a tennis selection label is visible without switching')
-    check(fb_home.index('Bets of the day') < fb_home.index('Tennis · selections of the day'), 'tennis card sits right after the football bets-of-the-day card')
     check(page.evaluate("() => /Tennis\\s*\\d+/.test(document.querySelector('#sport-bar').textContent)"), 'sport bar shows the tennis selection count')
     check(page.evaluate("() => { const s = document.querySelector('#tn-fb-strip'), h = document.querySelector('#view .card.hero'); return !!s && !!h && s.previousElementSibling === h; }"), 'tennis strip directly under the football hero (above the fold)')
+    check('New: tennis is on your home screen' in fb_home, 'one-time intro card on first launch')
+    page.click('#tn-intro-ok'); page.wait_for_timeout(400)
+    check(not page.evaluate("() => !!document.querySelector('#tn-intro')") and page.evaluate("() => !!window.app.settings.tnIntroSeen"), 'intro dismissed and remembered')
+    fb_home = page.inner_text('#view')
+    check(fb_home.index('Bets of the day') < fb_home.index('Tennis · selections of the day'), 'tennis card sits right after the football bets-of-the-day card')
     # tapping a tennis row from the football home opens the tennis match page, back returns to football home
     if sels0:
         page.click('#tn-fb-card tr.tap >> nth=0'); page.wait_for_timeout(1200)

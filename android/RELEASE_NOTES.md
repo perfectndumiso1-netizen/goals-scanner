@@ -1,5 +1,6 @@
 ## What's new in PlayReport 1.6 — 🎾 Tennis on the home screen, selections of the day
 - Sport switch at the top of every tab (⚽ Football 13 | 🎾 Tennis 34, with today's counts) — tennis is no longer hidden in the menu. Football screens are unchanged; the app remembers the sport you were on.
+- A one-time card on the home screen points to the new placement after the update.
 - Tennis is also on the football home screen itself: a "Tennis · selections of the day" strip right under the header numbers and the tennis card (grouped by market) right after Bets of the day — tap a row for the tennis match page, or "Open tennis" for the full section.
 - Tennis Home: the day's selections grouped by market (Match winner / Total games / Player games / Game handicap) — one preferred market per match, ranked by model probability; strong markets; model-above-market flags; next matches; the tennis record.
 - Selection rules (shown in the app): Sportybet price ≥ 1.30, model ≥ 60%, the bookmaker's margin-free probability ≥ 45% (it must not contradict the pick), data quality ≥ 60%, both players with 30+ rated matches, no low-confidence game data. STRONG = model ≥ 70% and market ≥ 50%. Not a "safe bet" list — a 70% selection loses three times in ten.

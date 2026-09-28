@@ -173,13 +173,19 @@
     const heads = $$('#view .section-head'); const botd = heads.find((h) => /Bets of the day/i.test(h.textContent));
     const anchor = botd && botd.nextElementSibling ? botd.nextElementSibling : $('#view .card.hero');
     if (anchor) anchor.insertAdjacentHTML('afterend', headHtml + body); else v.insertAdjacentHTML('beforeend', headHtml + body);
-    // plus a one-line strip directly under the hero, so tennis is visible above the fold (the football card can be long)
+    // one-time intro (dismissible) so the new placement is noticed after the update
     const hero = $('#view .card.hero');
+    if (hero && !settings.tnIntroSeen && !$('#tn-intro')) {
+      hero.insertAdjacentHTML('beforebegin', `<div class="card tn-fb" id="tn-intro"><div class="row"><span class="ico">🎾</span><div class="grow"><b>New: tennis is on your home screen</b><div class="tiny muted">The ⚽ / 🎾 bar above switches the whole app between the two sports. The tennis strip and the "Tennis · selections of the day" card below sit on this page — one preferred market per match, strong markets, and a match page with Overview / Markets / Stats / Data.</div>
+        <div class="row" style="gap:8px;margin-top:8px"><button class="btn primary" data-sport-go="tennis">Open tennis</button><button class="btn" id="tn-intro-ok">Got it</button></div></div></div></div>`);
+    }
+    // plus a one-line strip directly under the hero, so tennis is visible above the fold (the football card can be long)
     if (hero && d && !$('#tn-fb-strip')) {
       const top = sels[0];
       hero.insertAdjacentHTML('afterend', `<div class="card compact tap tn-fb" id="tn-fb-strip" data-sport-go="tennis"><div class="row"><span class="ico">🎾</span><div class="grow"><b>Tennis · ${sels.length} selection${sels.length === 1 ? '' : 's'} of the day</b><div class="tiny muted">${top ? `${strong.length} strong · top: ${esc(top.label)} ${pc(top.model_p, 0)} @ ${od(top.book_odds)} · ${esc(top.tournament)}` : `${(d.matches || []).length} matches analysed · every market with model, fair odds, Sportybet, implied and edge`}${inPlay ? ` · <span class="good">${inPlay} in play</span>` : ''}</div></div>${icon('next')}</div></div>`);
     }
-    $$('[data-sport-go]').forEach((b) => { b.onclick = (e) => { e.stopPropagation(); if (b.dataset.tnView) T.view = b.dataset.tnView; T.setSport('tennis'); }; });
+    $$('[data-sport-go]').forEach((b) => { b.onclick = (e) => { e.stopPropagation(); if (b.dataset.tnView) T.view = b.dataset.tnView; settings.tnIntroSeen = PR.APP_VERSION || '1'; PR.saveSettings(); T.setSport('tennis'); }; });
+    const ok = $('#tn-intro-ok'); if (ok) ok.onclick = (e) => { e.stopPropagation(); settings.tnIntroSeen = PR.APP_VERSION || '1'; PR.saveSettings(); PR.render(); };
   }
   T.setSport = function (sport) {
     if ((sport === 'tennis') === isTennis()) return;
