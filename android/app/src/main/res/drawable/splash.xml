@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <layer-list xmlns:android="http://schemas.android.com/apk/res/android">
     <item android:drawable="@color/brand_dark" />
-    <item android:gravity="center" android:width="200dp" android:height="200dp">
-        <inset android:drawable="@mipmap/ic_launcher_foreground" />
+    <item android:gravity="center" android:width="144dp" android:height="144dp">
+        <inset android:drawable="@drawable/splash_logo" />
     </item>
 </layer-list>

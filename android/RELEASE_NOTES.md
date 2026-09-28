@@ -1,3 +1,11 @@
+## What's new in PlayReport 1.6 — new look: dark-first, cleaner, more readable
+- A visual redesign only. The model, the probabilities, the selections, the data sources and every screen's content are exactly as before — nothing was added or removed; the app simply looks and reads better.
+- Dark theme first (System / Light / Dark still under Settings → Appearance): a calm dark background, slightly lighter cards with thin borders instead of heavy shadows and gradients, one blue accent, and green / amber / red kept strictly for positive / caution / negative numbers.
+- Clearer hierarchy: large key numbers with small labels, uppercase section captions, tighter and more consistent spacing, corner radius and iconography; tables and statistics laid out like an analytics terminal with subtle dividers.
+- Home screen header is now a flat status strip — live status, update time and the day's key counts at a glance. The tennis section uses the same system with its green identity.
+- Bottom navigation with a clear active indicator; pressed states and short, subtle screen transitions; nothing that slows the app down.
+- New app icon: the roaring black panther bursting through a football / tennis ball, on the PlayReport blue. The splash screen matches the dark theme (no white flash on launch).
+
 ## What's new in PlayReport 1.6 — 🎾 Tennis on the home screen, selections of the day
 - Sport switch at the top of every tab (⚽ Football 13 | 🎾 Tennis 34, with today's counts) — tennis is no longer hidden in the menu. Football screens are unchanged; the app remembers the sport you were on.
 - A one-time card on the home screen points to the new placement after the update.

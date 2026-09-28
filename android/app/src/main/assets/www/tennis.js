@@ -16,24 +16,25 @@
   const isTennis = () => settings.sport === 'tennis';
   if (!document.getElementById('tennis-css')) {
     const st = document.createElement('style'); st.id = 'tennis-css';
-    st.textContent = `.sport-bar{display:flex;gap:6px;margin:0 0 10px;background:var(--card-2);padding:4px;border-radius:999px}
-.sport-bar button{flex:1;border:0;background:transparent;color:var(--muted);border-radius:999px;padding:8px 10px;font-size:14px;font-weight:700;cursor:pointer}
-.sport-bar button.on{background:var(--card);color:var(--brand-text);box-shadow:var(--shadow)}
-.sport-bar button.on.tn{background:#1b7a4a;color:#fff}
-.tn-hero{background:linear-gradient(135deg,#0d3b2a 0%,#1b7a4a 70%,#2e9d5f 100%)!important}
+    st.textContent = `.sport-bar{display:flex;gap:3px;margin:0 0 10px;background:var(--card-2);border:1px solid var(--line);padding:3px;border-radius:10px}
+.sport-bar button{flex:1;border:0;background:transparent;color:var(--muted);border-radius:7px;padding:8px 10px;font-size:13px;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;transition:background .2s,color .2s}
+.sport-bar button.on{background:var(--seg-on);color:var(--brand-text);box-shadow:var(--seg-shadow)}
+.sport-bar button.on.tn{color:var(--good)}
+.tn-hero .eyebrow{color:var(--good)}
 .tn-item{padding:9px 0;border-top:1px solid var(--line-2)}.tn-item:first-child{border-top:0;padding-top:4px}
-.tn-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:4px;margin-top:6px}.tn-grid>div{background:var(--chip);border-radius:8px;padding:4px 2px;text-align:center;font-size:12px;font-weight:600;line-height:1.25}
-.tn-grid .cap{display:block;font-size:9px;font-weight:700;color:var(--muted);letter-spacing:.3px}.tn-grid>div.hi{background:var(--accent-soft);color:var(--good)}.tn-grid>div.mid{background:var(--warn-soft);color:var(--warn)}
+.tn-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:4px;margin-top:6px}.tn-grid>div{background:var(--card-2);border:1px solid var(--line-2);border-radius:8px;padding:5px 2px;text-align:center;font-size:12px;font-weight:600;line-height:1.25}
+.tn-grid .cap{display:block;font-size:9px;font-weight:600;color:var(--muted);letter-spacing:.4px;text-transform:uppercase}.tn-grid>div.hi{background:var(--accent-soft);border-color:transparent;color:var(--good)}.tn-grid>div.mid{background:var(--warn-soft);border-color:transparent;color:var(--warn)}
 .tn-grid>div.neg{color:var(--bad)}.tn-grid>div.pos{color:var(--good)}
 .tn-sets{display:inline-flex;gap:6px;font-variant-numeric:tabular-nums;font-weight:700}.tn-sets span{min-width:12px;text-align:center}.tn-sets span.lost{color:var(--muted);font-weight:500}
-.tn-ev{display:inline-block;font-size:10px;font-weight:700;padding:1px 6px;border-radius:6px;background:var(--chip);color:var(--muted);margin-left:4px}
+.tn-ev{display:inline-block;font-size:10px;font-weight:700;padding:1px 6px;border-radius:5px;background:var(--chip);color:var(--muted);margin-left:4px}
 .tn-ev.s{background:var(--accent-soft);color:var(--good)}.tn-ev.w{background:var(--warn-soft);color:var(--warn)}
-.tn-wl{display:inline-flex;gap:2px}.tn-wl i{font-style:normal;width:16px;height:16px;border-radius:4px;font-size:10px;font-weight:800;display:inline-flex;align-items:center;justify-content:center;color:#fff;background:var(--muted)}
+.tn-wl{display:inline-flex;gap:2px}.tn-wl i{font-style:normal;width:16px;height:16px;border-radius:4px;font-size:10px;font-weight:700;display:inline-flex;align-items:center;justify-content:center;color:#fff;background:var(--neutral-fill)}
 .tn-wl i.W{background:var(--good)}.tn-wl i.L{background:var(--bad)}
-.tn-strong{font-size:10px;font-weight:800;color:#fff;background:#1b7a4a;border-radius:6px;padding:1px 6px;margin-left:4px;letter-spacing:.3px}
-.sport-bar .cnt{display:inline-block;min-width:18px;padding:0 5px;border-radius:999px;background:var(--chip);color:var(--muted);font-size:11px;margin-left:6px;line-height:18px}
-.sport-bar button.on .cnt{background:rgba(255,255,255,.22);color:inherit}
-.tn-fb .ico{background:#e3f4ea;color:#1b7a4a;font-size:15px}
+.tn-strong{font-size:10px;font-weight:700;color:var(--good);background:var(--accent-soft);border-radius:5px;padding:1px 6px;margin-left:4px;letter-spacing:.4px}
+.sport-bar .cnt{display:inline-block;min-width:18px;padding:0 5px;border-radius:999px;background:var(--chip);color:var(--muted);font-size:11px;margin-left:6px;line-height:18px;font-weight:600}
+.sport-bar button.on .cnt{background:var(--brand-soft);color:var(--brand-text)}
+.sport-bar button.on.tn .cnt{background:var(--accent-soft);color:var(--good)}
+.tn-fb .ico{background:var(--accent-soft);color:var(--good);font-size:15px}
 .tn-fb-foot{display:flex;align-items:center;gap:8px;margin-top:6px}`;
     document.head.appendChild(st);
   }

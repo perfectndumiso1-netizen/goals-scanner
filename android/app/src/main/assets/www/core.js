@@ -23,7 +23,7 @@ window.PR = (function () {
   }
   let savedSettings = {};
   try { savedSettings = JSON.parse(stored('pr_settings') || '{}'); } catch (e) { savedSettings = {}; }
-  const settings = Object.assign({ liveEvery: 60, tzOffset: 2, goalAlerts: true, htAlerts: false, ftAlerts: true, betAlerts: true, reportAlerts: true, minP: 0.70, minOdds: 1.30, hiP: 0.70, theme: 'system', seenVersion: '', leagues: 'all' },
+  const settings = Object.assign({ liveEvery: 60, tzOffset: 2, goalAlerts: true, htAlerts: false, ftAlerts: true, betAlerts: true, reportAlerts: true, minP: 0.70, minOdds: 1.30, hiP: 0.70, theme: 'dark', seenVersion: '', leagues: 'all' },
     savedSettings);
   const state = { data: null, tab: 'home', stack: [], live: {}, incidents: {}, liveTimer: null, lastLive: 0, loading: false,
     update: null, updateStage: null, days: {}, teams: {}, reports: {}, details: {}, betsView: 'today', search: '', sort: 'ko', matchFilter: 'all',
