@@ -60,7 +60,7 @@ jobs:
             mkdir -p tennis-state
             git -C tennis-state init -q -b tennis-data
           fi
-          printf 'reports/tennis/pdf/\n__pycache__/\n' > tennis-state/.gitignore
+          printf 'reports/tennis/*.pdf\n__pycache__/\n' > tennis-state/.gitignore
 
 
       - name: Unit tests (tennis only)
