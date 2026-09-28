@@ -53,8 +53,11 @@ class CheckWorker(ctx: Context, params: WorkerParameters) : Worker(ctx, params) 
             if (info != null && Updater.isNewer(info.version, BuildConfig.VERSION_NAME) &&
                 prefs.getString("update_notified", "") != info.version) {
                 prefs.edit().putString("update_notified", info.version).apply()
-                Notifier.notify(ctx, Notifier.CH_UPDATES, 1002, "PlayReport ${info.version} is available",
-                    "Open the app to install the update.", "home")
+                val whatsNew = info.notes.lines().map { it.trim().trimStart('-', '*', '•', ' ') }
+                    .filter { it.isNotBlank() && !it.startsWith("#") && !it.startsWith("Download") }.take(3)
+                val text = if (whatsNew.isEmpty()) "Open the app to install the update."
+                    else "New: " + whatsNew.joinToString(" · ") + " — open the app to install."
+                Notifier.notify(ctx, Notifier.CH_UPDATES, 1002, "PlayReport ${info.version} is available", text, "home")
             }
         }
         return Result.success()

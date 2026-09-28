@@ -5,12 +5,14 @@
   const view = () => $('#view');
   const head = (title, sub) => `<div class="detail-head"><button class="back" id="back" aria-label="Back">${icon('back')}</button><div class="grow"><div class="b">${title}</div>${sub ? `<div class="tiny muted">${sub}</div>` : ''}</div></div>`;
   const line = (code) => parseInt(code.replace(/\D/g, ''), 10) / 10;
-  const load = (k, d) => { try { return JSON.parse(localStorage.getItem(k)) || d; } catch (e) { return d; } };
+  const load = (k, d) => { try { return JSON.parse(PR.stored(k)) || d; } catch (e) { return d; } };
   const slip = { items: load('pr_slip', { items: [] }).items || [], stake: load('pr_slip', {}).stake || '' };
-  let tickets = load('pr_tickets', []);
-  const saveSlip = () => localStorage.setItem('pr_slip', JSON.stringify(slip));
+  let tickets = load('pr_tickets_full', null);
+  if (!tickets) { try { tickets = JSON.parse(localStorage.getItem('pr_tickets')) || []; } catch (e) { tickets = []; } }   // pre-1.4 key
+  const saveSlip = () => PR.persist('pr_slip', JSON.stringify(slip));
   function saveTickets() {
     localStorage.setItem('pr_tickets', JSON.stringify(tickets));
+    PR.persist('pr_tickets_full', JSON.stringify(tickets));
     if (PR.native && PR.native.setString) { try { PR.native.setString('tickets', JSON.stringify(tickets.filter((t) => t.status === 'pending').map((t) => ({ id: t.id, odds: t.odds, stake: t.stake, legs: t.legs.map((l) => ({ eid: l.eid, sel: l.sel, home: l.home, away: l.away, kickoff: l.kickoff, label: l.label })) })))); } catch (e) { /* ignore */ } }
   }
   const totalOdds = (legs) => legs.reduce((a, l) => a * (l.status === 'void' ? 1 : (l.odds || 1)), 1);

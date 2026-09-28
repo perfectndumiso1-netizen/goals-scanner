@@ -22,7 +22,7 @@ import pandas as pd
 log = logging.getLogger("scanner")
 
 VERSION = 3
-KEEP_DETAIL_DAYS = 3
+KEEP_DETAIL_DAYS = 14
 
 
 def _f(x, nd=3):
@@ -95,11 +95,13 @@ def _profile(t) -> dict:
             "last5": _matches(t.last5), "venue_last5": _matches(getattr(t, "venue_last5", None))}
 
 
-def update_badges(path: Path, rows: list, ls_map: dict, extra: dict | None = None) -> dict:
+def update_badges(path: Path, rows: list, ls_map: dict, extra: dict | None = None, src: Path | None = None) -> dict:
     """Persistent {team short name: Livescore image path}; grows with every run, so league tables and
-    history pages can show badges for teams that are not in today's fixtures."""
+    history pages can show badges for teams that are not in today's fixtures. Reads `src` (the live file) when
+    writing to a staging directory."""
+    src = src or path
     try:
-        badges = json.loads(path.read_text(encoding="utf-8")) if path.exists() else {}
+        badges = json.loads(src.read_text(encoding="utf-8")) if src.exists() else {}
     except (OSError, ValueError):
         badges = {}
     changed = False
@@ -115,7 +117,7 @@ def update_badges(path: Path, rows: list, ls_map: dict, extra: dict | None = Non
             if img and badges.get(name) != img:
                 badges[name] = img
                 changed = True
-    if changed or not path.exists():
+    if changed or not path.exists() or src != path:
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(json.dumps(dict(sorted(badges.items())), ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
     return badges
@@ -194,24 +196,26 @@ def export(path: Path, *, ctx: dict, rows: list, picks: dict, tracker_summary: d
            helpers: dict, reports_dir: Path, tz_label: str, thresholds: dict, backtest: dict, repo: str | None,
            days_index: list | None = None, safe_summary: dict | None = None, botd: list | None = None, botd_groups: list | None = None,
            alerts: list | None = None, coverage: dict | None = None, safe_groups: tuple = (), extra_badges: dict | None = None,
-           report_run: bool = True) -> Path:
+           report_run: bool = True, live_dir: Path | None = None) -> Path:
     render_details, stars, comp = helpers["render_details"], helpers["stars"], helpers["comp"]
     selections = helpers.get("selections") or (lambda r: [])
     now: datetime = ctx["now"]
     sf = ctx.get("safe") or {}
     min_odds, min_p = float(sf.get("min_odds") or 1.3), float(sf.get("min_p") or 0.7)
-    app_dir = path.parent
+    app_dir = path.parent                      # where this publication is written (may be a staging directory)
+    live_dir = live_dir or app_dir             # where the app currently reads from (previous publication)
     fx_dir = app_dir / "fx"
     tracked = set()
     index = []
     ids_by_key = {}
-    badges = update_badges(app_dir / "badges.json", rows, ls_map, extra_badges)
+    badges = update_badges(app_dir / "badges.json", rows, ls_map, extra_badges, src=live_dir / "badges.json")
     live_eids = []
     # the previous publication: matches that have kicked off are carried over unchanged ("frozen") for 3 hours so the
     # app keeps their pre-match analysis, live status, bets and tickets while they are in play
     prev = None
+    prev_path = live_dir / path.name
     try:
-        prev = json.loads(path.read_text(encoding="utf-8")) if path.exists() else None
+        prev = json.loads(prev_path.read_text(encoding="utf-8")) if prev_path.exists() else None
     except (OSError, ValueError):
         prev = None
     for r in rows:
@@ -276,12 +280,7 @@ def export(path: Path, *, ctx: dict, rows: list, picks: dict, tracker_summary: d
         })
         _write(fx_dir / f"{key}.json", detail)
     # prune detail files of fixtures older than a few days (day pages keep their own summary)
-    keep = {detail_key(f["id"]) for f in index}
-    cutoff = (now - timedelta(days=KEEP_DETAIL_DAYS)).timestamp()
-    if fx_dir.exists():
-        for p in fx_dir.glob("*.json"):
-            if p.stem not in keep and p.stat().st_mtime < cutoff:
-                p.unlink(missing_ok=True)
+    # (old detail files are pruned by scanner.promote_publication using the match date inside each file)
     # shortlists
     picks_out = {}
     for mkt, lst in picks.items():

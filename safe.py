@@ -47,14 +47,18 @@ def is_under(sel: str) -> bool:
 
 
 # bets-of-the-day card: one section per market family, up to BOTD_PER_GROUP picks each, distinct matches per section
+# (key, title, selection filter, minimum probability, picks per section). The card is strong on Over 1.5 & team goals;
+# 1X2 / BTTS / Over 2.5 only enter with a strong signal (probability >= 70% on both views AND recent form backing it —
+# see scanner.strong_signal). One market per match across the whole card.
 BOTD_GROUPS = [
-    ("result", "1X2", lambda sel: sel in ("H", "A"), 0.62),
-    ("o15", "Over 1.5 & team goals", lambda sel: sel in ("O15", "HO05", "AO05", "HO15", "AO15"), 0.70),
-    ("btts", "Both teams to score", lambda sel: sel == "BTTS", 0.62),
-    ("o25", "Over 2.5 goals", lambda sel: sel in ("O25", "O35"), 0.62),
-    ("cards", "Bookings", lambda sel: sel.startswith("KO"), 0.65),
-    ("corners", "Corners", lambda sel: sel.startswith("CO"), 0.65),
+    ("o15", "Over 1.5 & team goals", lambda sel: sel in ("O15", "HO05", "AO05", "HO15", "AO15"), 0.70, 5),
+    ("result", "1X2", lambda sel: sel in ("H", "A"), 0.70, 2),
+    ("btts", "Both teams to score", lambda sel: sel == "BTTS", 0.70, 2),
+    ("o25", "Over 2.5 goals", lambda sel: sel in ("O25", "O35"), 0.70, 2),
+    ("cards", "Bookings", lambda sel: sel.startswith("KO"), 0.65, 2),
+    ("corners", "Corners", lambda sel: sel.startswith("CO"), 0.65, 2),
 ]
+SIGNAL_SECTIONS = ("result", "btts", "o25")
 BOTD_PER_GROUP = 3
 ACCA_COLS = ["acca_id", "created", "run", "window_end", "n_legs", "legs", "odds", "p", "status", "settled_on", "note"]
 
@@ -290,7 +294,15 @@ def safest(rows: list, now: datetime, window_end: datetime, min_odds: float = MI
             bets.append(Bet(key, fx["div"], fx["league"], fx["home"], fx["away"], fx["kickoff"].strftime("%Y-%m-%d %H:%M"),
                             s.sel, s.p, s.p_model, s.p_sb, s.odds))
     bets.sort(key=lambda b: (-b.p, -b.odds))
-    bets = bets[:MAX_BETS]
+    # one market per match (the most probable): a clean record of which markets perform
+    seen_match: set[tuple] = set()
+    one = []
+    for b in bets:
+        if b.key in seen_match:
+            continue
+        seen_match.add(b.key)
+        one.append(b)
+    bets = one[:MAX_BETS]
 
     def pool_for(cands):
         best: dict[tuple, Bet] = {}
@@ -345,12 +357,16 @@ def add_bets(df: pd.DataFrame, bets: list[Bet], now: datetime, run: str, kind: s
     if "kind" not in df.columns:
         df["kind"] = "safe"
     existing = set(zip(df["match_date"], df["home"], df["away"], df["sel"]))
+    matches = set(zip(df["match_date"], df["home"], df["away"]))
     new, added = [], []
     for b in bets:
         k = (b.key[0], b.home, b.away, b.sel)
         if k in existing:
             continue
+        if (b.key[0], b.home, b.away) in matches:      # one market per match, whichever came first
+            continue
         existing.add(k)
+        matches.add((b.key[0], b.home, b.away))
         added.append(b)
         new.append({"match_date": b.key[0], "kickoff": b.kickoff, "country": b.key[1], "div": b.div, "league": b.league,
                     "home": b.home, "away": b.away, "sel": b.sel, "label": b.label, "p": f"{b.p:.3f}",
@@ -366,9 +382,10 @@ def bet_id(match_date: str, home: str, away: str, sel: str) -> str:
     return f"{match_date}|{home}|{away}|{sel}"
 
 
-def botd_candidates(rows: list, now: datetime, min_odds: float = MIN_ODDS) -> list[Bet]:
+def botd_candidates(rows: list, now: datetime, min_odds: float = MIN_ODDS, signal=None) -> list[Bet]:
     """Selections eligible for the day card: priced, both views agree, price >= 1.30, overs only, probability at or
-    above the section threshold (1X2 / BTTS / Over 2.5 need 62%, Over 1.5 & team goals 70%, bookings / corners 65%)."""
+    above the section threshold; 1X2 / BTTS / Over 2.5 additionally need `signal(r, sel)` to be true (form backing)
+    and >= 70% on BOTH the model and the market view."""
     start = now + timedelta(minutes=10)
     out: list[Bet] = []
     for r in rows:
@@ -379,17 +396,23 @@ def botd_candidates(rows: list, now: datetime, min_odds: float = MIN_ODDS) -> li
         for s in selections(r):
             if not s.priced or s.odds < min_odds or s.diff or is_under(s.sel):
                 continue
-            for gkey, _title, match, thr in BOTD_GROUPS:
-                if match(s.sel) and s.p >= thr:
-                    out.append(Bet(key, fx["div"], fx["league"], fx["home"], fx["away"], fx["kickoff"].strftime("%Y-%m-%d %H:%M"),
-                                   s.sel, s.p, s.p_model, s.p_sb, s.odds))
-                    break
+            for gkey, _title, match, thr, _cap in BOTD_GROUPS:
+                if not match(s.sel) or s.p < thr:
+                    continue
+                if gkey in SIGNAL_SECTIONS:
+                    if s.p_model < thr or (s.p_sb is not None and s.p_sb < thr):
+                        break
+                    if signal is not None and not signal(r, s.sel):
+                        break
+                out.append(Bet(key, fx["div"], fx["league"], fx["home"], fx["away"], fx["kickoff"].strftime("%Y-%m-%d %H:%M"),
+                               s.sel, s.p, s.p_model, s.p_sb, s.odds))
+                break
     out.sort(key=lambda b: (-b.p, -b.odds))
     return out
 
 
 def botd_group(sel: str) -> str | None:
-    for gkey, _title, match, _thr in BOTD_GROUPS:
+    for gkey, _title, match, _thr, _cap in BOTD_GROUPS:
         if match(sel):
             return gkey
     return None
@@ -397,10 +420,11 @@ def botd_group(sel: str) -> str | None:
 
 def pick_bets_of_the_day(df: pd.DataFrame, now: datetime, n: int = BOTD_PER_GROUP,
                          candidates: list[Bet] | None = None, run: str = "") -> pd.DataFrame:
-    """Sticky, grouped 'bets of the day': for every section of BOTD_GROUPS the n most probable eligible selections on
-    today's matches (distinct matches inside a section). Picked by the first run that sees them and kept for the day;
-    a section is only topped up while it has fewer than n picks. Candidates not yet in the ledger are added with
-    kind='botd' so they are graded like everything else."""
+    """Sticky, grouped 'bets of the day': for every section of BOTD_GROUPS the most probable eligible selections on
+    today's matches, up to the section's cap (Over 1.5 & team goals 5, the rest 2), one market per match across the
+    whole card. Picked by the first run that sees them and kept for the day; a section is only topped up while it has
+    fewer picks than its cap. Candidates not yet in the ledger are added with kind='botd' so they are graded like
+    everything else (`n` is kept for compatibility and no longer used)."""
     today = now.strftime("%Y-%m-%d")
     df = df.copy()
     for col, default in (("botd", ""), ("kind", "safe")):
@@ -411,23 +435,27 @@ def pick_bets_of_the_day(df: pd.DataFrame, now: datetime, n: int = BOTD_PER_GROU
     cands = [b for b in (candidates or []) if b.key[0] == today]
     cands.sort(key=lambda b: (-b.p, -b.odds))
     df_today = df[df["match_date"] == today]
-    for gkey, _title, match, _thr in BOTD_GROUPS:
-        cur = df_today[(df_today["botd"] == gkey)]
-        have = len(cur)
-        used = set(zip(cur["home"], cur["away"]))
-        if have >= n:
+    # one market per match across the whole card
+    used = set(zip(df_today.loc[df_today["botd"].astype(str) != "", "home"], df_today.loc[df_today["botd"].astype(str) != "", "away"]))
+    for gkey, _title, match, _thr, cap in BOTD_GROUPS:
+        have = int((df_today["botd"] == gkey).sum())
+        if have >= cap:
             continue
         for b in cands:
-            if have >= n:
+            if have >= cap:
                 break
             if botd_group(b.sel) != gkey or (b.home, b.away) in used:
                 continue
-            mask = (df["match_date"] == today) & (df["home"] == b.home) & (df["away"] == b.away) & (df["sel"] == b.sel)
+            same_match = (df["match_date"] == today) & (df["home"] == b.home) & (df["away"] == b.away)
+            mask = same_match & (df["sel"] == b.sel)
             if mask.any():
                 idx = df.index[mask][0]
                 if df.loc[idx, "status"] != "pending" or df.loc[idx, "botd"]:
                     continue
                 df.loc[idx, "botd"] = gkey
+            elif same_match.any():
+                # the match already carries another market in the ledger: keep one market per match
+                continue
             else:
                 df, _ = add_bets(df, [b], now, run, kind="botd")
                 df.loc[df.index[-1], "botd"] = gkey
@@ -451,7 +479,7 @@ def bets_of_the_day(df: pd.DataFrame, now: datetime) -> dict:
                      "label": r.label, "p": float(r.p) if r.p else None, "odds": float(r.odds) if r.odds else None,
                      "status": r.status, "score": r.score or None})
     flat.sort(key=lambda b: (-(b["p"] or 0), b["kickoff"]))
-    for gkey, title, _match, thr in BOTD_GROUPS:
+    for gkey, title, _match, thr, _cap in BOTD_GROUPS:
         bets = [b for b in flat if b["section"] == gkey]
         if bets:
             out["groups"].append({"key": gkey, "title": title, "min_p": thr, "bets": bets})
@@ -595,7 +623,7 @@ def summary(bets: pd.DataFrame, accas: pd.DataFrame, today: datetime) -> dict:
         bd = bets[bets["botd"].astype(str).replace({"1": "o15"}) != ""]
         out["botd"] = {"all": _stats(bd, "hit"), "30d": _stats(bd[bd["match_date"] >= cut], "hit"),
                        "pending": int((bd["status"] == "pending").sum()), "by_section": {}}
-        for gkey, title, _m, _t in BOTD_GROUPS:
+        for gkey, title, _m, _t, _c in BOTD_GROUPS:
             sub = bd[bd["botd"].astype(str).replace({"1": "o15"}) == gkey]
             if len(sub):
                 out["botd"]["by_section"][gkey] = dict(_stats(sub, "hit"), title=title)

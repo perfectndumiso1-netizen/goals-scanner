@@ -49,6 +49,24 @@ class MainActivity : AppCompatActivity() {
         js("window.app && window.app.onPermission && window.app.onPermission($granted);")
     }
 
+    /** "Save as" for CSV exports: the page hands over the text, the user picks a location (Downloads, Drive, ...). */
+    private var pendingSave: Pair<String, String>? = null
+    private val saveDocument = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+        val pending = pendingSave
+        pendingSave = null
+        val uri = result.data?.data
+        if (pending == null || uri == null) {
+            js("window.__saveDone && window.__saveDone(false);")
+            return@registerForActivityResult
+        }
+        pool.execute {
+            val ok = try {
+                contentResolver.openOutputStream(uri, "wt")?.use { it.write(pending.second.toByteArray(Charsets.UTF_8)) } != null
+            } catch (e: Exception) { false }
+            js("window.__saveDone && window.__saveDone($ok);")
+        }
+    }
+
     @SuppressLint("SetJavaScriptEnabled")
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -223,6 +241,30 @@ class MainActivity : AppCompatActivity() {
         @JavascriptInterface
         fun setString(key: String, value: String) {
             getSharedPreferences(Notifier.PREFS, MODE_PRIVATE).edit().putString("str_$key", value).apply()
+        }
+
+        /** Read back what the page stored natively (tickets, favourites, settings survive re-installs / WebView resets). */
+        @JavascriptInterface
+        fun getString(key: String): String? =
+            getSharedPreferences(Notifier.PREFS, MODE_PRIVATE).getString("str_$key", null)
+
+        /** Save a text file (CSV) through the system file picker; the result comes back via window.__saveDone. */
+        @JavascriptInterface
+        fun saveText(name: String, mime: String, text: String) {
+            runOnUiThread {
+                pendingSave = Pair(name, text)
+                val intent = Intent(Intent.ACTION_CREATE_DOCUMENT).apply {
+                    addCategory(Intent.CATEGORY_OPENABLE)
+                    type = mime
+                    putExtra(Intent.EXTRA_TITLE, name)
+                }
+                try {
+                    saveDocument.launch(intent)
+                } catch (e: Exception) {
+                    pendingSave = null
+                    js("window.__saveDone && window.__saveDone(false);")
+                }
+            }
         }
 
         /** Called by the page whenever its theme resolves (system / light / dark). */

@@ -24,12 +24,12 @@ INCIDENT_TYPES = {36: "goal", 37: "own_goal", 39: "penalty", 40: "missed_penalty
 FINISHED = {"FT", "AET", "AP", "Postp.", "Canc.", "Aband.", "Awarded"}
 
 
-def _get(url: str) -> dict | None:
+def _get(url: str, quiet: bool = False) -> dict | None:
     try:
         r = requests.get(url, headers={"User-Agent": UA, "Accept": "application/json"}, timeout=TIMEOUT)
         if r.status_code == 200:
             return r.json()
-        log.warning("Livescore HTTP %s for %s", r.status_code, url[:100])
+        (log.debug if quiet else log.warning)("Livescore HTTP %s for %s", r.status_code, url[:100])
     except (requests.RequestException, ValueError) as exc:
         log.warning("Livescore request failed: %s", exc)
     return None

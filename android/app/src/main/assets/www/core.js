@@ -8,8 +8,23 @@ window.PR = (function () {
   const DATA_URL = (native && native.dataUrl && native.dataUrl()) || (RAW_BASE + 'data/app/latest.json');
   const CONTACT = { whatsapp: '27738212664', whatsappShown: '073 821 2664', email: 'msanindumiso@gmail.com' };
   const APP_VERSION = (native && native.version && native.version()) || '';
+  /** localStorage first; when it is empty (fresh install, WebView data cleared) the copy kept in native preferences is restored */
+  function stored(key) {
+    let v = null;
+    try { v = localStorage.getItem(key); } catch (e) { v = null; }
+    if (v == null && native && native.getString) {
+      try { v = native.getString(key.replace(/^pr_/, '')); if (v != null) localStorage.setItem(key, v); } catch (e) { v = null; }
+    }
+    return v;
+  }
+  function persist(key, value) {
+    try { localStorage.setItem(key, value); } catch (e) { /* quota */ }
+    if (native && native.setString) { try { native.setString(key.replace(/^pr_/, ''), value); } catch (e) { /* ignore */ } }
+  }
+  let savedSettings = {};
+  try { savedSettings = JSON.parse(stored('pr_settings') || '{}'); } catch (e) { savedSettings = {}; }
   const settings = Object.assign({ liveEvery: 60, tzOffset: 2, goalAlerts: true, htAlerts: false, ftAlerts: true, betAlerts: true, reportAlerts: true, minP: 0.70, minOdds: 1.30, hiP: 0.70, theme: 'system', seenVersion: '', leagues: 'all' },
-    JSON.parse(localStorage.getItem('pr_settings') || '{}'));
+    savedSettings);
   const state = { data: null, tab: 'home', stack: [], live: {}, incidents: {}, liveTimer: null, lastLive: 0, loading: false,
     update: null, updateStage: null, days: {}, teams: {}, reports: {}, details: {}, betsView: 'today', search: '', sort: 'ko', matchFilter: 'all',
     liveView: 'tracked', liveAll: null, lastLiveAll: 0, dayView: 'results', matchView: 'overview', teamView: 'overview', menuOpen: false, expanded: {}, badges: {}, dark: false };
@@ -17,7 +32,7 @@ window.PR = (function () {
 
   const $ = (sel, root) => (root || document).querySelector(sel);
   const $$ = (sel, root) => Array.from((root || document).querySelectorAll(sel));
-  function saveSettings() { localStorage.setItem('pr_settings', JSON.stringify(settings)); }
+  function saveSettings() { persist('pr_settings', JSON.stringify(settings)); }
 
   // ------------------------------------------------------------------ fetch bridge
   let fid = 0; const pending = {};
@@ -57,12 +72,12 @@ window.PR = (function () {
   }
   // favourite matches (kept on the phone; tracked for goal / HT / FT alerts and kick-off reminders)
   let favs = [];
-  try { favs = JSON.parse(localStorage.getItem('pr_favs') || '[]'); } catch (e) { favs = []; }
+  try { favs = JSON.parse(stored('pr_favs_full') || localStorage.getItem('pr_favs') || '[]'); } catch (e) { favs = []; }
   const isFav = (id) => favs.some((f) => f.fixture === id);
   function saveFavs() {
     const keep = ymd(new Date(tzNow().getTime() - 2 * 86400000));
     favs = favs.filter((f) => f.kickoff.slice(0, 10) >= keep);
-    localStorage.setItem('pr_favs', JSON.stringify(favs));
+    persist('pr_favs_full', JSON.stringify(favs));
     if (native && native.setString) { try { native.setString('favs', JSON.stringify(favs.map((f) => ({ eid: f.eid, kickoff: f.kickoff, home: f.home, away: f.away, competition: f.competition })))); } catch (e) { /* ignore */ } }
   }
   function toggleFav(id) {
@@ -208,16 +223,65 @@ window.PR = (function () {
     return d;
   }
   const fx = (id) => state.data && state.data._byId[id];
-  /** full analysis of one match (per-match file); cached for the session */
+  /** on-phone cache of the small data files (per-match analysis, day history, team pages): pages open instantly
+   *  from the cache and are refreshed in the background when the publication is newer than the cached copy */
+  const CACHE_MAX = 400;
+  const cache = {
+    key: (k) => 'pr_c:' + k,
+    get(k) { try { const v = localStorage.getItem(this.key(k)); return v ? JSON.parse(v) : null; } catch (e) { return null; } },
+    put(k, data, stamp) {
+      const rec = { t: Date.now(), s: stamp || '', d: data };
+      try { localStorage.setItem(this.key(k), JSON.stringify(rec)); } catch (e) { this.prune(true); try { localStorage.setItem(this.key(k), JSON.stringify(rec)); } catch (e2) { /* give up */ } }
+      this.count = (this.count || 0) + 1; if (this.count % 25 === 0) this.prune(false);
+    },
+    prune(hard) {
+      const keys = []; for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); if (k && k.startsWith('pr_c:')) keys.push(k); }
+      if (!hard && keys.length <= CACHE_MAX) return;
+      const items = keys.map((k) => { let t = 0; try { t = (JSON.parse(localStorage.getItem(k)) || {}).t || 0; } catch (e) { t = 0; } return { k, t }; }).sort((a, b) => a.t - b.t);
+      const drop = hard ? Math.max(Math.ceil(items.length / 2), 1) : items.length - CACHE_MAX;
+      items.slice(0, drop).forEach((x) => localStorage.removeItem(x.k));
+    },
+    size() { let n = 0, b = 0; for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); if (k && k.startsWith('pr_c:')) { n++; b += (localStorage.getItem(k) || '').length; } } return { n, kb: Math.round(b / 1024) }; },
+    clear() { const keys = []; for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); if (k && k.startsWith('pr_c:')) keys.push(k); } keys.forEach((k) => localStorage.removeItem(k)); },
+  };
+  const pubStamp = () => (state.data && state.data.meta ? state.data.meta.generated.replace(/\D/g, '') : '');
+  /** full analysis of one match (per-match file); session memory first, then the on-phone cache, then the network */
   const detailKey = (id, d) => d || (fx(id) && fx(id).d) || null;
   function detailCached(id, d) { const k = detailKey(id, d); return k ? state.details[k] || null : null; }
+  function prepDetail(j) { j.sels = (j.sels || []).map(selObj); j.trends = j.trends || {}; j.teams = j.teams || { home: {}, away: {} }; j.h2h = j.h2h || []; return j; }
+  async function fetchDetail(k, stamp) {
+    const j = prepDetail(await getJson(rawUrl(`data/app/fx/${k}.json`) + '?t=' + (stamp || Math.floor(Date.now() / 900000))));
+    state.details[k] = j; cache.put('fx/' + k, j, stamp); return j;
+  }
   async function loadDetail(id, d) {
     const k = detailKey(id, d); if (!k) throw new Error('no detail key');
     if (state.details[k] && !state.details[k].error) return state.details[k];
-    const stamp = state.data && state.data.meta ? state.data.meta.generated.replace(/\D/g, '') : Math.floor(Date.now() / 900000);
-    const j = await getJson(rawUrl(`data/app/fx/${k}.json`) + '?t=' + stamp);
-    j.sels = (j.sels || []).map(selObj); j.trends = j.trends || {}; j.teams = j.teams || { home: {}, away: {} }; j.h2h = j.h2h || [];
-    state.details[k] = j; return j;
+    const stamp = pubStamp();
+    const c = cache.get('fx/' + k);
+    if (c && c.d) {
+      const f = fx(id); const j = prepDetail(c.d); state.details[k] = j;
+      // a match that is still in the current publication may have a fresher analysis: refresh quietly
+      if (f && !f.frozen && c.s !== stamp) fetchDetail(k, stamp).then(() => render()).catch(() => { /* keep cache */ });
+      return j;
+    }
+    return fetchDetail(k, stamp);
+  }
+  /** warm the cache for the pages the user is most likely to open (bets of the day, safest bets, favourites) */
+  function prefetchDetails() {
+    if (!state.data) return;
+    const d = state.data; const stamp = pubStamp(); const want = [];
+    ((d.safe && d.safe.today && d.safe.today.bets) || []).forEach((b) => want.push(b.fixture));
+    ((d.safe && d.safe.bets) || []).slice(0, 12).forEach((b) => want.push(b.fixture));
+    favs.forEach((f) => want.push(f.fixture));
+    const keys = []; want.forEach((id) => { const k = detailKey(id); if (k && !keys.includes(k)) keys.push(k); });
+    let i = 0;
+    const next = () => {
+      if (i >= keys.length || i >= 30) return;
+      const k = keys[i++]; const c = cache.get('fx/' + k);
+      if (c && c.s === stamp) { next(); return; }
+      fetchDetail(k, stamp).catch(() => { /* ignore */ }).finally(() => setTimeout(next, 150));
+    };
+    next(); if (keys.length > 1) setTimeout(next, 300);
   }
   async function loadData(force) {
     if (state.loading) return; state.loading = true; $('#btn-refresh').classList.add('spin');
@@ -237,14 +301,23 @@ window.PR = (function () {
   }
   async function loadDay(date) {
     if (state.days[date] && state.days[date].fixtures) return state.days[date];
-    const j = await getJson(rawUrl(`data/app/days/${date}.json`) + '?t=' + Math.floor(Date.now() / 300000));
-    state.days[date] = j; return j;
+    const c = cache.get('days/' + date); const today = ymd(tzNow());
+    const fetchIt = async () => { const j = await getJson(rawUrl(`data/app/days/${date}.json`) + '?t=' + Math.floor(Date.now() / 300000)); state.days[date] = j; cache.put('days/' + date, j, date < today ? 'final' : pubStamp()); return j; };
+    if (c && c.d) {
+      state.days[date] = c.d;
+      // past days settle over a few hours (results, statistics); refresh them in the background until they are a day old
+      if (date >= today || (c.s !== 'final' && Date.now() - c.t > 30 * 60000) || (date >= ymd(new Date(tzNow().getTime() - 86400000)) && Date.now() - c.t > 30 * 60000)) fetchIt().then(() => render()).catch(() => { /* keep cache */ });
+      return c.d;
+    }
+    return fetchIt();
   }
   const slug = (div) => String(div || '').replace(/[^A-Za-z0-9]+/g, '_').replace(/^_+|_+$/g, '');
   async function loadTeams(div) {
     const k = slug(div); if (state.teams[k]) return state.teams[k];
-    const j = await getJson(rawUrl(`data/app/teams/${k}.json`) + '?t=' + Math.floor(Date.now() / 3600000));
-    state.teams[k] = j; return j;
+    const c = cache.get('teams/' + k);
+    const fetchIt = async () => { const j = await getJson(rawUrl(`data/app/teams/${k}.json`) + '?t=' + Math.floor(Date.now() / 3600000)); state.teams[k] = j; cache.put('teams/' + k, j, ymd(tzNow())); return j; };
+    if (c && c.d) { state.teams[k] = c.d; if (c.s !== ymd(tzNow())) fetchIt().then(() => render()).catch(() => { /* keep cache */ }); return c.d; }
+    return fetchIt();
   }
   function teamsCached(div) { return state.teams[slug(div)] || null; }
   async function loadBadges() {
@@ -328,7 +401,7 @@ window.PR = (function () {
     if (state.menuOpen && !e.target.closest('#menu') && !e.target.closest('#btn-menu') && !e.target.closest('#btn-search')) closeMenu();
   });
 
-  return { native, settings, state, $, $$, saveSettings, nfetch, getJson, rawUrl, esc, pct, f1, f2, signed, DAYS, MONTHS, parseLocal, tzNow, ymd,
+  return { native, settings, state, $, $$, saveSettings, nfetch, getJson, rawUrl, esc, pct, f1, f2, signed, DAYS, MONTHS, parseLocal, tzNow, ymd, stored, persist, cache, prefetchDetails, pubStamp,
     dayName, niceDate, koTime, koShort, toast, pill, bar, wdl, formBadges, md, GROUPS, GROUP_ICON, selGroup, selLabel, selShort, settleSel,
     liveVerdict, isLive, isFT, indexData, fx, loadDetail, detailCached, detailKey, loadData, statusLine, loadDay, loadTeams, teamsCached, slug, TABS, render, setTab, push, replace,
     back, openMatch, openTeam, toggleMenu, closeMenu, contactCard, editorCard, teamLink, matchLine, matchRow, segmented, select, scoreBox, statusIcon, CONTACT, APP_VERSION,

@@ -77,9 +77,9 @@ def fetch_day(day: datetime, tz_offset_hours: int = 2) -> list[dict]:
     return out
 
 
-def fetch_stage(ccd: str, scd: str, tz_offset_hours: int = 2) -> tuple[dict | None, list[dict]]:
+def fetch_stage(ccd: str, scd: str, tz_offset_hours: int = 2, quiet: bool = False) -> tuple[dict | None, list[dict]]:
     """Whole season of one competition stage (fixtures + results + league table meta)."""
-    d = livescore._get(f"{BASE}/stage/soccer/{ccd}/{scd}/{int(tz_offset_hours)}?MD=1")
+    d = livescore._get(f"{BASE}/stage/soccer/{ccd}/{scd}/{int(tz_offset_hours)}?MD=1", quiet=quiet)
     for st in (d or {}).get("Stages", []):
         meta = {"country": st.get("Cnm") or "", "league": st.get("Snm") or "", "ccd": ccd, "scd": scd,
                 "badge": st.get("badgeUrl") or None}
@@ -247,6 +247,49 @@ class Archive:
             n += self.merge(key, {"country": evs[0]["country"], "league": evs[0]["league"]}, evs)
         return n
 
+    # -- previous seasons (Livescore serves them under "<stage>-YYYY-YYYY" / "<stage>-YYYY")
+    def backfill(self, wanted: dict[str, int], now: datetime, tz_offset_hours: int = 2, seasons: int = 2,
+                 budget_s: float = 45.0, max_requests: int = 60) -> dict:
+        """Add up to `seasons` earlier seasons of every wanted stage (tried once per season variant, remembered in the
+        stage file), so head-to-head, form and league history are complete outside football-data's leagues."""
+        t0 = time.time()
+        y = now.year if now.month >= 7 else now.year - 1
+        variants = []
+        for k in range(1, seasons + 1):
+            variants.append((f"{y - k}-{y - k + 1}", f"-{y - k}-{y - k + 1}"))     # European seasons
+            variants.append((f"{y - k + 1}", f"-{y - k + 1}"))                     # calendar-year seasons
+        order = sorted(wanted.items(), key=lambda kv: -kv[1])
+        req = added = 0
+        for key, _prio in order:
+            if req >= max_requests or time.time() - t0 > budget_s:
+                break
+            data = self.load(key)
+            done = data.setdefault("backfill", {})
+            ok_seasons = sum(1 for v in done.values() if isinstance(v, int) and v > 0)
+            if ok_seasons >= seasons or len(done) >= len(variants):
+                continue
+            ccd, scd = key.split("/", 1)
+            base = re.sub(r"-\d{4}(-\d{4})?$", "", scd)      # "primera-c-2026" -> "primera-c"
+            for label, suffix in variants:
+                if label in done or ok_seasons >= seasons or req >= max_requests:
+                    continue
+                if base + suffix == scd:                         # that is the current season itself
+                    done[label] = 0
+                    continue
+                req += 1
+                meta, events = fetch_stage(ccd, base + suffix, tz_offset_hours, quiet=True)
+                if meta is None or not events:
+                    done[label] = -1
+                    continue
+                n = self.merge(key, None, events)
+                done[label] = len(events)
+                ok_seasons += 1
+                added += n
+                self._dirty.add(key)
+            self._dirty.add(key)
+        log.info("Livescore backfill: %d request(s), %d earlier-season result(s) added, %.0fs", req, added, time.time() - t0)
+        return {"requests": req, "added": added}
+
     # -- match statistics (corners, cards, shots, possession)
     def refresh_stats(self, wanted: dict[str, int], now: datetime, budget_s: float = 60.0, max_n: int = 400,
                       recent_days: int = 3) -> dict:
@@ -254,6 +297,7 @@ class Archive:
         then the older backlog of the highest-priority stages, within a time / request budget."""
         t0 = time.time()
         recent_cut = int((now - timedelta(days=recent_days)).strftime("%Y%m%d%H%M"))
+        old_cut = int((now - timedelta(days=400)).strftime("%Y%m%d%H%M"))
         order = sorted(wanted.items(), key=lambda kv: -kv[1])
         todo_recent, todo_old = [], []
         for key, _prio in order:
@@ -276,7 +320,7 @@ class Archive:
                         continue
                     n_recent_stage += 1
                     todo_recent.append((key, eid, esd))
-                elif not dead:
+                elif not dead and esd >= old_cut:
                     todo_old.append((key, eid, esd))
         todo_old.sort(key=lambda x: -x[2])
         done = empty = failed = 0

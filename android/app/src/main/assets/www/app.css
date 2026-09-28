@@ -380,3 +380,8 @@ body.has-slip #view { padding-bottom: 70px; }
 .editor .avatar { width: 56px; height: 56px; border-radius: 50%; background: linear-gradient(135deg, #0f2a4a, #2b6cb0); color: #fff; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 20px; flex: 0 0 auto; overflow: hidden; }
 .editor .avatar img { width: 100%; height: 100%; object-fit: cover; }
 .tbl .addsel { width: 26px; height: 26px; font-size: 16px; margin-left: 4px; }
+
+/* release notes lists (update pop-up, settings) */
+ul.notes { margin: 6px 0 0; padding-left: 18px; font-size: 13px; color: var(--text); }
+ul.notes li { margin: 3px 0; }
+.modal-text .small { color: var(--text); }

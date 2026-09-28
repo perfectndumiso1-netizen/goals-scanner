@@ -37,6 +37,8 @@ import json
 import logging
 import math
 import os
+import re
+import shutil
 import time
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
@@ -56,6 +58,7 @@ import trends as trends_mod
 import squads as squads_mod
 import worldfeed
 import appdata
+import verify
 import safe as safe_mod
 import history as history_mod
 import teamstats
@@ -148,6 +151,8 @@ CONFIG = {
     "BOTD_N": int(_env_float("BOTD_N", 3)),            # bets of the day: picks per section
     "REPORT_MAX_ROWS": int(_env_float("REPORT_MAX_ROWS", 60)),
     "DETAIL_MAX": int(os.getenv("DETAIL_MAX", "12")),        # match dossiers in the report / PDF
+    "BACKFILL_SEASONS": int(_env_float("BACKFILL_SEASONS", 2)),   # earlier Livescore seasons to archive per competition
+    "BACKFILL_BUDGET_S": _env_float("BACKFILL_BUDGET_S", 45),
     "STATS_BUDGET_S": _env_float("STATS_BUDGET_S", 75),      # Livescore match statistics per run: time budget
     "STATS_MAX": int(_env_float("STATS_MAX", 400)),          # ... and request cap
     "WORLD_COUNT_MIN_N": int(_env_float("WORLD_COUNT_MIN_N", 5)),  # corners/cards outside the main leagues need this many matches with stats per team
@@ -1356,8 +1361,9 @@ def render_safest(ctx: dict) -> list[str]:
     if groups:
         L.append(f"### ⭐ Bets of the day — {ctx['now']:%A %d %B}")
         L.append("")
-        L.append("_One section per market: 1X2 · Over 1.5 & team goals · Both teams to score · Over 2.5 · Bookings · Corners. "
-                 "Overs only, Sportybet price ≥ 1.30, both views agree; up to three picks per section, one per match._")
+        L.append("_Strong on Over 1.5 & team goals (up to five picks); 1X2, Both teams to score and Over 2.5 only with strong "
+                 "supporting form (≥70% on both views, up to two each); Bookings and Corners ≥65%. Overs only, Sportybet price "
+                 "≥ 1.30, both views agree, one market per match on the whole card._")
         L.append("")
         icon = {"hit": "✅ hit", "miss": "❌ miss", "pending": "⏳", "void": "void"}
         for g in groups:
@@ -1582,8 +1588,10 @@ def render_report(ctx: dict, rows: list[MatchRow], picks: dict, summary: dict, n
         "football-data feed of the 22 main European leagues). Sportybet's de-margined prices are the market view there.",
         "* **Safest bets** = goals, corners and cards selections at ≥70% on both the model and the de-margined Sportybet "
         "price, priced 1.30 or better, **overs only** (no unders / no-BTTS); parlays and accumulators are no longer produced "
-        "(the backtest showed they lose money). **Bets of the day** = up to three picks per section (1X2 ≥62%, Over 1.5 & "
-        "team goals ≥70%, BTTS ≥62%, Over 2.5 ≥62%, bookings ≥65%, corners ≥65%), graded separately.",
+        "(the backtest showed they lose money). **Bets of the day** = strong on Over 1.5 & team goals (≥70%, up to five); "
+        "1X2, BTTS and Over 2.5 only with strong supporting form (≥70% on both views plus recent-form backing, up to two each); "
+        "bookings and corners ≥65% (up to two each); one market per match; graded separately. The tracked record keeps one "
+        "market per match so markets can be compared.",
         "* **Sportybet prices** never enter the probability model except as the market view they represent.",
         f"* Data: football-data.co.uk, Livescore.com. All times are {TZL} ({CONFIG['TIMEZONE']}). ⚠️ marks teams with too little history "
         "— they are never shortlisted.",
@@ -1901,6 +1909,62 @@ def send_telegram(text: str) -> None:
             log.warning("Telegram failed: %s", exc)
 
 
+def strong_signal(r: MatchRow, sel: str) -> bool:
+    """Form backing required before 1X2 / BTTS / Over 2.5 enter the bets-of-the-day card (the probabilities alone are
+    not enough for these markets). Over 1.5 and team goals need no extra signal."""
+    H, A = r.home, r.away
+
+    def wins(p):
+        return sum(1 for m in (p.last5 or []) if m["gf"] > m["ga"]), sum(1 for m in (p.last5 or []) if m["gf"] < m["ga"]), len(p.last5 or [])
+
+    if sel in ("H", "A"):
+        me, opp = (H, A) if sel == "H" else (A, H)
+        w, l, n = wins(me)
+        ow, ol, on = wins(opp)
+        return n >= 4 and w >= 3 and l <= 1 and on >= 4 and ow <= 1
+    if sel == "BTTS":
+        return H.last_n >= 6 and A.last_n >= 6 and H.last_btts / H.last_n >= 0.6 and A.last_btts / A.last_n >= 0.6 \
+            and (H.venue_rate_btts >= 0.5 if H.venue_rate_btts == H.venue_rate_btts else True)
+    if sel in ("O25", "O35"):
+        return H.last_n >= 6 and A.last_n >= 6 and H.last_o25 / H.last_n >= 0.6 and A.last_o25 / A.last_n >= 0.6 \
+            and (r.lam_h + r.lam_a) >= 2.9
+    return True
+
+
+def promote_publication(staging: Path, live: Path, now: datetime) -> None:
+    """Move a checked staging export into the live app directory (files replaced one by one; the staging copy is
+    complete and valid, so a half-written publication is never picked up by the workflow's commit)."""
+    live.mkdir(parents=True, exist_ok=True)
+    (live / "fx").mkdir(parents=True, exist_ok=True)
+    for name in ("latest.json", "meta.json", "alerts.json", "badges.json"):
+        src = staging / name
+        if src.exists():
+            os.replace(src, live / name)
+    fx_src = staging / "fx"
+    if fx_src.exists():
+        for f in fx_src.glob("*.json"):
+            os.replace(f, live / "fx" / f.name)
+    # detail files of matches older than the history window are removed from the live directory (the file names are
+    # hashes, so the match date inside each file decides; file times are meaningless after a fresh checkout)
+    keep = {f.name for f in fx_src.glob("*.json")} if fx_src.exists() else set()
+    cutoff = (now - timedelta(days=appdata.KEEP_DETAIL_DAYS)).strftime("%Y-%m-%d")
+    removed = 0
+    for f in (live / "fx").glob("*.json"):
+        if f.name in keep:
+            continue
+        try:
+            with f.open("rb") as fh:
+                head = fh.read(4096).decode("utf-8", "ignore")
+            m = re.search(r'"date":\s*"(\d{4}-\d{2}-\d{2})"', head)
+            if m is None or m.group(1) < cutoff:
+                f.unlink()
+                removed += 1
+        except OSError:
+            pass
+    if removed:
+        log.info("Detail files pruned: %d older than %s", removed, cutoff)
+
+
 # ----------------------------------------------------------------------------- main
 def all_sels(r: MatchRow) -> list[dict]:
     """Every modelled selection of a match as plain dicts (probability views + Sportybet price), best first."""
@@ -1977,6 +2041,7 @@ def main() -> None:
             archive.absorb_days(ls_events, now)
             prios = worldfeed.stage_priorities(todays)
             archive.refresh(prios, now, tz_off)
+            archive.backfill(prios, now, tz_off, seasons=CONFIG["BACKFILL_SEASONS"], budget_s=CONFIG["BACKFILL_BUDGET_S"])
             archive.refresh_stats(prios, now, budget_s=CONFIG["STATS_BUDGET_S"], max_n=CONFIG["STATS_MAX"])
             archive.save()
         except Exception as exc:  # noqa: BLE001
@@ -2090,8 +2155,8 @@ def main() -> None:
         accas_df = safe_mod.settle_accas(accas_df, results_s, now)
         accas_df.to_csv(SAFE_ACCAS_FILE, index=False)
     bets_df, new_bets = safe_mod.add_bets(bets_df, safe_res["bets"], now, run_label)
-    bets_df = safe_mod.pick_bets_of_the_day(bets_df, now, CONFIG["BOTD_N"], candidates=safe_mod.botd_candidates(rows, now),
-                                            run=run_label)
+    bets_df = safe_mod.pick_bets_of_the_day(bets_df, now, CONFIG["BOTD_N"],
+                                            candidates=safe_mod.botd_candidates(rows, now, signal=strong_signal), run=run_label)
     bets_df.to_csv(SAFE_BETS_FILE, index=False)
     safe_res["ids"] = []
     ctx["safe"] = safe_res
@@ -2154,19 +2219,39 @@ def main() -> None:
     (REPORTS_DIR / f"{today_str}.md").write_text(report_md, encoding="utf-8")
     (REPORTS_DIR / "latest.md").write_text(report_md, encoding="utf-8")
     rows_to_csv(rows, REPORTS_DIR / f"{today_str}.csv")
-    # ---- structured export for the Android app
+    # ---- structured export for the Android app: written to a staging directory, checked, then promoted
+    staging = APP_FILE.parent / "_staging"
     try:
-        appdata.export(APP_FILE, ctx=ctx, rows=rows, picks=picks, tracker_summary=summary, notes=notes, ls_map=ls_map,
+        if staging.exists():
+            shutil.rmtree(staging)
+        staging.mkdir(parents=True, exist_ok=True)
+        appdata.export(staging / APP_FILE.name, ctx=ctx, rows=rows, picks=picks, tracker_summary=summary, notes=notes, ls_map=ls_map,
                        helpers={"render_details": render_details, "stars": stars, "comp": comp, "sb_price": sb_price,
                                 "selections": all_sels},
                        reports_dir=REPORTS_DIR, tz_label=TZL, thresholds=CONFIG["THRESHOLDS"],
                        backtest=CONFIG["BACKTEST"], repo=os.getenv("GITHUB_REPOSITORY", "perfectndumiso1-netizen/goals-scanner"),
                        days_index=days_index, safe_summary=ctx["safe_summary"], botd=ctx["botd"], botd_groups=ctx["botd_groups"], alerts=alerts,
                        coverage=coverage, safe_groups=safe_mod.SAFE_GROUPS,
-                       extra_badges=archive.badge_map() if archive is not None else None, report_run=report_run)
-        log.info("App data: %s", APP_FILE)
+                       extra_badges=archive.badge_map() if archive is not None else None, report_run=report_run,
+                       live_dir=APP_FILE.parent)
+        errors, warns = verify.check_publication(staging, APP_FILE.parent, SAFE_BETS_FILE, now, expect_fixtures=len(rows))
+        for w in warns[:20]:
+            log.warning("Data check: %s", w)
+        if errors:
+            for e in errors[:30]:
+                log.error("Data check FAILED: %s", e)
+            ctx["data_check"] = {"ok": False, "errors": errors[:30], "warnings": warns[:30]}
+            log.error("Publication kept from the previous run (%d problem(s))", len(errors))
+            send_telegram("⚠️ PlayReport data check failed — the app keeps the previous publication.\n" +
+                          "\n".join(f"• {e}" for e in errors[:8]))
+        else:
+            ctx["data_check"] = {"ok": True, "warnings": warns[:30]}
+            promote_publication(staging, APP_FILE.parent, now)
+            log.info("App data: %s (%d checks passed, %d warning(s))", APP_FILE, 1, len(warns))
     except Exception as exc:  # noqa: BLE001 - never lose the run because of the app export
         log.exception("App data export failed: %s", exc)
+    finally:
+        shutil.rmtree(staging, ignore_errors=True)
     if os.getenv("README_AUTO") == "1":
         update_readme(render_readme_block(ctx, rows, picks, summary, f"reports/{today_str}.md"))
 

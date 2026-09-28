@@ -41,6 +41,7 @@
       }
     }
     if (!st && sc && sc.hc != null) st = [['Possession', sc.hposs, sc.aposs, '%'], ['Shots', sc.hs, sc.as], ['On target', sc.hst, sc.ast], ['Corners', sc.hc, sc.ac], ['Yellow cards', sc.hy, sc.ay], ['Red cards', sc.hr, sc.ar]];
+    state.lastStats = st ? st.filter(([, a, b]) => a != null || b != null) : null;
     if (!st) return '';
     const rows = st.filter(([, a, b]) => a != null || b != null).map(([k, a, b, unit]) => { const tot = (a || 0) + (b || 0); const wa = tot ? (a || 0) / tot : 0.5;
       return `<div class="statbar"><span class="${a > b ? 'lead' : ''}">${a == null ? '–' : a}${unit || ''}</span><div><div class="k">${k}</div><div class="duo"><span class="l" style="width:${Math.round(wa * 50)}%"></span><span class="r" style="width:${Math.round((1 - wa) * 50)}%"></span></div></div><span class="${b > a ? 'lead' : ''}">${b == null ? '–' : b}${unit || ''}</span></div>`; }).join('');
@@ -95,9 +96,11 @@
     else if (v === 'markets') matchMarkets(parts, x);
     else if (v === 'stats') matchStats(parts, x, th, ta);
     else matchH2H(parts, x);
+    if (x) parts.push(`<div class="card compact"><div class="small muted">Detailed stats of this analysis as a spreadsheet file — probabilities, prices, team profiles, recent form, head-to-head, trends, corners & cards (opens in Google Sheets / Excel).</div><button class="btn" id="dl-csv" style="margin-top:8px;width:100%">${icon('download', 'sm')} Download stats (CSV)</button></div>`);
     view().innerHTML = parts.join('');
     wireBack();
     const fb = $('#fav-btn'); if (fb) fb.onclick = () => PR.toggleFav(f.id);
+    const dl = $('#dl-csv'); if (dl) dl.onclick = () => PR.downloadMatchCsv(x, s, state.lastStats);
     $$('[data-mv]').forEach((b) => { b.onclick = () => { state.matchView = b.dataset.mv; PR.render(); }; });
   };
   function matchOverview(parts, f, s) {
@@ -357,7 +360,7 @@
     parts.push(sec('trend', 'How the probabilities are made', `<p>Each team gets a time-weighted attack and defence rating from its recent results (about two seasons, recent games weighted most, home and away split). The ratings give expected goals for both teams, and a Poisson-style model turns those into a probability for every line. Where a Sportybet price exists, the bookmaker's margin is removed and the de-margined probability is averaged with the model.</p><p><b>Safest bet</b> = at least 70% on <i>both</i> views, price ≥ 1.30, goals/BTTS/team goals/corners/cards only. <b>⭐ Bets of the day</b> = the five best safest bets at 07:00, one per match. <b>Low data</b> = fewer than four useful matches for a team; those games are shown but never selected.</p>`));
     parts.push(sec('ticket', 'Bet slip & tickets', `<p>Tap <b>+</b> next to any priced selection (match page › Markets, best selections, safest bets, bets of the day) to put it on your slip — one selection per match, like a real multiple. Press <b>Done</b> to lock the ticket: PlayReport multiplies the prices, records an optional stake, and then follows the scores. Goals markets settle from the final score; corners and cards settle from the match statistics a few hours after full time. You get a notification when the ticket is won or lost, and ☰ › <b>My tickets</b> keeps your record.</p><p>This is a private record on your phone — nothing is placed with a bookmaker.</p>`));
     parts.push(sec('info', 'Reading the numbers honestly', `<p>A 75% bet loses one time in four. A card of five 75% singles has all five winning only about 24% of the time — that is why PlayReport shows singles and grades every one of them, and does not build accumulators. Compare the <b>Hit</b> and <b>Exp.</b> columns under Performance: they should be close over a few weeks.</p><p>Coverage: every competition on the live feed, worldwide, including women's and youth leagues, priced by Sportybet South Africa. Prices move; check the price before you bet. Statistical information, not betting advice. 18+, bet responsibly.</p>`));
-    parts.push(sec('star', 'Bets of the day, favourites & alerts', `<p><b>⭐ Bets of the day</b> has six sections — 1X2, Over 1.5 & team goals, Both teams to score, Over 2.5, Bookings, Corners — with up to three picks each from different matches, overs only, picked by the first analysis of the day and graded separately. <b>Top leagues</b> ranks the major leagues by home wins, away wins, overs, corners and bookings.</p><p>Tap <b>☆</b> in a match header to make it a favourite: you get goal, half-time, full-time and kick-off alerts for it, it appears under Your matches on Home, and in the ★ filter of Matches.</p>`));
+    parts.push(sec('star', 'Bets of the day, favourites & alerts', `<p><b>⭐ Bets of the day</b> is strong on Over 1.5 & team goals (up to five picks); 1X2, Both teams to score and Over 2.5 only appear with strong supporting signals (≥70% on both views and recent form backing them, up to two each); Bookings and Corners follow. Overs only, one market per match, picked by the first analysis of the day and graded separately — so the performance page can compare the markets fairly. Every match page has <b>Download stats (CSV)</b> and the ☰ menu downloads the whole day's analysis as a spreadsheet file. <b>Top leagues</b> ranks the major leagues by home wins, away wins, overs, corners and bookings.</p><p>Tap <b>☆</b> in a match header to make it a favourite: you get goal, half-time, full-time and kick-off alerts for it, it appears under Your matches on Home, and in the ★ filter of Matches.</p>`));
     parts.push(PR.editorCard(false));
     parts.push(contactCard(false));
     view().innerHTML = parts.join('');
@@ -384,10 +387,13 @@
       <label>Leagues shown in Bets and on Home</label>${segmented([['all', '🌍 All leagues'], ['major', '🏆 Major leagues only']], settings.leagues || 'all', 'lgs')}
       <label>Live auto-refresh (seconds, min 20)</label><input id="s-live" type="number" value="${settings.liveEvery}">
       <label>Analysis timezone offset from UTC (hours; South Africa = 2)</label><input id="s-tz" type="number" value="${settings.tzOffset}">
-      <div style="margin-top:12px"><button class="btn primary" id="s-save">Save</button><button class="btn" id="s-clear">Clear saved data</button></div></div>`);
+      <div style="margin-top:12px"><button class="btn primary" id="s-save">Save</button><button class="btn" id="s-clear">Clear saved data</button></div>
+      <div class="tiny muted" style="margin-top:6px">${(() => { const c = PR.cache.size(); return `${c.n} analysed pages saved on this phone (${c.kb} KB) — they open instantly and refresh in the background.`; })()}</div></div>`);
     parts.push(`<div class="card settings"><h2>${icon('info')} App</h2><div class="row"><div class="grow small">PlayReport ${PR.APP_VERSION ? 'v' + PR.APP_VERSION : '(browser preview)'}${state.update ? ` · <b>v${esc(state.update.version)} available</b>` : ' · up to date'}</div>
       ${state.update ? `<button class="btn primary" id="s-install">Update</button>` : `<button class="btn" id="s-check">Check for update</button>`}</div>
-      <div class="tiny muted" style="margin-top:6px">PlayReport checks for updates automatically and downloads them for you; Android asks for one confirmation before installing.</div></div>`);
+      ${state.update && PR.notesList(state.update.notes).length ? `<div class="small" style="margin-top:8px"><b>What's new in ${esc(state.update.version)}</b><ul class="notes">${PR.notesList(state.update.notes).map((x) => `<li>${esc(x)}</li>`).join('')}</ul></div>` : ''}
+      <div class="tiny muted" style="margin-top:6px">PlayReport checks for updates automatically and downloads them for you; Android asks for one confirmation before installing. Your tickets, favourites and settings are kept.</div>
+      <div style="margin-top:8px"><button class="btn" id="s-whatsnew">What's new in this version</button></div></div>`);
     parts.push(PR.editorCard(false));
     parts.push(contactCard(false));
     parts.push(`<div class="card small"><b>About PlayReport</b><div class="muted" style="margin-top:4px">Football analysis for every competition worldwide, refreshed every 30 minutes with a full report at 07:00, 12:00 and 17:00 SAST: expected goals, probabilities for every market, safest bets, bets of the day, trends, head-to-head, live scores and an audited day-by-day record. Live scores come from a public feed and never influence the model.</div>
@@ -396,7 +402,7 @@
     wireBack();
     const pref = (k, v) => { if (PR.native && PR.native.setPref) { try { PR.native.setPref(k, !!v); } catch (e) { /* ignore */ } } };
     $('#s-save').onclick = () => { settings.liveEvery = Math.max(20, +$('#s-live').value || 60); settings.tzOffset = +$('#s-tz').value || 0; PR.saveSettings(); live.schedule(); toast('Saved'); PR.back(); };
-    $('#s-clear').onclick = () => { localStorage.removeItem('pr_latest'); state.data = null; state.days = {}; state.teams = {}; state.details = {}; toast('Saved data cleared'); state.stack = []; PR.loadData(true); };
+    $('#s-clear').onclick = () => { localStorage.removeItem('pr_latest'); PR.cache.clear(); state.data = null; state.days = {}; state.teams = {}; state.details = {}; toast('Saved data cleared'); state.stack = []; PR.loadData(true); };
     $('#s-goals').onchange = (e) => { settings.goalAlerts = e.target.checked; PR.saveSettings(); pref('goals', settings.goalAlerts); };
     $('#s-bets').onchange = (e) => { settings.betAlerts = e.target.checked; PR.saveSettings(); pref('bets', settings.betAlerts); };
     $('#s-reports').onchange = (e) => { settings.reportAlerts = e.target.checked; PR.saveSettings(); pref('reports', settings.reportAlerts); };
@@ -406,6 +412,7 @@
     $$('[data-th]').forEach((b) => { b.onclick = () => { settings.theme = b.dataset.th; PR.saveSettings(); PR.applyTheme(); PR.render(); }; });
     $$('[data-lgs]').forEach((b) => { b.onclick = () => { settings.leagues = b.dataset.lgs; PR.saveSettings(); PR.render(); }; });
     const n = $('#s-notif'); if (n) n.onclick = () => { if (PR.native && PR.native.requestNotifications) PR.native.requestNotifications(); };
+    const wn = $('#s-whatsnew'); if (wn) wn.onclick = () => { settings.seenVersion = ''; PR.saveSettings(); state.stack = []; PR.setTab('home'); };
     const c = $('#s-check'); if (c) c.onclick = () => { toast('Checking…'); state.updateChecked = 'manual'; if (PR.native && PR.native.checkUpdate) PR.native.checkUpdate(); else toast('Updates are only available in the Android app'); };
     const i = $('#s-install'); if (i) i.onclick = () => PR.startUpdate();
   };

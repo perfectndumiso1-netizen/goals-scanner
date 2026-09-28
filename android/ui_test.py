@@ -19,7 +19,7 @@ def live_json():
     evs = []
     for i, f in enumerate(tracked[:6]):
         hg, ag, st = (1, 0, "34'") if i == 0 else ((2, 1, 'FT') if i == 1 else (0, 0, 'NS'))
-        if i == 0 and live_calls['n'] > 1: hg = 2
+        if i == 0 and live_calls.get('goal'): hg = 2
         evs.append({'Eid': str(f['livescore_id']), 'Eps': st, 'Tr1': str(hg), 'Tr2': str(ag), 'T1': [{'Nm': f['home']}], 'T2': [{'Nm': f['away']}]})
     return {'Stages': [{'Snm': 'x', 'Cnm': 'y', 'Events': evs}]}
 STATS = {'Eid': 'x', 'Stat': [{'Tnb': 1, 'Pss': 61, 'Shon': 5, 'Shof': 4, 'Shbl': 2, 'Cos': 6, 'Fls': 9, 'Ofs': 1, 'Ycs': 1, 'Rcs': 0}, {'Tnb': 2, 'Pss': 39, 'Shon': 2, 'Shof': 3, 'Shbl': 1, 'Cos': 3, 'Fls': 12, 'Ofs': 2, 'Ycs': 3, 'Rcs': 0}]}
@@ -57,7 +57,9 @@ with sync_playwright() as p:
         notificationsAllowed: () => true, requestNotifications: () => {}, refreshDone: () => {}, openUrl: (u) => { window.__opened = u; },
         notifyGoal: (eid, score, title, text) => window.__notified.push({eid, score, title, text}),
         notify: (ch, id, title, text, tab) => window.__notified.push({ch, id, title, text, tab}), setString: (k, v) => { window.__str = window.__str || {}; window.__str[k] = v; },
-        checkUpdate: () => setTimeout(() => window.__updateInfo({version: '1.1.1', url: 'https://data.test/PlayReport.apk', notes: ''}), 200),
+        checkUpdate: () => setTimeout(() => window.__updateInfo({version: '1.1.1', url: 'https://data.test/PlayReport.apk', notes: '## What is new\\n- Instant pages from the on-phone cache\\n- CSV downloads\\n\\nPlayReport for Android v1.1.1 (build 9). Download PlayReport.apk and install it.'}), 200),
+        getString: (k) => (window.__str || {})[k] == null ? null : window.__str[k],
+        saveText: (name, mime, text) => { window.__saved = { name, mime, text }; setTimeout(() => window.__saveDone(true), 50); },
         installUpdate: (u) => { window.__installed = u; setTimeout(() => window.__updateProgress('downloading'), 50); },
       };
     """)
@@ -86,6 +88,12 @@ with sync_playwright() as p:
     assert page.locator('#view .whatsnew').count() == 1, "what's new card"
     page.click('#wn-close'); page.wait_for_timeout(150); assert page.locator('#view .whatsnew').count() == 0, "what's new dismissed"
     assert page.locator('#status-line').inner_text().startswith('Updated'), 'status line'
+    # ---- update pop-up (boot checkUpdate fires after 4 s): release notes, shown once per version
+    page.wait_for_selector('#modal:not([hidden])', timeout=8000)
+    assert 'Instant pages' in page.inner_text('#modal') and 'Download PlayReport' not in page.inner_text('#modal') and 'kept through the update' in page.inner_text('#modal'), 'update pop-up with release notes'
+    shot(page, 'update_modal')
+    page.click('#modal-cancel'); page.wait_for_timeout(150); assert page.locator('#modal:not([hidden])').count() == 0, 'update pop-up dismissed (Later)'
+    assert page.locator('#banner .update').count() == 1, 'update banner stays'
     # ---- bets segments
     page.click('#tabs button[data-tab=bets]'); page.wait_for_timeout(200)
     for seg in ['today', 'top', 'safest', 'goals', 'corners', 'cards', 'picks']:
@@ -142,6 +150,14 @@ with sync_playwright() as p:
             assert page.locator('#view .addsel.on').count() == 1, 'one selection per match'
     page.click('[data-mv=stats]'); page.wait_for_timeout(600); t = shot(page, 'match_stats2')
     assert 'this season' in t.lower() or 'not available' in t or 'Loading' in t, 'season block'
+    # ---- CSV export of the match + on-phone cache of the detail file
+    page.click('#dl-csv'); page.wait_for_timeout(300)
+    saved = page.evaluate('window.__saved')
+    assert saved and saved['name'].endswith('.csv') and saved['text'].startswith('\ufeffPlayReport match analysis') and 'Market selection,Code,Combined %' in saved['text'] and 'Recent form' in saved['text'], f'match csv: {saved and saved["name"]}'
+    open('/tmp/ui_match.csv', 'w', encoding='utf-8').write(saved['text'])
+    csv_rows = [r for r in saved['text'].split('\r\n') if r.startswith('Over 1.5 goals,')]
+    assert csv_rows and float(csv_rows[0].split(',')[1]) > 0, 'csv probabilities are numeric percentages'
+    assert page.evaluate("Object.keys(localStorage).filter((k) => k.startsWith('pr_c:fx/')).length") >= 1, 'detail cached on the phone'
     # ---- bet slip: add a second match from the Bets tab, lock the ticket, check pages
     page.click('#tabs button[data-tab=bets]'); page.click('[data-bv=safest]'); page.wait_for_timeout(200)
     btns = page.locator('#view .addsel:not(.on)'); assert btns.count() >= 1, 'add buttons on safest bets'
@@ -220,8 +236,11 @@ with sync_playwright() as p:
     page.click('[data-th=system]'); page.wait_for_timeout(100)
     assert 'WhatsApp' in t and 'msanindumiso@gmail.com' in t, 'contact card'
     # update flow
-    page.wait_for_timeout(4200)  # boot checkUpdate fires after 4 s
     assert page.locator('#banner .update').count() == 1, 'update banner'
+    page.reload(); page.wait_for_selector('#view .card', timeout=10000); page.wait_for_timeout(4600)
+    assert page.locator('#modal:not([hidden])').count() == 0, 'update pop-up shown only once per version'
+    page.click('#btn-menu'); page.click('#menu [data-page=settings]'); page.wait_for_timeout(300); t = shot(page, 'settings_update')
+    assert "What's new in 1.1.1" in t and 'CSV downloads' in t and 'analysed pages saved on this phone' in t, 'settings shows release notes and cache size'
     shot(page, 'update_banner')
     page.click('#b-update'); page.wait_for_timeout(200)
     assert page.evaluate('window.__installed') == 'https://data.test/PlayReport.apk', 'install url'
@@ -230,8 +249,9 @@ with sync_playwright() as p:
     while page.evaluate('window.app.back()'): page.wait_for_timeout(50)
     assert page.evaluate('window.app.state.tab') == 'home' and page.evaluate('window.app.back()') is False, 'back chain'
     # ---- goal alert: second live poll moves 1-0 -> 2-0
-    page.click('#tabs button[data-tab=live]'); page.wait_for_timeout(200)
-    page.evaluate('window.app.PR.live.refresh(true)'); page.wait_for_timeout(600)
+    page.click('#tabs button[data-tab=live]'); page.wait_for_timeout(400)
+    live_calls['goal'] = True
+    page.evaluate('window.app.PR.live.refresh(true)'); page.wait_for_timeout(800)
     notified = page.evaluate('window.__notified')
     goals = [n for n in notified if n.get('score')]
     assert goals and goals[-1]['score'] == '2-0', f'goal alert not fired: {notified}'
@@ -240,6 +260,18 @@ with sync_playwright() as p:
     # external link routing
     page.click('#btn-menu'); page.click('#menu [data-contact]'); page.wait_for_timeout(100)
     assert page.evaluate('window.__opened') == 'https://wa.me/27738212664', 'whatsapp link'
+    # ---- day CSV from the menu
+    page.click('#btn-menu'); page.click('#menu [data-csv]'); page.wait_for_timeout(500)
+    saved = page.evaluate('window.__saved')
+    assert saved and saved['name'].startswith('PlayReport_') and saved['name'].endswith('_analysis.csv') and 'kickoff' in saved['text'][:300], f'day csv: {saved and saved["name"]}'
+    # ---- history survives a wiped WebView: tickets / favourites / settings restored from the native copy
+    n_tickets = page.evaluate('window.app.PR.tickets().length'); assert n_tickets >= 1
+    page.evaluate("window.__keep = Object.assign({}, window.__str); localStorage.clear();")
+    page.add_init_script("window.__str = " + json.dumps(page.evaluate('window.__str')) + ";")
+    page.reload(); page.wait_for_selector('#view .card', timeout=10000); page.wait_for_timeout(500)
+    assert page.evaluate('window.app.PR.tickets().length') == n_tickets, 'tickets restored from native preferences'
+    assert page.evaluate('window.app.PR.favList().length') >= 1, 'favourites restored from native preferences'
+    assert page.evaluate("window.app.settings.seenVersion") == '1.1.0', 'settings restored from native preferences'
     # notification tab extra path
     page.evaluate("window.app.setTab('today')"); assert page.evaluate('window.app.state.tab') == 'home'
     b.close()
