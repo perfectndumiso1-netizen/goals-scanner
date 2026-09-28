@@ -102,3 +102,41 @@ continue from Livescore); players whose history is mostly ITF are under-rated (t
 large market gaps — that is the model's blind spot, not value); Sportybet identity matching is name-based (fuzzy matches are
 flagged PARTIAL in the quality checks); no injury/withdrawal information; the mirror's provenance vs the removed upstream
 repositories cannot be verified beyond internal consistency.
+
+## 7. Second iteration (2026-09-28 evening): day selections, tracker groups, app home screen
+
+**Why** — the first release exposed tennis only as a hidden menu page with "model above market" flags. The user asked for the
+football pattern: a day's selections with a preferred market per match and the strong markets, tennis on the home screen with a
+sport switch, and the same depth of explanation as the football match page.
+
+**Selection layer (`tennis/markets.py::select`)** — pure post-processing of the market rows; no model change. Eligibility per row:
+Sportybet price ≥ `MIN_ODDS` (1.30), data quality ≥ 60, both players ≥ `HIGHLIGHT_MIN_MATCHES` (30) rated matches, no
+low-confidence game data, model − implied ≤ `MAX_EDGE_PP` (20). *Preferred* = the eligible row with the highest model probability
+≥ `DAY_MIN_P` (0.60) whose margin-free implied probability ≥ `DAY_MIN_IMPLIED` (0.45); ties → winner market. *Strong* = every
+eligible row with model ≥ `STRONG_MIN_P` (0.70) and implied ≥ `STRONG_MIN_IMPLIED` (0.50). Ranking is by probability, not edge —
+the football backtests showed value-ranking to be anti-predictive, and the tennis market/model gap is dominated by information the
+model lacks (injuries, ITF-heavy histories). The thresholds are publication rules, not fitted parameters; the tracker groups exist
+to test them.
+
+**Tracker** — new `kind` column (day / strong / highlight / favourite, several joined by `+`; one row per match + market + selection
++ line, first recorded price kept). `tracker_summary()` reports per group and per market: settled, won, hit rate, average model
+probability (calibration check), flat-stake units at the recorded price.
+
+**Published JSON** — `latest.json` gains `selections` (preferred rows with match context), `sections` (grouped by market family),
+`strong`, `rules`; slim match entries carry `selection`, `strong`, `selection_note`, `day_sast`, last known ranking and last-10 form.
+Match detail gains `selection`, `strong`, `selection_note`, `h2h` (context only, from the archive + Livescore results), `h2h_record`,
+per-player `recent_matches` now with tournament, score, round, opponent id/rank and the pre-match expectation, `last_rank`, and a
+return `break_rate`. Day files `data/app/tennis/days/<SAST day>.json` are maintained per match day (entries kept after they leave the
+36 h window; results + settlement filled on later runs; `summary`), plus `days/index.json`.
+
+**App (`android/…/tennis.js` only; `index.html` menu label)** — the five football tab views are wrapped: with `settings.sport ===
+'tennis'` the tennis view renders, otherwise the untouched football view; a sport bar (⚽ Football | 🎾 Tennis) is inserted at the top of
+either. Tennis Home (hero, selections grouped by market, strong, model > market, next matches, record), Bets (selections / strong /
+model > market / all priced, market filters), Live (Livescore tennis day feed, ITF/doubles filtered client-side, set-by-set games),
+Matches (search + tour filter), Days (index → day page with settlement). Match page: Overview / Markets / Stats / Data with football's
+evidence labels (1–4 / 5–9 / 10–19 / 20–39 / 40+), side-by-side comparison bars, last-10 raw observations, H2H labelled "context only",
+quality checks, identity matching, model inputs, sources. `android/tennis_ui_test.py` covers all of it and re-checks that football
+renders unchanged under the switch; `android/ui_test.py` (football) must still pass.
+
+**Football files touched** — none of the football Python modules, `views.js`, `pages.js`, `core.js`, `app.js`, `app.css`, workflows or
+`requirements.txt`. The sport bar is DOM-inserted by `tennis.js` after the football view has rendered.

@@ -29,13 +29,40 @@ def odd(o) -> str:
     return "—" if o is None else f"{o:.2f}"
 
 
-def markdown(day: str, matches: list[dict], highlights: list[dict], tracker: dict, meta: dict) -> str:
+def markdown(day: str, matches: list[dict], highlights: list[dict], tracker: dict, meta: dict, selections: list | None = None,
+             strong: list | None = None, sections: list | None = None) -> str:
     L = [f"# 🎾 TENNIS SCANNER — {day}", "",
          f"Generated {meta['generated']} · {len(matches)} singles matches in the next {int(C.LOOKAHEAD.total_seconds()//3600)} h "
          f"(ATP, WTA, Challengers; ITF, doubles and team events excluded) · {meta.get('priced', 0)} with Sportybet prices.",
          "", "**How to read:** MODEL % is the *data-only* probability from match results (Elo, surface-aware, format-aware; bookmaker prices are never an input). "
          "FAIR = 1 / model probability. SPORTYBET is the bookmaker price, IMPLIED its margin-free probability, EDGE = model − implied in points. "
          "DATA QUALITY is a completeness score, not a probability. Nothing here is a guarantee; a 70% probability loses three times in ten.", ""]
+    selections = selections or []
+    strong = strong or []
+    L += ["## Selections of the day", ""]
+    if selections:
+        L += [f"One preferred market per match ({len(selections)} matches), ranked by model probability within each market group. Rules: Sportybet price ≥ {C.MIN_ODDS:.2f}, "
+              f"model ≥ {C.DAY_MIN_P*100:.0f}%, market implied ≥ {C.DAY_MIN_IMPLIED*100:.0f}% (the bookmaker must not contradict the pick), data quality ≥ 60%, both players ≥ {C.HIGHLIGHT_MIN_MATCHES} rated matches, "
+              f"no low-confidence game data. **STRONG** = model ≥ {C.STRONG_MIN_P*100:.0f}% and market implied ≥ {C.STRONG_MIN_IMPLIED*100:.0f}%.", ""]
+        for sec in sections or []:
+            L += [f"### {sec['title']} ({len(sec['selections'])})", "", "| Start (SAST) | Tournament | Match | Selection | Model | Fair | Sportybet | Implied | Edge | Data quality | |",
+                  "|---|---|---|---|---|---|---|---|---|---|---|"]
+            for x in sec["selections"]:
+                L.append(f"| {sast(x['start'])} | {x['tournament']} | {x['match']} | **{x['label']}** | {pct(x['model_p'])} | {odd(x['fair_odds'])} | {odd(x['book_odds'])} "
+                         f"| {pct(x['implied_fair'])} | {x['edge_pp']:+.1f} pp | {x['quality']}% | {'STRONG' if x.get('strong') else ''} |")
+            L.append("")
+    else:
+        L += [f"No match clears the selection rules today (model ≥ {C.DAY_MIN_P*100:.0f}%, market implied ≥ {C.DAY_MIN_IMPLIED*100:.0f}%, data quality ≥ 60%, price ≥ {C.MIN_ODDS:.2f}).", ""]
+    L += ["## Strong markets", ""]
+    if strong:
+        L += [f"Every priced market with model ≥ {C.STRONG_MIN_P*100:.0f}% and market implied ≥ {C.STRONG_MIN_IMPLIED*100:.0f}% ({len(strong)} markets, {len({x['match_id'] for x in strong})} matches). "
+              "Several rows of one match are correlated — they are the same match, not independent evidence.", "",
+              "| Start (SAST) | Match | Market | Model | Fair | Sportybet | Implied | Edge | Data quality |", "|---|---|---|---|---|---|---|---|---|"]
+        for x in strong:
+            L.append(f"| {sast(x['start'])} | {x['match']} | {x['label']} | {pct(x['model_p'])} | {odd(x['fair_odds'])} | {odd(x['book_odds'])} | {pct(x['implied_fair'])} | {x['edge_pp']:+.1f} pp | {x['quality']}% |")
+        L.append("")
+    else:
+        L += ["None today.", ""]
     # ordered by kick-off
     L += ["## Matches", "", "| Start (SAST) | Tournament | Match | Model | Fair | Sportybet | Implied | Edge | Data quality |", "|---|---|---|---|---|---|---|---|---|"]
     for m in sorted(matches, key=lambda x: x["start"] or ""):
@@ -56,9 +83,15 @@ def markdown(day: str, matches: list[dict], highlights: list[dict], tracker: dic
     else:
         L += ["## Model above market", "", "No selection clears the thresholds today (model ≥ 55%, edge ≥ 5 pp, price ≥ 1.30, data quality ≥ 60%, no low-confidence game data).", ""]
     if tracker.get("settled"):
-        L += ["## Tracker so far", "", f"{tracker['settled']} settled selections, {tracker['won']} won.", ""]
-        for k, v in tracker.get("by_market", {}).items():
-            L.append(f"* {k}: {v['n']} settled, hit rate {v['hit_rate']*100:.0f}% vs average model probability {v['avg_model_p']*100:.0f}%")
+        L += ["## Tracker so far", "", f"{tracker['settled']} settled selections, {tracker['won']} won (void excluded). Hit rate is compared with the average model probability — "
+              "if the model is calibrated the two should be close over a large sample; small samples prove nothing either way.", "",
+              "| Group | Settled | Won | Hit rate | Avg model % | Flat return (units) |", "|---|---|---|---|---|---|"]
+        for k, v in (tracker.get("by_kind") or {}).items():
+            if v.get("settled"):
+                L.append(f"| {k} | {v['settled']} | {v['won']} | {v['hit_rate']*100:.0f}% | {v['avg_model_p']*100:.0f}% | {v['flat_return_units']:+.2f} |")
+        for k, v in (tracker.get("by_market") or {}).items():
+            if v.get("settled"):
+                L.append(f"| market: {k} | {v['settled']} | {v['won']} | {v['hit_rate']*100:.0f}% | {v['avg_model_p']*100:.0f}% | {v['flat_return_units']:+.2f} |")
         L.append("")
     L += ["## Notes", "",
           f"* Ratings: Elo from match results, overall + surface blend (weight {C.SURFACE_WEIGHT}), K = {C.ELO_K:g}/(matches+{C.ELO_OFFSET:g})^{C.ELO_SHAPE:g}; best-of-5 derived from the set probability. Validated in tennis/BACKTEST_RESULTS.md.",

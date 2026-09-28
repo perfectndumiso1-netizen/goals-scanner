@@ -43,7 +43,7 @@ def tiebreaks_won(score: str | None) -> tuple[int, int]:
 
 
 class _Player:
-    __slots__ = ("recent", "sv_w", "sv_p", "rt_w", "rt_p", "first_in", "first_won", "second_won", "ace", "df", "svgms",
+    __slots__ = ("recent", "sv_w", "sv_p", "rt_w", "rt_p", "first_in", "first_won", "second_won", "ace", "df", "svgms", "rtgms",
                  "bp_saved", "bp_faced", "bp_conv", "bp_created", "n_stat", "last_stat", "last", "opp_rt_w", "opp_sv_w",
                  "adj_p", "n")
 
@@ -51,7 +51,7 @@ class _Player:
         self.recent = deque(maxlen=RECENT_KEEP)
         self.sv_w = self.sv_p = self.rt_w = self.rt_p = 0.0
         self.first_in = self.first_won = self.second_won = 0.0
-        self.ace = self.df = self.svgms = self.bp_saved = self.bp_faced = self.bp_conv = self.bp_created = 0.0
+        self.ace = self.df = self.svgms = self.rtgms = self.bp_saved = self.bp_faced = self.bp_conv = self.bp_created = 0.0
         self.n_stat = 0.0
         self.last_stat = None
         self.last = None
@@ -67,7 +67,7 @@ class _Player:
         if d <= 0:
             return
         f = 0.5 ** (d / HALF_LIFE_DAYS)
-        for k in ("sv_w", "sv_p", "rt_w", "rt_p", "first_in", "first_won", "second_won", "ace", "df", "svgms",
+        for k in ("sv_w", "sv_p", "rt_w", "rt_p", "first_in", "first_won", "second_won", "ace", "df", "svgms", "rtgms",
                   "bp_saved", "bp_faced", "bp_conv", "bp_created", "n_stat", "opp_rt_w", "opp_sv_w", "adj_p"):
             setattr(self, k, getattr(self, k) * f)
 
@@ -99,7 +99,10 @@ class PlayerStats:
             exp = m.get("exp_w")
             pl.recent.append((day, won, m.get("surface"), m.get(f"rating_{opp}"), gf, ga, sf, sa,
                               tb_w if won else tb_l, (tb_w + tb_l), bool(m.get("retired")), m.get("level"),
-                              None if exp is None else (exp if won else 1 - exp), m.get(f"opp_name_{side}")))
+                              None if exp is None else (exp if won else 1 - exp), m.get(f"opp_name_{side}"),
+                              # raw observation kept for the match page: tournament, score (winner first), own / opponent ranking, round
+                              m.get("tournament"), m.get("score") if isinstance(m.get("score"), str) else None,
+                              _rank(m.get(f"{side}_rank")), _rank(m.get(f"{opp}_rank")), m.get("round"), m[opp]))
             pl.last = day
             pl.n += 1
             svpt = m.get(f"{side}_svpt")
@@ -118,6 +121,7 @@ class PlayerStats:
                 pl.ace += m.get(f"{side}_ace") or 0
                 pl.df += m.get(f"{side}_df") or 0
                 pl.svgms += m.get(f"{side}_SvGms") or 0
+                pl.rtgms += m.get(f"{opp}_SvGms") or 0          # return games = the opponent's service games
                 pl.bp_saved += m.get(f"{side}_bpSaved") or 0
                 pl.bp_faced += m.get(f"{side}_bpFaced") or 0
                 pl.bp_created += m.get(f"{opp}_bpFaced") or 0
@@ -186,7 +190,7 @@ class PlayerStats:
                             "hold": _safe_div(pl.svgms - (pl.bp_faced - pl.bp_saved), pl.svgms), "aces_per_match": _safe_div(pl.ace, pl.n_stat),
                             "df_per_match": _safe_div(pl.df, pl.n_stat), "bp_saved": _safe_div(pl.bp_saved, pl.bp_faced)}
             out["ret"] = {"n": round(pl.n_stat, 1), "rpw": rpw, "bp_converted": _safe_div(pl.bp_conv, pl.bp_created),
-                          "bp_created_per_match": _safe_div(pl.bp_created, pl.n_stat)}
+                          "bp_created_per_match": _safe_div(pl.bp_created, pl.n_stat), "break_rate": _safe_div(pl.bp_conv, pl.rtgms)}
             # traits relative to the tour/surface baseline, opponent-adjusted and shrunk by sample size
             shrink = pl.n_stat / (pl.n_stat + C.SERVE_MIN_MATCHES)
             opp_rt = pl.opp_rt_w / pl.adj_p if pl.adj_p else (1 - base)
@@ -203,9 +207,20 @@ class PlayerStats:
             out["ret"] = None
             out["traits"] = None
         out["recent_matches"] = [{"date": r[0], "won": r[1], "surface": r[2], "opp_rating": None if r[3] is None else round(r[3]),
-                                  "games": [r[4], r[5]], "sets": [r[6], r[7]], "retired": r[10], "level": r[11], "opponent": r[13]}
+                                  "games": [r[4], r[5]], "sets": [r[6], r[7]], "retired": r[10], "level": r[11], "opponent": r[13],
+                                  "tournament": r[14], "score": r[15], "opp_rank": r[17], "round": r[18], "opp_pid": r[19],
+                                  "expected": None if r[12] is None else round(r[12], 3)}
                                  for r in rec[-10:]][::-1]
+        ranked = [r for r in rec if r[16] is not None]
+        out["last_rank"] = {"rank": ranked[-1][16], "date": ranked[-1][0]} if ranked else None
         return out
+
+
+def _rank(v):
+    try:
+        return int(v) if v is not None and v == v else None
+    except (TypeError, ValueError):
+        return None
 
 
 def _form(rs: list) -> dict:

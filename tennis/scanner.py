@@ -81,7 +81,7 @@ def warnings_for(pred: dict, quality: dict, fa: dict, fb: dict, rows: list[dict]
 
 
 def analyse(fx: dict, R: M.Ratings, PS: S.PlayerStats, index: D.PlayerIndex, resolver: D.SurfaceResolver,
-            odds: dict | None, backfill: dict | None) -> dict:
+            odds: dict | None, backfill: dict | None, h2h_fn=None) -> dict:
     ia = index.resolve(fx["p1"]["name"], fx["p1"].get("ioc"), fx["tour"], fx["p1"]["ls_id"])
     ib = index.resolve(fx["p2"]["name"], fx["p2"].get("ioc"), fx["tour"], fx["p2"]["ls_id"])
     month = int((fx["start"] or fx["day"])[5:7])
@@ -106,8 +106,18 @@ def analyse(fx: dict, R: M.Ratings, PS: S.PlayerStats, index: D.PlayerIndex, res
     rows = MK.build(fx, pred, dist, odds, low_conf)
     quality = Q.assess(fx, pred, fa, fb, sinfo, ia, ib, odds, backfill)
     hl = MK.highlights(rows, quality["score"], min(pred["n_a"], pred["n_b"]))
+    sel = MK.select(rows, quality["score"], min(pred["n_a"], pred["n_b"]))
+    h2h = []
+    if h2h_fn and ia.get("how") != "new" and ib.get("how") != "new":
+        try:
+            names = {str(ia["pid"]): fx["p1"]["name"], str(ib["pid"]): fx["p2"]["name"]}
+            h2h = [dict(x, winner_name=names.get(str(x["winner"]), x["winner"])) for x in h2h_fn(ia["pid"], ib["pid"])]
+        except Exception as exc:                        # noqa: BLE001
+            log.warning("h2h failed for %s: %s", fx["ls_id"], exc)
+    start_sast = (datetime.strptime(fx["start"], "%Y-%m-%d %H:%M") + timedelta(hours=C.TZ_OFFSET_HOURS)) if fx.get("start") else None
     return {
-        "id": fx["ls_id"], "start": fx["start"], "day": fx["day"], "tour": fx["tour"], "level": fx["level"], "category": fx["category"],
+        "id": fx["ls_id"], "start": fx["start"], "day": fx["day"], "day_sast": start_sast.strftime("%Y-%m-%d") if start_sast else fx["day"],
+        "tour": fx["tour"], "level": fx["level"], "category": fx["category"],
         "tournament": fx["tournament"], "qualifying": fx.get("qualifying", False), "surface": surface, "surface_info": sinfo, "best_of": best_of,
         "status": fx["status"],
         "p1": {"name": fx["p1"]["name"], "ioc": fx["p1"].get("ioc"), "pid": ia["pid"], "identity": ia, "rating": _r(pred["rating_a"], 0),
@@ -122,7 +132,9 @@ def analyse(fx: dict, R: M.Ratings, PS: S.PlayerStats, index: D.PlayerIndex, res
                                             "games_b_pmf": {str(k): _r(v, 5) for k, v in sorted(dist["games_b"].items())},
                                             "handicap_pmf": {str(k): _r(v, 5) for k, v in sorted(dist["handicap"].items())},
                                             "low_confidence": low_conf},
-        "markets": rows, "highlights": hl, "odds": {"source": "Sportybet ZA", "event": odds.get("id"), "start": odds.get("start"), "markets": odds.get("markets")} if odds else None,
+        "markets": rows, "highlights": hl, "selection": sel["preferred"], "strong": sel["strong"], "selection_note": sel["why_none"],
+        "h2h": h2h, "h2h_record": [sum(1 for x in h2h if str(x["winner"]) == str(ia["pid"])), sum(1 for x in h2h if str(x["winner"]) == str(ib["pid"]))],
+        "odds": {"source": "Sportybet ZA", "event": odds.get("id"), "start": odds.get("start"), "markets": odds.get("markets")} if odds else None,
         "quality": quality, "explain": explain(pred, dist, dom_parts, fx),
         "warnings": warnings_for(pred, quality, fa, fb, rows, sinfo),
     }
@@ -140,16 +152,25 @@ def dedupe_fixtures(fixtures: list[dict]) -> list[dict]:
     return uniq
 
 
+SEL_KEYS = ("market", "label", "selection", "line", "model_p", "fair_odds", "book_odds", "implied_fair", "edge_pp", "kind", "strong", "family", "why", "confidence", "flag")
+
+
+def compact(row: dict | None) -> dict | None:
+    return None if row is None else {k: row[k] for k in SEL_KEYS if k in row}
+
+
 def slim(m: dict) -> dict:
-    """Index entry for latest.json (small)."""
+    """Index entry for latest.json / day files (small)."""
     win = [r for r in m["markets"] if r["market"] == "winner"]
-    return {"id": m["id"], "start": m["start"], "tour": m["tour"], "category": m["category"], "tournament": m["tournament"],
-            "qualifying": m["qualifying"], "surface": m["surface"], "best_of": m["best_of"],
-            "p1": {"name": m["p1"]["name"], "ioc": m["p1"]["ioc"], "rating": m["p1"]["rating"], "n": m["p1"]["n"]},
-            "p2": {"name": m["p2"]["name"], "ioc": m["p2"]["ioc"], "rating": m["p2"]["rating"], "n": m["p2"]["n"]},
+    pl = lambda p: {"name": p["name"], "ioc": p["ioc"], "rating": p["rating"], "n": p["n"], "last_rank": (p.get("features") or {}).get("last_rank"),
+                    "form10": ((p.get("features") or {}).get("form") or {}).get("last10")}
+    return {"id": m["id"], "start": m["start"], "day_sast": m["day_sast"], "tour": m["tour"], "category": m["category"], "tournament": m["tournament"],
+            "qualifying": m["qualifying"], "surface": m["surface"], "best_of": m["best_of"], "p1": pl(m["p1"]), "p2": pl(m["p2"]),
             "p": m["p"], "expected_total": (m["games"] or {}).get("expected_total"),
             "odds": {"a": win[0]["book_odds"], "b": win[1]["book_odds"], "implied_a": win[0]["implied_fair"], "edge_a": win[0]["edge_pp"]} if win and win[0]["book_odds"] else None,
             "quality": {"score": m["quality"]["score"], "overall": m["quality"]["overall"]},
+            "selection": compact(m.get("selection")), "strong": [compact(x) for x in m.get("strong") or []], "selection_note": m.get("selection_note"),
+            "h2h_record": m.get("h2h_record"),
             "highlights": len(m["highlights"]), "warnings": len(m["warnings"]), "low_confidence_games": bool((m["games"] or {}).get("low_confidence", True))}
 
 
@@ -198,7 +219,7 @@ def main() -> int:
     matches = []
     for fx in upcoming:
         try:
-            matches.append(analyse(fx, R, PS, index, resolver, prices.get(fx["ls_id"]), backfill))
+            matches.append(analyse(fx, R, PS, index, resolver, prices.get(fx["ls_id"]), backfill, h2h_fn=lambda a, b: H.h2h(base, ls_recs, a, b)))
         except Exception as exc:                        # noqa: BLE001
             log.exception("analysis failed for %s v %s: %s", fx["p1"]["name"], fx["p2"]["name"], exc)
     index.save()
@@ -208,7 +229,7 @@ def main() -> int:
             highlights.append(dict(h, match=f"{m['p1']['name']} v {m['p2']['name']}", start=m["start"], tournament=m["tournament"],
                                    quality=m["quality"]["score"], match_id=m["id"]))
     highlights.sort(key=lambda h: -h["edge_pp"])
-    # 6. tracker: winner favourite of every priced match + every highlight; settle stored results
+    # 6. tracker: day selection (preferred market) + strong markets + highlights + the rating favourite of every priced match; settle stored results
     day = (now + timedelta(hours=C.TZ_OFFSET_HOURS)).strftime("%Y-%m-%d")
     rows = []
     for m in matches:
@@ -216,12 +237,13 @@ def main() -> int:
             continue
         fav = "player_a" if m["p"]["a"] >= 0.5 else "player_b"
         r = next((x for x in m["markets"] if x["market"] == "winner" and x["selection"] == fav), None)
-        cands = ([r] if r and r["book_odds"] else []) + m["highlights"]
+        cands = ([dict(x, kind="strong") for x in m["strong"]] + ([dict(m["selection"], kind="day")] if m["selection"] else [])
+                 + [dict(x, kind="highlight") for x in m["highlights"]] + ([dict(r, kind="favourite")] if r and r["book_odds"] else []))
         for x in cands:
-            rows.append({"date": m["start"][:10], "tournament": m["tournament"], "round": "Q" if m["qualifying"] else "", "surface": m["surface"] or "N/A",
+            rows.append({"date": m["day_sast"], "tournament": m["tournament"], "round": "Q" if m["qualifying"] else "", "surface": m["surface"] or "N/A",
                          "player_a": m["p1"]["name"], "player_b": m["p2"]["name"], "market": x["market"], "selection": x["selection"], "line": x["line"] if x["line"] is not None else "",
                          "model_probability": x["model_p"], "fair_odds": x["fair_odds"], "bookmaker_odds": x["book_odds"], "implied": x["implied_fair"],
-                         "edge_pp": x["edge_pp"], "match_id": m["id"], "data_quality": m["quality"]["score"]})
+                         "edge_pp": x["edge_pp"], "match_id": m["id"], "data_quality": m["quality"]["score"], "kind": x["kind"]})
     added = H.record_selections(rows)
     results_by_id = {e["ls_id"]: e for e in results}
     for f in fixtures:                                   # today's finished matches are in `fixtures`, not yet in results
@@ -238,7 +260,22 @@ def main() -> int:
             "model": {"type": "Elo (overall + surface) → set probability → best-of-3/5; Markov chain for games", "k": C.ELO_K, "offset": C.ELO_OFFSET,
                       "shape": C.ELO_SHAPE, "surface_weight": C.SURFACE_WEIGHT, "scale": C.ELO_SCALE, "form_sigma": C.FORM_SIGMA, "validated": "tennis/BACKTEST_RESULTS.md"},
             "note": "Model probabilities use match results only. Bookmaker prices are a separate comparison layer."}
-    app_latest = {"meta": meta, "matches": [slim(m) for m in sorted(matches, key=lambda x: x["start"])], "highlights": highlights[:40], "tracker": tsum}
+    slims = [slim(m) for m in sorted(matches, key=lambda x: x["start"])]
+    def _tag(x, m):
+        return dict(x, match=f"{m['p1']['name']} v {m['p2']['name']}", start=m["start"], day_sast=m["day_sast"], tournament=m["tournament"],
+                    category=m["category"], surface=m["surface"], quality=m["quality"]["score"], match_id=m["id"])
+    selections = sorted([_tag(m["selection"], m) for m in slims if m["selection"]], key=lambda x: -x["model_p"])
+    strong = sorted([_tag(x, m) for m in slims for x in m["strong"]], key=lambda x: -x["model_p"])
+    sections = []
+    for fam in ("Match winner", "Total games", "Player games", "Game handicap"):
+        items = [x for x in selections if x.get("family") == fam]
+        if items:
+            sections.append({"title": fam, "selections": items})
+    app_latest = {"meta": meta, "matches": slims, "selections": selections, "sections": sections, "strong": strong,
+                  "highlights": highlights[:40], "tracker": tsum,
+                  "rules": {"day": f"preferred market per match: highest model probability ≥ {C.DAY_MIN_P*100:.0f}% among Sportybet-priced markets (price ≥ {C.MIN_ODDS:.2f}), market implied ≥ {C.DAY_MIN_IMPLIED*100:.0f}%, data quality ≥ 60, both players ≥ {C.HIGHLIGHT_MIN_MATCHES} rated matches",
+                            "strong": f"model ≥ {C.STRONG_MIN_P*100:.0f}% and market implied ≥ {C.STRONG_MIN_IMPLIED*100:.0f}% (same eligibility)",
+                            "highlight": f"model − market implied between {C.EDGE_NOTE_PP:.0f} and {C.MAX_EDGE_PP:.0f} pp ({C.GAME_EDGE_PP:.0f} pp for game markets), one per match"}}
     (C.APP / "latest.json").write_text(json.dumps(app_latest, ensure_ascii=False))
     C.LATEST.write_text(json.dumps({"meta": meta, "matches": matches, "highlights": highlights, "tracker": tsum}, ensure_ascii=False))
     for m in matches:
@@ -251,8 +288,8 @@ def main() -> int:
                 p.unlink()
         except Exception:                                # noqa: BLE001
             pass
-    day_payload = {"day": day, "generated": meta["generated"], "matches": app_latest["matches"], "highlights": highlights}
-    (C.APP / "days" / f"{day}.json").write_text(json.dumps(day_payload, ensure_ascii=False))
+    touched = H.update_day_files(slims, results_by_id, day)
+    log.info("day files updated: %s", ", ".join(touched))
     H.write_day_file(day, {"day": day, "generated": meta["generated"], "matches": matches})
     # players: top 100 ratings per tour (transparency)
     pl_names = {**{r["p1"]["pid"]: r["p1"]["name"] for r in matches}, **{r["p2"]["pid"]: r["p2"]["name"] for r in matches}}
@@ -263,7 +300,7 @@ def main() -> int:
     (C.APP / "tournaments" / "surfaces.json").write_text(json.dumps({"generated": meta["generated"], "resolved": [
         dict(m["surface_info"], tour=m["tour"], category=m["category"]) for m in {m["tournament"]: m for m in matches}.values()]}, ensure_ascii=False))
     # 8. reports
-    md = REP.markdown(day, matches, highlights, tsum, meta)
+    md = REP.markdown(day, matches, highlights, tsum, meta, selections=selections, strong=strong, sections=sections)
     (C.REPORTS / f"{day}.md").write_text(md, encoding="utf-8")
     (C.REPORTS / "latest.md").write_text(md, encoding="utf-8")
     REP.write_csv(C.REPORTS / f"{day}.csv", matches)
@@ -274,7 +311,7 @@ def main() -> int:
     due = next((h for h in C.REPORT_HOURS_SAST if h <= hour_sast <= h + 1), None)   # GitHub cron may start a run late
     slot = f"{day} {due}"
     if os.getenv("TENNIS_REPORT") == "1" or (due is not None and (not stamp.exists() or stamp.read_text().strip() != slot)):
-        text = telegram_text(day, matches, highlights, meta)
+        text = telegram_text(day, matches, highlights, meta, sections=sections, strong=strong, tracker=tsum)
         if N.send_text(text):
             stamp.write_text(slot)
         if pdf:
@@ -284,8 +321,23 @@ def main() -> int:
     return 0
 
 
-def telegram_text(day: str, matches: list[dict], highlights: list[dict], meta: dict) -> str:
+def telegram_text(day: str, matches: list[dict], highlights: list[dict], meta: dict, sections: list | None = None, strong: list | None = None,
+                  tracker: dict | None = None) -> str:
     L = [f"{N.TAG} — {day}", f"{len(matches)} singles matches in the next {meta['lookahead_hours']} h · {meta['priced']} priced by Sportybet", ""]
+    n_sel = sum(len(sec["selections"]) for sec in (sections or []))
+    if n_sel:
+        L.append(f"Selections of the day ({n_sel} matches, one preferred market each, ranked by model probability):")
+        for sec in sections or []:
+            L.append(f"— {sec['title']} —")
+            for x in sec["selections"][:8]:
+                L.append(f"• {REP.sast(x['start'])} {x['match']} — {x['label']}: model {x['model_p']*100:.0f}% (fair {x['fair_odds']:.2f}) · Sportybet {x['book_odds']:.2f} "
+                         f"(implied {x['implied_fair']*100:.0f}%) · DQ {x['quality']}%{' · STRONG' if x.get('strong') else ''}")
+        L.append("")
+    else:
+        L += ["No match clears the selection rules today (model ≥ 60%, market not contradicting, data quality ≥ 60%).", ""]
+    if strong:
+        L.append(f"Strong markets (model ≥ 70% and market ≥ 50%): {len(strong)} across {len({x['match_id'] for x in strong})} matches — full list in the app.")
+        L.append("")
     if highlights:
         L.append("Model above market (disagreements, not tips):")
         for h in highlights[:12]:
@@ -298,7 +350,11 @@ def telegram_text(day: str, matches: list[dict], highlights: list[dict], meta: d
         fav = m["p1"] if m["p"]["a"] >= 0.5 else m["p2"]
         pf = max(m["p"]["a"], m["p"]["b"])
         L.append(f"• {REP.sast(m['start'])} {fav['name']} {pf*100:.0f}% (fair {1/pf:.2f}) · {m['tournament']} · DQ {m['quality']['score']}%")
-    L += ["", "Model = results-only Elo (surface & format aware); prices are a comparison layer. Data quality ≠ probability. Full tables in the PDF/CSV and in the app."]
+    t = tracker or {}
+    if t.get("settled"):
+        d = (t.get("by_kind") or {}).get("day") or {}
+        L += ["", f"Record so far: {t['won']}/{t['settled']} tracked selections won" + (f" · day selections {d['won']}/{d['settled']} (avg model {d['avg_model_p']*100:.0f}%)" if d.get("settled") else "")]
+    L += ["", "Model = results-only Elo (surface & format aware); prices are a comparison layer. Data quality ≠ probability. A 70% selection loses 3 times in 10. Full tables in the PDF/CSV and in the app."]
     return "\n".join(L)
 
 

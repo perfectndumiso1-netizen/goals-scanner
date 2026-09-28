@@ -21,7 +21,9 @@ from .stats import PlayerStats
 log = logging.getLogger("tennis.history")
 TRACKER_FIELDS = ["date", "tournament", "round", "surface", "player_a", "player_b", "market", "selection", "line",
                   "model_probability", "fair_odds", "bookmaker_odds", "implied", "edge_pp", "result", "won",
-                  "match_id", "data_quality", "recorded_at", "settled_at"]
+                  "match_id", "data_quality", "recorded_at", "settled_at", "kind"]
+KINDS = ("day", "strong", "highlight", "favourite")   # a row may carry several, joined by '+'
+
 _STAT = D.STAT_COLS
 
 
@@ -110,20 +112,32 @@ def _write_tracker(rows: list[dict]) -> None:
         w.writerows(rows)
 
 
+def _key(r: dict) -> tuple:
+    return (str(r["match_id"]), r["market"], r["selection"], str(r.get("line", "") if r.get("line") is not None else ""))
+
+
 def record_selections(rows: list[dict]) -> int:
-    """Append selections not yet tracked (key: match_id + market + selection + line)."""
+    """Append selections not yet tracked (key: match_id + market + selection + line). A selection that is
+    already tracked under another kind gets the new kind added (e.g. 'favourite+day'); prices are never
+    overwritten — the first recorded price is the one that is graded."""
     cur = _read_tracker()
-    seen = {(r["match_id"], r["market"], r["selection"], r.get("line", "")) for r in cur}
+    by_key = {_key(r): r for r in cur}
     now = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
-    added = 0
+    added, changed = 0, False
     for r in rows:
-        key = (r["match_id"], r["market"], r["selection"], str(r.get("line", "") or ""))
-        if key in seen:
+        key = _key(r)
+        kind = r.get("kind") or "day"
+        if key in by_key:
+            have = [k for k in str(by_key[key].get("kind") or "").split("+") if k]
+            if kind not in have:
+                by_key[key]["kind"] = "+".join(have + [kind])
+                changed = True
             continue
-        seen.add(key)
-        cur.append({**{k: "" for k in TRACKER_FIELDS}, **{k: ("" if v is None else v) for k, v in r.items()}, "recorded_at": now})
+        row = {**{k: "" for k in TRACKER_FIELDS}, **{k: ("" if v is None else v) for k, v in r.items() if k in TRACKER_FIELDS}, "recorded_at": now, "kind": kind}
+        cur.append(row)
+        by_key[key] = row
         added += 1
-    if added:
+    if added or changed:
         _write_tracker(cur)
     return added
 
@@ -166,21 +180,131 @@ def settle(results_by_id: dict[str, dict]) -> int:
     return n
 
 
-def tracker_summary() -> dict:
-    cur = _read_tracker()
-    done = [r for r in cur if r.get("won") in ("0", "1")]
-    out = {"tracked": len(cur), "settled": len(done), "won": sum(1 for r in done if r["won"] == "1")}
-    by: dict[str, dict] = {}
+def _perf(rows: list[dict]) -> dict:
+    """Settled record of a list of tracker rows: hits, hit rate, average model probability (the calibration check),
+    flat-stake return at the recorded bookmaker price and at fair odds. Void selections are excluded."""
+    done = [r for r in rows if r.get("won") in ("0", "1")]
+    won = [r for r in done if r["won"] == "1"]
+    p_sum = 0.0
+    ret_book = 0.0
     for r in done:
-        b = by.setdefault(r["market"], {"n": 0, "won": 0, "p_sum": 0.0})
-        b["n"] += 1
-        b["won"] += r["won"] == "1"
         try:
-            b["p_sum"] += float(r["model_probability"])
+            p_sum += float(r["model_probability"])
         except (TypeError, ValueError):
             pass
-    out["by_market"] = {k: {"n": v["n"], "won": v["won"], "hit_rate": round(v["won"] / v["n"], 3), "avg_model_p": round(v["p_sum"] / v["n"], 3)} for k, v in by.items()}
+        try:
+            ret_book += (float(r["bookmaker_odds"]) - 1) if r["won"] == "1" else -1.0
+        except (TypeError, ValueError):
+            pass
+    n = len(done)
+    return {"tracked": len(rows), "settled": n, "won": len(won), "void": sum(1 for r in rows if r.get("won") == "void"),
+            "pending": sum(1 for r in rows if r.get("won") in ("", None)),
+            "hit_rate": round(len(won) / n, 3) if n else None, "avg_model_p": round(p_sum / n, 3) if n else None,
+            "flat_return_units": round(ret_book, 2) if n else None, "roi": round(ret_book / n, 3) if n else None}
+
+
+def tracker_summary() -> dict:
+    """Overall + per kind (day / strong / highlight / favourite) + per market. Evidence, not a claim: shown with n."""
+    cur = _read_tracker()
+    out = _perf(cur)
+    out["by_kind"] = {k: _perf([r for r in cur if k in str(r.get("kind") or "").split("+")]) for k in KINDS}
+    out["by_market"] = {m: _perf([r for r in cur if r["market"] == m]) for m in sorted({r["market"] for r in cur})}
+    days: dict[str, list] = {}
+    for r in cur:
+        if "day" in str(r.get("kind") or "").split("+") or "strong" in str(r.get("kind") or "").split("+"):
+            days.setdefault(r["date"], []).append(r)
+    out["by_day"] = {d: _perf(rs) for d, rs in sorted(days.items())[-30:]}
     return out
+
+
+def settlement_lookup() -> dict[tuple, dict]:
+    """(match_id, market, selection, line) → {won, result} for every tracked row (for day files and match pages)."""
+    return {_key(r): {"won": r.get("won") or None, "result": r.get("result") or None, "bookmaker_odds": r.get("bookmaker_odds") or None} for r in _read_tracker()}
+
+
+def h2h(base: pd.DataFrame, ls_recs: list[dict], a: str, b: str, limit: int = 12) -> list[dict]:
+    """Head-to-head list (context only — it is not a model input): archive matches plus Livescore results."""
+    if not a or not b or a == b:
+        return []
+    m = base[((base["w_id"] == a) & (base["l_id"] == b)) | ((base["w_id"] == b) & (base["l_id"] == a))]
+    out = [{"date": r.date, "tournament": r.tourney_name, "surface": r.surface if isinstance(r.surface, str) else None, "level": r.level,
+            "winner": str(r.w_id), "score": r.score if isinstance(r.score, str) else None, "round": r.round if isinstance(r.round, str) else None}
+           for r in m.itertuples(index=False)]
+    out += [{"date": r["date"], "tournament": r["tournament"], "surface": r["surface"], "level": r["level"], "winner": str(r["w"]),
+             "score": r["score"], "round": r.get("round")} for r in ls_recs if {str(r["w"]), str(r["l"])} == {str(a), str(b)}]
+    out.sort(key=lambda r: r["date"], reverse=True)
+    return out[:limit]
+
+
+def result_of(e: dict | None) -> dict | None:
+    """Compact final result of a Livescore event for day files / match pages."""
+    if not e or not e.get("finished"):
+        return None
+    sets = e.get("sets") or []
+    return {"winner": e.get("winner"), "score": " ".join(f"{x}-{y}" for x, y in sets) if sets else None, "retired": bool(e.get("retired")),
+            "games": [sum(x for x, _ in sets), sum(y for _, y in sets)] if sets else None, "status": e.get("status")}
+
+
+def update_day_files(matches_slim: list[dict], results_by_id: dict, today_sast: str, days_back: int = 3) -> list[str]:
+    """Maintain data/app/tennis/days/<SAST day>.json: every match of that day (kept once it leaves the look-ahead
+    window), its final result when known and the settlement of its selection / highlights. Returns the days touched."""
+    from datetime import date as _date, timedelta as _td
+    ddir = C.APP / "days"
+    ddir.mkdir(parents=True, exist_ok=True)
+    lookup = settlement_lookup()
+    touched: dict[str, dict] = {}
+    by_day: dict[str, list] = {}
+    for m in matches_slim:
+        by_day.setdefault(m["day_sast"], []).append(m)
+    t0 = _date.fromisoformat(today_sast)
+    days = set(by_day) | {(t0 - _td(days=i)).isoformat() for i in range(days_back + 1)}
+    for day in sorted(days):
+        p = ddir / f"{day}.json"
+        cur = {}
+        if p.exists():
+            try:
+                cur = json.loads(p.read_text())
+            except Exception:                            # noqa: BLE001
+                cur = {}
+        entries = {str(x["id"]): x for x in cur.get("matches", []) if x.get("day_sast") == day}   # drops pre-selection-format entries
+        for m in by_day.get(day, []):
+            entries[str(m["id"])] = m                      # latest analysis wins while the match is upcoming
+        if not entries:
+            continue
+        for x in entries.values():
+            res = result_of(results_by_id.get(str(x["id"])))
+            if res:
+                x["result"] = res
+            sel = x.get("selection")
+            if sel:
+                st = lookup.get((str(x["id"]), sel["market"], sel["selection"], str(sel.get("line") if sel.get("line") is not None else "")))
+                if st and st["won"] is not None:
+                    sel["won"], sel["result"] = st["won"], st["result"]
+            for h in x.get("strong") or []:
+                st = lookup.get((str(x["id"]), h["market"], h["selection"], str(h.get("line") if h.get("line") is not None else "")))
+                if st and st["won"] is not None:
+                    h["won"] = st["won"]
+        ms = sorted(entries.values(), key=lambda x: x["start"])
+        sels = [dict(x["selection"], match_id=x["id"]) for x in ms if x.get("selection")]
+        settled = [s_ for s_ in sels if s_.get("won") in ("0", "1")]
+        payload = {"day": day, "generated": datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC"), "matches": ms,
+                   "summary": {"matches": len(ms), "finished": sum(1 for x in ms if x.get("result")), "selections": len(sels),
+                               "settled": len(settled), "won": sum(1 for s_ in settled if s_["won"] == "1"),
+                               "strong": sum(1 for s_ in sels if s_.get("strong"))}}
+        p.write_text(json.dumps(payload, ensure_ascii=False))
+        touched[day] = payload["summary"]
+    # index of all day files (newest first) for the app's Days tab
+    index = []
+    for p in sorted(ddir.glob("*.json"), reverse=True):
+        if p.name == "index.json":
+            continue
+        try:
+            j = json.loads(p.read_text())
+            index.append({"day": j["day"], **j.get("summary", {})})
+        except Exception:                                # noqa: BLE001
+            continue
+    (ddir / "index.json").write_text(json.dumps({"days": index[:90]}, ensure_ascii=False))
+    return sorted(touched)
 
 
 def write_day_file(day: str, payload: dict) -> Path:

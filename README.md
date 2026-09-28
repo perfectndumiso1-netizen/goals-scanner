@@ -53,4 +53,17 @@ the football model code; the only shared piece is the generic Markdown → PDF h
   and game handicap. Parameters chosen on 2012–2018, evaluated on 2019–2026 (walk-forward, no look-ahead).
 * **Output** — per match: MODEL PROBABILITY, FAIR ODDS, BOOKMAKER ODDS, MARKET IMPLIED, EDGE and DATA QUALITY
   (a 14-check score of the evidence, not a win probability). Reports at 08:00 / 18:00 SAST on Telegram labelled
-  "🎾 TENNIS SCANNER"; a separate "Tennis" section in the app. No parlays, no tennis + football combinations.
+  "🎾 TENNIS SCANNER". No parlays, no tennis + football combinations.
+* **Selections of the day** — one preferred market per match (`tennis/markets.py::select`): the highest model
+  probability ≥ 60 % among Sportybet-priced markets (price ≥ 1.30) whose margin-free implied probability is ≥ 45 %
+  (the market must not contradict the pick), data quality ≥ 60, both players ≥ 30 rated matches, no low-confidence
+  game data, model − market ≤ 20 pp. **Strong** = model ≥ 70 % and market ≥ 50 %. Ranked by probability, never by
+  edge. Grouped by market (Match winner / Total games / Player games / Game handicap) in `latest.json`
+  (`selections`, `sections`, `strong`), the reports and Telegram.
+* **Tracker** — `data/tennis/tracker.csv` grades four groups separately (`kind` = day / strong / highlight /
+  favourite): hit rate vs average model probability and flat-stake units at the recorded price. Day files
+  `data/app/tennis/days/<day>.json` keep every analysed match with its result and settlement; `days/index.json` lists them.
+* **App** — sport switch (⚽ Football | 🎾 Tennis) at the top of every tab in `tennis.js`; the football views are
+  wrapped, not modified. Tennis Home / Bets / Live / Matches / Days and a match page with Overview / Markets /
+  Stats / Data (sample labels, last 10 matches with raw scores, H2H context only, quality checks, identity, inputs).
+  Smoke test: `android/tennis_ui_test.py`.

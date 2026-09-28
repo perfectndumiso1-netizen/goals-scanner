@@ -309,3 +309,81 @@ def test_analyse_and_report_language():
     for bad in ("safe bet", "banker", "guaranteed", "sure win", "lock"):
         assert bad not in low
     assert "TENNIS SCANNER" in md and "not a probability" in md
+
+
+# ------------------------------------------------------------------ day selections (preferred + strong markets)
+def _row(market, selection, line, p, book, implied_fair, label, low=False):
+    return {"market": market, "selection": selection, "line": line, "model_p": p, "fair_odds": round(1 / p, 2), "book_odds": book, "implied": implied_fair,
+            "implied_fair": implied_fair, "edge_pp": round((p - implied_fair) * 100, 1), "ev": p * book - 1, "low_confidence": low, "label": label}
+
+
+def test_selection_rules_rank_by_probability_not_edge():
+    rows = [_row("winner", "player_a", None, 0.66, 1.47, 0.64, "A to win"),
+            _row("winner", "player_b", None, 0.34, 2.60, 0.36, "B to win"),
+            _row("p1_games", "over", 11.5, 0.77, 1.53, 0.61, "A over 11.5 games"),      # highest probability → preferred
+            _row("total_games", "over", 21.5, 0.61, 1.85, 0.51, "Over 21.5 games")]     # bigger edge (10 pp) but lower probability
+    sel = MK.select(rows, 90, 60)
+    assert sel["preferred"]["market"] == "p1_games" and sel["preferred"]["strong"] is True and sel["preferred"]["kind"] == "strong"
+    assert [x["market"] for x in sel["strong"]] == ["p1_games"]                    # 66 % winner is below the 70 % strong bar
+    assert isinstance(sel["preferred"]["strong"], bool)
+    # guards: quality, thin history, price, market contradiction, low-confidence game data, implausible gap
+    assert MK.select(rows, 55, 60)["preferred"] is None and "quality" in MK.select(rows, 55, 60)["why_none"]
+    assert MK.select(rows, 90, 20)["preferred"] is None
+    assert MK.select([dict(rows[2], book_odds=1.25)] + rows[:2], 90, 60)["preferred"]["market"] == "winner"
+    assert MK.select([dict(rows[2], implied_fair=0.40, edge_pp=37.0)] + rows[:2], 90, 60)["preferred"]["market"] == "winner"
+    assert MK.select([dict(rows[2], low_confidence=True)] + rows[:2], 90, 60)["preferred"]["market"] == "winner"
+    weak = [_row("winner", "player_a", None, 0.58, 1.70, 0.57, "A to win"), _row("winner", "player_b", None, 0.42, 2.10, 0.43, "B to win")]
+    s2 = MK.select(weak, 90, 60)
+    assert s2["preferred"] is None and s2["strong"] == [] and "60%" in s2["why_none"]
+    assert MK.select([], 90, 60)["why_none"] == "no Sportybet prices"
+
+
+def test_tracker_kinds_merge_without_overwriting_prices():
+    H._write_tracker([])
+    base_row = {"date": "2026-09-28", "match_id": "k1", "market": "winner", "selection": "player_a", "line": "", "model_probability": 0.7, "bookmaker_odds": 1.50}
+    assert H.record_selections([dict(base_row, kind="favourite")]) == 1
+    assert H.record_selections([dict(base_row, kind="day", bookmaker_odds=1.40)]) == 0      # same key → kinds merge, first price kept
+    r = H._read_tracker()[0]
+    assert r["kind"] == "favourite+day" and float(r["bookmaker_odds"]) == 1.50
+    H.record_selections([{"date": "2026-09-28", "match_id": "k2", "market": "total_games", "selection": "over", "line": 22.5, "model_probability": 0.72, "bookmaker_odds": 1.80, "kind": "strong"}])
+    H.settle({"k1": {"finished": True, "winner": 1, "sets": [[6, 4], [6, 4]]}, "k2": {"finished": True, "winner": 2, "sets": [[4, 6], [4, 6]]}})
+    t = H.tracker_summary()
+    assert t["settled"] == 2 and t["won"] == 1
+    assert t["by_kind"]["day"]["settled"] == 1 and t["by_kind"]["day"]["won"] == 1 and t["by_kind"]["favourite"]["won"] == 1
+    assert t["by_kind"]["strong"]["settled"] == 1 and t["by_kind"]["strong"]["won"] == 0
+    assert abs(t["flat_return_units"] - (0.50 - 1.0)) < 1e-9                              # +0.50 on k1, −1 on k2
+    assert t["by_market"]["winner"]["hit_rate"] == 1.0
+
+
+def test_day_files_keep_history_results_and_settlement(tmp_path, monkeypatch):
+    monkeypatch.setattr(C, "APP", tmp_path)
+    H._write_tracker([{**{k: "" for k in H.TRACKER_FIELDS}, "match_id": "d1", "market": "winner", "selection": "player_a", "line": "", "won": "1", "result": "6-4/6-4", "kind": "day", "date": "2026-09-27"}])
+    slim = {"id": "d1", "start": "2026-09-27 10:00", "day_sast": "2026-09-27", "p1": {"name": "A"}, "p2": {"name": "B"}, "tournament": "T", "category": "ATP 250", "quality": {"score": 90},
+            "selection": {"market": "winner", "selection": "player_a", "line": None, "label": "A to win", "model_p": 0.7, "strong": True}, "strong": []}
+    H.update_day_files([slim], {"d1": {"finished": True, "winner": 1, "sets": [[6, 4], [6, 4]], "status": "FT"}}, "2026-09-28")
+    j = __import__("json").loads((tmp_path / "days" / "2026-09-27.json").read_text())
+    assert j["matches"][0]["result"]["score"] == "6-4 6-4" and j["matches"][0]["selection"]["won"] == "1"
+    assert j["summary"] == {"matches": 1, "finished": 1, "selections": 1, "settled": 1, "won": 1, "strong": 1}
+    # a later run without that match (it left the window) keeps it; entries of another day are not mixed in
+    H.update_day_files([dict(slim, id="d2", day_sast="2026-09-28", start="2026-09-28 09:00", selection=None)], {}, "2026-09-28")
+    j27 = __import__("json").loads((tmp_path / "days" / "2026-09-27.json").read_text())
+    j28 = __import__("json").loads((tmp_path / "days" / "2026-09-28.json").read_text())
+    assert [m["id"] for m in j27["matches"]] == ["d1"] and [m["id"] for m in j28["matches"]] == ["d2"]
+    idx = __import__("json").loads((tmp_path / "days" / "index.json").read_text())
+    assert [d["day"] for d in idx["days"]] == ["2026-09-28", "2026-09-27"]
+
+
+def test_recent_matches_carry_raw_observations_and_last_rank():
+    R, PS = M.Ratings(), S.PlayerStats({"atp|Hard": 0.63})
+    recs = [_rec(f"2026-01-{1 + i:02d}", "x", "y") for i in range(12)]
+    recs[-1]["w_rank"], recs[-1]["l_rank"], recs[-1]["tournament"] = 12, 80, "Big Open"
+    H.replay(recs, R, PS)
+    fx = PS.features("x", "2026-02-01", "Hard", "atp")
+    rm = fx["recent_matches"]
+    assert len(rm) == 10 and rm[0]["date"] == "2026-01-12" and rm[0]["tournament"] == "Big Open" and rm[0]["score"] == "6-4 6-4"
+    assert rm[0]["opp_rank"] == 80 and rm[0]["opp_pid"] == "y" and rm[0]["round"] == "R32" and rm[0]["won"] is True
+    assert fx["last_rank"] == {"rank": 12, "date": "2026-01-12"}
+    assert PS.features("y", "2026-02-01", "Hard", "atp")["last_rank"] == {"rank": 80, "date": "2026-01-12"}
+    assert fx["serve"] is None and fx["ret"] is None                                     # no statistics → N/A, never 0
+    h = H.h2h(pd.DataFrame(columns=["w_id", "l_id", "date", "tourney_name", "surface", "level", "score", "round"]), recs, "x", "y")
+    assert len(h) == 12 and all(str(r["winner"]) == "x" for r in h[:12])

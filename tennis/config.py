@@ -74,7 +74,11 @@ MIN_ODDS = 1.30
 EDGE_NOTE_PP = 5.0       # a selection is highlighted (not "safe") when model − implied ≥ this many points
 GAME_EDGE_PP = 10.0      # game markets (totals / player games / handicap) need a larger gap: expected-total MAE ≈ 5 games
 MAX_EDGE_PP = 20.0       # …and ≤ this: bigger gaps are far more often model blind spots than value → warning, not highlight
-HIGHLIGHT_MIN_MATCHES = 30   # both players need this many rated matches before a disagreement is highlighted
+HIGHLIGHT_MIN_MATCHES = 30   # both players need this many rated matches before a disagreement is highlighted / a selection is published
+DAY_MIN_P = 0.60             # day selection (preferred market of a match): model probability at least this …
+DAY_MIN_IMPLIED = 0.45       # … and the margin-free bookmaker probability must not contradict it
+STRONG_MIN_P = 0.70          # strong selection: model ≥ 70 % (still loses more than 1 in 4) …
+STRONG_MIN_IMPLIED = 0.50    # … and the market also sees it as the likelier outcome
 LOOKAHEAD = timedelta(hours=36)
 REPORT_HOURS_SAST = (8, 18)
 
