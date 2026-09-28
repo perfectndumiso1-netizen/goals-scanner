@@ -34,3 +34,23 @@ The code lives on `main`; all generated state (reports, ledgers, app data, the L
 orphan `data` branch, which is force-pushed by every run so the history stays small.
 
 Statistical information, not betting advice. 18+.
+
+## 🎾 Tennis Scanner (separate module)
+
+`tennis/` is an independent package built beside the football scanner — own data (`data/tennis/`, `data/app/tennis/`
+on the orphan `tennis-data` branch), own model, tracker (`data/tennis/tracker.csv`), reports (`reports/tennis/`),
+workflow (`.github/workflows/tennis-scan.yml`, four runs a day) and tests (`tennis/tests/`). It imports nothing from
+the football model code; the only shared piece is the generic Markdown → PDF helper. See `docs/TENNIS_AUDIT.md`
+(architecture, sources, limitations) and `tennis/BACKTEST_RESULTS.md` (walk-forward validation and calibration).
+
+* **Coverage** — ATP / WTA main tours and ATP/WTA Challengers, singles only (no ITF, team events or doubles).
+* **Data** — Jeff Sackmann's historical match files (tennisabstract.com, CC BY-NC-SA 4.0, June 2026 snapshot via the
+  Aneeshers archive mirror; 288,040 matches 2005–2026) for ratings, form, serve/return statistics; Livescore for
+  results after the snapshot (no statistics — serve/return traits from the archive are marked stale when old);
+  Sportybet prices as a *comparison layer only*. Anything missing is N/A, never zero.
+* **Model** — Elo (overall + surface blend, sample-size K schedule) → set probability → explicit best-of-3 / best-of-5
+  match probability (2-0 / 2-1 / 3-0 / 3-1 / 3-2 each way) → Markov point/game chain for total games, player games
+  and game handicap. Parameters chosen on 2012–2018, evaluated on 2019–2026 (walk-forward, no look-ahead).
+* **Output** — per match: MODEL PROBABILITY, FAIR ODDS, BOOKMAKER ODDS, MARKET IMPLIED, EDGE and DATA QUALITY
+  (a 14-check score of the evidence, not a win probability). Reports at 08:00 / 18:00 SAST on Telegram labelled
+  "🎾 TENNIS SCANNER"; a separate "Tennis" section in the app. No parlays, no tennis + football combinations.

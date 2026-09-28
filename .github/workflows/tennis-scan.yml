@@ -1,0 +1,87 @@
+name: Tennis scan (4x daily)
+
+# Independent of the football workflow (scan.yml): own schedule, own state branch (tennis-data),
+# own Telegram messages ("🎾 TENNIS SCANNER"). It never reads or writes football data.
+on:
+  schedule:
+    # GitHub cron is UTC. 08:00 / 12:00 / 18:00 / 22:00 SAST. The 08:00 and 18:00 SAST runs send the Telegram report;
+    # the others refresh prices, settle results and update the JSON for the app.
+    - cron: "0 6,10,16,20 * * *"
+  workflow_dispatch:
+    inputs:
+      report:
+        description: "Send the Telegram report even outside report hours (1 = yes)"
+        default: "0"
+
+permissions:
+  contents: write           # push the tennis-data branch
+
+concurrency:
+  group: tennis-scan
+  cancel-in-progress: false
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      TENNIS_STATE_DIR: ${{ github.workspace }}/tennis-state
+      STATE_URL: https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git
+      TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}   # optional
+      TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}       # optional
+      TENNIS_REPORT: ${{ github.event.inputs.report || '0' }}
+      TENNIS_BACKFILL_DAYS: "200"   # Livescore result days fetched per run (the gap after the archive snapshot closes in the first run)
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install dependencies
+        # same pinned requirements as the football scanner (pandas, numpy, requests, reportlab) — no new packages
+        run: |
+          for i in 1 2 3; do
+            pip install --only-binary=:all: --retries 10 --timeout 60 -r requirements.txt && break
+            echo "pip attempt $i failed, retrying"; sleep 20
+          done
+          python -c "import pandas, numpy, requests, reportlab; print(pandas.__version__, numpy.__version__)"
+
+      - name: Restore tennis state (tennis-data branch)
+        run: |
+          set -e
+          if git clone -q --depth 1 --branch tennis-data --single-branch "$STATE_URL" tennis-state 2>/dev/null; then
+            echo "tennis-data branch restored: $(du -sh tennis-state | cut -f1)"
+          else
+            echo "no tennis-data branch yet - starting empty (first run downloads the archive and backfills results)"
+            mkdir -p tennis-state
+            git -C tennis-state init -q -b tennis-data
+          fi
+          printf 'reports/tennis/pdf/\n__pycache__/\n' > tennis-state/.gitignore
+
+
+      - name: Unit tests (tennis only)
+        run: python -m pytest tennis/tests -q
+
+      - name: Run tennis scanner
+        run: python -m tennis.scanner
+
+      - name: Publish tennis state
+        # Only paths under data/tennis, data/app/tennis and reports/tennis exist in this checkout, so nothing else can be committed.
+        run: |
+          set -e
+          cd tennis-state
+          git config user.name "playreport-bot"
+          git config user.email "playreport-bot@users.noreply.github.com"
+          git add -A -- data/tennis data/app/tennis reports/tennis .gitignore
+          if git rev-parse -q --verify HEAD >/dev/null 2>&1; then
+            if git diff --cached --quiet; then echo "state unchanged"; exit 0; fi
+            git commit -q --amend -m "Tennis state $(date -u +'%Y-%m-%d %H:%M UTC')"
+          else
+            git commit -q -m "Tennis state $(date -u +'%Y-%m-%d %H:%M UTC')"
+          fi
+          git push -q -f "$STATE_URL" HEAD:tennis-data
+          echo "published $(git rev-parse --short HEAD)"
