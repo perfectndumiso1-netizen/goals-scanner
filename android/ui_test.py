@@ -74,6 +74,8 @@ with sync_playwright() as p:
             route.fulfill(body=PNG, content_type='image/png')
         elif 'livescore.com' in url:
             route.fulfill(json=INCS if '/incidents/' in url else STATS if '/statistics/' in url else {} if '/lineups/' in url else live_json())
+        elif 'tennis-data/' in url:   # tennis card on the home screen: minimal valid stub here, exercised for real by tennis_ui_test.py
+            route.fulfill(json={'meta': {'sport': 'tennis', 'generated': '2026-09-28 05:00 UTC', 'generated_sast': '2026-09-28 07:00', 'coverage': 'ATP, WTA', 'lookahead_hours': 36}, 'matches': [], 'selections': [], 'sections': [], 'strong': [], 'highlights': [], 'tracker': {}})
         else:
             errors.append('unexpected request: ' + url); route.abort()
     page.route(re.compile(r'^https?://'), handle)

@@ -30,7 +30,11 @@
 .tn-ev.s{background:var(--accent-soft);color:var(--good)}.tn-ev.w{background:var(--warn-soft);color:var(--warn)}
 .tn-wl{display:inline-flex;gap:2px}.tn-wl i{font-style:normal;width:16px;height:16px;border-radius:4px;font-size:10px;font-weight:800;display:inline-flex;align-items:center;justify-content:center;color:#fff;background:var(--muted)}
 .tn-wl i.W{background:var(--good)}.tn-wl i.L{background:var(--bad)}
-.tn-strong{font-size:10px;font-weight:800;color:#fff;background:#1b7a4a;border-radius:6px;padding:1px 6px;margin-left:4px;letter-spacing:.3px}`;
+.tn-strong{font-size:10px;font-weight:800;color:#fff;background:#1b7a4a;border-radius:6px;padding:1px 6px;margin-left:4px;letter-spacing:.3px}
+.sport-bar .cnt{display:inline-block;min-width:18px;padding:0 5px;border-radius:999px;background:var(--chip);color:var(--muted);font-size:11px;margin-left:6px;line-height:18px}
+.sport-bar button.on .cnt{background:rgba(255,255,255,.22);color:inherit}
+.tn-fb .ico{background:#e3f4ea;color:#1b7a4a;font-size:15px}
+.tn-fb-foot{display:flex;align-items:center;gap:8px;margin-top:6px}`;
     document.head.appendChild(st);
   }
   // ------------------------------------------------------------------ helpers
@@ -78,6 +82,7 @@
     } catch (e) { T.error = String(e.message || e); }
     T.loading = false;
     if (isTennis()) { PR.render(); T.statusLine(); }
+    else if (state.tab === 'home' && !state.stack.length && state.data) PR.render();   // fills the tennis card on the football home
   };
   T.detail = function (id) {
     const key = String(id);
@@ -141,12 +146,40 @@
 
   // ------------------------------------------------------------------ sport switch (wraps the five tab views; football untouched)
   function sportBar() {
-    return `<div class="sport-bar" id="sport-bar"><button class="${isTennis() ? '' : 'on'}" data-sport="football">⚽ Football</button><button class="${isTennis() ? 'on tn' : ''}" data-sport="tennis">🎾 Tennis</button></div>`;
+    const fb = state.data && state.data.safe && state.data.safe.today && state.data.safe.today.bets ? state.data.safe.today.bets.length : null;
+    const tn = T.data && T.data.selections ? T.data.selections.length : null;
+    return `<div class="sport-bar" id="sport-bar"><button class="${isTennis() ? '' : 'on'}" data-sport="football">⚽ Football${fb != null ? `<span class="cnt">${fb}</span>` : ''}</button><button class="${isTennis() ? 'on tn' : ''}" data-sport="tennis">🎾 Tennis${tn != null ? `<span class="cnt">${tn}</span>` : ''}</button></div>`;
   }
   function addSportBar() {
     const v = view(); if (!v || $('#sport-bar')) return;
     v.insertAdjacentHTML('afterbegin', sportBar());
     $$('#sport-bar button').forEach((b) => { b.onclick = () => T.setSport(b.dataset.sport); });
+  }
+  /** Tennis on the FOOTBALL home screen (Sofascore-style: both sports visible on one page) — the day's tennis selections,
+      grouped by market, inserted right after the football "Bets of the day" card. Tennis keeps its own data and tracker. */
+  function addTennisCard() {
+    const v = view(); if (!v || $('#tn-fb-card')) return;
+    const d = T.data; const sels = (d && d.selections) || []; const secs = (d && d.sections) || []; const strong = (d && d.strong) || []; const inPlay = (T.live || []).filter((e) => e.live).length;
+    const headHtml = `<div class="section-head tn-fb" id="tn-fb-head"><h2><span class="ico">🎾</span>Tennis · selections of the day</h2><button class="link" data-sport-go="tennis">Open tennis ${icon('next')}</button></div>`;
+    let body;
+    if (!d) body = `<div class="card empty small" id="tn-fb-card">${T.error ? 'Tennis analysis could not be loaded — pull down to refresh.' : 'Loading the tennis analysis…'}</div>`;
+    else if (!sels.length) body = `<div class="card empty small" id="tn-fb-card">No tennis match clears the selection rules right now (model ≥ 60%, market not contradicting, data quality ≥ 60%). ${(d.matches || []).length} matches analysed — open the tennis section for every market.</div>`;
+    else {
+      let left = 4;
+      const rows = secs.map((g) => { if (left <= 0) return ''; const take = g.selections.slice(0, Math.min(2, left)); left -= take.length; return `<div class="botd-sec">${esc(g.title)} <span class="muted">· ${g.selections.length}</span></div><table class="tbl">${take.map((x) => selRow(x, { day: true })).join('')}</table>`; }).join('');
+      body = `<div class="card botd" id="tn-fb-card">${rows}<div class="tn-fb-foot tiny muted"><div class="grow">${sels.length} matches · one preferred market each · ${strong.length} strong${inPlay ? ` · <span class="good">${inPlay} in play</span>` : ''}</div><button class="link" data-sport-go="tennis" data-tn-view="today">All ${sels.length} ${icon('next')}</button></div></div>`;
+    }
+    // after the football "Bets of the day" card (section head + card), else after the hero
+    const heads = $$('#view .section-head'); const botd = heads.find((h) => /Bets of the day/i.test(h.textContent));
+    const anchor = botd && botd.nextElementSibling ? botd.nextElementSibling : $('#view .card.hero');
+    if (anchor) anchor.insertAdjacentHTML('afterend', headHtml + body); else v.insertAdjacentHTML('beforeend', headHtml + body);
+    // plus a one-line strip directly under the hero, so tennis is visible above the fold (the football card can be long)
+    const hero = $('#view .card.hero');
+    if (hero && d && !$('#tn-fb-strip')) {
+      const top = sels[0];
+      hero.insertAdjacentHTML('afterend', `<div class="card compact tap tn-fb" id="tn-fb-strip" data-sport-go="tennis"><div class="row"><span class="ico">🎾</span><div class="grow"><b>Tennis · ${sels.length} selection${sels.length === 1 ? '' : 's'} of the day</b><div class="tiny muted">${top ? `${strong.length} strong · top: ${esc(top.label)} ${pc(top.model_p, 0)} @ ${od(top.book_odds)} · ${esc(top.tournament)}` : `${(d.matches || []).length} matches analysed · every market with model, fair odds, Sportybet, implied and edge`}${inPlay ? ` · <span class="good">${inPlay} in play</span>` : ''}</div></div>${icon('next')}</div></div>`);
+    }
+    $$('[data-sport-go]').forEach((b) => { b.onclick = (e) => { e.stopPropagation(); if (b.dataset.tnView) T.view = b.dataset.tnView; T.setSport('tennis'); }; });
   }
   T.setSport = function (sport) {
     if ((sport === 'tennis') === isTennis()) return;
@@ -163,7 +196,7 @@
         try { T.views[tab](); } catch (e) { view().innerHTML = `<div class="card empty">The tennis screen hit an error (${esc(e.message || e)}). Pull to refresh.</div>`; }
         T.statusLine();
         if (tab === 'live' || tab === 'home') T.liveRefresh(false);
-      } else orig.apply(this, arguments);
+      } else { orig.apply(this, arguments); if (tab === 'home') addTennisCard(); }
       addSportBar();
     };
   });
@@ -171,7 +204,7 @@
   setTimeout(() => {
     const btn = $('#btn-refresh'); if (btn) { const prev = btn.onclick; btn.onclick = function (e) { if (isTennis()) { T.load(true); T.liveRefresh(true); T.index = null; Object.keys(T.days).forEach((k) => { T.days[k].stale = true; }); } if (prev) return prev.call(this, e); }; }
     const origLoad = PR.loadData; if (origLoad) PR.loadData = function (force) { if (isTennis() && force) { T.load(true); T.liveRefresh(true); } return origLoad.apply(this, arguments); };
-    if (isTennis()) { T.load(false); T.liveRefresh(false); }
+    if (isTennis()) { T.load(false); T.liveRefresh(false); } else setTimeout(() => T.load(false), 1200);
   }, 0);
   T.timer = setInterval(() => { if (!isTennis() || document.hidden) return; T.statusLine(); if (!state.stack.length && (state.tab === 'live' || (state.tab === 'home' && (T.live || []).some((e) => e.live)))) T.liveRefresh(false); }, 60000);
   // the ⋮ menu entry switches sport (kept as a page type for older links)

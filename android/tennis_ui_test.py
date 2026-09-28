@@ -51,6 +51,18 @@ with sync_playwright() as p:
     check(page.evaluate("() => !!document.querySelector('#sport-bar')"), 'sport switch shown on the football home')
     fb_home = page.inner_text('#view')
     check('Bets of the day' in fb_home, 'football home renders as before under the switch')
+    page.wait_for_timeout(1500); fb_home = page.inner_text('#view')
+    check('Tennis · selections of the day' in fb_home and page.evaluate("() => !!document.querySelector('#tn-fb-card')"), 'tennis selections card on the FOOTBALL home screen')
+    sels0 = TENNIS.get('selections') or []
+    if sels0: check(any(s['label'] in fb_home for s in sels0[:8]), 'football home: a tennis selection label is visible without switching')
+    check(fb_home.index('Bets of the day') < fb_home.index('Tennis · selections of the day'), 'tennis card sits right after the football bets-of-the-day card')
+    check(page.evaluate("() => /Tennis\\s*\\d+/.test(document.querySelector('#sport-bar').textContent)"), 'sport bar shows the tennis selection count')
+    check(page.evaluate("() => { const s = document.querySelector('#tn-fb-strip'), h = document.querySelector('#view .card.hero'); return !!s && !!h && s.previousElementSibling === h; }"), 'tennis strip directly under the football hero (above the fold)')
+    # tapping a tennis row from the football home opens the tennis match page, back returns to football home
+    if sels0:
+        page.click('#tn-fb-card tr.tap >> nth=0'); page.wait_for_timeout(1200)
+        check('selection of the day' in page.inner_text('#view').lower(), 'football home → tennis match page')
+        page.click('#back'); page.wait_for_timeout(400); check('Bets of the day' in page.inner_text('#view'), 'back → football home')
     # ---- switch to tennis
     page.click('#sport-bar [data-sport="tennis"]'); page.wait_for_timeout(1800)
     txt = page.inner_text('#view')
