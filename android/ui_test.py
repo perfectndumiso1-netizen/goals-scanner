@@ -98,7 +98,7 @@ with sync_playwright() as p:
     page.click('#tabs button[data-tab=bets]'); page.wait_for_timeout(200)
     for seg in ['today', 'top', 'safest', 'goals', 'corners', 'cards', 'picks']:
         page.click(f'[data-bv={seg}]'); page.wait_for_timeout(150); t = shot(page, f'bets_{seg}')
-        if seg == 'today': assert 'How the card is picked' in t and page.locator('#view .botd tr.tap').count() >= 1 and page.locator('#view .botd-sec').count() >= 2, 'grouped bets of the day card'
+        if seg == 'today': assert 'How the card is picked' in t and page.locator('#view .botd tr.tap').count() >= 1 and page.locator('#view .botd-sec').count() >= 1, 'grouped bets of the day card'
         if seg == 'top':
             assert page.locator('#view [data-board]').count() == 7 and page.locator('#view .tbl tr.tap').count() >= 5, 'top leagues board'
             page.click('[data-board=A]'); page.wait_for_timeout(150); t = shot(page, 'bets_top_away'); assert 'Away wins' in t

@@ -137,17 +137,35 @@ class Days:
             self._enrich(archive)
         return pd.DataFrame(extra) if extra else pd.DataFrame()
 
-    STAT_KEYS = ("hc", "ac", "hy", "ay", "hr", "ar", "hs", "as", "hst", "ast", "hposs", "aposs")
+    STAT_KEYS = ("hc", "ac", "hy", "ay", "hr", "ar", "hs", "as", "hst", "ast", "hposs", "aposs", "hf", "af")
+    STATS_PROBES = 3          # a finished match is asked for statistics at most this many runs (many leagues never publish any)
+    ENRICH_BUDGET_S = 70.0    # Livescore requests per run for the archive (statistics + goal incidents)
+
+    def _apply_stats(self, sc: dict, st: list) -> None:
+        vals = (list(st) + [None] * len(self.STAT_KEYS))[:len(self.STAT_KEYS)]
+        for k, v in zip(self.STAT_KEYS, vals):
+            if v is not None:
+                sc[k] = _int(v)
+        if sc.get("hy") is not None:
+            sc["hcards"] = _int(sc["hy"]) + (_int(sc.get("hr")) or 0)
+            sc["acards"] = _int(sc["ay"]) + (_int(sc.get("ar")) or 0)
 
     def _enrich(self, archive) -> None:
-        """Half-time scores and match statistics (corners, cards, shots, possession) from the Livescore archive."""
+        """Half-time scores, match statistics (corners, cards, shots, possession, fouls) and goal / red-card incidents
+        for every finished match of the last days — first from the Livescore archive, then straight from Livescore
+        (one statistics call and one incidents call per match, a few probes at most, within a time budget), so the
+        archive keeps the live stats of every analysed match, not just the stages playing today."""
+        import time
+        import worldfeed
         try:
             archive.load_all()
         except Exception:  # noqa: BLE001
             return
         today = self.now.date()
-        n = 0
-        for date, day in self.days.items():
+        t0 = time.time()
+        n = n_fetch = n_inc = n_empty = 0
+        budget_left = lambda: time.time() - t0 < self.ENRICH_BUDGET_S  # noqa: E731
+        for date, day in sorted(self.days.items(), reverse=True):      # newest days first
             for f in day["fixtures"]:
                 eid = f.get("livescore_id")
                 if not eid:
@@ -166,19 +184,45 @@ class Days:
                     ev = archive.event_for(str(eid))
                     if ev and ev.get("hth") is not None:
                         sc["hth"], sc["hta"] = _int(ev["hth"]), _int(ev["hta"])
+                # -- statistics: archive first, then a direct probe (at most STATS_PROBES runs per match)
                 if sc.get("hc") is None or sc.get("hs") is None:
                     st = archive.stats_for(str(eid))
                     if st:
-                        vals = (list(st) + [None] * 12)[:12]
-                        for k, v in zip(self.STAT_KEYS, vals):
-                            if v is not None:
-                                sc[k] = _int(v)
-                        if sc.get("hy") is not None:
-                            sc["hcards"] = _int(sc["hy"]) + (_int(sc.get("hr")) or 0)
-                            sc["acards"] = _int(sc["ay"]) + (_int(sc.get("ar")) or 0)
+                        self._apply_stats(sc, st)
                         n += 1
-        if n:
-            log.info("History: match statistics added to %d fixture(s)", n)
+                    elif st is None and sc.get("stp", 0) < self.STATS_PROBES and budget_left():
+                        st = worldfeed.fetch_stats(str(eid))
+                        if st is None:
+                            continue                       # network error: try again next run, no probe counted
+                        sc["stp"] = sc.get("stp", 0) + 1
+                        if st:
+                            self._apply_stats(sc, st)
+                            n += 1
+                            n_fetch += 1
+                        else:
+                            n_empty += 1
+                # -- goal / red-card incidents (scorers and minutes), fetched once per finished match
+                if "inc" not in sc and sc.get("inp", 0) < 2 and budget_left():
+                    try:
+                        items = livescore.incidents(str(eid))
+                    except Exception:  # noqa: BLE001
+                        items = None
+                    if items is None:
+                        continue
+                    sc["inp"] = sc.get("inp", 0) + 1
+                    keep = [[it.get("minute"), it["team"], it["type"], (it.get("player") or "")[:40], it.get("score")]
+                            for it in items if it["type"] in ("goal", "own_goal", "penalty", "missed_penalty", "red", "second_yellow")]
+                    goals_seen = sum(1 for it in keep if it[2] in ("goal", "own_goal", "penalty"))
+                    if keep or sc["hg"] + sc["ag"] == 0 or sc["inp"] >= 2:
+                        sc["inc"] = keep
+                        if keep:
+                            n_inc += 1
+                    # a scoreline with goals but no incidents yet: probe once more next run
+                    if goals_seen == 0 and sc["hg"] + sc["ag"] > 0 and sc["inp"] < 2:
+                        sc.pop("inc", None)
+        if n or n_inc or n_empty:
+            log.info("History: match statistics added to %d fixture(s) (%d fetched directly, %d without stats), "
+                     "goal incidents for %d, %.0fs", n, n_fetch, n_empty, n_inc, time.time() - t0)
 
     # ------------------------------------------------------------------ bets on each fixture
     def annotate(self, tracker: pd.DataFrame, parlays: pd.DataFrame, accas: pd.DataFrame, bets: pd.DataFrame) -> None:

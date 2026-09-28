@@ -278,8 +278,39 @@ class MainActivity : AppCompatActivity() {
         fun requestNotifications() = runOnUiThread { requestNotificationPermission() }
 
         @JavascriptInterface
-        fun notify(channel: String, id: Int, title: String, text: String, tab: String?) =
-            Notifier.notify(this@MainActivity, channel, id, title, text, tab ?: "today")
+        fun notify(channel: String, id: Int, title: String, text: String, tab: String?) {
+            // the page uses short channel names; map them onto the current (versioned) channel ids
+            val ch = when (channel) {
+                "bets", Notifier.CH_BETS -> Notifier.CH_BETS
+                "match", Notifier.CH_MATCH -> Notifier.CH_MATCH
+                "goals", Notifier.CH_GOALS -> Notifier.CH_GOALS
+                "kickoff", Notifier.CH_KICKOFF -> Notifier.CH_KICKOFF
+                "reports", Notifier.CH_REPORTS -> Notifier.CH_REPORTS
+                else -> Notifier.CH_REPORTS
+            }
+            Notifier.notify(this@MainActivity, ch, id, title, text, tab ?: "today")
+        }
+
+        /** Opens the system settings of one notification channel (sound, vibration, importance). */
+        @JavascriptInterface
+        fun openChannelSettings(channel: String) = runOnUiThread {
+            try {
+                val ch = when (channel) {
+                    "goals" -> Notifier.CH_GOALS; "bets" -> Notifier.CH_BETS; "match" -> Notifier.CH_MATCH
+                    "kickoff" -> Notifier.CH_KICKOFF; "reports" -> Notifier.CH_REPORTS; else -> channel
+                }
+                startActivity(android.content.Intent(android.provider.Settings.ACTION_CHANNEL_NOTIFICATION_SETTINGS).apply {
+                    putExtra(android.provider.Settings.EXTRA_APP_PACKAGE, packageName)
+                    putExtra(android.provider.Settings.EXTRA_CHANNEL_ID, ch)
+                })
+            } catch (e: Exception) {
+                try {
+                    startActivity(android.content.Intent(android.provider.Settings.ACTION_APP_NOTIFICATION_SETTINGS).apply {
+                        putExtra(android.provider.Settings.EXTRA_APP_PACKAGE, packageName)
+                    })
+                } catch (e2: Exception) { /* no settings screen available */ }
+            }
+        }
 
         /** Goal alert from the open app; ignored if the background checker already announced this score. */
         @JavascriptInterface

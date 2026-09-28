@@ -357,7 +357,30 @@ window.PR = (function () {
     if (state.tab !== 'home') { setTab('home'); return true; }
     return false;
   }
-  function openMatch(id, d) { if (fx(id) || d) { state.matchView = 'overview'; push({ type: 'match', id, d: d || null }); } else toast('This match is no longer in the current analysis'); }
+  /** The day-file record of a fixture (final score, half-time, statistics, goal incidents, bets) once its day is loaded. */
+  function dayRecord(id) {
+    if (!id) return null; const date = String(id).slice(0, 10); const day = state.days[date];
+    return day && day.fixtures ? (day.fixtures.find((x) => x.id === id) || null) : null;
+  }
+  /** Final score + stats of a finished match from the archive (day files). Loads the day in the background for
+   *  matches that kicked off more than two hours ago; returns null until it is there. */
+  function finalFor(f) {
+    if (!f || !f.kickoff) return null;
+    const date = f.kickoff.slice(0, 10); const r = dayRecord(f.id);
+    if (r) return r.score && r.score.hg != null ? r.score : null;
+    const ko = parseLocal(f.kickoff);
+    if (ko && tzNow() - ko > 2 * 3600000 && !(state.days[date] && state.days[date].fixtures) && !state.days[date + '_loading']) {
+      state.days[date + '_loading'] = true; loadDay(date).then(() => render()).catch(() => { state.days[date + '_loading'] = false; });
+    }
+    return null;
+  }
+  /** Stored incidents ([minute, team, type, player, score] rows) in the live-incident item shape. */
+  function storedIncidents(sc) {
+    if (!sc || !Array.isArray(sc.inc)) return null;
+    const T = { own_goal: 'own goal', second_yellow: 'second yellow', missed_penalty: 'missed penalty' };
+    return sc.inc.map((r) => ({ min: r[0], team: r[1], type: T[r[2]] || r[2], player: r[3], score: r[4] }));
+  }
+  function openMatch(id, d) { if (fx(id) || d || dayRecord(id)) { state.matchView = 'overview'; push({ type: 'match', id, d: d || null }); } else toast('This match is no longer in the current analysis'); }
   function openTeam(name, country, div) { state.teamView = 'overview'; push({ type: 'team', name, country, div }); }
   function toggleMenu() { state.menuOpen = !state.menuOpen; $('#menu').classList.toggle('open', state.menuOpen); }
   function closeMenu() { state.menuOpen = false; const m = $('#menu'); if (m) m.classList.remove('open'); }
@@ -366,7 +389,10 @@ window.PR = (function () {
   const EDITOR = { name: 'Ndumiso Msani', role: 'Editor & Lead Analyst', place: 'Mthwalume, KwaZulu-Natal', age: 37,
     bio: 'Sports bettor and football analyst with a data-first approach. Ndumiso built PlayReport to turn thousands of results, prices and match statistics into a small number of disciplined, graded selections every day — specialising in goals, corners and bookings markets across world football.' };
   function editorCard(compact) {
-    return `<div class="card"><div class="editor"><div class="avatar"><img src="editor.png" alt=""></div><div class="grow"><div class="b">${esc(EDITOR.name)}</div><div class="small muted">${esc(EDITOR.role)} · ${esc(EDITOR.place)}</div>${compact ? '' : `<div class="small" style="margin-top:6px">${esc(EDITOR.bio)}</div>`}</div></div>
+    // compact: round avatar next to the name (home page); full: portrait photo with the profile (About / Guide)
+    if (!compact) return `<div class="card"><div class="editor full"><div class="portrait"><img src="editor.jpg" alt="${esc(EDITOR.name)}" onerror="this.parentNode.style.display='none'"></div><div class="grow"><div class="b" style="font-size:17px">${esc(EDITOR.name)}</div><div class="small muted">${esc(EDITOR.role)}</div><div class="small muted">${esc(EDITOR.place)} · ${EDITOR.age}</div><div class="small" style="margin-top:8px">${esc(EDITOR.bio)}</div></div></div>
+      <div class="tiny muted" style="margin-top:8px">Every selection published here is graded automatically against the final result — the record under Performance is the only opinion that counts. Statistical information, not betting advice. 18+.</div></div>`;
+    return `<div class="card"><div class="editor"><div class="avatar"><img src="editor_sq.jpg" alt="" onerror="this.style.display='none'"></div><div class="grow"><div class="b">${esc(EDITOR.name)}</div><div class="small muted">${esc(EDITOR.role)} · ${esc(EDITOR.place)}</div>${compact ? '' : `<div class="small" style="margin-top:6px">${esc(EDITOR.bio)}</div>`}</div></div>
       ${compact ? '' : `<div class="tiny muted" style="margin-top:8px">Every selection published here is graded automatically against the final result — the record under Performance is the only opinion that counts. Statistical information, not betting advice. 18+.</div>`}</div>`;
   }
   function contactCard(compact) {
@@ -404,7 +430,7 @@ window.PR = (function () {
 
   return { native, settings, state, $, $$, saveSettings, nfetch, getJson, rawUrl, esc, pct, f1, f2, signed, DAYS, MONTHS, parseLocal, tzNow, ymd, stored, persist, cache, prefetchDetails, pubStamp,
     dayName, niceDate, koTime, koShort, toast, pill, bar, wdl, formBadges, md, GROUPS, GROUP_ICON, selGroup, selLabel, selShort, settleSel,
-    liveVerdict, isLive, isFT, indexData, fx, loadDetail, detailCached, detailKey, loadData, statusLine, loadDay, loadTeams, teamsCached, slug, TABS, render, setTab, push, replace,
+    liveVerdict, isLive, isFT, indexData, fx, loadDetail, detailCached, detailKey, loadData, statusLine, loadDay, dayRecord, finalFor, storedIncidents, loadTeams, teamsCached, slug, TABS, render, setTab, push, replace,
     back, openMatch, openTeam, toggleMenu, closeMenu, contactCard, editorCard, teamLink, matchLine, matchRow, segmented, select, scoreBox, statusIcon, CONTACT, APP_VERSION,
     confirmBox, isFav, toggleFav, favList: () => favs, saveFavs,
     icon, flag, badge, fxBadge, skeleton, ring, applyTheme, loadBadges, BADGE_BASE,

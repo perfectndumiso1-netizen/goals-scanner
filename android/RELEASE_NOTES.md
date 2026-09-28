@@ -1,3 +1,11 @@
+## What's new in PlayReport 1.6 — results that stay, sounds you recognise
+- Finished matches keep their final score, half-time score, match statistics (possession, shots, on target, corners, fouls, cards) and the goal timeline with scorers — also after they leave the live list. The Matches tab shows how many matches finished earlier today with a link to their results.
+- Match statistics and goals are now collected for every competition Livescore publishes them for (before, only the big leagues playing that day were covered), so far more matches in the Days archive have full tables.
+- Older matches (past 14 days) open an archive page from the day record: score, statistics, goals, the model's numbers at kick-off and how the bets settled. Nothing is lost when the detailed analysis is retired.
+- Each notification type has its own short sound — goal, kick-off, half/full time, new selection, report published. Preview them under Settings → Notification sounds, or open the Android setting for any alert type from there.
+- Editor card now shows Ndumiso Msani's photo.
+- Small fixes: day-archive rows are always openable, "FT" shown consistently, fouls added to the statistics table.
+
 ## What's new in PlayReport 1.5 — data-first engine
 - Every probability now comes from football data only. Bookmaker prices are shown next to the model as a separate comparison (implied %, difference in points, EV) and never change a model probability.
 - Model xG and Market xG are shown separately on every match page — never blended.

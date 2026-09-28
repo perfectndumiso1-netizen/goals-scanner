@@ -122,7 +122,7 @@ class CheckWorker(ctx: Context, params: WorkerParameters) : Worker(ctx, params) 
                 val mins = java.time.Duration.between(now, ko).toMinutes()
                 if (mins in 0..20) {
                     prefs.edit().putBoolean("ko_$eid", true).apply()
-                    Notifier.notify(ctx, Notifier.CH_MATCH, 7000 + (eid.hashCode() and 0xfff), "⏰ Kick-off in $mins min · ${m.optString("home")} v ${m.optString("away")}",
+                    Notifier.notify(ctx, Notifier.CH_KICKOFF, 7000 + (eid.hashCode() and 0xfff), "⏰ Kick-off in $mins min · ${m.optString("home")} v ${m.optString("away")}",
                         (if (m.has("label")) m.optString("label") + " · " else "") + m.optString("competition", ""), "live")
                 }
             }

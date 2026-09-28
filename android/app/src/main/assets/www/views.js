@@ -343,6 +343,13 @@
       <div style="margin-top:8px">${segmented([['time', `${icon('clock')} By time`], ['comp', `${icon('trend')} By country & competition`]], mode, 'mmode')}</div>
       <div class="chips small-chips" style="margin-top:6px">${[['all', `All ${d.fixtures.length}`], ['live', '🔴 Live'], ['fav', '★ Favourites'], ['major', '🏆 Major'], ['priced', 'Priced'], ['safe', '📈 High probability'], ['ok', 'Enough data']].map(([k, l]) => `<button class="chip tapchip ${filt === k ? 'on' : ''}" data-mf="${k}">${l}</button>`).join('')}
       ${mode === 'time' ? select('fx-sort', [['ko', 'Kick-off'], ['safe', 'Best bet first'], ['O25', 'Over 2.5'], ['O15', 'Over 1.5'], ['BTTS', 'BTTS'], ['H', 'Home win']], key) : ''}</div></div>`];
+    if (!q && (filt === 'all' || filt === 'live')) {
+      // matches that finished earlier today (or yesterday evening) leave the current analysis — point to the day archive
+      const today = ymd(tzNow()); const dayRec = state.days[today]; const have = new Set(d.fixtures.map((f) => f.id));
+      const gone = dayRec && dayRec.fixtures ? dayRec.fixtures.filter((f) => !have.has(f.id) && f.score && f.score.hg != null).length : null;
+      if (gone == null && !state.days[today + '_loading']) { state.days[today + '_loading'] = true; PR.loadDay(today).then(() => PR.render()).catch(() => {}); }
+      if (gone) parts.push(`<div class="card compact list-item tap" data-day-results="${today}"><div class="row"><span>🏁</span><div class="grow small"><b>${gone} match${gone === 1 ? '' : 'es'} finished earlier today</b><div class="tiny muted">Final scores, statistics, goals and how the bets settled</div></div>${icon('next')}</div></div>`);
+    }
     if (!lst.length) parts.push(`<div class="card empty">${filt === 'fav' ? 'No favourite matches yet — open a match and tap ☆ in its header.' : `No matches found${q ? ` for “${esc(q)}”` : ''}.`}</div>`);
     else if (mode === 'time') {
       lst = lst.slice().sort((a, b) => key === 'ko' ? a.kickoff.localeCompare(b.kickoff) || a.competition.localeCompare(b.competition) : key === 'safe' ? best(b) - best(a) : key === 'H' ? (b.x12[0] || 0) - (a.x12[0] || 0) : (b.p[key] || 0) - (a.p[key] || 0));
@@ -379,6 +386,7 @@
     view().innerHTML = parts.join('');
     const inp = $('#fx-search');
     inp.oninput = (e) => { state.search = e.target.value; PR.render(); const i = $('#fx-search'); i.focus(); i.setSelectionRange(i.value.length, i.value.length); };
+    $$('[data-day-results]').forEach((b) => { b.onclick = () => { state.dayView = 'results'; PR.push({ type: 'day', date: b.dataset.dayResults }); }; });
     if (state.focusSearch) { state.focusSearch = false; inp.focus(); }
     const cl = $('#fx-clear'); if (cl) cl.onclick = () => { state.search = ''; PR.render(); };
     const so = $('#fx-sort'); if (so) so.onchange = (e) => { state.sort = e.target.value; PR.render(); };

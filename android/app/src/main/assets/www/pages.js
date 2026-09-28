@@ -2,7 +2,7 @@
 (function (PR) {
   'use strict';
   const { $, $$, esc, pct, f1, f2, signed, state, settings, fx, pill, koShort, koTime, dayName, niceDate, toast, selLabel, selGroup,
-    GROUPS, liveVerdict, isLive, segmented, select, contactCard, teamLink, statusIcon, formBadges, wdl, md, icon, flag, badge, fxBadge, matchRow, ring, skeleton, parseLocal, tzNow } = PR;
+    GROUPS, liveVerdict, isLive, isFT, segmented, select, contactCard, teamLink, statusIcon, formBadges, wdl, md, icon, flag, badge, fxBadge, matchRow, ring, skeleton, parseLocal, tzNow } = PR;
   const GICON = { result: 'shield', dc: 'swap', goals: 'ball', btts: 'swap', team: 'target', corners: 'corner', cards: 'card' };
   const view = () => $('#view');
   const live = PR.live;
@@ -40,11 +40,11 @@
         st = [['Possession', g(T[1], 'Pss'), g(T[2], 'Pss'), '%'], ['Shots', shots(T[1]), shots(T[2])], ['On target', g(T[1], 'Shon'), g(T[2], 'Shon')], ['Corners', g(T[1], 'Cos'), g(T[2], 'Cos')], ['Fouls', g(T[1], 'Fls'), g(T[2], 'Fls')], ['Offsides', g(T[1], 'Ofs'), g(T[2], 'Ofs')], ['Yellow cards', g(T[1], 'Ycs'), g(T[2], 'Ycs')], ['Red cards', g(T[1], 'Rcs'), g(T[2], 'Rcs')]];
       }
     }
-    if (!st && sc && sc.hc != null) st = [['Possession', sc.hposs, sc.aposs, '%'], ['Shots', sc.hs, sc.as], ['On target', sc.hst, sc.ast], ['Corners', sc.hc, sc.ac], ['Yellow cards', sc.hy, sc.ay], ['Red cards', sc.hr, sc.ar]];
+    if (!st && sc && (sc.hc != null || sc.hs != null || sc.hposs != null)) st = [['Possession', sc.hposs, sc.aposs, '%'], ['Shots', sc.hs, sc.as], ['On target', sc.hst, sc.ast], ['Corners', sc.hc, sc.ac], ['Fouls', sc.hf, sc.af], ['Yellow cards', sc.hy, sc.ay], ['Red cards', sc.hr, sc.ar]];
     state.lastStats = st ? st.filter(([, a, b]) => a != null || b != null) : null;
     if (!st) return '';
-    const rows = st.filter(([, a, b]) => a != null || b != null).map(([k, a, b, unit]) => { const tot = (a || 0) + (b || 0); const wa = tot ? (a || 0) / tot : 0.5;
-      return `<div class="statbar"><span class="${a > b ? 'lead' : ''}">${a == null ? '–' : a}${unit || ''}</span><div><div class="k">${k}</div><div class="duo"><span class="l" style="width:${Math.round(wa * 50)}%"></span><span class="r" style="width:${Math.round((1 - wa) * 50)}%"></span></div></div><span class="${b > a ? 'lead' : ''}">${b == null ? '–' : b}${unit || ''}</span></div>`; }).join('');
+    const rows = st.filter(([, a, b]) => a != null || b != null).map(([k, a, b, unit]) => { const tot = (a || 0) + (b || 0); const wa = tot ? (a || 0) / tot : 0, wb = tot ? (b || 0) / tot : 0;
+      return `<div class="statbar"><span class="${a > b ? 'lead' : ''}">${a == null ? '–' : a}${unit || ''}</span><div><div class="k">${k}</div><div class="duo"><span class="l" style="width:${Math.round(wa * 50)}%"></span><span class="r" style="width:${Math.round(wb * 50)}%"></span></div></div><span class="${b > a ? 'lead' : ''}">${b == null ? '–' : b}${unit || ''}</span></div>`; }).join('');
     return rows ? `<div class="card compact"><div class="row"><div class="grow b">${icon('chart', 'sm')} Match statistics</div><span class="tiny muted">${s && isLive(s) ? 'live' : 'full time'}</span></div>${rows}</div>` : '';
   }
   function lineupsBlock(f, s) {
@@ -70,10 +70,15 @@
       PR.loadDetail(page.id, page.d).then(() => PR.render()).catch((e) => { state.details[key] = { error: e.message }; PR.render(); }).finally(() => { delete state.details[key + '_loading']; });
     }
     if (x && x.error) x = null;
+    const drec = PR.dayRecord(page.id);
+    const archived = !x && !f0 && drec && (state.details[key] && state.details[key].error || !key);
+    if (archived) { archiveMatchPage(drec); return; }
     const f = x || f0;
     if (!f) { view().innerHTML = head('Match') + (state.details[key] && state.details[key].error ? `<div class="card empty">This match is no longer available (${esc(state.details[key].error)}).</div>` : skeleton(6)); wireBack(); return; }
     ensureTeams(f.div);
-    const s = live.for(f); const d = state.data; const v = state.matchView || 'overview';
+    const fin = PR.finalFor(f);
+    const s0 = live.for(f); const s = s0 && s0.hg != null ? s0 : (fin ? { status: 'FT', hg: fin.hg, ag: fin.ag, ht: [fin.hth, fin.hta], t: 0, stored: true } : s0);
+    const d = state.data; const v = state.matchView || 'overview';
     const th = rec(f.div, f.home), ta = rec(f.div, f.away);
     const fav = PR.isFav(f.id);
     const parts = [head(`${flag(f.country)} ${esc(f.competition)}`, `${esc(dayName(f.kickoff))} · ${esc(koTime(f.kickoff))} ${esc(d.meta.tz)}${f.time_known === false ? ' (time to be confirmed)' : ''}${f.referee ? ' · referee ' + esc(f.referee) : ''}`,
@@ -83,7 +88,7 @@
     const sq = (x && x.squad) || {}; const val = (side) => sq[side] && sq[side].value ? `<div class="value-tag">💶 ${fmtValue(sq[side].value)}</div>` : '';
     parts.push(`<div class="card mhead"><div class="teams">
       <div class="t">${fxBadge(f, 'home').replace('s24', 's56')}${teamLink(f, 'home')}<div class="tiny muted">${th && th.pos ? `${th.pos}${ord(th.pos)} · ${th.all.pts} pts` : 'Home'}</div>${form(teams.home)}${val('home')}</div>
-      <div class="mid">${s && s.hg != null ? `<div class="score big">${s.hg} – ${s.ag}</div><div class="minute ${isLive(s) ? 'on' : 'ft'}">${esc(s.status)}</div>` : `<div class="score big muted">${esc(koTime(f.kickoff))}</div><div class="tiny muted">${esc(koShort(f.kickoff).split(' ')[0])} · ${esc(d.meta.tz)}</div>`}</div>
+      <div class="mid">${s && s.hg != null ? `<div class="score big">${s.hg} – ${s.ag}</div><div class="minute ${isLive(s) ? 'on' : 'ft'}">${esc(isFT(s) ? 'FT' : s.status)}</div>${s.ht && s.ht[0] != null && s.ht[0] !== '' ? `<div class="tiny muted">HT ${esc(s.ht[0])}–${esc(s.ht[1])}</div>` : ''}` : `<div class="score big muted">${esc(koTime(f.kickoff))}</div><div class="tiny muted">${esc(koShort(f.kickoff).split(' ')[0])} · ${esc(d.meta.tz)}</div>`}</div>
       <div class="t">${fxBadge(f, 'away').replace('s24', 's56')}${teamLink(f, 'away')}<div class="tiny muted">${ta && ta.pos ? `${ta.pos}${ord(ta.pos)} · ${ta.all.pts} pts` : 'Away'}</div>${form(teams.away)}${val('away')}</div></div>
       <div class="x12"><div class="lbl"><span>${esc(f.home)} ${pct(x12(f, 'H'))}</span><span>Draw ${pct(x12(f, 'D'))}</span><span>${esc(f.away)} ${pct(x12(f, 'A'))}</span></div>
         <div class="tri"><span class="h" style="width:${Math.round((x12(f, 'H') || 0) * 100)}%"></span><span class="d" style="width:${Math.round((x12(f, 'D') || 0) * 100)}%"></span><span class="a" style="width:${Math.round((x12(f, 'A') || 0) * 100)}%"></span></div></div>
@@ -104,6 +109,38 @@
     const dl = $('#dl-csv'); if (dl) dl.onclick = () => PR.downloadMatchCsv(x, s, state.lastStats);
     $$('[data-mv]').forEach((b) => { b.onclick = () => { state.matchView = b.dataset.mv; PR.render(); }; });
   };
+  /** Goals / red cards: live incidents while the match is on, the stored ones from the archive afterwards. */
+  function eventsCard(f, fin) {
+    const live = f.livescore_id && state.incidents[f.livescore_id];
+    const items = live && live.items.length ? live.items : PR.storedIncidents(fin);
+    if (!items || !items.length) return '';
+    const side = (t) => `<div class="ev ${t === 'H' ? 'h' : 'a'}">`;
+    return `<div class="card compact"><div class="row"><div class="grow b">${icon('ball', 'sm')} Match events</div><span class="tiny muted">${live && live.items.length ? 'live' : 'archive'}</span></div>
+      <div class="events">${items.map((it) => `${side(it.team)}<span class="who">${it.team === 'H' ? esc(f.home) : esc(f.away)}</span><span class="what">${PR.incidentLine(it)}</span></div>`).join('')}</div></div>`;
+  }
+  /** Match page for a finished match whose detailed analysis file has been retired: everything comes from the
+   *  day archive (final score, half-time, statistics, goals, the model's numbers at kick-off and the bets). */
+  function archiveMatchPage(r) {
+    const sc = r.score || {}; const fin = sc.hg != null ? sc : null; const d = state.data;
+    const f = { id: r.id, home: r.home, away: r.away, home_long: r.home_long, away_long: r.away_long, country: r.country, league: r.league, competition: r.competition, div: r.div, kickoff: r.kickoff, livescore_id: r.livescore_id, badges: r.badges, p: r.p || {}, xg: r.xg, x12: r.x12, data_ok: r.data_ok };
+    const s = fin ? { status: sc.status || 'FT', hg: sc.hg, ag: sc.ag, ht: [sc.hth, sc.hta], t: 0 } : (sc.status ? { status: sc.status, hg: null, ag: null } : null);
+    const parts = [head(`${flag(f.country)} ${esc(f.competition || f.league || '')}`, `${esc(dayName(f.kickoff))} · ${esc(koTime(f.kickoff))} ${esc(d.meta.tz)} · archive`)];
+    parts.push(`<div class="card mhead"><div class="teams">
+      <div class="t">${fxBadge(f, 'home').replace('s24', 's56')}<div class="nm b">${esc(f.home_long || f.home)}</div><div class="tiny muted">Home</div></div>
+      <div class="mid">${s && s.hg != null ? `<div class="score big">${s.hg} – ${s.ag}</div><div class="minute ft">FT</div>${s.ht && s.ht[0] != null ? `<div class="tiny muted">HT ${s.ht[0]}–${s.ht[1]}</div>` : ''}` : `<div class="score big muted">${esc(koTime(f.kickoff))}</div><div class="tiny muted">${esc(s && s.status ? s.status : 'no result recorded')}</div>`}</div>
+      <div class="t">${fxBadge(f, 'away').replace('s24', 's56')}<div class="nm b">${esc(f.away_long || f.away)}</div><div class="tiny muted">Away</div></div></div>
+      ${Array.isArray(f.x12) && f.x12[0] != null ? `<div class="x12"><div class="lbl"><span>${esc(f.home)} ${pct(f.x12[0])}</span><span>Draw ${pct(f.x12[1])}</span><span>${esc(f.away)} ${pct(f.x12[2])}</span></div><div class="tri"><span class="h" style="width:${Math.round(f.x12[0] * 100)}%"></span><span class="d" style="width:${Math.round(f.x12[1] * 100)}%"></span><span class="a" style="width:${Math.round(f.x12[2] * 100)}%"></span></div></div>` : ''}</div>`);
+    const st = statsCard(f, s, fin); if (st) parts.push(st);
+    else if (fin) parts.push(`<div class="card tiny muted">No match statistics were published for this competition. The final score${fin.inc ? ' and goals are' : ' is'} kept.</div>`);
+    const evs = eventsCard(f, fin); if (evs) parts.push(evs);
+    if (f.xg || (f.p && f.p.O25 != null)) parts.push(`<div class="card compact"><div class="b">Model at kick-off</div><div class="grid4" style="margin-top:6px">${Array.isArray(f.xg) ? `<div class="cell"><div class="k">Model xG</div><div class="v">${f1(f.xg[0])} – ${f1(f.xg[1])}</div></div>` : ''}<div class="cell"><div class="k">Over 1.5</div><div class="v">${pct(f.p.O15)}</div></div><div class="cell"><div class="k">Over 2.5</div><div class="v">${pct(f.p.O25)}</div></div><div class="cell"><div class="k">BTTS</div><div class="v">${pct(f.p.BTTS)}</div></div></div>
+      ${(r.top || []).length ? `<div class="tiny muted" style="margin-top:6px">Top priced selections at the time: ${r.top.map((t) => `${esc(t.label || t[0] || '')}${t.p != null ? ' ' + pct(t.p) : ''}${t.odds ? ' @ ' + f2(t.odds) : ''}`).join(' · ')}</div>` : ''}</div>`);
+    const bets = r.bets || [];
+    if (bets.length) parts.push(`<div class="card compact"><div class="b">Bets on this match</div><div class="chips" style="margin-top:6px">${bets.map((b) => `<span class="chip ${b.status === 'hit' ? 'good' : b.status === 'miss' ? 'bad' : ''}">${b.botd ? '⭐ ' : ''}${esc(b.label)}${b.odds ? ' @ ' + f2(b.odds) : ''} ${statusIcon(b.status)}</span>`).join('')}</div></div>`);
+    parts.push(`<div class="card tiny muted">The full pre-match analysis (trends, markets, data audit) is kept for 14 days; the result, statistics and goals stay in the day archive for 60 days.</div>`);
+    view().innerHTML = parts.join('');
+    wireBack();
+  }
   function matchOverview(parts, f, s) {
     const xg = f.xg || {}; const q = f.quality || null; const conf = f.confidence || {};
     const mk = xg.market_home != null ? `<div class="cell" style="display:inline-block;margin-left:10px"><div class="k">Market xG</div><div class="v muted">${f1(xg.market_home)} – ${f1(xg.market_away)}</div><div class="tiny muted">total ${f2(xg.market_total)}</div></div>` : `<div class="cell" style="display:inline-block;margin-left:10px"><div class="k">Market xG</div><div class="v muted">N/A</div><div class="tiny muted">no prices</div></div>`;
@@ -112,7 +149,10 @@
       <div class="tiny muted" style="margin-top:8px"><b>Model probabilities</b> from football data only (goals, form, venue, league baseline) — bookmaker prices are compared, never blended in. Confidence ${esc(conf.O25 || 'N/A')}${q ? ` · data quality ${esc(q.overall)}` : ''} · samples ${(f.teams.home || {}).n || 0} / ${(f.teams.away || {}).n || 0} matches · league avg ${f2((f.league_avg.home_goals || 0) + (f.league_avg.away_goals || 0))} goals, O2.5 in ${pct(f.league_avg.o25)}${xg.market_total != null ? ` · model v market total ${(xg.total - xg.market_total) >= 0 ? '+' : ''}${f2(xg.total - xg.market_total)}` : ''}</div></div>`);
     const warns = (f.warnings || []).filter((w) => w.level === 'warn');
     if (warns.length) parts.push(`<div class="card compact"><div class="b">${icon('alert', 'sm')} Checks</div><div class="small" style="margin-top:4px">${warns.slice(0, 4).map((w) => `<div>⚠️ ${esc(w.text)}</div>`).join('')}</div><div class="tiny muted" style="margin-top:4px">All checks under Data.</div></div>`);
-    const sc0 = statsCard(f, s, null); if (sc0) parts.push(sc0);
+    const fin0 = PR.finalFor(f);
+    const sc0 = statsCard(f, s, fin0); if (sc0) parts.push(sc0);
+    else if (s && s.hg != null && !isLive(s)) parts.push(`<div class="card tiny muted">No match statistics were published for this competition (Livescore covers statistics for the bigger leagues only). The final score and goals are kept.</div>`);
+    const evs = eventsCard(f, fin0); if (evs) parts.push(evs);
     const bets = betsOn(f.id);
     if (bets.length) parts.push(`<div class="card compact"><div class="b">Bets on this match</div><div class="chips" style="margin-top:6px">${bets.map((b) => { const vd = liveVerdict(b.sel, s); return `<span class="chip ${vd.cls}">${esc(b.kind)}: ${esc(b.label)}${b.odds ? ' @ ' + f2(b.odds) : ''} · ${esc(vd.text)}</span>`; }).join('')}</div></div>`);
     const best = f.sels.filter((x) => x.odds && x.odds >= 1.25 && !x.diff).slice(0, 5);
@@ -129,8 +169,6 @@
         ${sb.BTTS ? `<tr><td>Both teams to score</td><td class="right">${f2(sb.BTTS[0])}</td><td></td><td class="right">${f2(sb.BTTS[1])}</td></tr>` : ''}</table>
         <div class="tiny muted" style="margin-top:4px">Prices are payout information and a comparison layer — they never change the model probability. All lines under Markets.</div></div>`);
     } else parts.push(`<div class="card tiny muted">No Sportybet price for this match — no market comparison available.</div>`);
-    const inc = f.livescore_id && state.incidents[f.livescore_id];
-    if (inc && inc.items.length) parts.push(`<div class="card compact"><div class="b">Match events</div><div class="small" style="margin-top:6px">${inc.items.map((it) => `<div>${it.team === 'H' ? '' : '<span class="muted">(away) </span>'}${PR.incidentLine(it)}</div>`).join('')}</div></div>`);
     setTimeout(() => { const g = $('#go-trends'); if (g) g.onclick = () => { state.matchView = 'trends'; PR.render(); }; }, 0);
   }
   const TICON = { goals: '⚽', ht: '⏱️', corners: '🚩', cards: '🟨', form: '📈', info: 'ℹ️' };
@@ -358,7 +396,7 @@
     parts.push(`<div class="card"><div class="grid4">${box('⭐ Bets of the day', s.botd, 'hit')}${box(icon('trend', 'sm') + ' High probability', s.safes, 'hit')}${box(icon('star', 'sm') + ' Shortlist', s.picks, 'hit')}</div>
       ${s.finished ? `<div class="tiny muted" style="margin-top:6px">Finished matches: Over 2.5 in ${pct(s.o25_rate)}, BTTS in ${pct(s.btts_rate)}.</div>` : ''}</div>`);
     parts.push(`<div class="card compact">${segmented([['results', 'Results'], ['bets', 'Bets']], v, 'dv')}</div>`);
-    const openable = (f) => fx(f.id) || f.d;
+    const openable = (f) => true;   // live analysis, retained detail file, or the archive record itself
     const tapAttrs = (f) => openable(f) ? `class="tap" data-fx="${esc(f.id)}" ${f.d ? `data-d="${esc(f.d)}"` : ''}` : '';
     if (v === 'results') {
       let lastComp = null;
@@ -368,7 +406,7 @@
         if (f.competition !== lastComp) { parts.push(`<div class="comp-head">${flag(f.country)} ${esc(f.competition)}</div>`); lastComp = f.competition; }
         const sc = f.score; const fin = sc && sc.hg != null;
         const seenB = new Set();
-        const marks = (f.bets || []).filter((b) => { const k = b.sel; if (seenB.has(k)) return false; seenB.add(k); return true; }).map((b) => `<span class="chip ${b.status === 'hit' ? 'good' : b.status === 'miss' ? 'bad' : ''}">${b.botd ? '⭐' : icon(b.kind === 'safe' ? 'lock' : 'star')} ${esc(b.label)}${b.odds ? ' @ ' + f2(b.odds) : ''} ${statusIcon(b.status)}</span>`).join('');
+        const marks = (f.bets || []).filter((b) => { const k = b.sel; if (seenB.has(k)) return false; seenB.add(k); return true; }).map((b) => `<span class="chip ${b.status === 'hit' ? 'good' : b.status === 'miss' ? 'bad' : ''}">${b.botd ? '⭐' : icon(b.kind === 'safe' ? 'trend' : 'star')} ${esc(b.label)}${b.odds ? ' @ ' + f2(b.odds) : ''} ${statusIcon(b.status)}</span>`).join('');
         const stats = fin && sc.hc != null ? `<span class="tiny muted">HT ${sc.hth != null ? `${sc.hth}–${sc.hta}` : '–'} · corners ${sc.hc}–${sc.ac}${sc.hy != null ? ` · 🟨 ${sc.hy}–${sc.ay}` : ''}${sc.hr ? ` · 🟥 ${sc.hr}` : ''}${sc.ar ? `–${sc.ar}` : ''}</span>` : fin && sc.hth != null ? `<span class="tiny muted">HT ${sc.hth}–${sc.hta}</span>` : '';
         const row = matchRow(f, { tap: !!openable(f), short: true, sub: (stats ? stats : '') + (marks ? `<div class="chips">${marks}</div>` : ''), right: fin ? '' : `<span class="tiny muted">xG ${f1(f.xg[0])}–${f1(f.xg[1])}</span><span class="tiny muted">O2.5 ${pct(f.p.O25)}</span>` });
         parts.push(f.d ? row.replace('<div class="mrow', `<div data-d="${esc(f.d)}" class="mrow`) : row);
@@ -456,6 +494,10 @@
       <label class="row" style="margin-top:6px"><input type="checkbox" id="s-ht" ${settings.htAlerts ? 'checked' : ''}> <span class="grow">⏸ Half-time results of tracked matches</span></label>
       <label class="row" style="margin-top:6px"><input type="checkbox" id="s-ft" ${settings.ftAlerts !== false ? 'checked' : ''}> <span class="grow">🏁 Full-time results of tracked matches · tickets won / lost</span></label>
       <label class="row" style="margin-top:6px"><input type="checkbox" id="s-ko" ${settings.koAlerts !== false ? 'checked' : ''}> <span class="grow">⏰ Kick-off reminders (15 min before) for favourites and ticket matches</span></label></div>`);
+    const SOUNDS = [['goals', 'goal', '⚽ Goal'], ['kickoff', 'kickoff', '⏰ Kick-off'], ['match', 'fulltime', '🏁 Half / full time'], ['bets', 'selection', '📈 New selection'], ['reports', 'report', '📊 Report published']];
+    parts.push(`<div class="card settings"><h2>${icon('bell')} Notification sounds</h2>
+      <div class="small muted">Each alert type has its own short sound so you know what arrived without looking. Tap ▶ to preview; the gear opens Android's settings for that alert (sound, vibration, silent).</div>
+      <div class="sounds">${SOUNDS.map(([ch, file, label]) => `<div class="row snd"><button class="btn sm" data-play="${file}">▶</button><span class="grow">${label}</span>${PR.native && PR.native.openChannelSettings ? `<button class="btn sm" data-chan="${ch}" title="Android settings">${icon('settings', 'sm')}</button>` : ''}</div>`).join('')}</div></div>`);
     parts.push(`<div class="card settings"><h2>${icon('moon')} Appearance</h2>${segmented([['system', 'System'], ['light', 'Light'], ['dark', 'Dark']], settings.theme || 'system', 'th')}
       <div class="tiny muted" style="margin-top:6px">System follows your phone's dark-mode setting.</div></div>`);
     parts.push(`<div class="card settings"><h2>${icon('clock')} Display</h2>
@@ -490,5 +532,7 @@
     const wn = $('#s-whatsnew'); if (wn) wn.onclick = () => { settings.seenVersion = ''; PR.saveSettings(); state.stack = []; PR.setTab('home'); };
     const c = $('#s-check'); if (c) c.onclick = () => { toast('Checking…'); state.updateChecked = 'manual'; if (PR.native && PR.native.checkUpdate) PR.native.checkUpdate(); else toast('Updates are only available in the Android app'); };
     const i = $('#s-install'); if (i) i.onclick = () => PR.startUpdate();
+    $$('[data-play]').forEach((b) => { b.onclick = () => { try { const a = new Audio(`sounds/pr_${b.dataset.play}.ogg`); a.volume = 0.9; a.play().catch(() => toast('Preview not available here')); } catch (e) { toast('Preview not available here'); } }; });
+    $$('[data-chan]').forEach((b) => { b.onclick = () => { try { PR.native.openChannelSettings(b.dataset.chan); } catch (e) { toast('Open Android Settings → Apps → PlayReport → Notifications'); } }; });
   };
 })(window.PR);

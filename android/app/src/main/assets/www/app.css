@@ -382,9 +382,23 @@ body.has-slip #view { padding-bottom: 70px; }
 .editor { display: flex; gap: 12px; align-items: center; }
 .editor .avatar { width: 56px; height: 56px; border-radius: 50%; background: linear-gradient(135deg, #0f2a4a, #2b6cb0); color: #fff; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 20px; flex: 0 0 auto; overflow: hidden; }
 .editor .avatar img { width: 100%; height: 100%; object-fit: cover; }
+.editor.full { align-items: flex-start; }
+.editor .portrait { width: 112px; height: 140px; border-radius: 14px; overflow: hidden; flex: 0 0 auto; box-shadow: 0 2px 8px rgba(0,0,0,.18); background: var(--card-2); }
+.editor .portrait img { width: 100%; height: 100%; object-fit: cover; display: block; }
 .tbl .addsel { width: 26px; height: 26px; font-size: 16px; margin-left: 4px; }
 
 /* release notes lists (update pop-up, settings) */
 ul.notes { margin: 6px 0 0; padding-left: 18px; font-size: 13px; color: var(--text); }
 ul.notes li { margin: 3px 0; }
 .modal-text .small { color: var(--text); }
+
+/* match events (goals, red cards) */
+.events{margin-top:6px;display:flex;flex-direction:column;gap:4px;font-size:13px}
+.events .ev{display:flex;gap:6px;align-items:baseline;padding:3px 0;border-bottom:1px solid var(--line)}
+.events .ev:last-child{border-bottom:0}
+.events .ev .who{font-size:11px;color:var(--muted);min-width:72px;max-width:42%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.events .ev.a .who{color:var(--muted)}
+.events .ev.a{flex-direction:row-reverse;text-align:right}
+.sounds{margin-top:8px;display:flex;flex-direction:column;gap:6px}
+.sounds .snd{gap:10px}
+.sounds .btn.sm{padding:4px 10px;min-width:38px}
