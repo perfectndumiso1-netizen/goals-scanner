@@ -44,7 +44,13 @@ jobs:
           cache: pip
 
       - name: Install dependencies
-        run: pip install -r requirements.txt
+        # wheels only + retries: a PyPI hiccup once made pip fall back to building pandas from source and the run failed
+        run: |
+          for i in 1 2 3; do
+            pip install --only-binary=:all: --retries 10 --timeout 60 -r requirements.txt && break
+            echo "pip attempt $i failed, retrying"; sleep 20
+          done
+          python -c "import pandas, numpy, requests, reportlab; print(pandas.__version__, numpy.__version__)"
 
       - name: Restore state (data branch)
         run: |

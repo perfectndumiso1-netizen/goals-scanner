@@ -1,6 +1,6 @@
 # Data audit — Leganes v Castellon
 
-Spain · Segunda División (Spain) · kick-off 2026-09-28 20:30 · generated 2026-09-28 12:56
+Spain · Segunda División (Spain) · kick-off 2026-09-28 20:30 · generated 2026-09-28 13:03
 
 Vocabulary: **historical frequency** = what happened in the sample; **model probability** = football-data model (Dixon-Coles); **market implied** = bookmaker price with the margin removed (comparison only, never a model input).
 
@@ -18,15 +18,15 @@ Vocabulary: **historical frequency** = what happened in the sample; **model prob
 | venue | 1.00 | Leganes home matches: 19, Castellon away matches: 20 in sample |
 | verification | 1.00 | football-data.co.uk results (verified feed) + Livescore |
 
-Missing fields: none. Sources: football-data.co.uk results (verified feed) + Livescore. Data collected: 2026-09-28 12:56.
+Missing fields: none. Sources: football-data.co.uk results (verified feed) + Livescore. Data collected: 2026-09-28 13:03.
 
 ## 2a. Team profile — Leganes (home)
 
 * Sample: **40 matches** (Very strong evidence), 2025-10-11 → 2026-09-20, last match 8 days ago
 * Composition: current season 6, previous 34; home 19, away 21; competitions: Segunda División (40); friendlies included 0, excluded 0
 * Fields present: xG in 6, shots on target in 40, corners in 40, cards in 40 of 40 matches
-* Ratings (1.00 = competition average): raw attack 0.735 / defence 0.896; venue raw 0.948 / 0.914 (venue weight 0.254); after venue blend 0.789 / 0.9; **after shrinkage 0.909 / 1.003** (weighted matches 14.7)
-* Opponent context (information only, not a model input): average opponent attack faced 0.991 / defence faced 1.006; opponent-adjusted raw attack 0.731 / defence 0.904
+* Ratings (1.00 = competition average): raw attack 0.735 / defence 0.895; venue raw 0.948 / 0.914 (venue weight 0.254); after venue blend 0.789 / 0.9; **after shrinkage 0.909 / 1.003** (weighted matches 14.7)
+* Opponent context (information only, not a model input): average opponent attack faced 0.99 / defence faced 1.006; opponent-adjusted raw attack 0.731 / defence 0.904
 
 **Recent form v baseline** (historical frequencies; the model's time-weighting already includes them)
 
@@ -99,8 +99,8 @@ Missing fields: none. Sources: football-data.co.uk results (verified feed) + Liv
 * Sample: **40 matches** (Very strong evidence), 2025-10-12 → 2026-09-19, last match 9 days ago
 * Composition: current season 6, previous 34; home 20, away 20; competitions: Segunda División (40); friendlies included 0, excluded 0
 * Fields present: xG in 6, shots on target in 40, corners in 40, cards in 40 of 40 matches
-* Ratings (1.00 = competition average): raw attack 1.365 / defence 0.671; venue raw 1.267 / 0.735 (venue weight 0.265); after venue blend 1.339 / 0.688; **after shrinkage 1.268 / 0.771** (weighted matches 14.7)
-* Opponent context (information only, not a model input): average opponent attack faced 0.988 / defence faced 1.007; opponent-adjusted raw attack 1.356 / defence 0.679
+* Ratings (1.00 = competition average): raw attack 1.364 / defence 0.671; venue raw 1.267 / 0.734 (venue weight 0.265); after venue blend 1.339 / 0.688; **after shrinkage 1.268 / 0.771** (weighted matches 14.7)
+* Opponent context (information only, not a model input): average opponent attack faced 0.988 / defence faced 1.007; opponent-adjusted raw attack 1.355 / defence 0.679
 
 **Recent form v baseline** (historical frequencies; the model's time-weighting already includes them)
 
