@@ -78,6 +78,33 @@ def check_publication(staging: Path, live: Path, ledger: Path, now: datetime, ex
                 errors.append(f"missing {side} team for {fid}")
     if n_detail_missing:
         (errors if n_detail_missing > 3 else warns).append(f"{n_detail_missing} fixture(s) without a detail file")
+    # ---- data-first engine: the detail files must carry the evidence layer and no market-contaminated probability
+    n_checked = n_noq = n_blend = 0
+    for f in fixtures:
+        key = f.get("d")
+        fp = staging / "fx" / f"{key}.json"
+        if not key or not fp.exists() or f.get("frozen"):
+            continue
+        try:
+            det = json.loads(fp.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            continue
+        n_checked += 1
+        q = det.get("quality") or {}
+        if q.get("overall") not in ("High", "Medium", "Low"):
+            n_noq += 1
+        for s in det.get("sels") or []:
+            if len(s) >= 3 and _num(s[1]) and _num(s[2]) and abs(s[1] - s[2]) > 1e-6:
+                n_blend += 1
+                break
+        xg = det.get("xg") or {}
+        if _num(xg.get("home")) and _num(xg.get("model_home")) and abs(xg["home"] - xg["model_home"]) > 1e-6:
+            n_blend += 1
+    if n_checked and n_noq:
+        (errors if n_noq > 3 else warns).append(f"{n_noq} of {n_checked} detail files without a data-quality assessment")
+    if n_blend:
+        errors.append(f"{n_blend} detail file(s) where a published probability / xG differs from the football-data model "
+                      "(market contamination)")
     sf = d.get("safe") or {}
     min_p, min_odds = float(sf.get("min_p") or 0.7), float(sf.get("min_odds") or 1.3)
     for b in sf.get("bets") or []:

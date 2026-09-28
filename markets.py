@@ -6,9 +6,11 @@ Everything here is backtested in backtest/markets_backtest.py (main leagues, 202
              ~2 points on the 8.5-11.5 lines; beats the league-average baseline (log-loss 0.687 vs 0.693).
 * cards    – team card rates (received / provoked) with a referee factor (UK leagues publish referees),
              shrinkage K=20, negative binomial size 30. Calibrated within ~2 points on 3.5-5.5 lines.
-* 1X2 / DC – Dixon-Coles score matrix blended 10/90 with the bookmaker 1X2 prices; the prices are
-             de-margined with the *power* method, which removes the favourite-longshot bias that
-             proportional de-margining leaves behind (favourites were under-estimated by 3-5 points).
+* 1X2 / DC – straight from the Dixon-Coles score matrix of the football-data model (data-first engine,
+             2026-09-28: the old 10/90 blend with bookmaker prices was removed; with the two-strength
+             shrinkage the model-only home/away win probabilities are calibrated within ~2 points, see
+             backtest/RESULTS.md). Bookmaker 1X2 prices are de-margined with the *power* method and kept
+             as a separate comparison layer.
 * team goals – straight from the score matrix (calibrated within ~2 points up to 80%).
 """
 from __future__ import annotations
@@ -27,7 +29,6 @@ CORNERS = {"K": 40.0, "KV": 20.0, "HL": 120.0, "r_total": 80.0, "r_team": 10.0, 
 CARDS = {"K": 20.0, "KV": 20.0, "HL": 120.0, "r_total": 30.0, "r_team": 8.0, "div_K": 30.0, "K_ref": 10.0,
          "lines_total": (3.5, 4.5, 5.5), "lines_team": (1.5, 2.5)}
 MAX_N, MAX_DAYS = 40, 400
-MARKET_1X2_WEIGHT = 0.9
 
 
 # ----------------------------------------------------------------------------- odds helpers
@@ -221,21 +222,15 @@ def count_lines(exp: CountExpectation | None, params: dict) -> dict:
 
 
 # ----------------------------------------------------------------------------- 1X2 / DC / team goals
-def one_x_two(M: np.ndarray, odds_h=None, odds_d=None, odds_a=None, w: float = MARKET_1X2_WEIGHT) -> dict:
-    """Home / draw / away and double-chance probabilities. M = score matrix (home rows, away cols)."""
+def one_x_two(M: np.ndarray) -> dict:
+    """Home / draw / away and double-chance probabilities read off the model score matrix (home rows, away cols).
+    Data-first engine (2026-09-28): bookmaker prices are no longer blended in here — the de-margined market 1X2 is
+    kept separately (MatchRow.x12_market) for comparison only."""
     g = np.arange(M.shape[0])
     pH = float(M[g[:, None] > g[None, :]].sum())
     pA = float(M[g[:, None] < g[None, :]].sum())
     pD = max(0.0, 1.0 - pH - pA)
-    src = "model"
-    vals = [odds_h, odds_d, odds_a]
-    if all(v is not None and not (isinstance(v, float) and math.isnan(v)) and v > 1 for v in vals):
-        mH, mD, mA = power_demargin(vals)
-        pH, pD, pA = (1 - w) * pH + w * mH, (1 - w) * pD + w * mD, (1 - w) * pA + w * mA
-        s = pH + pD + pA
-        pH, pD, pA = pH / s, pD / s, pA / s
-        src = "market+model"
-    return {"H": pH, "D": pD, "A": pA, "1X": pH + pD, "12": pH + pA, "X2": pD + pA, "source": src}
+    return {"H": pH, "D": pD, "A": pA, "1X": pH + pD, "12": pH + pA, "X2": pD + pA, "source": "model"}
 
 
 def team_goals(M: np.ndarray) -> dict:
@@ -251,4 +246,4 @@ class ExtraMarkets:
     corner_p: dict = field(default_factory=dict)
     cards: CountExpectation | None = None
     card_p: dict = field(default_factory=dict)
-    p_o25_fair: float = float("nan")              # calibrated O2.5 probability used for parlay legs / EV
+    p_o25_fair: float = float("nan")              # market-implied O2.5 from the reference odds (comparison only)

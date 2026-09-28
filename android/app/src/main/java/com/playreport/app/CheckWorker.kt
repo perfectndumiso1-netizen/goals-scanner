@@ -10,8 +10,8 @@ import org.json.JSONObject
  * Runs every ~15 minutes in the background (WorkManager). Reads the tiny meta.json heartbeat first, so the
  * half-hourly refreshes cost almost no data:
  *  1. a full analysis (07:00 / 12:00 / 17:00 run) was published -> notification
- *  2. new safest bets found by any run                          -> notification per bet (max 4, then a summary)
- *  3. tracked matches (safest bets, bets of the day, shortlist, the user's tickets):
+ *  2. new high-probability selections found by any run                          -> notification per bet (max 4, then a summary)
+ *  3. tracked matches (high-probability selections, bets of the day, shortlist, the user's tickets):
  *     goals with the scorer, half-time and full-time scores       -> notifications (each switchable in Settings)
  *  4. the user's pending tickets settled from the final scores   -> notification
  *  5. newer app version                                          -> notification (every 6 h at most)
@@ -33,13 +33,13 @@ class CheckWorker(ctx: Context, params: WorkerParameters) : Worker(ctx, params) 
             if (lastGen != null && prefs.getBoolean("pref_reports", true)) {
                 val run = meta.optString("run").let { if (it.startsWith("manual") || it.startsWith("auto")) "update" else "$it run" }
                 Notifier.notify(ctx, Notifier.CH_REPORTS, 1001, "New PlayReport analysis ($run)",
-                    "${meta.optInt("safe_bets")} safest bets · ${meta.optJSONArray("botd")?.length() ?: 0} bets of the day · ${meta.optInt("fixtures")} fixtures worldwide", "home")
+                    "${meta.optInt("safe_bets")} high-probability selections · ${meta.optJSONArray("botd")?.length() ?: 0} bets of the day · ${meta.optInt("fixtures")} fixtures worldwide", "home")
             }
         } else if (lastGen == null && generated.isNotEmpty()) {
             prefs.edit().putString("last_generated", generated).apply()
         }
 
-        // 2. new safest bets
+        // 2. new high-probability selections
         try { checkAlerts(ctx, meta) } catch (_: Exception) { }
 
         // 3 + 4. tracked matches and tickets
@@ -83,10 +83,10 @@ class CheckWorker(ctx: Context, params: WorkerParameters) : Worker(ctx, params) 
         if (items.isEmpty()) return
         if (items.size <= 4) {
             for (a in items) Notifier.notify(ctx, Notifier.CH_BETS, 2000 + (a.optString("id").hashCode() and 0xffff),
-                a.optString("title", "New safest bet"), a.optString("text"), "bets")
+                a.optString("title", "New high-probability selection"), a.optString("text"), "bets")
         } else {
             val body = items.take(6).joinToString("\n") { "• " + it.optString("text") } + if (items.size > 6) "\n…and ${items.size - 6} more" else ""
-            Notifier.notify(ctx, Notifier.CH_BETS, 2001, "${items.size} new safest bets found", body, "bets")
+            Notifier.notify(ctx, Notifier.CH_BETS, 2001, "${items.size} new high-probability selections", body, "bets")
         }
     }
 

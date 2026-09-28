@@ -66,9 +66,18 @@ def _long(df: pd.DataFrame) -> pd.DataFrame:
     return lg.sort_values("date", ascending=False).reset_index(drop=True)
 
 
+def _evidence(n: int) -> str:
+    """Sample-size label shared with quality.py (1-4 Very small, 5-9 Small, 10-19 Moderate, 20-39 Strong, 40+ Very strong)."""
+    try:
+        import quality
+        return quality.evidence_label(n)
+    except Exception:
+        return "No data" if n < 1 else "Very small" if n < 5 else "Small" if n < 10 else "Moderate" if n < 20 else "Strong" if n < 40 else "Very strong"
+
+
 def _split(g: pd.DataFrame) -> dict:
     n = len(g)
-    return {"p": n, "w": int((g["res"] == "W").sum()), "d": int((g["res"] == "D").sum()), "l": int((g["res"] == "L").sum()),
+    return {"p": n, "evidence": _evidence(n), "w": int((g["res"] == "W").sum()), "d": int((g["res"] == "D").sum()), "l": int((g["res"] == "L").sum()),
             "gf": int(g["gf"].sum()), "ga": int(g["ga"].sum()), "pts": int(g["pts"].sum()),
             "ppg": round(float(g["pts"].mean()), 2) if n else None,
             "gf_avg": _mean(g["gf"]), "ga_avg": _mean(g["ga"]),
@@ -86,6 +95,11 @@ def team_record(lg_team: pd.DataFrame, season: pd.DataFrame, name: str, country:
                    "sot_for": _mean(season["sotf"]), "sot_against": _mean(season["sota"]),
                    "corners_for": _mean(season["cf"]), "corners_against": _mean(season["ca"]),
                    "cards_for": _mean(season["kf"]), "cards_against": _mean(season["ka"])},
+           # how many season matches actually carry each field (missing fields stay None / N/A, never 0)
+           "avg_n": {"xg": int(pd.to_numeric(season["xgf"], errors="coerce").notna().sum()),
+                     "sot": int(pd.to_numeric(season["sotf"], errors="coerce").notna().sum()),
+                     "corners": int(pd.to_numeric(season["cf"], errors="coerce").notna().sum()),
+                     "cards": int(pd.to_numeric(season["kf"], errors="coerce").notna().sum())},
            "form": "".join(season.head(5)["res"].tolist()[::-1]),
            "last": [{"date": r.date.strftime("%Y-%m-%d"), "venue": r.venue, "opp": r.opp, "gf": int(r.gf), "ga": int(r.ga),
                      "r": r.res, "league": r.league} for r in lg_team.head(10).itertuples()]}

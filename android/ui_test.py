@@ -30,7 +30,7 @@ try:
     _im = Image.new('RGBA', (64, 64), (0, 0, 0, 0)); ImageDraw.Draw(_im).ellipse((4, 4, 60, 60), fill=(30, 77, 140, 255)); _b = io.BytesIO(); _im.save(_b, 'PNG'); PNG = _b.getvalue()
 except Exception:
     PNG = base64.b64decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==')
-LEAK = re.compile(r'github|perfectndumiso|goals-scanner|goals scanner|raw\.githubusercontent', re.I)
+LEAK = re.compile(r'github|perfectndumiso|goals-scanner|goals scanner|raw\.githubusercontent|banker|guaranteed|sure win|100 ?% safe|safest bet', re.I)
 
 errors, shots = [], []
 def shot(page, name):
@@ -83,7 +83,7 @@ with sync_playwright() as p:
 
     # ---- home
     t = shot(page, 'home')
-    for needle in ['Bets of the day', 'Safest bets', 'Next kick-offs']: assert needle in t, f'home missing {needle}'
+    for needle in ['Bets of the day', 'High-probability selections', 'Next kick-offs']: assert needle in t, f'home missing {needle}'
     assert page.locator('#view .badge img').count() >= 4, 'badges rendered'
     assert page.locator('#view .whatsnew').count() == 1, "what's new card"
     page.click('#wn-close'); page.wait_for_timeout(150); assert page.locator('#view .whatsnew').count() == 0, "what's new dismissed"
@@ -118,7 +118,7 @@ with sync_playwright() as p:
     assert DATA['fixtures'][0]['home'] in t, 'search filter'
     page.fill('#fx-search', ''); page.wait_for_timeout(200)
     page.select_option('#fx-sort', 'O25'); page.wait_for_timeout(150); shot(page, 'matches_sort')
-    page.select_option('#fx-sort', 'ko'); page.click('[data-mf=safe]'); page.wait_for_timeout(150); t = shot(page, 'matches_safe'); assert '🔒' in t or 'Safest' in t
+    page.select_option('#fx-sort', 'ko'); page.click('[data-mf=safe]'); page.wait_for_timeout(150); t = shot(page, 'matches_safe'); assert '📈' in t or 'High prob' in t
     page.click('[data-mf=major]'); page.wait_for_timeout(150); shot(page, 'matches_major'); page.click('[data-mf=all]'); page.wait_for_timeout(150)
     assert page.locator('#view .hour-head').count() >= 2, 'hour headers in the time view'
     page.click('[data-mmode=comp]'); page.wait_for_timeout(200); t = shot(page, 'matches_comp')
@@ -133,11 +133,12 @@ with sync_playwright() as p:
     fid = page.evaluate("""(() => { const P = window.app.PR; const now = P.tzNow(); const f = P.state.data.fixtures.filter((x) => x.priced && x.data_ok && P.parseLocal(x.kickoff) > now).sort((a, b) => a.kickoff.localeCompare(b.kickoff))[0]; return f && f.id; })()""")
     assert fid, 'an upcoming priced fixture exists'
     page.evaluate(f'window.app.PR.openMatch({json.dumps(fid)})'); page.wait_for_timeout(700); t = shot(page, 'match_overview')
-    assert 'expected goals' in t.lower() and 'over 2.5' in t.lower(), 'match overview'
+    assert 'model xg' in t.lower() and 'over 2.5' in t.lower(), 'match overview'
     page.click('#fav-btn'); page.wait_for_timeout(200); assert page.locator('#fav-btn.on').count() == 1, 'favourite toggled on'
     assert 'favs' in (page.evaluate('window.__str || {}') or {}), 'favourites shared with the native side'
-    for seg in ['trends', 'markets', 'stats', 'h2h', 'lineups']:
+    for seg in ['trends', 'data', 'markets', 'stats', 'h2h', 'lineups']:
         page.click(f'[data-mv={seg}]'); page.wait_for_timeout(300); t = shot(page, f'match_{seg}')
+        if seg == 'data': assert 'Data quality' in t and 'Model xG' in t and 'Market xG' in t and 'Sample' in t and ('Why' in t or 'λ' in t), 'data audit segment'
         if seg == 'trends': assert 'Trends' in t and ('of 10' in t or 'of 5' in t or 'Not enough' in t or 'in the last' in t), 'trends segment'
         if seg == 'h2h': assert 'last 5' in t.lower(), 'h2h/form segment'
         if seg == 'lineups': assert 'line-ups' in t.lower(), 'lineups segment'
@@ -153,7 +154,7 @@ with sync_playwright() as p:
     # ---- CSV export of the match + on-phone cache of the detail file
     page.click('#dl-csv'); page.wait_for_timeout(300)
     saved = page.evaluate('window.__saved')
-    assert saved and saved['name'].endswith('.csv') and saved['text'].startswith('\ufeffPlayReport match analysis') and 'Market selection,Code,Combined %' in saved['text'] and 'Recent form' in saved['text'], f'match csv: {saved and saved["name"]}'
+    assert saved and saved['name'].endswith('.csv') and saved['text'].startswith('\ufeffPlayReport match analysis') and 'Market selection,Code,Model %,Market implied %' in saved['text'] and 'Model xG' in saved['text'] and 'Data quality' in saved['text'] and 'Recent form' in saved['text'], f'match csv: {saved and saved["name"]}'
     open('/tmp/ui_match.csv', 'w', encoding='utf-8').write(saved['text'])
     csv_rows = [r for r in saved['text'].split('\r\n') if r.startswith('Over 1.5 goals,')]
     assert csv_rows and float(csv_rows[0].split(',')[1]) > 0, 'csv probabilities are numeric percentages'
@@ -213,12 +214,12 @@ with sync_playwright() as p:
     page.click('#btn-menu'); page.wait_for_timeout(100); shot(page, 'menu')
     assert page.locator('#menu.open').count() == 1, 'menu opens'
     page.click('#menu [data-page=analysis]'); page.wait_for_timeout(800); t = shot(page, 'analysis')
-    assert 'PlayReport' in t or 'Safest' in t or 'analysis' in t.lower(), 'analysis page'
+    assert 'PlayReport' in t or 'High-probability' in t or 'analysis' in t.lower(), 'analysis page'
     page.evaluate('window.app.back()')
     page.click('#btn-menu'); page.click('#menu [data-page=guide]'); page.wait_for_timeout(200); t = shot(page, 'guide_menu'); assert 'How the probabilities are made' in t
     page.evaluate('window.app.back()')
     page.click('#btn-menu'); page.click('#menu [data-page=performance]'); page.wait_for_timeout(200); t = shot(page, 'performance')
-    assert 'Bets of the day' in t and 'Safest bets' in t and 'Parlay' not in t and 'Treble' not in t, 'performance'
+    assert 'Bets of the day' in t and 'High-probability selections' in t and 'Parlay' not in t and 'Treble' not in t, 'performance'
     page.evaluate('window.app.back()')
     page.click('#btn-menu'); page.click('#menu [data-page=settings]'); page.wait_for_timeout(200); t = shot(page, 'settings')
     for sel in ['#s-goals', '#s-ht', '#s-ft', '#s-ko', '#s-bets', '#s-reports', '#s-live', '#s-tz', '#s-save', '#s-clear']: assert page.locator(sel).count() == 1, f'settings control {sel}'

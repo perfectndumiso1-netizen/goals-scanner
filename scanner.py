@@ -50,6 +50,7 @@ import pandas as pd
 import requests
 
 import markets
+import quality
 import news as news_mod
 import parlays as parlay_mod
 import sporty
@@ -123,7 +124,7 @@ CONFIG = {
     "DC_RHO": -0.05,
     # weight of market-implied expected goals when odds exist. Backtest: the market beats the model
     # at every weight below ~0.9, so the model only fine-tunes the market where odds are published.
-    "MARKET_XG_WEIGHT": 0.9,
+    "SHRINK_K_STRENGTH": 5.0,   # shrinkage of the attack/defence *ratio* (team strength) — validated 2026-09-28, see backtest/RESULTS.md
     # shortlist rules: final probability >= p; tiers give ⭐⭐ / ⭐⭐⭐ ratings (values from the backtest)
     "THRESHOLDS": {
         "O15": {"p": _env_float("MIN_P_O15", 0.84), "tiers": (0.87, 0.90)},
@@ -353,7 +354,7 @@ def market_lambdas(odds_h, odds_d, odds_a, odds_over, odds_under):
 
 
 # ----------------------------------------------------------------------------- data loading
-NUM_RESULT_COLS = ("hg", "ag", "hxg", "axg", "hst", "ast", "hc", "ac", "hy", "ay", "hr", "ar", "hth", "hta")
+NUM_RESULT_COLS = ("hg", "ag", "hxg", "axg", "hs", "as", "hst", "ast", "hc", "ac", "hy", "ay", "hr", "ar", "hth", "hta")
 RESULT_COLS = ["country", "div", "league", "date", "home", "away", *NUM_RESULT_COLS, "referee", "home_id", "away_id"]
 
 
@@ -398,7 +399,7 @@ def load_main_results(divs: set[str], seasons: list[str], live_seasons: tuple[st
                 "away": df["AwayTeam"].astype(str).str.strip(),
                 "hg": num(df, "FTHG"), "ag": num(df, "FTAG"),
                 "hxg": num(df, "HxG"), "axg": num(df, "AxG"),
-                "hst": num(df, "HST"), "ast": num(df, "AST"),
+                "hs": num(df, "HS"), "as": num(df, "AS"), "hst": num(df, "HST"), "ast": num(df, "AST"),
                 "hc": num(df, "HC"), "ac": num(df, "AC"),
                 "hy": num(df, "HY"), "ay": num(df, "AY"), "hr": num(df, "HR"), "ar": num(df, "AR"),
                 "hth": num(df, "HTHG"), "hta": num(df, "HTAG"),
@@ -425,7 +426,7 @@ def load_extra_results(codes: set[str], since: datetime) -> pd.DataFrame:
             "home": df["Home"].astype(str).str.strip(),
             "away": df["Away"].astype(str).str.strip(),
             "hg": num(df, "HG"), "ag": num(df, "AG"),
-            "hxg": np.nan, "axg": np.nan, "hst": np.nan, "ast": np.nan,
+            "hxg": np.nan, "axg": np.nan, "hs": np.nan, "as": np.nan, "hst": np.nan, "ast": np.nan,
             "hc": np.nan, "ac": np.nan, "hy": np.nan, "ay": np.nan, "hr": np.nan, "ar": np.nan, "hth": np.nan, "hta": np.nan,
             "referee": "", "home_id": None, "away_id": None,
         })
@@ -568,16 +569,28 @@ def make_long(results: pd.DataFrame, div_avgs: dict[str, DivAvg]) -> pd.DataFram
               "league": results["league"]}
     hid = results["home_id"] if "home_id" in results.columns else pd.Series(None, index=results.index, dtype="object")
     aid = results["away_id"] if "away_id" in results.columns else pd.Series(None, index=results.index, dtype="object")
+    col = lambda c: results[c] if c in results.columns else pd.Series(np.nan, index=results.index)  # noqa: E731
+    cards_h = col("hy").fillna(0) + col("hr").fillna(0)
+    cards_a = col("ay").fillna(0) + col("ar").fillna(0)
+    cards_h = cards_h.where(col("hy").notna() | col("hr").notna())      # N/A stays N/A (never zero-filled)
+    cards_a = cards_a.where(col("ay").notna() | col("ar").notna())
+    eid = col("eid").astype(object).where(col("eid").notna(), None)
+    common["eid"] = eid
+    common["friendly"] = results["league"].astype(str).str.lower().str.contains("friendl")
     home = pd.DataFrame({**common, "team_id": hid, "opp_id": aid, "team": results["home"], "opp": results["away"], "venue": "H",
                          "gf": results["hg"], "ga": results["ag"],
                          "gf_norm": results["hg"] / mu_h, "ga_norm": results["ag"] / mu_a,
                          "xg_for": results["hxg"], "xg_against": results["axg"],
-                         "sot_for": results["hst"], "sot_against": results["ast"]})
+                         "sot_for": results["hst"], "sot_against": results["ast"],
+                         "s_for": col("hs"), "s_against": col("as"), "c_for": col("hc"), "c_against": col("ac"),
+                         "k_for": cards_h, "k_against": cards_a})
     away = pd.DataFrame({**common, "team_id": aid, "opp_id": hid, "team": results["away"], "opp": results["home"], "venue": "A",
                          "gf": results["ag"], "ga": results["hg"],
                          "gf_norm": results["ag"] / mu_a, "ga_norm": results["hg"] / mu_h,
                          "xg_for": results["axg"], "xg_against": results["hxg"],
-                         "sot_for": results["ast"], "sot_against": results["hst"]})
+                         "sot_for": results["ast"], "sot_against": results["hst"],
+                         "s_for": col("as"), "s_against": col("hs"), "c_for": col("ac"), "c_against": col("hc"),
+                         "k_for": cards_a, "k_against": cards_h})
     long = pd.concat([home, away], ignore_index=True)
     long["total"] = long["gf"] + long["ga"]
     long["o15"] = (long["total"] >= 2).astype(float)
@@ -621,6 +634,20 @@ class TeamProfile:
     venue_rate_btts: float = float("nan")
     venue_rate_o15: float = float("nan")
     venue_last5: list = field(default_factory=list)
+    # ---- evidence layer (data-first engine): raw ratings before/after each step, raw observations, opponent context
+    att_raw: float = float("nan")        # all-venue time-weighted league-normalised goals for (no shrinkage)
+    def_raw: float = float("nan")
+    att_venue_raw: float = float("nan")  # same, this venue only
+    def_venue_raw: float = float("nan")
+    venue_share: float = 0.0             # weight of the venue rates in the blend
+    att_blend: float = float("nan")      # after the venue blend, before shrinkage
+    def_blend: float = float("nan")
+    matches: list = field(default_factory=list)   # raw observations used (newest first)
+    friendlies_excluded: int = 0
+    opp_att: float = float("nan")        # average raw attack / defence rating of the opponents faced (information only)
+    opp_def: float = float("nan")
+    att_opp_adj: float = float("nan")    # raw attack / opponents' defence (information only, not a model input)
+    def_opp_adj: float = float("nan")
 
     @property
     def ok(self) -> bool:
@@ -642,18 +669,85 @@ def team_history(long: pd.DataFrame, country: str, team: str, team_id=None) -> p
     return long[(long["country"] == country) & (long["team"] == team)]
 
 
+def shrink_ratings(att: float, dfc: float, n_eff: float) -> tuple[float, float]:
+    """Shrink a team's attack / defence ratings towards the league average (1.00).
+
+    Two strengths of shrinkage (validated in backtest/model_variants.py, 2026-09-28): the attack/defence *ratio*
+    (how much better one team is than the other) is more persistent than the overall goal *tempo*, so the ratio is
+    shrunk with SHRINK_K_STRENGTH weighted matches and the tempo with SHRINK_K. In log space:
+        s = (log att - log def) * n / (n + K_s)      t = (log att + log def) * n / (n + K)
+        att = exp((t + s) / 2)                       def = exp((t - s) / 2)
+    """
+    if math.isnan(att) or math.isnan(dfc) or n_eff <= 0:
+        return 1.0, 1.0
+    K, K_s = CONFIG["SHRINK_K"], CONFIG["SHRINK_K_STRENGTH"]
+    la, ld = math.log(max(att, 0.05)), math.log(max(dfc, 0.05))
+    s = (la - ld) * n_eff / (n_eff + K_s)
+    t = (la + ld) * n_eff / (n_eff + K)
+    return math.exp((t + s) / 2), math.exp((t - s) / 2)
+
+
+def rating_key(country: str, team: str, team_id=None):
+    return ("id", team_id) if _valid_id(team_id) else ("name", country, team)
+
+
+SEASON_STARTS: dict = {}       # div -> inferred start of the current season (quality.season_starts), set once per run
+RAW_RATINGS: dict = {}         # rating_key -> (raw attack, raw defence), all venues, shrunk with SHRINK_K; opponent context only
+
+
+def compute_raw_ratings(long: pd.DataFrame, now: datetime) -> dict:
+    """First-pass raw rating of every team in the pool (time-weighted league-normalised goals, shrunk with SHRINK_K).
+    Used only to describe the strength of the opponents a team has faced — it is not an input of the match model."""
+    if long.empty:
+        return {}
+    df = long.copy()
+    df["w"] = decay_weights(df["date"], now)
+    df["key"] = [rating_key(c, t, i) for c, t, i in zip(df["country"], df["team"], df["team_id"])]
+    df = df.sort_values("date", ascending=False)
+    df["rank"] = df.groupby("key").cumcount()
+    df = df[df["rank"] < CONFIG["MAX_MATCHES_PER_TEAM"]]
+    df["wa"] = df["w"] * df["gf_norm"]
+    df["wd"] = df["w"] * df["ga_norm"]
+    g = df.groupby("key")[["w", "wa", "wd"]].sum()
+    K = CONFIG["SHRINK_K"]
+    att = (g["wa"] + K) / (g["w"] + K)
+    dfc = (g["wd"] + K) / (g["w"] + K)
+    return {k: (float(a), float(d)) for k, a, d in zip(g.index, att, dfc)}
+
+
 def build_profile(long: pd.DataFrame, country: str, team: str, venue: str, now: datetime, team_id=None) -> TeamProfile:
     p = TeamProfile(name=team)
     if long.empty:
         return p
-    rows = team_history(long, country, team, team_id).head(CONFIG["MAX_MATCHES_PER_TEAM"])
+    rows = team_history(long, country, team, team_id)
     if rows.empty:
         return p
+    # friendlies are excluded from the core statistics once the team has enough competitive matches; otherwise they
+    # stay in and are flagged in the sample composition (never silently)
+    if "friendly" in rows.columns and rows["friendly"].any():
+        competitive = rows[~rows["friendly"]]
+        if len(competitive) >= quality.FRIENDLY_MIN_COMPETITIVE:
+            p.friendlies_excluded = int(min(len(rows), CONFIG["MAX_MATCHES_PER_TEAM"]) - min(len(competitive), CONFIG["MAX_MATCHES_PER_TEAM"]))
+            rows = competitive
+    rows = rows.head(CONFIG["MAX_MATCHES_PER_TEAM"])
     w = decay_weights(rows["date"], now)
     p.n = len(rows)
     p.n_eff = float(w.sum())
     p.gf, p.ga = wmean(rows["gf"], w), wmean(rows["ga"], w)
     att_all, def_all = wmean(rows["gf_norm"], w), wmean(rows["ga_norm"], w)
+    p.att_raw, p.def_raw = att_all, def_all
+    season_start = SEASON_STARTS.get(str(rows["div"].iloc[0])) if len(rows) else None
+    p.matches = [quality.match_record(r, season_start) for r in rows.itertuples()]
+    # opponent context (information only): average raw rating of the opponents in the sample
+    if RAW_RATINGS:
+        keys = [rating_key(r.country, r.opp, r.opp_id) for r in rows.itertuples()]
+        oa = np.array([RAW_RATINGS.get(k, (np.nan, np.nan))[0] for k in keys], dtype=float)
+        od = np.array([RAW_RATINGS.get(k, (np.nan, np.nan))[1] for k in keys], dtype=float)
+        p.opp_att, p.opp_def = wmean(oa, w), wmean(od, w)
+        if not math.isnan(p.opp_def) and p.opp_def > 0:
+            p.att_opp_adj = att_all / p.opp_def
+        if not math.isnan(p.opp_att) and p.opp_att > 0:
+            p.def_opp_adj = def_all / p.opp_att
 
     vmask = (rows["venue"] == venue).to_numpy()
     p.venue_n = int(vmask.sum())
@@ -662,8 +756,10 @@ def build_profile(long: pd.DataFrame, country: str, team: str, venue: str, now: 
         p.venue_gf = wmean(rows["gf"][vmask], wv)
         p.venue_ga = wmean(rows["ga"][vmask], wv)
         share = wv.sum() / (wv.sum() + CONFIG["VENUE_K"])
-        att = share * wmean(rows["gf_norm"][vmask], wv) + (1 - share) * att_all
-        dfc = share * wmean(rows["ga_norm"][vmask], wv) + (1 - share) * def_all
+        p.venue_share = float(share)
+        p.att_venue_raw, p.def_venue_raw = wmean(rows["gf_norm"][vmask], wv), wmean(rows["ga_norm"][vmask], wv)
+        att = share * p.att_venue_raw + (1 - share) * att_all
+        dfc = share * p.def_venue_raw + (1 - share) * def_all
         vrows = rows[vmask]
         p.venue_rate_o15 = wmean(vrows["o15"], wv)
         p.venue_rate_o25 = wmean(vrows["o25"], wv)
@@ -673,9 +769,8 @@ def build_profile(long: pd.DataFrame, country: str, team: str, venue: str, now: 
     else:
         att, dfc = att_all, def_all
 
-    K = CONFIG["SHRINK_K"]
-    p.att = (p.n_eff * att + K * 1.0) / (p.n_eff + K)
-    p.dfc = (p.n_eff * dfc + K * 1.0) / (p.n_eff + K)
+    p.att_blend, p.def_blend = att, dfc
+    p.att, p.dfc = shrink_ratings(att, dfc, p.n_eff)
 
     p.rate_o15 = wmean(rows["o15"], w)
     p.rate_o25 = wmean(rows["o25"], w)
@@ -720,15 +815,15 @@ class MatchRow:
     fx: pd.Series
     home: TeamProfile
     away: TeamProfile
-    lam_h: float          # final expected goals (market-blended where odds exist)
+    lam_h: float          # expected goals used for every probability = the football-data model (lam == mod, kept for callers)
     lam_a: float
-    mod_h: float          # model-only expected goals
+    mod_h: float          # model expected goals (football data only)
     mod_a: float
-    mkt_h: float          # market-implied expected goals (nan without odds)
+    mkt_h: float          # market-implied expected goals — comparison layer only, never a model input (nan without odds)
     mkt_a: float
-    p_model: dict         # market -> model-only probability
-    p_market_o25: float   # bookmaker-implied P(over 2.5)
-    p_final: dict         # market -> final probability used for ranking (O15, O25, O35, BTTS)
+    p_model: dict         # market -> model probability
+    p_market_o25: float   # bookmaker-implied P(over 2.5) (comparison only)
+    p_final: dict         # == p_model (the name is kept for the many callers; nothing else is ever blended in)
     hist: dict            # market -> average historical hit-rate of both teams (information only)
     h2h: list
     div_avg: DivAvg
@@ -736,12 +831,15 @@ class MatchRow:
     sb: dict | None = None        # Sportybet prices (main markets) or None when not matched
     sb_event: dict | None = None  # Sportybet event meta (id, names)
     sb_full: dict | None = None   # full Sportybet market list (corners / cards), dossier matches only
-    fair: dict = field(default_factory=dict)   # calibrated probabilities for priced selections
+    fair: dict = field(default_factory=dict)   # market-implied probabilities of the shortlist markets (comparison only)
     trends: dict = field(default_factory=dict) # plain-language team / match / h2h trends (v4)
+    mkt_source: str = ""          # where the market xG comes from ("reference odds" / "Sportybet")
+    x12_market: dict | None = None  # de-margined bookmaker 1X2 (comparison only)
+    audit: dict = field(default_factory=dict)  # evidence / quality / explanation / warnings (quality.py), filled in main()
 
     @property
     def basis(self) -> str:
-        return "market+model" if not math.isnan(self.mkt_h) else "model only"
+        return "model"
 
     @property
     def data_ok(self) -> bool:
@@ -761,27 +859,26 @@ def analyse(fx: pd.Series, long: pd.DataFrame, results: pd.DataFrame,
     A = build_profile(long, fx["country"], fx["away"], "A", now, aid)
 
     rho = CONFIG["DC_RHO"]
+    # ---- the football-data model: league baseline x attack x opponent defence -> Dixon-Coles score matrix.
+    # Bookmaker odds play no part here (data-first engine, 2026-09-28).
     mod_h = min(max(da.mu_h * H.att * A.dfc, 0.15), 4.5)
     mod_a = min(max(da.mu_a * A.att * H.dfc, 0.15), 4.5)
-    p_model = probs_from_matrix(score_matrix(mod_h, mod_a, rho))
+    M = score_matrix(mod_h, mod_a, rho)
+    p_model = probs_from_matrix(M)
+    lam_h, lam_a = mod_h, mod_a
+    p_final = dict(p_model)
 
+    # ---- market layer (comparison only): implied O2.5 and market-implied expected goals from the reference odds
     oo, ou = fx["odds_over"], fx["odds_under"]
     if pd.notna(oo) and pd.notna(ou) and oo > 1 and ou > 1:
         p_mkt = (1 / oo) / (1 / oo + 1 / ou)
     else:
         p_mkt = float("nan")
-
     mk = market_lambdas(fx["odds_h"], fx["odds_d"], fx["odds_a"], oo, ou)
     if mk is not None:
-        w = CONFIG["MARKET_XG_WEIGHT"]
         mkt_h, mkt_a = mk
-        lam_h = (1 - w) * mod_h + w * mkt_h
-        lam_a = (1 - w) * mod_a + w * mkt_a
     else:
         mkt_h = mkt_a = float("nan")
-        lam_h, lam_a = mod_h, mod_a
-    M = score_matrix(lam_h, lam_a, rho)
-    p_final = probs_from_matrix(M)
     hist = {
         "O15": float(np.nanmean([H.rate_o15, A.rate_o15])) if H.n and A.n else float("nan"),
         "O25": float(np.nanmean([H.rate_o25, A.rate_o25])) if H.n and A.n else float("nan"),
@@ -790,10 +887,15 @@ def analyse(fx: pd.Series, long: pd.DataFrame, results: pd.DataFrame,
     row = MatchRow(fx, H, A, lam_h, lam_a, mod_h, mod_a, mkt_h, mkt_a, p_model, p_mkt, p_final, hist,
                    head_to_head(h2h_pool if h2h_pool is not None else results, fx["country"], fx["home"], fx["away"],
                                 home_id=hid, away_id=aid), da)
-    # ---- extra markets (v3): 1X2 / DC from the score matrix + sharp market, team goals, corners, cards
+    if mk is not None:
+        row.mkt_source = "reference odds (football-data.co.uk)"
+    # ---- extra markets (v3): 1X2 / DC and team goals from the same model score matrix; corners, cards own models
     ex = row.extra
+    ex.x12 = markets.one_x_two(M)
     oh, od, oa = sharp_1x2(fx)
-    ex.x12 = markets.one_x_two(M, oh, od, oa)
+    if all(_ok(v) for v in (oh, od, oa)):
+        mH, mD, mA = markets.power_demargin([oh, od, oa])
+        row.x12_market = {"H": mH, "D": mD, "A": mA, "source": "reference odds"}
     ex.tg = markets.team_goals(M)
     # corners / cards: main leagues from football-data; elsewhere from the archived Livescore match statistics once
     # both teams have enough matches with stats
@@ -811,13 +913,39 @@ def analyse(fx: pd.Series, long: pd.DataFrame, results: pd.DataFrame,
             ex.cards = None
         ex.card_p = markets.count_lines(ex.cards, markets.CARDS)
     so, su = sharp_ou(fx)
-    fair_o = markets.fair_two_way(so, su)
-    ex.p_o25_fair = (1 - CONFIG["MARKET_XG_WEIGHT"]) * p_final["O25"] + CONFIG["MARKET_XG_WEIGHT"] * fair_o \
-        if not math.isnan(fair_o) else float("nan")
+    ex.p_o25_fair = markets.fair_two_way(so, su)      # market-implied O2.5 from the reference odds (comparison only)
     return row
 
 
 MODELS: dict = {}   # corners / cards count models, built once per run in main()
+
+
+def build_audits(rows: list[MatchRow], now: datetime) -> None:
+    """Fill MatchRow.audit: sample evidence of both teams, head-to-head strength, data quality, the lambda
+    explanation, the market comparison layer and the automatic model-v-raw-data warnings."""
+    n_fail = 0
+    for r in rows:
+        try:
+            own_div = str(r.fx["div"])
+            ev_h = quality.team_evidence(r.home, own_div, now)
+            ev_a = quality.team_evidence(r.away, own_div, now)
+            h2h = quality.h2h_evidence(r.h2h, now)
+            q = quality.data_quality(r, ev_h, ev_a, h2h, now)
+            mkt = quality.market_layer(r)
+            n_min = min(r.home.n, r.away.n)
+            conf = {k: quality.confidence(r.p_model.get(k), q, n_min) for k in ("O15", "O25", "O35", "BTTS")}
+            conf["X12"] = quality.confidence(r.extra.x12.get("H") if r.extra.x12 else None, q, n_min)
+            conf["TG"] = quality.confidence(r.extra.tg.get("H_o05") if r.extra.tg else None, q, n_min)
+            r.audit = {"evidence": {"home": ev_h, "away": ev_a}, "h2h": h2h, "quality": q, "confidence": conf,
+                       "explain": quality.explanation(r, ev_h, ev_a, CONFIG), "market": mkt,
+                       "warnings": quality.warnings_for(r, ev_h, ev_a, h2h, q, mkt, CONFIG)}
+        except Exception as exc:  # noqa: BLE001
+            n_fail += 1
+            if n_fail <= 3:
+                log.warning("Audit failed for %s: %s", r.label, exc)
+            r.audit = {}
+    if n_fail:
+        log.warning("Audit failed for %d of %d matches", n_fail, len(rows))
 
 
 def _ok(v) -> bool:
@@ -838,49 +966,38 @@ def sharp_ou(fx: pd.Series):
 
 
 def attach_prices(rows: list[MatchRow], sbmap: dict, todays: pd.DataFrame) -> None:
-    """Attach Sportybet prices to rows and finish the calibrated probabilities used for legs / value.
+    """Attach Sportybet prices to rows and complete the MARKET layer (comparison only).
 
-    The feed's reference prices (Betfair Exchange / market average) can be a few days old, while Sportybet's
-    price is live. So where both exist the fair probability is the average of the two market views (each
-    blended 90/10 with the model); a big gap between them is flagged as "price moved" rather than sold as value.
+    Nothing here touches a model probability. The market layer consists of: the de-margined Sportybet 1X2
+    (x12_market), the market-implied probabilities of the shortlist markets (r.fair) and the market-implied
+    expected goals (mkt_h / mkt_a) — taken from the feed's reference odds when present, else derived from the
+    Sportybet 1X2 + Over/Under 2.5 prices.
     """
-    w = CONFIG["MARKET_XG_WEIGHT"]
     for i, r in zip(todays.index, rows):
         ev = sbmap.get(i)
         if ev:
             r.sb_event = {k: ev[k] for k in ("id", "home", "away", "country", "tournament", "ko")}
             r.sb = ev["markets"]
         ex = r.extra
-        M = score_matrix(r.lam_h, r.lam_a, CONFIG["DC_RHO"])
         sb = r.sb or {}
-        # ---- 1X2 / double chance
         sb1x2 = sb.get("1X2")
-        if sb1x2 and all(sb1x2):
-            x_sb = markets.one_x_two(M, *sb1x2)
-            if ex.x12.get("source") == "market+model":
-                gap = max(abs(ex.x12["H"] - x_sb["H"]), abs(ex.x12["A"] - x_sb["A"]))
-                ex.x12 = {k: 0.5 * ex.x12[k] + 0.5 * x_sb[k] for k in ("H", "D", "A", "1X", "12", "X2")}
-                ex.x12["source"] = "market+Sportybet+model"
-                ex.x12["gap"] = gap
-            else:
-                ex.x12 = x_sb
-                ex.x12["source"] = "Sportybet+model"
-        # ---- Over 2.5
         ou = sb.get("OU", {}).get(2.5) if sb else None
+        if sb1x2 and all(sb1x2):
+            mH, mD, mA = markets.power_demargin(list(sb1x2))
+            r.x12_market = {"H": mH, "D": mD, "A": mA, "source": "Sportybet"}
+        # market-implied expected goals from Sportybet when the feed has no reference odds
+        if math.isnan(r.mkt_h) and sb1x2 and all(sb1x2) and ou and ou[0] and ou[1]:
+            mk = market_lambdas(sb1x2[0], sb1x2[1], sb1x2[2], ou[0], ou[1])
+            if mk is not None:
+                r.mkt_h, r.mkt_a = mk
+                r.mkt_source = "Sportybet 1X2 + O/U 2.5"
+        # market-implied probabilities of the shortlist markets (Sportybet first, else reference odds)
         fair_sb = markets.fair_two_way(ou[0], ou[1]) if ou and ou[0] and ou[1] else float("nan")
-        p_sb = (1 - w) * r.p_final["O25"] + w * fair_sb if not math.isnan(fair_sb) else float("nan")
-        if not math.isnan(ex.p_o25_fair) and not math.isnan(p_sb):
-            ex.p_o25_fair = 0.5 * ex.p_o25_fair + 0.5 * p_sb
-        elif math.isnan(ex.p_o25_fair):
-            ex.p_o25_fair = p_sb if not math.isnan(p_sb) else r.p_final["O25"]
-        # ---- fair probabilities of the shortlist markets (price check): model/market blend, half-anchored on Sportybet
-        r.fair = {"O15": r.p_final["O15"], "O25": ex.p_o25_fair, "BTTS": r.p_final["BTTS"]}
+        r.fair = {"O25": fair_sb if not math.isnan(fair_sb) else ex.p_o25_fair}
         ou15 = sb.get("OU", {}).get(1.5) if sb else None
-        if ou15 and ou15[0] and ou15[1]:
-            r.fair["O15"] = 0.5 * r.p_final["O15"] + 0.5 * markets.fair_two_way(ou15[0], ou15[1])
+        r.fair["O15"] = markets.fair_two_way(ou15[0], ou15[1]) if ou15 and ou15[0] and ou15[1] else float("nan")
         btts = sb.get("BTTS") if sb else None
-        if btts and btts[0] and btts[1]:
-            r.fair["BTTS"] = 0.5 * r.p_final["BTTS"] + 0.5 * markets.fair_two_way(btts[0], btts[1])
+        r.fair["BTTS"] = markets.fair_two_way(btts[0], btts[1]) if btts and btts[0] and btts[1] else float("nan")
 
 
 def avg_prices(fx: pd.Series) -> dict | None:
@@ -971,7 +1088,7 @@ def build_run_parlays(rows: list[MatchRow], now: datetime, window_end: datetime,
             prices = r.sb if sb_ok else avg_prices(r.fx)
             if not prices and sb_ok:
                 continue
-            legs += parlay_mod.candidate_legs(r.fx, r.extra.x12, r.extra.p_o25_fair, prices, source)
+            legs += parlay_mod.candidate_legs(r.fx, r.extra.x12, r.p_model["O25"], prices, source)
         return legs
 
     short = [r for r in rows if start <= r.fx["kickoff"] <= window_end]
@@ -1113,7 +1230,17 @@ def market_str(r: MatchRow) -> str:
 
 
 def basis_str(r: MatchRow) -> str:
-    return "📈 market+model" if r.basis == "market+model" else "🧮 model only"
+    """Data-quality label of the match (the probability itself is always the football-data model)."""
+    q = (r.audit or {}).get("quality") or {}
+    return {"High": "🟢 High", "Medium": "🟡 Medium", "Low": "🔴 Low"}.get(q.get("overall"), "–")
+
+
+def market_pct(r: MatchRow, mkt: str) -> str:
+    """Market-implied probability of a shortlist market (comparison only)."""
+    p = (r.fair or {}).get(mkt)
+    if p is None or math.isnan(p):
+        return "–"
+    return pct(p)
 
 
 def render_pick_table(rows: list[MatchRow], mkt: str) -> list[str]:
@@ -1122,19 +1249,19 @@ def render_pick_table(rows: list[MatchRow], mkt: str) -> list[str]:
         L.append("_No match met the criteria today._")
         return L
     if mkt == "O25":
-        L.append(f"| # | Kick-off ({TZL}) | Competition | Match | Final | Rating | Market (odds) | Model | Basis | Last-10 form | Exp. goals |")
+        L.append(f"| # | Kick-off ({TZL}) | Competition | Match | Model | Rating | Market (odds) | Market implied | Data quality | Last-10 form | Model xG |")
         L.append("|---|---|---|---|---|---|---|---|---|---|---|")
         for i, r in enumerate(rows, 1):
-            L.append(f"| {i} | {ko(r)} | {comp(r)} | **{r.label}** | **{pct(r.p_final['O25'])}** | {stars(r.p_final['O25'], mkt)} | "
-                     f"{market_str(r)} | {pct(r.p_model['O25'])} | {basis_str(r)} | {form_str(r, mkt)} | "
-                     f"{r.lam_h:.1f} – {r.lam_a:.1f} |")
+            L.append(f"| {i} | {ko(r)} | {comp(r)} | **{r.label}** | **{pct(r.p_model['O25'])}** | {stars(r.p_model['O25'], mkt)} | "
+                     f"{market_str(r)} | {market_pct(r, 'O25')} | {basis_str(r)} | {form_str(r, mkt)} | "
+                     f"{r.mod_h:.1f} – {r.mod_a:.1f} |")
     else:
-        L.append(f"| # | Kick-off ({TZL}) | Competition | Match | Final | Rating | Model | Basis | Last-10 form | Exp. goals |")
+        L.append(f"| # | Kick-off ({TZL}) | Competition | Match | Model | Rating | Market implied | Data quality | Last-10 form | Model xG |")
         L.append("|---|---|---|---|---|---|---|---|---|---|")
         for i, r in enumerate(rows, 1):
-            L.append(f"| {i} | {ko(r)} | {comp(r)} | **{r.label}** | **{pct(r.p_final[mkt])}** | "
-                     f"{stars(r.p_final[mkt], mkt)} | {pct(r.p_model[mkt])} | {basis_str(r)} | {form_str(r, mkt)} | "
-                     f"{r.lam_h:.1f} – {r.lam_a:.1f} |")
+            L.append(f"| {i} | {ko(r)} | {comp(r)} | **{r.label}** | **{pct(r.p_model[mkt])}** | "
+                     f"{stars(r.p_model[mkt], mkt)} | {market_pct(r, mkt)} | {basis_str(r)} | {form_str(r, mkt)} | "
+                     f"{r.mod_h:.1f} – {r.mod_a:.1f} |")
     return L
 
 
@@ -1183,11 +1310,17 @@ def render_details(r: MatchRow) -> list[str]:
     L = [f"<details><summary><b>{html.escape(r.label)}</b> — {html.escape(comp(r))}, {ko(r)} · "
          f"O2.5 {pct(r.p_final['O25'])} · BTTS {pct(r.p_final['BTTS'])}"
          f"{'' if r.data_ok else ' · ⚠️ low data'}</summary>", ""]
-    L.append(f"* Final expected goals: **{r.lam_h:.2f} – {r.lam_a:.2f}** (total {r.lam_h + r.lam_a:.2f}, {r.basis}) · "
-             f"P(O1.5) **{pct(r.p_final['O15'])}** · P(O2.5) **{pct(r.p_final['O25'])}** · P(O3.5) {pct(r.p_final['O35'])} · "
-             f"P(BTTS) **{pct(r.p_final['BTTS'])}**")
-    L.append(f"* Team-form model alone: {r.mod_h:.2f} – {r.mod_a:.2f} · P(O2.5) {pct(r.p_model['O25'])} · P(BTTS) {pct(r.p_model['BTTS'])}"
-             + (f" · Market-implied: {r.mkt_h:.2f} – {r.mkt_a:.2f}" if not math.isnan(r.mkt_h) else ""))
+    q = (r.audit or {}).get("quality") or {}
+    conf = (r.audit or {}).get("confidence") or {}
+    L.append(f"* **Model xG {r.mod_h:.2f} – {r.mod_a:.2f}** (total {r.mod_h + r.mod_a:.2f}, football data only) · "
+             f"P(O1.5) **{pct(r.p_model['O15'])}** · P(O2.5) **{pct(r.p_model['O25'])}** · P(O3.5) {pct(r.p_model['O35'])} · "
+             f"P(BTTS) **{pct(r.p_model['BTTS'])}** · confidence {conf.get('O25', 'N/A')}")
+    L.append(f"* Market xG: " + (f"{r.mkt_h:.2f} – {r.mkt_a:.2f} (total {r.mkt_h + r.mkt_a:.2f}, {r.mkt_source}; comparison only, not a model input)"
+                                 if not math.isnan(r.mkt_h) else "N/A (no market prices)")
+             + f" · Data quality **{q.get('overall', 'N/A')}** ({q.get('score', 'N/A')}) · samples {r.home.n} / {r.away.n} matches "
+               f"({quality.evidence_label(r.home.n)} / {quality.evidence_label(r.away.n)})")
+    for w in ((r.audit or {}).get("warnings") or [])[:6]:
+        L.append(f"* {'⚠️' if w['level'] == 'warn' else 'ℹ️'} {html.escape(w['text'])}")
     sqd = getattr(r, "squad", None) or {}
     if sqd.get("home") or sqd.get("away"):
         h_, a_ = sqd.get("home") or {}, sqd.get("away") or {}
@@ -1352,38 +1485,45 @@ def render_safest(ctx: dict) -> list[str]:
     sf = ctx.get("safe") or {}
     if not sf:
         return []
-    L = [f"## 🔒 Safest bets — {run_desc(ctx['run'])}", ""]
-    L.append(f"_Goals, corners and cards selections whose probability is at least {pct(sf['min_p'])} on **both** views "
-             f"(calibrated model and the de-margined Sportybet price) at a Sportybet price of {sf['min_odds']:.2f} or more, "
-             f"ranked by probability. Graded automatically (`data/safe_bets.csv`)._")
+    L = [f"## 📈 High-probability selections — {run_desc(ctx['run'])}", ""]
+    L.append(f"_Goals, corners and cards selections whose **football-data model** probability is at least {pct(sf['min_p'])} "
+             f"(the de-margined Sportybet price is shown for comparison and only excludes a selection when it contradicts the model by "
+             f"a wide margin) at a Sportybet price of {sf['min_odds']:.2f} or more, ranked by model probability. "
+             f"A 75% probability still loses about one time in four. Graded automatically (`data/safe_bets.csv`)._")
     L.append("")
     groups = ctx.get("botd_groups") or []
     if groups:
         L.append(f"### ⭐ Bets of the day — {ctx['now']:%A %d %B}")
         L.append("")
         L.append("_Strong on Over 1.5 & team goals (up to five picks); 1X2, Both teams to score and Over 2.5 only with strong "
-                 "supporting form (≥70% on both views, up to two each); Bookings and Corners ≥65%. Overs only, Sportybet price "
-                 "≥ 1.30, both views agree, one market per match on the whole card._")
+                 "supporting form (model ≥70%, up to two each); Bookings and Corners ≥65%. Overs only, Sportybet price "
+                 "≥ 1.30, the de-margined price must not contradict the model, one market per match on the whole card. "
+                 "Probabilities are model probabilities (football data only); each pick shows its data quality._")
         L.append("")
         icon = {"hit": "✅ hit", "miss": "❌ miss", "pending": "⏳", "void": "void"}
         for g in groups:
             L.append(f"**{g['title']}** — {len(g['bets'])} pick(s)")
             L.append("")
-            L.append("| Kick-off | Match | Competition | Selection | Price | Probability | Status |")
-            L.append("|---|---|---|---|---|---|---|")
+            L.append("| Kick-off | Match | Competition | Selection | Price | Model % | Data quality | Status |")
+            L.append("|---|---|---|---|---|---|---|---|")
+            qmap = sf.get("quality") or {}
             for b in g["bets"]:
+                q = qmap.get((b["kickoff"][:10], b.get("country"), b["home"], b["away"])) or "–"
                 L.append(f"| {b['kickoff'][11:]} | **{b['home']} v {b['away']}** | {b['league']} | **{b['label']}** | "
-                         f"**{b['odds']:.2f}** | {pct(b['p'])} | {icon.get(b['status'], b['status'])} |")
+                         f"**{b['odds']:.2f}** | {pct(b['p'])} | {q} | {icon.get(b['status'], b['status'])} |")
             L.append("")
     bets = sf.get("bets") or []
-    L.append(f"### Safest single bets — top {min(len(bets), 25)} of {len(bets)}")
+    L.append(f"### High-probability singles (model ≥70%, price ≥1.30) — top {min(len(bets), 25)} of {len(bets)}")
     L.append("")
     if bets:
-        L.append("| Kick-off | Match | Competition | Selection | Price | Probability | Model | Sportybet |")
-        L.append("|---|---|---|---|---|---|---|---|")
+        L.append("| Kick-off | Match | Competition | Selection | Price | Model % | Market implied % | Diff (pp) | Data quality |")
+        L.append("|---|---|---|---|---|---|---|---|---|")
+        qmap = sf.get("quality") or {}
         for b in bets[:25]:
-            L.append(f"| {b.kickoff[5:]} | {b.home} v {b.away} | {b.league} | **{b.label}** | **{b.odds:.2f}** | **{pct(b.p)}** | "
-                     f"{pct(b.p_model)} | {pct(b.p_sb) if b.p_sb is not None else '–'} |")
+            diff = None if b.p_sb is None else 100 * (b.p_model - b.p_sb)
+            L.append(f"| {b.kickoff[5:]} | {b.home} v {b.away} | {b.league} | **{b.label}** | **{b.odds:.2f}** | **{pct(b.p_model)}** | "
+                     f"{pct(b.p_sb) if b.p_sb is not None else '–'} | {f'{diff:+.1f}' if diff is not None else '–'} | "
+                     f"{qmap.get(b.key) or '–'} |")
     else:
         L.append("_Nothing priced met the rules in this window._")
     L.append("")
@@ -1391,7 +1531,7 @@ def render_safest(ctx: dict) -> list[str]:
     ba = (ss.get("bets") or {}).get("all") or {}
     bd = (ss.get("botd") or {}).get("all") or {}
     if ba.get("n"):
-        L.append(f"_Track record — safest bets: {ba.get('won', 0)}/{ba.get('n', 0)} hit ({pct(ba['rate'])}, expected {pct(ba['exp_rate'])})"
+        L.append(f"_Track record — high-probability selections: {ba.get('won', 0)}/{ba.get('n', 0)} hit ({pct(ba['rate'])}, expected {pct(ba['exp_rate'])})"
                  f"{'; bets of the day: ' + str(bd.get('won', 0)) + '/' + str(bd.get('n', 0)) + ' hit' if bd.get('n') else ''}._")
         L.append("")
     return L
@@ -1403,25 +1543,26 @@ def render_value_check(picks: dict, sb_ok: bool) -> list[str]:
         L.append("_Sportybet prices were not available for this run._")
         L.append("")
         return L
-    L.append("_Fair odds = 1 / calibrated probability (90% sharp market, 10% model where prices exist). "
-             "A positive edge means Sportybet pays more than the fair price; the backtest found positive edges "
-             "of this kind on Over 2.5 returned about +3% at the best available price — small, but real. "
-             "Negative edges mean the price is below fair value._")
+    L.append("_Model % = football-data model. Implied % = Sportybet price with the margin removed. Difference = model − market "
+             "in percentage points. EV = model % × price − 1. The market is a comparison layer only — it never feeds the "
+             "model, and the backtest showed model-v-market disagreement is not a reliable value signal on its own._")
     L.append("")
-    L.append("| Market | Match | Kick-off | Probability | Fair odds | Sportybet | Edge |")
-    L.append("|---|---|---|---|---|---|---|")
+    L.append("| Market | Match | Kick-off | Model % | Sportybet | Implied % | Difference | EV |")
+    L.append("|---|---|---|---|---|---|---|---|")
     n = 0
     for mkt, name in MARKETS.items():
         for r in picks.get(mkt, []):
             price = sb_price(r, mkt)
-            p = r.fair.get(mkt, r.p_final[mkt])
+            p = r.p_model[mkt]
             if price is None or p is None or math.isnan(p) or p <= 0:
                 continue
             n += 1
-            edge = p * price - 1
-            flag = "✅ value" if edge > 0.02 else ("≈ fair" if edge > -0.03 else "❌ short")
-            L.append(f"| {name} | **{r.label}** | {r.fx['kickoff']:%a %H:%M} | {pct(p)} | {1 / p:.2f} | **{price:.2f}** | "
-                     f"{100 * edge:+.1f}% {flag} |")
+            pm = (r.fair or {}).get(mkt)
+            ev = p * price - 1
+            flag = "model > market" if ev > 0.02 else ("≈ agree" if ev > -0.03 else "market > model")
+            L.append(f"| {name} | **{r.label}** | {r.fx['kickoff']:%a %H:%M} | {pct(p)} | **{price:.2f}** | "
+                     f"{'–' if pm is None or math.isnan(pm) else pct(pm)} | "
+                     f"{'–' if pm is None or math.isnan(pm) else f'{100 * (p - pm):+.0f} pp'} | {100 * ev:+.1f}% {flag} |")
     if n == 0:
         L.append("| – | _no shortlisted pick is priced at Sportybet yet_ | | | | | |")
     L.append("")
@@ -1513,11 +1654,12 @@ def render_report(ctx: dict, rows: list[MatchRow], picks: dict, summary: dict, n
     L.append(f"## 📊 Full scan — top {min(cap, len(ranked))} of {len(rows)} fixtures by Over 2.5 probability")
     L.append("")
     if ranked:
-        L.append(f"| Kick-off ({TZL}) | Competition | Match | Exp. goals | O1.5 | O2.5 | BTTS | Market O2.5 (odds) | Model O2.5 | Basis | O2.5 last-10 form |")
+        L.append(f"| Kick-off ({TZL}) | Competition | Match | Model xG | Market xG | O1.5 | O2.5 | BTTS | Market O2.5 (odds) | Data quality | O2.5 last-10 form |")
         L.append("|---|---|---|---|---|---|---|---|---|---|---|")
         for r in ranked[:cap]:
-            L.append(f"| {ko(r)} | {comp(r)} | {r.label} | {r.lam_h:.1f} – {r.lam_a:.1f} | {pct(r.p_final['O15'])} | "
-                     f"**{pct(r.p_final['O25'])}** | {pct(r.p_final['BTTS'])} | {market_str(r)} | {pct(r.p_model['O25'])} | "
+            L.append(f"| {ko(r)} | {comp(r)} | {r.label} | {r.mod_h:.1f} – {r.mod_a:.1f} | "
+                     f"{'–' if math.isnan(r.mkt_h) else f'{r.mkt_h:.1f} – {r.mkt_a:.1f}'} | {pct(r.p_model['O15'])} | "
+                     f"**{pct(r.p_model['O25'])}** | {pct(r.p_model['BTTS'])} | {market_str(r)} | "
                      f"{basis_str(r)} | {form_str(r, 'O25')} |")
         if len(rows) > cap:
             L.append("")
@@ -1544,7 +1686,7 @@ def render_report(ctx: dict, rows: list[MatchRow], picks: dict, summary: dict, n
     L += render_other_markets([r for r in focus if r.fx["source"] == "main"] or focus[:cap])
 
     if focus:
-        L.append(f"## 🔍 Match details — {len(focus)} key matches (bets of the day, safest bets, top shortlist picks)")
+        L.append(f"## 🔍 Match details — {len(focus)} key matches (bets of the day, high-probability selections, top shortlist picks)")
         L.append("")
         if len(focus_all) > len(focus):
             L.append(f"_{len(focus_all) - len(focus)} more shortlisted matches have their full analysis in the PlayReport app._")
@@ -1564,21 +1706,24 @@ def render_report(ctx: dict, rows: list[MatchRow], picks: dict, summary: dict, n
     L.append("## ℹ️ Method")
     L.append("")
     L += [
-        "* **Team-form model:** attack/defence strengths from goals scored and conceded over the last two seasons, "
-        f"normalised by league averages, time-weighted (half-life {CONFIG['HALF_LIFE_DAYS']} days) and strongly "
-        f"shrunk towards league average (K={CONFIG['SHRINK_K']:g} matches — goal form is noisy; the backtest showed "
-        "weak shrinkage made the old model over-confident by 5-10 points).",
-        "* **Market-implied expected goals:** where the feed publishes odds, the Over/Under 2.5 price fixes the expected "
-        "total and the 1X2 prices fix the home/away split. The final expected goals are "
-        f"{int(CONFIG['MARKET_XG_WEIGHT'] * 100)}% market / {int((1 - CONFIG['MARKET_XG_WEIGHT']) * 100)}% model "
-        "(📈 market+model). Without odds the model is used alone (🧮 model only).",
-        f"* Probabilities for every market come from a Dixon-Coles adjusted Poisson score matrix (ρ={CONFIG['DC_RHO']:g}).",
-        "* **Backtest (52,000 matches, 2023-26, no look-ahead):** final probabilities are calibrated to within ±3 points; "
-        "the model alone beats league averages but never beats the market, and when the model is more bullish than the "
-        "market those matches under-deliver — so 'Model' above is information, not a value signal. "
-        "Full results: `backtest/RESULTS.md`.",
-        "* **Extra markets (v3):** 1X2 / double chance = score matrix blended 10/90 with the sharp market (Betfair "
-        "Exchange, else market average), de-margined with the power method (removes the favourite-longshot bias). "
+        "* **Football-data model (data-first):** every probability comes from football statistics only — goals scored and "
+        "conceded over the last 40 matches (max 400 days, friendlies excluded when enough competitive matches exist), "
+        f"normalised by competition averages, time-weighted (half-life {CONFIG['HALF_LIFE_DAYS']} days), venue-blended and "
+        f"shrunk towards the league average (team strength K={CONFIG['SHRINK_K_STRENGTH']:g}, goal tempo K={CONFIG['SHRINK_K']:g} "
+        "weighted matches). Expected goals = league venue average × attack × opponent defence; probabilities for every market "
+        f"come from a Dixon-Coles adjusted Poisson score matrix (ρ={CONFIG['DC_RHO']:g}).",
+        "* **Market layer (separate):** bookmaker prices are de-margined and shown next to the model as implied probability, "
+        "difference in percentage points and EV, and as market-implied expected goals. They never feed the model and the "
+        "model is not tuned to agree with them.",
+        "* **Evidence & data quality:** every statistic carries its sample size (Very small 1–4, Small 5–9, Moderate 10–19, "
+        "Strong 20–39, Very strong 40+); each match has a transparent data-quality assessment (completeness, sample, recency, "
+        "consistency, competition, home/away relevance, source) that drives the confidence wording, never the probability. "
+        "Missing data is shown as N/A, never as zero. Historical frequency (what happened) is always labelled apart from "
+        "model probability and market implied.",
+        "* **Backtest (52,000 matches, 2023-26, no look-ahead):** model probabilities are calibrated to within ±2 points on the "
+        "goals markets and the match result; the model beats league averages but not the market, and model-v-market "
+        "disagreement is not a reliable value signal. Full results: `backtest/RESULTS.md`.",
+        "* **Extra markets:** 1X2 / double chance and team goals = the same model score matrix. "
         "Corners and cards = team for/against rates, league-normalised and shrunk (K=40 / K=20), negative binomial "
         "totals; cards include a referee factor where the referee is published (UK leagues). Both are calibrated "
         "within ~2 points on the standard lines (`backtest/MARKETS_RESULTS.md`). Half-time corners have no free data "
@@ -1586,13 +1731,13 @@ def render_report(ctx: dict, rows: list[MatchRow], picks: dict, summary: dict, n
         "* **World coverage (v4):** every competition on Livescore.com that Sportybet prices is analysed with the same "
         "team-form model from Livescore's season results (goals markets only; corners and cards need the richer "
         "football-data feed of the 22 main European leagues). Sportybet's de-margined prices are the market view there.",
-        "* **Safest bets** = goals, corners and cards selections at ≥70% on both the model and the de-margined Sportybet "
-        "price, priced 1.30 or better, **overs only** (no unders / no-BTTS); parlays and accumulators are no longer produced "
+        "* **High-probability selections** = goals, corners and cards selections with model probability ≥70% (and the de-margined "
+        "Sportybet price not contradicting it), priced 1.30 or better, **overs only** (no unders / no-BTTS); parlays and accumulators are no longer produced "
         "(the backtest showed they lose money). **Bets of the day** = strong on Over 1.5 & team goals (≥70%, up to five); "
-        "1X2, BTTS and Over 2.5 only with strong supporting form (≥70% on both views plus recent-form backing, up to two each); "
+        "1X2, BTTS and Over 2.5 only with strong supporting form (model ≥70% plus recent-form backing, up to two each); "
         "bookings and corners ≥65% (up to two each); one market per match; graded separately. The tracked record keeps one "
         "market per match so markets can be compared.",
-        "* **Sportybet prices** never enter the probability model except as the market view they represent.",
+        "* **Sportybet prices** never enter the probability model; they are the market view shown next to it.",
         f"* Data: football-data.co.uk, Livescore.com. All times are {TZL} ({CONFIG['TIMEZONE']}). ⚠️ marks teams with too little history "
         "— they are never shortlisted.",
         "* This is statistical information, not advice. Past hit-rates do not guarantee future results.",
@@ -1658,11 +1803,13 @@ def rows_to_csv(rows: list[MatchRow], path: Path) -> None:
         recs.append({
             "kickoff": fx["kickoff"].strftime("%Y-%m-%d %H:%M"), "country": fx["country"],
             "competition": fx["league"], "div": fx["div"], "home": fx["home"], "away": fx["away"],
-            "xg_home_final": round(r.lam_h, 3), "xg_away_final": round(r.lam_a, 3),
             "xg_home_model": round(r.mod_h, 3), "xg_away_model": round(r.mod_a, 3),
             "xg_home_market": None if math.isnan(r.mkt_h) else round(r.mkt_h, 3),
             "xg_away_market": None if math.isnan(r.mkt_a) else round(r.mkt_a, 3),
-            "basis": r.basis,
+            "xg_market_source": r.mkt_source or None,
+            "data_quality": ((r.audit or {}).get("quality") or {}).get("overall"),
+            "data_quality_score": ((r.audit or {}).get("quality") or {}).get("score"),
+            "sample_home": r.home.n, "sample_away": r.away.n,
             "p_over15": round(r.p_final["O15"], 3), "p_over25": round(r.p_final["O25"], 3),
             "p_over35": round(r.p_final["O35"], 3), "p_btts": round(r.p_final["BTTS"], 3),
             "p_model_over15": round(r.p_model["O15"], 3), "p_model_over25": round(r.p_model["O25"], 3),
@@ -1740,11 +1887,10 @@ def render_dossier(ctx: dict, pr: dict, ids: list[str], rows_by_key: dict, headl
                 continue
             L.append(f"### {r.label} — {comp(r)}, {ko(r)} (parlay {i}: {l.label} @ {l.odds:.2f})")
             L.append("")
-            L.append(f"* Final expected goals **{r.lam_h:.2f} – {r.lam_a:.2f}** ({r.basis}) · P(O1.5) {pct(r.p_final['O15'])} · "
+            L.append(f"* Model xG **{r.mod_h:.2f} – {r.mod_a:.2f}** (football data only) · P(O1.5) {pct(r.p_final['O15'])} · "
                      f"P(O2.5) **{pct(r.p_final['O25'])}** · P(O3.5) {pct(r.p_final['O35'])} · P(BTTS) **{pct(r.p_final['BTTS'])}**"
                      + (f" · Sportybet O2.5 {fmt_odds(sb_price(r, 'O25'))} / BTTS {fmt_odds(sb_price(r, 'BTTS'))}" if r.sb else ""))
-            L.append(f"* Team-form model alone: {r.mod_h:.2f} – {r.mod_a:.2f}"
-                     + (f" · market-implied {r.mkt_h:.2f} – {r.mkt_a:.2f}" if not math.isnan(r.mkt_h) else "")
+            L.append((f"* Market xG {r.mkt_h:.2f} – {r.mkt_a:.2f} (comparison only)" if not math.isnan(r.mkt_h) else "* Market xG N/A")
                      + f" · league avg {r.div_avg.mu_h:.2f} + {r.div_avg.mu_a:.2f} goals, O2.5 in {pct(r.div_avg.o25_rate)}")
             if pd.notna(r.fx.get("odds_h")):
                 L.append(f"* Market average 1X2 {f2(r.fx['odds_h'])} / {f2(r.fx['odds_d'])} / {f2(r.fx['odds_a'])}"
@@ -1851,7 +1997,7 @@ def telegram_text(ctx: dict, rows: list[MatchRow], picks: dict, report_url: str 
     sf = ctx.get("safe") or {}
     bets = sf.get("bets") or []
     L.append("")
-    L.append(f"🔒 <b>Safest bets</b> (≥{pct(sf.get('min_p', 0.7))} on both views, price ≥ {sf.get('min_odds', 1.3):.2f}) — {len(bets)}")
+    L.append(f"📈 <b>High-probability selections</b> (model ≥{pct(sf.get('min_p', 0.7))}, market not contradicting, price ≥ {sf.get('min_odds', 1.3):.2f}) — {len(bets)}")
     if not bets:
         L.append("nothing priced met the rules in this window")
     for b in bets[:12]:
@@ -1875,7 +2021,7 @@ def telegram_text(ctx: dict, rows: list[MatchRow], picks: dict, report_url: str 
 
 
 def alert_text(new_bets: list, now: datetime) -> str:
-    L = [f"🎯 <b>New safest bet{'s' if len(new_bets) > 1 else ''} found</b> · {now:%a %H:%M} {TZL}"]
+    L = [f"🎯 <b>New high-probability selection{'s' if len(new_bets) > 1 else ''}</b> · {now:%a %H:%M} {TZL}"]
     for b in new_bets[:10]:
         L.append(f"• {b.kickoff[5:]} {html.escape(b.home)} v {html.escape(b.away)} ({html.escape(b.league)}) — "
                  f"<b>{html.escape(b.label)}</b> @ {b.odds:.2f} · {pct(b.p)}")
@@ -2076,6 +2222,10 @@ def main() -> None:
 
     div_avgs = compute_div_avgs(results, now)
     long = make_long(results, div_avgs)
+    SEASON_STARTS.clear()
+    SEASON_STARTS.update(quality.season_starts(results, now))
+    RAW_RATINGS.clear()
+    RAW_RATINGS.update(compute_raw_ratings(long, now))
     MODELS["corners"] = markets.CountModel(results, "hc", "ac", now, markets.CORNERS)
     cards_df = results.assign(hcards=results["hy"].fillna(0) + results["hr"].fillna(0),
                               acards=results["ay"].fillna(0) + results["ar"].fillna(0))
@@ -2125,6 +2275,9 @@ def main() -> None:
     except Exception as exc:  # noqa: BLE001
         log.warning("Trends failed: %s", exc)
 
+    # ---- evidence / data quality / explanation / warnings (quality.py) — descriptive, never changes a probability
+    build_audits(rows, now)
+
     # ---- day history with late scores
     days = None
     results_s = results
@@ -2146,8 +2299,10 @@ def main() -> None:
     pr = {"parlays": [], "legs": [], "source": "none", "extended": False}
     ctx.update({"parlays": pr, "parlay_ids": [], "parlay_summary": parlay_mod.summary(ledger, now), "parlay_recent": []})
 
-    # ---- safest bets (goals / corners / cards, both views agree, price >= 1.30) + bets of the day
+    # ---- high-probability selections (goals / corners / cards, model >= 70%, market not contradicting, price >= 1.30) + bets of the day
     safe_res = safe_mod.safest(rows, now, window_end, groups=safe_mod.SAFE_GROUPS, trebles=False)
+    safe_res["quality"] = {(r.fx["date"].strftime("%Y-%m-%d"), r.fx["country"], r.fx["home"], r.fx["away"]):
+                           ((r.audit or {}).get("quality") or {}).get("overall") for r in rows if r.data_ok}
     bets_df = safe_mod.load_csv(SAFE_BETS_FILE, safe_mod.SAFE_BET_COLS)
     accas_df = safe_mod.load_csv(SAFE_ACCAS_FILE, safe_mod.ACCA_COLS)
     bets_df = safe_mod.settle_bets(bets_df, results_s, now)
@@ -2173,7 +2328,7 @@ def main() -> None:
         alerts = []
     for b in new_bets:
         alerts.append({"id": safe_mod.bet_id(b.key[0], b.home, b.away, b.sel), "ts": now.strftime("%Y-%m-%d %H:%M"),
-                       "title": f"New safest bet · {b.label}", "kickoff": b.kickoff,
+                       "title": f"New high-probability selection · {b.label}", "kickoff": b.kickoff,
                        "text": f"{b.home} v {b.away} · {b.kickoff[5:]} · {b.odds:.2f} · {pct(b.p)}",
                        "fixture": appdata.fixture_id(b.key[0], b.key[1], b.home, b.away)})
     alerts = alerts[-50:]

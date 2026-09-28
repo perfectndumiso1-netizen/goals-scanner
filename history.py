@@ -69,7 +69,9 @@ class Days:
                 "league": fx["league"], "div": fx["div"], "competition": comp(r), "home": fx["home"], "away": fx["away"],
                 "home_long": (r.sb_event or {}).get("home") or ls.get("home") or fx["home"],
                 "away_long": (r.sb_event or {}).get("away") or ls.get("away") or fx["away"],
-                "xg": [_f(r.lam_h, 2), _f(r.lam_a, 2)],
+                "xg": [_f(r.mod_h, 2), _f(r.mod_a, 2)],           # football-data model xG
+                "mxg": None if r.mkt_h != r.mkt_h else [_f(r.mkt_h, 2), _f(r.mkt_a, 2)],   # market xG (comparison only)
+                "q": ((r.audit or {}).get("quality") or {}).get("overall"),
                 "p": {"O15": _f(r.p_final["O15"]), "O25": _f(r.p_final["O25"]), "BTTS": _f(r.p_final["BTTS"])},
                 "x12": [_f(x12.get("H")), _f(x12.get("D")), _f(x12.get("A"))],
                 "top": [s for s in sels_of(r)[:3]],

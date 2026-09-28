@@ -1,15 +1,16 @@
-"""Safest bets & safest trebles (v4).
+"""High-probability selections (internal name kept: "safe" bets) and the day card.
 
 Every fixture gets a list of *selections* across all modelled markets (match result, double chance, goals lines,
-BTTS, team goals, corners, cards) with two probability views: the calibrated model probability and the probability
-implied by the Sportybet price (de-margined). The probability used for ranking is the average of the two views
-where a price exists (the same rule the parlay legs use) — a bet is only "safe" when both the model and the
-bookmaker think so.
+BTTS, team goals, corners, cards) with two separate views: the football-data MODEL probability and the probability
+IMPLIED by the Sportybet price (de-margined). Data-first engine (2026-09-28): the probability used for ranking and
+thresholds is the model probability alone (Sel.p == Sel.p_model). The market view is a comparison layer: a
+selection whose de-margined price disagrees with the model by more than DIFF_FLAG is not listed (it is shown as a
+model / market disagreement on the match page instead), and the day-card signal sections also require the market
+view not to sit below the threshold. The market never changes a model probability.
 
-"Safest bets"   = priced selections with probability >= MIN_P and price >= MIN_ODDS, ranked by probability.
-"Safest trebles" = three 3-leg accumulators from that pool, one leg per match, no match repeated across the three,
-                  ranked by combined probability (treble 1 = the three safest legs, and so on).
-Both are written to their own ledgers (data/safe_bets.csv, data/safe_accas.csv) and auto-settled from results.
+"High-probability selections" = priced selections with model probability >= MIN_P and price >= MIN_ODDS, ranked by
+model probability (ledger data/safe_bets.csv, auto-settled from results). Trebles are legacy code, no longer produced.
+No selection is ever labelled safe, guaranteed or a banker in user-facing text.
 """
 from __future__ import annotations
 
@@ -48,7 +49,7 @@ def is_under(sel: str) -> bool:
 
 # bets-of-the-day card: one section per market family, up to BOTD_PER_GROUP picks each, distinct matches per section
 # (key, title, selection filter, minimum probability, picks per section). The card is strong on Over 1.5 & team goals;
-# 1X2 / BTTS / Over 2.5 only enter with a strong signal (probability >= 70% on both views AND recent form backing it —
+# 1X2 / BTTS / Over 2.5 only enter with a strong signal (model >= 70%, market view not below 70%, AND recent form backing it —
 # see scanner.strong_signal). One market per match across the whole card.
 BOTD_GROUPS = [
     ("o15", "Over 1.5 & team goals", lambda sel: sel in ("O15", "HO05", "AO05", "HO15", "AO15"), 0.70, 5),
@@ -164,7 +165,16 @@ class Sel:
 
     @property
     def p(self) -> float:
-        return (self.p_model + self.p_sb) / 2 if self.p_sb is not None else self.p_model
+        """Ranking probability = the football-data model probability (never blended with the market)."""
+        return self.p_model
+
+    @property
+    def diff_pp(self) -> float | None:
+        return None if self.p_sb is None else 100 * (self.p_model - self.p_sb)
+
+    @property
+    def ev(self) -> float | None:
+        return None if not self.priced else self.p_model * self.odds - 1
 
     @property
     def group(self) -> str:
@@ -247,10 +257,13 @@ def selections(r) -> list[Sel]:
 
 
 def sel_dict(s: Sel, home: str, away: str) -> dict:
+    """p / p_model = model probability; p_sb = market implied (comparison); fair = 1 / model probability;
+    diff_pp = model − market in percentage points; ev = model probability × price − 1."""
     return {"sel": s.sel, "group": s.group, "label": label(s.sel, home, away), "p": round(s.p, 3),
             "p_model": round(s.p_model, 3), "p_sb": round(s.p_sb, 3) if s.p_sb is not None else None,
             "odds": round(s.odds, 2) if s.odds else None, "fair": round(1 / s.p, 2) if s.p > 0 else None,
-            "diff": s.diff}
+            "diff": s.diff, "diff_pp": None if s.diff_pp is None else round(s.diff_pp, 1),
+            "ev": None if s.ev is None else round(s.ev, 3)}
 
 
 # ----------------------------------------------------------------------------- safest bets / trebles
@@ -383,9 +396,9 @@ def bet_id(match_date: str, home: str, away: str, sel: str) -> str:
 
 
 def botd_candidates(rows: list, now: datetime, min_odds: float = MIN_ODDS, signal=None) -> list[Bet]:
-    """Selections eligible for the day card: priced, both views agree, price >= 1.30, overs only, probability at or
-    above the section threshold; 1X2 / BTTS / Over 2.5 additionally need `signal(r, sel)` to be true (form backing)
-    and >= 70% on BOTH the model and the market view."""
+    """Selections eligible for the day card: priced, market not contradicting the model (|diff| <= DIFF_FLAG),
+    price >= 1.30, overs only, model probability at or above the section threshold; 1X2 / BTTS / Over 2.5
+    additionally need `signal(r, sel)` to be true (form backing) and the market view not below the threshold."""
     start = now + timedelta(minutes=10)
     out: list[Bet] = []
     for r in rows:

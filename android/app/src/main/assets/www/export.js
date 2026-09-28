@@ -31,7 +31,7 @@
   const teamBlock = (name, t, side) => {
     const lines = [];
     lines.push(row([`${side} team`, name]));
-    lines.push(row(['Matches used', t.n, 'Home/away sample', t.venue_n]));
+    lines.push(row(['Matches used', t.n, 'Evidence', t.evidence || '', 'Home/away sample', t.venue_n, 'Evidence', t.venue_evidence || '']));
     lines.push(row(['Goals for / game', t.gf, 'Goals against / game', t.ga]));
     lines.push(row(['At this venue: for / game', t.venue_gf, 'against / game', t.venue_ga]));
     lines.push(row(['Attack rating (1 = league average)', t.att, 'Defence rating', t.def]));
@@ -53,21 +53,25 @@
     L.push(row(['Kick-off (SAST)', x.kickoff, 'Date', x.date]));
     L.push(row(['Analysis published', state.data && state.data.meta ? state.data.meta.generated : '']));
     if (live && live.hg != null) L.push(row(['Score', `${live.hg}-${live.ag}`, 'Status', live.status || '']));
-    L.push(row(['Data quality', x.data_ok ? 'ok' : 'low data', 'Basis', x.basis || '']));
+    const q = x.quality || {}; const conf = x.confidence || {};
+    L.push(row(['Data quality', q.overall || (x.data_ok ? 'ok' : 'low data'), 'Score', q.score != null ? q.score : '', 'Confidence (O2.5)', conf.O25 || '', 'Basis', 'football-data model (market compared, never blended)']));
+    if (q.components) Object.entries(q.components).forEach(([k, v]) => L.push(row(['Quality component', k, v.score, v.reason])));
+    if (q.missing_fields && q.missing_fields.length) L.push(row(['Missing fields', q.missing_fields.join('; ')]));
+    (x.warnings || []).forEach((w) => L.push(row(['Check', w.level, w.text])));
     L.push('');
     L.push(row(['Expected goals', 'Home', 'Away', 'Total']));
-    L.push(row(['Model', xg.model_home, xg.model_away, xg.model_home != null && xg.model_away != null ? xg.model_home + xg.model_away : '']));
-    L.push(row(['Market', xg.market_home, xg.market_away, xg.market_home != null && xg.market_away != null ? xg.market_home + xg.market_away : '']));
-    L.push(row(['Final', xg.home, xg.away, xg.total]));
+    L.push(row(['Model xG (football data only)', xg.model_home, xg.model_away, xg.model_total != null ? xg.model_total : (xg.model_home != null && xg.model_away != null ? xg.model_home + xg.model_away : '')]));
+    L.push(row(['Market xG (comparison only)', xg.market_home != null ? xg.market_home : 'N/A', xg.market_away != null ? xg.market_away : 'N/A', xg.market_total != null ? xg.market_total : 'N/A', xg.market_source || '']));
+    if (x.explain && x.explain.lambda_home) { const ex = x.explain; L.push(row(['Model xG home = league home avg x home attack x away defence', ...(ex.lambda_home.terms || [])])); L.push(row(['Model xG away = league away avg x away attack x home defence', ...(ex.lambda_away.terms || [])])); }
     L.push('');
-    L.push(row(['Probability (%)', 'Value']));
+    L.push(row(['Model probability (%)', 'Value']));
     L.push(row(['Home win', pc(x12.H)])); L.push(row(['Draw', pc(x12.D)])); L.push(row(['Away win', pc(x12.A)]));
     L.push(row(['1X', pc(x12['1X'])])); L.push(row(['12', pc(x12['12'])])); L.push(row(['X2', pc(x12.X2)]));
     L.push(row(['Over 1.5 goals', pc(p.O15)])); L.push(row(['Over 2.5 goals', pc(p.O25)])); L.push(row(['Over 3.5 goals', pc(p.O35)])); L.push(row(['Both teams to score', pc(p.BTTS)]));
     L.push(row([`${x.home} to score`, pc(tg.H_o05)])); L.push(row([`${x.home} 2+ goals`, pc(tg.H_o15)])); L.push(row([`${x.away} to score`, pc(tg.A_o05)])); L.push(row([`${x.away} 2+ goals`, pc(tg.A_o15)]));
     L.push('');
-    L.push(row(['Market selection', 'Code', 'Combined %', 'Model %', 'Market %', 'Sportybet price', 'Fair price', 'Views agree']));
-    (x.sels || []).forEach((s) => L.push(row([selLabel(s.sel, x.home, x.away), s.sel, pc(s.p), pc(s.p_model), pc(s.p_sb), s.odds, s.p ? Math.round(100 / s.p) / 100 : '', s.diff ? 'no' : 'yes'])));
+    L.push(row(['Market selection', 'Code', 'Model %', 'Market implied %', 'Difference (pp)', 'Sportybet price', 'Model fair price', 'EV', 'Model vs market']));
+    (x.sels || []).forEach((s) => L.push(row([selLabel(s.sel, x.home, x.away), s.sel, pc(s.p_model), pc(s.p_sb), s.diff_pp != null ? s.diff_pp : '', s.odds, s.p ? Math.round(100 / s.p) / 100 : '', s.ev != null ? Math.round(1000 * s.ev) / 10 + '%' : '', s.diff ? 'disagreement' : 'agree'])));
     L.push('');
     L.push(...teamBlock(x.home, teams.home || {}, 'Home'));
     L.push('');
@@ -75,6 +79,15 @@
     L.push('');
     L.push(row(['Recent form', 'Team', 'Date', 'Venue', 'Opponent', 'Goals for', 'Goals against', 'Result', 'Competition']));
     ['home', 'away'].forEach((side) => ((teams[side] || {}).last5 || []).forEach((m) => L.push(row(['', x[side], m.date, m.venue === 'H' ? 'Home' : 'Away', m.opp, m.gf, m.ga, wdl(m.gf, m.ga), m.league]))));
+    const ev = x.evidence || {};
+    ['home', 'away'].forEach((side) => {
+      const e = ev[side]; if (!e) return; const c = e.composition || {};
+      L.push('');
+      L.push(row([`Sample ${x[side]}`, 'Matches', c.n, 'Evidence', c.label, 'Current season', c.current_season, 'Previous', c.previous_season, 'Home', c.home, 'Away', c.away, 'Friendlies included', c.friendlies_included, 'From', c.first_date, 'To', c.last_date]));
+      const m = e.matches; const rows = m && m.cols ? m.rows.map((r) => { const o = {}; m.cols.forEach((cc, i) => { o[cc] = r[i]; }); return o; }) : (m || []);
+      L.push(row(['Raw matches used', 'Date', 'Venue', 'Opponent', 'Goals for', 'Goals against', 'Competition', 'Season', 'xG for', 'xG against', 'SOT for', 'SOT against', 'Corners for', 'Corners against', 'Cards for', 'Cards against', 'Flag']));
+      rows.forEach((r) => L.push(row(['', r.date, r.venue === 'H' ? 'Home' : 'Away', r.opp, r.gf, r.ga, r.league, r.season, r.xg_for, r.xg_against, r.sot_for, r.sot_against, r.corners_for, r.corners_against, r.cards_for, r.cards_against, [r.friendly ? 'friendly' : '', r.outlier ? 'extreme result' : ''].filter(Boolean).join('; ')])));
+    });
     if ((x.h2h || []).length) {
       L.push('');
       L.push(row(['Head to head', 'Date', 'Home', 'Away', 'Home goals', 'Away goals', 'Competition']));

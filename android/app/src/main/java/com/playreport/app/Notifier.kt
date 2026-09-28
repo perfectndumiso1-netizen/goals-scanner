@@ -27,9 +27,9 @@ object Notifier {
             description = "A new PlayReport analysis has been published"
         })
         nm.createNotificationChannel(NotificationChannel(CH_GOALS, "Goals in tracked matches", NotificationManager.IMPORTANCE_HIGH).apply {
-            description = "Score changes in safest-bet and shortlisted matches"
+            description = "Score changes in tracked and shortlisted matches"
         })
-        nm.createNotificationChannel(NotificationChannel(CH_BETS, "New safest bets & tickets", NotificationManager.IMPORTANCE_HIGH).apply {
+        nm.createNotificationChannel(NotificationChannel(CH_BETS, "New selections & tickets", NotificationManager.IMPORTANCE_HIGH).apply {
             description = "A new bet met the safety rules; one of your tickets was settled"
         })
         nm.createNotificationChannel(NotificationChannel(CH_MATCH, "Half-time & full-time", NotificationManager.IMPORTANCE_DEFAULT).apply {

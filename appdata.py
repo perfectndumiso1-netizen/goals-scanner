@@ -69,7 +69,11 @@ def _sb(sb: dict | None) -> dict | None:
 def _count(exp, probs: dict | None) -> dict | None:
     if exp is None:
         return None
+    import quality
+    n_min = min(int(getattr(exp, "h_n", 0) or 0), int(getattr(exp, "a_n", 0) or 0))
     return {"home": _f(exp.eh, 2), "away": _f(exp.ea, 2), "total": _f(exp.eh + exp.ea, 2),
+            "n": [int(getattr(exp, "h_n", 0) or 0), int(getattr(exp, "a_n", 0) or 0)],
+            "evidence": quality.evidence_label(n_min), "low_confidence": n_min < 10,
             "p": {side: {str(k): _f(v, 3) for k, v in d.items()} for side, d in (probs or {}).items()}}
 
 
@@ -92,7 +96,27 @@ def _profile(t) -> dict:
             "sot_for": _f(t.sot_for, 2), "sot_against": _f(t.sot_against, 2),
             "venue_o15": _f(getattr(t, "venue_rate_o15", None)), "venue_o25": _f(getattr(t, "venue_rate_o25", None)),
             "venue_btts": _f(getattr(t, "venue_rate_btts", None)),
-            "last5": _matches(t.last5), "venue_last5": _matches(getattr(t, "venue_last5", None))}
+            "last5": _matches(t.last5), "venue_last5": _matches(getattr(t, "venue_last5", None)),
+            "evidence": _label(t.n), "venue_evidence": _label(t.venue_n),
+            "friendlies_excluded": int(getattr(t, "friendlies_excluded", 0) or 0)}
+
+
+def _label(n) -> str:
+    import quality
+    return quality.evidence_label(n)
+
+
+def _compact_evidence(ev: dict | None) -> dict | None:
+    """Raw match lists in column form (quality.compact_matches) to keep the per-match file small."""
+    if not ev:
+        return ev
+    import quality
+    out = {}
+    for side, e in ev.items():
+        e2 = dict(e)
+        e2["matches"] = quality.compact_matches(e.get("matches") or [])
+        out[side] = e2
+    return out
 
 
 def update_badges(path: Path, rows: list, ls_map: dict, extra: dict | None = None, src: Path | None = None) -> dict:
@@ -208,6 +232,8 @@ def export(path: Path, *, ctx: dict, rows: list, picks: dict, tracker_summary: d
     tracked = set()
     index = []
     ids_by_key = {}
+    quality_by_key: dict = {}
+    conf_by_key: dict = {}
     badges = update_badges(app_dir / "badges.json", rows, ls_map, extra_badges, src=live_dir / "badges.json")
     live_eids = []
     # the previous publication: matches that have kicked off are carried over unchanged ("frozen") for 3 hours so the
@@ -224,6 +250,10 @@ def export(path: Path, *, ctx: dict, rows: list, picks: dict, tracker_summary: d
         fid = fixture_id(date, fx["country"], fx["home"], fx["away"])
         key = detail_key(fid)
         ids_by_key[(date, fx["country"], fx["home"], fx["away"])] = fid
+        _q = ((r.audit or {}).get("quality") or {})
+        quality_by_key[(date, fx["country"], fx["home"], fx["away"])] = _q.get("overall")
+        _c = ((r.audit or {}).get("confidence") or {})
+        conf_by_key[(date, fx["country"], fx["home"], fx["away"])] = _c.get("O15")
         ls = ls_map.get(fx.name)
         x12 = r.extra.x12 or {}
         sels = selections(r)
@@ -239,7 +269,10 @@ def export(path: Path, *, ctx: dict, rows: list, picks: dict, tracker_summary: d
             "country": fx["country"], "league": fx["league"], "div": fx["div"], "competition": comp(r),
             "home": fx["home"], "away": fx["away"], "tier": fx.get("source") or "main",
             "data_ok": bool(r.data_ok), "basis": r.basis,
-            "xg": [_f(r.lam_h, 2), _f(r.lam_a, 2)],
+            "xg": [_f(r.mod_h, 2), _f(r.mod_a, 2)],
+            "mxg": None if math.isnan(r.mkt_h) else [_f(r.mkt_h, 2), _f(r.mkt_a, 2)],
+            "q": (((r.audit or {}).get("quality") or {}).get("overall")),
+            "n": [int(r.home.n), int(r.away.n)],
             "p": {"O15": _f(r.p_final["O15"]), "O25": _f(r.p_final["O25"]), "BTTS": _f(r.p_final["BTTS"])},
             "x12": [_f(x12.get("H")), _f(x12.get("D")), _f(x12.get("A"))],
             "priced": bool(r.sb), "top": top, "safe": safe_best, "hi": hi, "bo": _board(sels),
@@ -252,12 +285,19 @@ def export(path: Path, *, ctx: dict, rows: list, picks: dict, tracker_summary: d
             "home_long": (r.sb_event or {}).get("home") or (ls or {}).get("home") or fx["home"],
             "away_long": (r.sb_event or {}).get("away") or (ls or {}).get("away") or fx["away"],
             "referee": (fx.get("referee") or None) or None,
-            "xg": {"home": _f(r.lam_h, 2), "away": _f(r.lam_a, 2), "total": _f(r.lam_h + r.lam_a, 2),
-                   "model_home": _f(r.mod_h, 2), "model_away": _f(r.mod_a, 2),
-                   "market_home": _f(r.mkt_h, 2), "market_away": _f(r.mkt_a, 2)},
-            "p": {"O15": _f(r.p_final["O15"]), "O25": _f(r.p_final["O25"]), "O35": _f(r.p_final["O35"]),
-                  "BTTS": _f(r.p_final["BTTS"]), "model_O25": _f(r.p_model["O25"]), "model_BTTS": _f(r.p_model["BTTS"]),
-                  "market_O25": _f(r.p_market_o25), "fair_O25": _f(r.extra.p_o25_fair)},
+            # xg.home/away/total = the football-data MODEL (kept under the old keys for older app builds);
+            # market_* = market-implied expected goals, a separate comparison layer, never blended in
+            "xg": {"home": _f(r.mod_h, 2), "away": _f(r.mod_a, 2), "total": _f(r.mod_h + r.mod_a, 2),
+                   "model_home": _f(r.mod_h, 2), "model_away": _f(r.mod_a, 2), "model_total": _f(r.mod_h + r.mod_a, 2),
+                   "market_home": _f(r.mkt_h, 2), "market_away": _f(r.mkt_a, 2),
+                   "market_total": None if math.isnan(r.mkt_h) else _f(r.mkt_h + r.mkt_a, 2),
+                   "market_source": r.mkt_source or None},
+            "p": {"O15": _f(r.p_model["O15"]), "O25": _f(r.p_model["O25"]), "O35": _f(r.p_model["O35"]),
+                  "BTTS": _f(r.p_model["BTTS"]), "model_O25": _f(r.p_model["O25"]), "model_BTTS": _f(r.p_model["BTTS"]),
+                  "market_O25": _f((r.fair or {}).get("O25", r.p_market_o25)), "market_O15": _f((r.fair or {}).get("O15")),
+                  "market_BTTS": _f((r.fair or {}).get("BTTS"))},
+            "x12_market": ({k: _f(v) for k, v in r.x12_market.items() if k in ("H", "D", "A")} | {"source": r.x12_market.get("source")})
+            if r.x12_market else None,
             "stars": {m: stars(r.p_final[m], m) for m in ("O15", "O25", "BTTS")},
             "x12": {k: _f(v) for k, v in x12.items() if k in ("H", "D", "A", "1X", "12", "X2")} | (
                 {"source": x12.get("source")} if x12.get("source") else {}),
@@ -274,9 +314,19 @@ def export(path: Path, *, ctx: dict, rows: list, picks: dict, tracker_summary: d
             "h2h": [{"date": _date(m["date"]), "home": m["home"], "away": m["away"], "hg": int(m["hg"]), "ag": int(m["ag"]),
                      "league": m.get("league")} for m in r.h2h[:10]],
             "league_ctx": {"btts": _f(getattr(r.div_avg, "btts_rate", None))},
-            "sels": [[d["sel"], d["p"], d["p_model"], d["p_sb"], d["odds"], 1 if d["diff"] else 0] for d in sels],
+            # sels: [sel, p (model), p_model, p_market (implied), odds, disagreement flag, diff pp, EV]
+            "sels": [[d["sel"], d["p"], d["p_model"], d["p_sb"], d["odds"], 1 if d["diff"] else 0, d.get("diff_pp"), d.get("ev")] for d in sels],
             "trends": r.trends or {},
             "squad": getattr(r, "squad", None) or None,
+            # ---- data-first engine: evidence, quality, explanation, warnings (quality.py)
+            "quality": (r.audit or {}).get("quality"),
+            "confidence": (r.audit or {}).get("confidence"),
+            "evidence": _compact_evidence((r.audit or {}).get("evidence")),
+            "h2h_meta": (r.audit or {}).get("h2h"),
+            "explain": (r.audit or {}).get("explain"),
+            "market": (r.audit or {}).get("market"),
+            "warnings": (r.audit or {}).get("warnings"),
+            "generated": now.strftime("%Y-%m-%d %H:%M"),
         })
         _write(fx_dir / f"{key}.json", detail)
     # prune detail files of fixtures older than a few days (day pages keep their own summary)
@@ -301,12 +351,14 @@ def export(path: Path, *, ctx: dict, rows: list, picks: dict, tracker_summary: d
                                  "kickoff": b.kickoff, "league": b.league, "country": b.key[1],
                                  "sel": b.sel, "group": b.group, "label": b.label, "p": _f(b.p), "p_model": _f(b.p_model),
                                  "p_sb": _f(b.p_sb), "odds": _f(b.odds, 2), "fair": _f(1 / b.p, 2) if b.p else None,
+                                 "q": quality_by_key.get(b.key), "conf": conf_by_key.get(b.key),
                                  "badges": {"home": badges.get(b.home), "away": badges.get(b.away)}})
     for b in botd or []:
         fid = ids_by_key.get((b["kickoff"][:10], b["country"], b["home"], b["away"])) or \
             fixture_id(b["kickoff"][:10], b["country"], b["home"], b["away"])
         tracked.add(fid)
-        safe_out["today"]["bets"].append({**b, "fixture": fid,
+        bkey = (b["kickoff"][:10], b["country"], b["home"], b["away"])
+        safe_out["today"]["bets"].append({**b, "fixture": fid, "q": quality_by_key.get(bkey), "conf": conf_by_key.get(bkey),
                                           "badges": {"home": badges.get(b["home"]), "away": badges.get(b["away"])}})
     frozen = carry_over(prev, index, safe_out["bets"], tracked, now)
     if frozen:

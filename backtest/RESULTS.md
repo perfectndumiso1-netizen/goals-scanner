@@ -1,6 +1,47 @@
 # Backtest results
 
-_Generated 2026-09-26 11:50. Parameters: half-life 120 days, shrinkage K=40, venue K=20, Dixon-Coles rho=-0.05, market-xG weight=0.9._
+## 2026-09-28 — data-first engine: model-only probabilities and two-strength shrinkage
+
+The production model no longer blends market-implied expected goals into its probabilities (data-first engine:
+football data → model; bookmaker prices → separate comparison layer). To make the model-only probabilities as good
+as possible on their own, `backtest/model_variants.py` replayed 52,253 matches (2022-27, no look-ahead, same data as
+below; evaluation from Aug 2023, train ≤ Jun 2025, test = 25/26–26/27) with these football-data-only variants:
+
+| variant (test seasons, n = 14,135)       | O1.5   | O2.5   | BTTS   | Home win | Away win | HW calibration 0.60+ bucket |
+|:------------------------------------------|:-------|:-------|:-------|:---------|:---------|:----------------------------|
+| base — K=40 shrinkage (old production)    | 0.5399 | 0.6818 | 0.6836 | 0.6640   | 0.5928   | n=56, pred 0.62 → actual 0.86 (badly under-confident) |
+| goals capped at 5 per team                | 0.5399 | 0.6820 | 0.6836 | 0.6642   | 0.5929   | same |
+| opponent-adjusted ratings (two-pass)      | 0.5400 | 0.6822 | 0.6836 | 0.6641   | 0.5929   | same |
+| single K=10                               | 0.5412 | 0.6837 | 0.6861 | 0.6514   | 0.5822   | 0.66 → 0.72 |
+| **two-K: strength K=5, tempo K=40**       | **0.5395** | **0.6808** | 0.6842 | **0.6507** | **0.5825** | n=1,762, pred 0.67 → actual 0.67 |
+| two-K: strength K=10, tempo K=40          | 0.5398 | 0.6813 | 0.6839 | 0.6515   | 0.5826   | 0.65 → 0.72 |
+| two-K K=5/40 + opponent adjustment        | 0.5396 | 0.6810 | 0.6844 | 0.6501   | 0.5821   | 0.67 → 0.67 |
+| market (average bookmaker odds), reference | –     | 0.6784 | –      | 0.6231   | 0.5638   | – |
+
+Findings and decisions:
+
+* **Adopted: two-strength shrinkage** (`SHRINK_K_STRENGTH` = 5 for the attack/defence *ratio*, `SHRINK_K` = 40 for the
+  goal *tempo*, in log space). A team's strength relative to its opponents is more persistent than its goal tempo, so
+  it needs less shrinkage. It improves every market at once — Over 1.5, Over 2.5, home win (0.664 → 0.651) and away
+  win (0.593 → 0.583) — and fixes the 1X2 calibration, which matters now that 1X2 is model-only (previously 90 %
+  market). BTTS is unchanged within noise.
+* **Not adopted: opponent-adjusted ratings.** No measurable gain on any goals market (league normalisation already
+  captures most of it) and a 2.5× slower run. Opponent strength is instead *reported* per team (average rating of the
+  opponents faced, raw v opponent-adjusted attack/defence) as information in the audit, never as a model input.
+* **Not adopted: capping extreme scores.** No effect on accuracy; extreme results stay in the sample and are flagged
+  with their effect on the recent averages (audit / Data tab).
+* **Honest trade-off:** the pure football-data model remains slightly behind the market on Over 2.5 (0.6808 v 0.6784)
+  and clearly behind on the match result (0.651 v 0.623) — the market knows line-ups, injuries and motivation. The
+  old market-blended headline probability (0.6788 on O2.5) was marginally more accurate than the model-only one, and
+  it was given up on purpose: the probability must be traceable to football data. Market disagreement is shown, not
+  used, and (as found in 2026-09-26) it is not a reliable value signal.
+
+Calibration of the adopted model on the test seasons — Over 1.5 ≥ 0.84 bucket: predicted 0.853, actual 0.860
+(n = 728); home win 0.50–0.60: 0.545 → 0.524 (n = 2,641); home win ≥ 0.60: 0.671 → 0.670 (n = 1,762).
+
+---
+
+_Generated 2026-09-26 11:50 (the sections below pre-date the data-first engine; 'final probability' there means the old market blend). Parameters: half-life 120 days, shrinkage K=40, venue K=20, Dixon-Coles rho=-0.05, market-xG weight=0.9._
 
 ## Model accuracy
 

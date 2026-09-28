@@ -127,7 +127,7 @@
     const tap = f ? `class="tap" data-fx="${esc(b.fixture)}"` : '';
     return `<tr ${tap}><td class="tiny muted nowrap">${esc(opts.time ? koTime(b.kickoff) : koShort(b.kickoff))}</td>
       <td><div class="row" style="gap:6px">${badge(b.home, b.badges && b.badges.home, 20)}${badge(b.away, b.badges && b.badges.away, 20)}<div class="b grow">${esc(b.home)} <span class="muted">v</span> ${esc(b.away)}</div></div>
-      <div class="sel"><b>${esc(b.label)}</b></div><div class="tiny muted">${flag(b.country)} ${esc(b.league)}${st.text !== 'not started' ? ` · <span class="${st.cls}">${esc(st.text)}</span>` : ''}</div></td>
+      <div class="sel"><b>${esc(b.label)}</b></div><div class="tiny muted">${flag(b.country)} ${esc(b.league)}${b.q ? ` · <span class="${b.q === 'High' ? 'pos' : b.q === 'Low' ? 'warn' : ''}">data ${esc(b.q)}</span>` : ''}${b.p_sb != null ? ` · market ${pct(b.p_sb)}` : ''}${st.text !== 'not started' ? ` · <span class="${st.cls}">${esc(st.text)}</span>` : ''}</div></td>
       <td class="right nowrap"><b>${f2(b.odds)}</b></td><td class="right"><div class="row" style="gap:0;justify-content:flex-end">${pill(b.p, 0.8, 0.7)}${PR.addBtn ? PR.addBtn(b.fixture, b.sel, b.odds) : ''}</div></td></tr>`;
   }
   function selRow(f, s) {
@@ -155,7 +155,7 @@
     const safe = safeList('all');
     parts.push(`<div class="card hero"><div class="eyebrow">Live analysis · updated every 30 minutes</div><div class="b" style="font-size:17px">${esc(dayName(m.generated))} · ${esc(koTime(m.generated))} ${esc(m.tz)}</div>
       <div class="tiny muted">Next update ${esc(koTime(m.next_run || ''))} · ${cov.competitions || '–'} competitions worldwide · ${cov.priced || 0} priced by Sportybet</div>
-      <div class="hero-nums"><div><b>${m.fixtures}</b><span>matches</span></div><div><b>${(sf.today && sf.today.bets ? sf.today.bets.length : 0)}</b><span>bets of the day</span></div><div><b>${safe.length}</b><span>safest bets</span></div><div><b>${(state.liveAll || []).length || inPlay.length}</b><span>in play</span></div></div>
+      <div class="hero-nums"><div><b>${m.fixtures}</b><span>matches</span></div><div><b>${(sf.today && sf.today.bets ? sf.today.bets.length : 0)}</b><span>bets of the day</span></div><div><b>${safe.length}</b><span>high-probability</span></div><div><b>${(state.liveAll || []).length || inPlay.length}</b><span>in play</span></div></div>
       ${inPlay.length ? `<div class="live-strip" data-tab-go="live"><span class="status-dot live"></span><div class="grow"><b>${inPlay.length} tracked in play</b> · ${inPlay.slice(0, 2).map((f) => { const s = live.for(f); return `${esc(f.home)} ${s.hg}–${s.ag} ${esc(f.away)}`; }).join(' · ')}${inPlay.length > 2 ? ' …' : ''}</div>${icon('next', 'sm')}</div>` : ''}</div>`);
     if (PR.APP_VERSION && settings.seenVersion !== PR.APP_VERSION) {
       parts.push(`<div class="card whatsnew"><div class="row"><div class="grow"><b>${icon('sparkle', 'sm')} New in PlayReport ${esc(PR.APP_VERSION)}</b></div><button class="link" id="wn-close">${icon('x')}</button></div>
@@ -164,8 +164,8 @@
     parts.push(botdCard(true));
     if (PR.ticketsCard && PR.tickets().some((t) => t.status === 'pending')) parts.push(PR.ticketsCard(true));
     const favs = (PR.favList ? PR.favList() : []).map((x) => fx(x.fixture)).filter(Boolean).sort((a, b) => a.kickoff.localeCompare(b.kickoff));
-    if (favs.length) parts.push(`<div class="section-head"><h2><span class="ico amber">${icon('star')}</span>Your matches</h2><button class="link" data-tab-go="matches" data-mf-go="fav">All ${favs.length} ${icon('next')}</button></div><div class="card compact">${favs.slice(0, 5).map((f) => { const s = live.for(f); return matchRow(f, { live: s, sub: `${flag(f.country)} ${esc(f.competition)}${f.safe ? ` · 🔒 <b>${esc(selShort(f.safe[0]))}</b> ${pct(f.safe[1])}` : ''}`, right: s && s.hg != null ? '' : `<span class="pill ${f.p.O25 >= 0.6 ? 'hi' : ''}">O2.5 ${pct(f.p.O25)}</span>` }); }).join('')}</div>`);
-    parts.push(`<div class="section-head">${sh('lock', 'Safest bets', 'green')}<button class="link" data-bets="safest">All ${safe.length} ${icon('next')}</button></div>`);
+    if (favs.length) parts.push(`<div class="section-head"><h2><span class="ico amber">${icon('star')}</span>Your matches</h2><button class="link" data-tab-go="matches" data-mf-go="fav">All ${favs.length} ${icon('next')}</button></div><div class="card compact">${favs.slice(0, 5).map((f) => { const s = live.for(f); return matchRow(f, { live: s, sub: `${flag(f.country)} ${esc(f.competition)}${f.safe ? ` · 📈 <b>${esc(selShort(f.safe[0]))}</b> ${pct(f.safe[1])}` : ''}`, right: s && s.hg != null ? '' : `<span class="pill ${f.p.O25 >= 0.6 ? 'hi' : ''}">O2.5 ${pct(f.p.O25)}</span>` }); }).join('')}</div>`);
+    parts.push(`<div class="section-head">${sh('trend', 'High-probability selections', 'green')}<button class="link" data-bets="safest">All ${safe.length} ${icon('next')}</button></div>`);
     if (!safe.length) parts.push(`<div class="card empty small">Nothing priced at ≥ ${f2(sf.min_odds || 1.3)} reached ${pct(sf.min_p || 0.7)} on both views${majorOnly() ? ' in the major leagues' : ''}.</div>`);
     else parts.push(`<div class="card compact"><table class="tbl">${safe.slice(0, 5).map((b) => safeRow(b)).join('')}</table></div>`);
     const pk = d.picks || {};
@@ -190,7 +190,7 @@
   const leagueChips = () => `<div class="chips small-chips"><button class="chip tapchip ${!majorOnly() ? 'on' : ''}" data-lg="all">🌍 All leagues</button><button class="chip tapchip ${majorOnly() ? 'on' : ''}" data-lg="major">🏆 Major leagues</button></div>`;
   PR.views.bets = function () {
     const parts = []; const v = state.betsView || 'today';
-    parts.push(`<div class="card compact sticky-ish">${segmented([['today', `${icon('star')} Today`], ['top', `${icon('shield')} Top leagues`], ['safest', `${icon('lock')} Safest`], ['goals', `${icon('ball')} Goals`], ['corners', `${icon('corner')} Corners`], ['cards', `${icon('card')} Cards`], ['picks', `${icon('trend')} Shortlist`]], v, 'bv')}</div>`);
+    parts.push(`<div class="card compact sticky-ish">${segmented([['today', `${icon('star')} Today`], ['top', `${icon('shield')} Top leagues`], ['safest', `${icon('trend')} High prob.`], ['goals', `${icon('ball')} Goals`], ['corners', `${icon('corner')} Corners`], ['cards', `${icon('card')} Cards`], ['picks', `${icon('trend')} Shortlist`]], v, 'bv')}</div>`);
     if (v === 'today') renderToday(parts);
     else if (v === 'top') renderTop(parts);
     else if (v === 'safest') renderSafest(parts);
@@ -229,23 +229,23 @@
     const sf = state.data.safe || {}; const lst = safeList(state.betGroup || 'all');
     const groupOptions = [['all', 'All markets'], ['goals', 'Goals (incl. BTTS, team goals)'], ['corners', 'Corners'], ['cards', 'Cards']];
     parts.push(`<div class="card compact">${leagueChips()}<div class="filters" style="margin-top:6px"><label>Market ${select('f-group', groupOptions, state.betGroup || 'all')}</label></div>
-      <div class="tiny muted">Safest = at least ${pct(sf.min_p || 0.7)} on <b>both</b> the calibrated model and the de-margined Sportybet price, price ≥ ${f2(sf.min_odds || 1.3)}, in the goals, corners and cards markets. New ones are added every 30 minutes and announced. Each one is graded in Days.</div></div>`);
-    if (!lst.length) parts.push(`<div class="card empty">No safest bet in this window${majorOnly() ? ' for the major leagues' : ''}.</div>`);
+      <div class="tiny muted">High-probability selection = <b>model probability</b> of at least ${pct(sf.min_p || 0.7)} (football data only) with the de-margined Sportybet price not contradicting it, price ≥ ${f2(sf.min_odds || 1.3)}, in the goals, corners and cards markets. A high probability is not a certainty: expect roughly ${pct(sf.min_p || 0.7)}–85% of these to land. Each one shows its data quality and is graded in Days.</div></div>`);
+    if (!lst.length) parts.push(`<div class="card empty">No high-probability selection in this window${majorOnly() ? ' for the major leagues' : ''}.</div>`);
     else {
       const max = state.expanded.safest ? lst.length : 30;
-      parts.push(`<div class="card compact"><table class="tbl head"><tr><th></th><th>Match · selection</th><th class="right">Price</th><th class="right">Prob.</th></tr>${lst.slice(0, max).map((b) => safeRow(b)).join('')}</table>
+      parts.push(`<div class="card compact"><table class="tbl head"><tr><th></th><th>Match · selection</th><th class="right">Price</th><th class="right">Model</th></tr>${lst.slice(0, max).map((b) => safeRow(b)).join('')}</table>
         ${lst.length > max ? `<button class="btn wide" data-more="safest">Show all ${lst.length}</button>` : ''}</div>`);
     }
     const ss = (sf.summary || {}).bets || {};
-    if (ss.all && ss.all.n) parts.push(`<div class="card small"><b>Track record</b> — safest bets settled: ${ss.all.won}/${ss.all.n} hit (${pct(ss.all.rate)}, expected ${pct(ss.all.exp_rate)}) · flat-stake return ${signed(ss.all.roi)}${ss['30d'] && ss['30d'].n ? ` · last 30 days ${ss['30d'].won}/${ss['30d'].n}` : ''} · ${ss.pending || 0} pending. Full breakdown under ☰ › Performance.</div>`);
+    if (ss.all && ss.all.n) parts.push(`<div class="card small"><b>Track record</b> — high-probability selections settled: ${ss.all.won}/${ss.all.n} hit (${pct(ss.all.rate)}, expected ${pct(ss.all.exp_rate)}) · flat-stake return ${signed(ss.all.roi)}${ss['30d'] && ss['30d'].n ? ` · last 30 days ${ss['30d'].won}/${ss['30d'].n}` : ''} · ${ss.pending || 0} pending. Full breakdown under ☰ › Performance.</div>`);
   }
   function renderFamily(parts, fam) {
     const minP = settings.hiP || 0.7; const groups = FAMILY[fam] || [fam];
     const safe = safeList(fam);
     const title = { goals: 'Goals markets', corners: 'Corners', cards: 'Cards & bookings' }[fam] || fam;
     parts.push(`<div class="card compact">${leagueChips()}<div class="filters" style="margin-top:6px"><label>Probability ≥ ${select('f-hip', [[0.7, '70%'], [0.75, '75%'], [0.8, '80%'], [0.85, '85%'], [0.9, '90%']], minP)}</label></div>
-      <div class="tiny muted">${fam === 'goals' ? 'Over/Under, both teams to score and team goals.' : fam === 'corners' ? 'Total corners — modelled for the leagues with corner statistics (the 22 main European leagues) and priced by Sportybet.' : 'Total cards (yellow = 1, red = 2 on Sportybet) — modelled for the 22 main European leagues from team and referee averages.'} Safest bets first, then every other selection at or above the threshold.</div></div>`);
-    if (safe.length) parts.push(`<div class="card compact"><div class="row"><div class="grow b">${icon('lock', 'sm')} Safest ${title.toLowerCase()}</div><span class="chip good">${safe.length}</span></div><table class="tbl">${safe.map((b) => safeRow(b)).join('')}</table></div>`);
+      <div class="tiny muted">${fam === 'goals' ? 'Over/Under, both teams to score and team goals.' : fam === 'corners' ? 'Total corners — modelled for the leagues with corner statistics (the 22 main European leagues) and priced by Sportybet.' : 'Total cards (yellow = 1, red = 2 on Sportybet) — modelled for the 22 main European leagues from team and referee averages.'} High-probability selections first, then every other selection at or above the threshold.</div></div>`);
+    if (safe.length) parts.push(`<div class="card compact"><div class="row"><div class="grow b">${icon('trend', 'sm')} High-probability ${title.toLowerCase()}</div><span class="chip good">${safe.length}</span></div><table class="tbl">${safe.map((b) => safeRow(b)).join('')}</table></div>`);
     // other high-probability selections need the per-match details; use the index's top/safe and the priced flag
     const lst = [];
     (state.data.fixtures || []).forEach((f) => { if (!inScope(f) || !f.data_ok) return; (f.hi || []).forEach((x) => { const s = { sel: x[0], p: x[1], odds: x[2] }; if (s.p >= minP && groups.includes(selGroup(s.sel)) && !safe.some((b) => b.fixture === f.id && b.sel === s.sel)) lst.push({ f, s }); }); });
@@ -305,7 +305,7 @@
         const s = live.for(f); const inc = f.livescore_id && state.incidents[f.livescore_id];
         const seen = new Set();
         const chips = (betsByFx[f.id] || []).filter((b) => { const k = b.sel; if (seen.has(k)) return false; seen.add(k); return true; })
-          .map((b) => { const vd = liveVerdict(b.sel, s); return `<span class="chip ${vd.cls}">${b.kind === 'botd' ? '⭐ ' : b.kind === 'safe' ? '🔒 ' : ''}${esc(b.label)}${b.odds ? ' @ ' + f2(b.odds) : ''} · ${esc(vd.text)}</span>`; }).join('');
+          .map((b) => { const vd = liveVerdict(b.sel, s); return `<span class="chip ${vd.cls}">${b.kind === 'botd' ? '⭐ ' : b.kind === 'safe' ? '📈 ' : ''}${esc(b.label)}${b.odds ? ' @ ' + f2(b.odds) : ''} · ${esc(vd.text)}</span>`; }).join('');
         const goals = inc && g !== 1 ? inc.items.filter((it) => ['goal', 'own goal', 'penalty'].includes(it.type)) : [];
         parts.push(matchRow(f, { live: s, sub: `${flag(f.country)} ${esc(f.competition)}`, right: '' }) + `<div class="mrow-extra"><div class="chips">${chips}</div>${goals.length ? `<div class="tiny muted">${goals.map((it) => `⚽ ${esc(it.player || '')} ${it.min != null ? it.min + "'" : ''}${it.team === 'A' ? ' (away)' : ''}`).join(' · ')}</div>` : ''}</div>`);
       });
@@ -326,7 +326,7 @@
   const PINNED = ['England', 'Spain', 'Italy', 'Germany', 'France', 'Netherlands', 'Portugal', 'Belgium', 'Turkiye', 'Scotland', 'South Africa', 'UEFA Champions League', 'UEFA Europa League'];
   function matchSub(f, withComp) {
     const b = f.safe || (f.top && f.top[2] >= 1.3 ? f.top : null);
-    return `${withComp ? flag(f.country) + ' ' + esc(f.competition) + ' · ' : ''}xG ${f1(f.xg[0])}–${f1(f.xg[1])}${b ? ` · ${f.safe ? '🔒 ' : ''}<b>${esc(selShort(b[0]))}</b> ${pct(b[1])} @ ${f2(b[2])}` : f.priced ? '' : ' · <span class="muted">no price</span>'}${f.data_ok ? '' : ' · <span class="warn">low data</span>'}${f.time_known === false ? ' · <span class="muted">time tbc</span>' : ''}`;
+    return `${withComp ? flag(f.country) + ' ' + esc(f.competition) + ' · ' : ''}xG ${f1(f.xg[0])}–${f1(f.xg[1])}${b ? ` · ${f.safe ? '📈 ' : ''}<b>${esc(selShort(b[0]))}</b> ${pct(b[1])} @ ${f2(b[2])}` : f.priced ? '' : ' · <span class="muted">no price</span>'}${f.data_ok ? '' : ' · <span class="warn">low data</span>'}${f.time_known === false ? ' · <span class="muted">time tbc</span>' : ''}`;
   }
   function matchRight(f, s) { return s && s.hg != null ? '' : `<span class="tiny muted">O2.5 ${pill(f.p.O25, 0.6, 0.5)}</span><span class="tiny muted">BTTS ${pill(f.p.BTTS, 0.6, 0.5)}</span>`; }
   PR.views.matches = function () {
@@ -341,7 +341,7 @@
     const best = (f) => (f.top && f.top[2] >= 1.3 ? f.top[1] : 0);
     const parts = [`<div class="card compact"><div class="searchbar"><div class="field">${icon('search')}<input id="fx-search" placeholder="Search team, league or country" value="${esc(state.search || '')}">${q ? `<button class="link" id="fx-clear">${icon('x')}</button>` : ''}</div></div>
       <div style="margin-top:8px">${segmented([['time', `${icon('clock')} By time`], ['comp', `${icon('trend')} By country & competition`]], mode, 'mmode')}</div>
-      <div class="chips small-chips" style="margin-top:6px">${[['all', `All ${d.fixtures.length}`], ['live', '🔴 Live'], ['fav', '★ Favourites'], ['major', '🏆 Major'], ['priced', 'Priced'], ['safe', '🔒 Safest bet'], ['ok', 'Enough data']].map(([k, l]) => `<button class="chip tapchip ${filt === k ? 'on' : ''}" data-mf="${k}">${l}</button>`).join('')}
+      <div class="chips small-chips" style="margin-top:6px">${[['all', `All ${d.fixtures.length}`], ['live', '🔴 Live'], ['fav', '★ Favourites'], ['major', '🏆 Major'], ['priced', 'Priced'], ['safe', '📈 High probability'], ['ok', 'Enough data']].map(([k, l]) => `<button class="chip tapchip ${filt === k ? 'on' : ''}" data-mf="${k}">${l}</button>`).join('')}
       ${mode === 'time' ? select('fx-sort', [['ko', 'Kick-off'], ['safe', 'Best bet first'], ['O25', 'Over 2.5'], ['O15', 'Over 1.5'], ['BTTS', 'BTTS'], ['H', 'Home win']], key) : ''}</div></div>`];
     if (!lst.length) parts.push(`<div class="card empty">${filt === 'fav' ? 'No favourite matches yet — open a match and tap ☆ in its header.' : `No matches found${q ? ` for “${esc(q)}”` : ''}.`}</div>`);
     else if (mode === 'time') {
@@ -392,12 +392,12 @@
   // ------------------------------------------------------------------ DAYS
   PR.views.days = function () {
     const d = state.data; const days = (d.history && d.history.days) || []; const parts = [];
-    parts.push(`<div class="card small"><b>Day by day</b> — every analysed match of each day with the final score, and how the bets of the day, safest bets and shortlists did. Results fill in within a few hours of the final whistle; 60 days are kept.</div>`);
+    parts.push(`<div class="card small"><b>Day by day</b> — every analysed match of each day with the final score, and how the bets of the day, high-probability selections and shortlists did. Results fill in within a few hours of the final whistle; 60 days are kept.</div>`);
     if (!days.length) parts.push(`<div class="card empty">History starts with the next analysis.</div>`);
     const rate = (o, hitKey) => { if (!o || !o.n) return '–'; const settled = o.n - (o.pending || 0); return settled ? `${o[hitKey]}/${settled}${o.pending ? ' · ' + o.pending + ' open' : ''}` : `${o.n} open`; };
     parts.push(`<div class="card compact">${days.map((x) => `<div class="list-item tap day" data-day="${esc(x.date)}"><div class="main"><div class="match">${esc(dayName(x.date))}</div>
       <div class="meta">${x.n} matches${x.finished ? ` · ${x.finished} finished` : ''}${x.goals_avg != null ? ` · ${f1(x.goals_avg)} goals/match · O2.5 ${pct(x.o25_rate)} · BTTS ${pct(x.btts_rate)}` : ''}</div>
-      <div class="chips">${x.botd && x.botd.n ? `<span class="chip ${chipCls(x.botd, 'hit')}">⭐ day card ${rate(x.botd, 'hit')}</span>` : ''}${x.safes && x.safes.n ? `<span class="chip ${chipCls(x.safes, 'hit')}">${icon('lock')} safest ${rate(x.safes, 'hit')}</span>` : ''}${x.picks && x.picks.n ? `<span class="chip ${chipCls(x.picks, 'hit')}">${icon('star')} shortlist ${rate(x.picks, 'hit')}</span>` : ''}</div></div><div class="chev">${icon('next')}</div></div>`).join('')}</div>`);
+      <div class="chips">${x.botd && x.botd.n ? `<span class="chip ${chipCls(x.botd, 'hit')}">⭐ day card ${rate(x.botd, 'hit')}</span>` : ''}${x.safes && x.safes.n ? `<span class="chip ${chipCls(x.safes, 'hit')}">${icon('trend')} high-prob. ${rate(x.safes, 'hit')}</span>` : ''}${x.picks && x.picks.n ? `<span class="chip ${chipCls(x.picks, 'hit')}">${icon('star')} shortlist ${rate(x.picks, 'hit')}</span>` : ''}</div></div><div class="chev">${icon('next')}</div></div>`).join('')}</div>`);
     view().innerHTML = parts.join('');
     $$('[data-day]').forEach((b) => { b.onclick = () => { state.dayView = 'results'; PR.push({ type: 'day', date: b.dataset.day }); }; });
   };
