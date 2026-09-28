@@ -14,3 +14,16 @@ android/.idea/
 *.jks
 *.p12
 state/
+
+# ---------------------------------------------------------------------------
+# credentials & signing material — never commit (see scripts/check_secrets.py)
+# ---------------------------------------------------------------------------
+goals-scanner-keys/
+passwords.txt
+*.keystore
+*.jks.bak
+*.b64
+.env
+.env.*
+secrets/
+*.secret
