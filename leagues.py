@@ -144,6 +144,8 @@ def _upcoming(now: datetime, tz_hours: int = 2) -> list[dict]:
 def build(stages_dir: Path, now: datetime, out_dir: Path, tz_hours: int = 2) -> int:
     """Publish index.json + one detail file per stage. Returns the number of league files written."""
     stages_dir = Path(stages_dir)
+    if not list(stages_dir.glob("*.json")) and list((stages_dir / "stages").glob("*.json")):
+        stages_dir = stages_dir / "stages"  # tolerate being handed the data/ls dir
     out_dir = Path(out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
 
