@@ -69,11 +69,13 @@ def _ko(rec) -> str:
 
 
 def compute_table(evts: list[dict]) -> list[dict]:
-    """Standings from finished events: P W D L GF GA GD Pts + last-5 form (oldest first)."""
+    """Standings from finished events: P W D L GF GA GD Pts + last-5 form (oldest first) + home/away splits."""
+    split = lambda: {"p": 0, "w": 0, "d": 0, "l": 0, "gf": 0, "ga": 0}  # noqa: E731
     teams: dict[str, dict] = {}
     for e in sorted(evts, key=lambda x: x["ko"]):
         for side, other in (("home", "away"), ("away", "home")):
-            t = teams.setdefault(e[side], {"p": 0, "w": 0, "d": 0, "l": 0, "gf": 0, "ga": 0, "res": []})
+            t = teams.setdefault(e[side], {"p": 0, "w": 0, "d": 0, "l": 0, "gf": 0, "ga": 0, "res": [],
+                                           "h": split(), "a": split()})
             sc, op = (e["hg"], e["ag"]) if side == "home" else (e["ag"], e["hg"])
             t["p"] += 1
             t["gf"] += sc
@@ -81,11 +83,21 @@ def compute_table(evts: list[dict]) -> list[dict]:
             r = "W" if sc > op else ("D" if sc == op else "L")
             t[r.lower()] += 1
             t["res"].append(r)
+            s = t["h"] if side == "home" else t["a"]
+            s["p"] += 1
+            s["gf"] += sc
+            s["ga"] += op
+            s[r.lower()] += 1
     rows = []
     for name, t in teams.items():
+        h, a = t["h"], t["a"]
         rows.append({"team": name, "p": t["p"], "w": t["w"], "d": t["d"], "l": t["l"],
                      "gf": t["gf"], "ga": t["ga"], "gd": t["gf"] - t["ga"],
-                     "pts": 3 * t["w"] + t["d"], "form": "".join(t["res"][-5:][::-1])})
+                     "pts": 3 * t["w"] + t["d"], "form": "".join(t["res"][-5:][::-1]),
+                     "h": {"p": h["p"], "w": h["w"], "d": h["d"], "l": h["l"], "gf": h["gf"], "ga": h["ga"],
+                           "pts": 3 * h["w"] + h["d"]},
+                     "a": {"p": a["p"], "w": a["w"], "d": a["d"], "l": a["l"], "gf": a["gf"], "ga": a["ga"],
+                           "pts": 3 * a["w"] + a["d"]}})
     rows.sort(key=lambda r: (-r["pts"], -r["gd"], -r["gf"], r["team"].lower()))
     for i, r in enumerate(rows, 1):
         r["pos"] = i

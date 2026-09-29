@@ -1,3 +1,11 @@
+## What's new in PlayReport 1.6.2x — 📊 Full tables, team search, sort options, zero dead-ends
+- 🔎 **Search now finds teams, not just leagues** — type any club in the Leagues search and it lists matching teams worldwide (with country and competition); the Matches search box finds teams, leagues and fixtures. Tap a team to open its profile.
+- 📊 **Standings are now complete** — P · W-D-L · **GF** · **GA** · GD · Pts · Form, with **sort options** (points, goal difference, goals for, name) and dedicated **Home record** and **Away record** tables under the main table. Team pages show GF/GA in the league table too.
+- 🗂️ **Sort options in the Leagues tab** — browse by Country (default), Name, Next fixture, Most played or Most teams.
+- 🔗 **No more "Could not load this day"** — in the League Center, results older than the on-phone day archive (the last analysed days) simply show the final score instead of opening a missing page; recent results open the Match Center or the full day archive as before.
+- ✨ **Cleaner, more readable tables everywhere** — aligned tabular numerals, wide tables scroll sideways on small screens, trend windows never clip.
+- 🧊 **Model untouched** — presentation and data-navigation only; same input, same numbers.
+
 ## What's new in PlayReport 1.9 — 🌍 Worldwide coverage: 300+ competitions, match news, league trends
 - 🌍 **Every competition on the public feed is now tracked and labelled** — 300+ competitions across 80 countries. Each league page shows its **data-quality status** from the scanner's coverage registry: active, model-eligible, insufficient history, provider publishes no stats, finished or data error. Accuracy first — thin leagues are labelled, never forced, and never filled with guesses.
 - 📋 **Match Center grew**: every match now has **Form** (both clubs' last 10, all competitions, plus each club's recent home/away run), **Table** (full standings with both clubs highlighted, and their home/away records) and **News** — recent headlines about *this fixture* and each team (previews, line-ups, injury news), from Google News with source and publication date. Tap any headline to open the original article.

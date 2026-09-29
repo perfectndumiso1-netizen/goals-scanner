@@ -145,6 +145,7 @@ def export(results: pd.DataFrame, now: datetime, out_dir: Path, squad_lookup=Non
         return []
     out_dir.mkdir(parents=True, exist_ok=True)
     written = []
+    index: list[dict] = []
     lg_all = _long(results)
     for (country, div), df in results.groupby(["country", "div"]):
         league = str(df["league"].iloc[0])
@@ -170,6 +171,7 @@ def export(results: pd.DataFrame, now: datetime, out_dir: Path, squad_lookup=Non
                 except Exception:  # noqa: BLE001
                     rec["squad"] = None
             records[t] = rec
+            index.append({"n": t, "c": country, "d": div, "l": league})
             a = rec["all"]
             table.append({"team": t, "p": a["p"], "w": a["w"], "d": a["d"], "l": a["l"], "gf": a["gf"], "ga": a["ga"],
                           "gd": a["gf"] - a["ga"], "pts": a["pts"], "form": rec["form"]})
@@ -189,4 +191,13 @@ def export(results: pd.DataFrame, now: datetime, out_dir: Path, squad_lookup=Non
         if not path.exists() or path.read_text(encoding="utf-8") != body:
             path.write_text(body, encoding="utf-8")
         written.append(slug(div))
+    # global team index for the app's search (club -> its team page), one compact file
+    index.sort(key=lambda x: (x["n"].lower(), x["c"].lower(), x["d"]))
+    seen: set[tuple] = set()
+    uniq = [x for x in index if not ((x["n"], x["d"]) in seen or seen.add((x["n"], x["d"])))]
+    idx_body = json.dumps({"generated": now.strftime("%Y-%m-%d"), "count": len(uniq), "teams": uniq},
+                          ensure_ascii=False, separators=(",", ":"))
+    idx_path = out_dir / "teams-index.json"
+    if not idx_path.exists() or idx_path.read_text(encoding="utf-8") != idx_body:
+        idx_path.write_text(idx_body, encoding="utf-8")
     return written

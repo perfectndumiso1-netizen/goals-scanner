@@ -27,7 +27,8 @@ window.PR = (function () {
     savedSettings);
   const state = { data: null, tab: 'home', stack: [], live: {}, incidents: {}, liveTimer: null, lastLive: 0, loading: false,
     update: null, updateStage: null, days: {}, teams: {}, reports: {}, details: {}, betsView: 'today', search: '', sort: 'ko', matchFilter: 'all',
-    liveView: 'tracked', liveAll: null, lastLiveAll: 0, dayView: 'results', matchView: 'overview', teamView: 'overview', menuOpen: false, expanded: {}, badges: {}, dark: false };
+    liveView: 'tracked', liveAll: null, lastLiveAll: 0, dayView: 'results', matchView: 'overview', teamView: 'overview', menuOpen: false, expanded: {}, badges: {}, dark: false,
+    teamIdx: null, teamIdxLoading: false, lgSort: 'country', lgTableSort: 'pts' };
   const BADGE_BASE = 'https://lsm-static-prod.livescore.com/medium/';
 
   const $ = (sel, root) => (root || document).querySelector(sel);
@@ -321,6 +322,20 @@ window.PR = (function () {
     return fetchIt();
   }
   function teamsCached(div) { return state.teams[slug(div)] || null; }
+  /** Global club index (data/app/teams/teams-index.json) for team search — every team in the model pool. */
+  async function loadTeamIndex() {
+    if (state.teamIdx) return state.teamIdx;
+    if (state.teamIdxLoading) return null;
+    state.teamIdxLoading = true;
+    try {
+      const j = await getJson(rawUrl('data/app/teams/teams-index.json') + '?t=' + Math.floor(Date.now() / 3600000));
+      state.teamIdx = j; PR.cache.put('teams-idx', j, j.generated || '');
+    } catch (e) {
+      const c = PR.cache.get('teams-idx');
+      if (c && c.d) state.teamIdx = c.d;
+    } finally { state.teamIdxLoading = false; }
+    return state.teamIdx;
+  }
   async function loadBadges() {
     try { const c = localStorage.getItem('pr_badges'); if (c) state.badges = JSON.parse(c); } catch (e) { /* ignore */ }
     try { const j = await getJson(rawUrl('data/app/badges.json') + '?t=' + Math.floor(Date.now() / 86400000)); if (j && typeof j === 'object') { state.badges = j; localStorage.setItem('pr_badges', JSON.stringify(j)); } } catch (e) { /* offline: keep cache */ }
@@ -430,7 +445,7 @@ window.PR = (function () {
 
   return { native, settings, state, $, $$, saveSettings, nfetch, getJson, rawUrl, esc, pct, f1, f2, signed, DAYS, MONTHS, parseLocal, tzNow, ymd, stored, persist, cache, prefetchDetails, pubStamp,
     dayName, niceDate, koTime, koShort, toast, pill, bar, wdl, formBadges, md, GROUPS, GROUP_ICON, selGroup, selLabel, selShort, settleSel,
-    liveVerdict, isLive, isFT, indexData, fx, loadDetail, detailCached, detailKey, loadData, statusLine, loadDay, dayRecord, finalFor, storedIncidents, loadTeams, teamsCached, slug, TABS, render, setTab, push, replace,
+    liveVerdict, isLive, isFT, indexData, fx, loadDetail, detailCached, detailKey, loadData, statusLine, loadDay, dayRecord, finalFor, storedIncidents, loadTeams, teamsCached, loadTeamIndex, slug, TABS, render, setTab, push, replace,
     back, openMatch, openTeam, toggleMenu, closeMenu, contactCard, editorCard, teamLink, matchLine, matchRow, segmented, select, scoreBox, statusIcon, CONTACT, APP_VERSION,
     confirmBox, isFav, toggleFav, favList: () => favs, saveFavs,
     icon, flag, badge, fxBadge, skeleton, ring, applyTheme, loadBadges, BADGE_BASE,

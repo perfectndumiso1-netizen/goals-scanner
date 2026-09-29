@@ -159,7 +159,7 @@
       ${inPlay.length ? `<div class="live-strip" data-tab-go="live"><span class="status-dot live"></span><div class="grow"><b>${inPlay.length} tracked in play</b> · ${inPlay.slice(0, 2).map((f) => { const s = live.for(f); return `${esc(f.home)} ${s.hg}–${s.ag} ${esc(f.away)}`; }).join(' · ')}${inPlay.length > 2 ? ' …' : ''}</div>${icon('next', 'sm')}</div>` : ''}</div>`);
     if (PR.APP_VERSION && settings.seenVersion !== PR.APP_VERSION) {
       parts.push(`<div class="card whatsnew"><div class="row"><div class="grow"><b>${icon('sparkle', 'sm')} New in PlayReport ${esc(PR.APP_VERSION)}</b></div><button class="link" id="wn-close">${icon('x')}</button></div>
-        <ul><li>🌍 <b>Worldwide league coverage</b> — the scanner tracks every competition on the public feed (300+), each with a data-quality status: active, model-eligible, insufficient history, no published stats, finished or data error. Accuracy first — a league is never forced into the model on thin data.</li><li>📋 <b>Match Center grew</b> — every match now has <b>Form</b> (both clubs' recent results, all competitions), <b>Table</b> (full standings with both clubs highlighted, home/away records) and <b>News</b> (recent headlines about the fixture and each team — context only; the prediction model never reads news)</li><li>📈 <b>League Center grew</b> — every competition now has <b>Trends</b> (avg goals, Over 0.5/1.5/2.5/3.5, BTTS, home/draw/away, corners &amp; cards over Last 5/10/20, Season and Previous season, with “last 10 vs season” changes), <b>Teams</b> (tap a club for its profile) and <b>News</b>. Thin windows show N/A, never a guess.</li><li>🔎 <b>Global search</b> — typing in the Matches search box now also finds leagues and clubs, not just today's fixtures. Team pages add a Trends tab with last 5/10/20, season and previous-season windows.</li><li>⚡ Everything is cached on your phone with short TTLs, and one bad league can never stop the worldwide scan. The prediction model is untouched — same input, same numbers.</li></ul></div>`);
+        <ul><li>🌍 <b>Worldwide league coverage</b> — the scanner tracks every competition on the public feed (300+), each with a data-quality status: active, model-eligible, stats collecting or not, finished or data error. Accuracy first — thin leagues are labelled, never forced, never guessed.</li><li> <b>Everything is clickable now</b> — in the League Center, standings rows and teams open the club profile, results open the Match Center or that day's archive, fixtures open the Match Center. Nothing dead-ends: matches older than the day archive simply show the final score — no more "could not load this day".</li><li>📊 <b>Full tables everywhere</b> — standings show P · W-D-L · GF · GA · GD · Pts · Form plus dedicated <b>Home</b> and <b>Away</b> record tables, with sort options (points, goal difference, goals for, name). Wide tables swipe sideways.</li><li>🔎 <b>Team search &amp; sorting</b> — the search box finds clubs worldwide, not just leagues; the Leagues tab can sort by country, name, next fixture, most played or most teams.</li><li>📈 <b>League Center grew</b> — Trends (Over 0.5/1.5/2.5/3.5, BTTS, H/D/A, corners &amp; cards over Last 5/10/20, Season, Previous season), Teams and News on every competition. Thin windows show N/A, never a guess. The prediction model is untouched — same input, same numbers.</li></ul></div>`);
     }
     parts.push(botdCard(true));
     if (PR.ticketsCard && PR.tickets().some((t) => t.status === 'pending')) parts.push(PR.ticketsCard(true));
@@ -342,7 +342,16 @@
       if (!tp) return;
       Object.keys(tp.teams || {}).forEach((name) => { if (!clubs.has(name.toLowerCase())) clubs.set(name.toLowerCase(), { name, country: tp.country || '', div: tp.div || '' }); });
     });
-    const clubHits = [...clubs.values()].filter((c) => c.name.toLowerCase().includes(ql)).slice(0, 6);
+    let clubHits = [...clubs.values()].filter((c) => c.name.toLowerCase().includes(ql));
+    if (!state.teamIdx) PR.loadTeamIndex().then((j) => { if (j) PR.render(); });
+    if (state.teamIdx) {
+      const have = new Set(clubs.keys());
+      (state.teamIdx.teams || []).forEach((t) => {
+        const k = (t.n || '').toLowerCase();
+        if (k.includes(ql) && !have.has(k)) { have.add(k); clubHits.push({ name: t.n, country: t.c || '', div: t.d || '' }); }
+      });
+    }
+    clubHits = clubHits.slice(0, 6);
     if (!leagues.length && !clubHits.length) return;
     const E = encodeURIComponent;
     parts.push(`<div class="card compact"><div class="comp-head">Top matches — leagues &amp; clubs</div>`);

@@ -250,6 +250,22 @@ def test_add_news_patches_only_active_leagues(tmp_path):
     assert d["news"]["league"] and set(d["news"]["teams"]) == {"A1", "A2"}
 
 
+def test_team_index_written(tmp_path):
+    import teamstats as ts
+    rows = []
+    for i, (h, a, hg, ag) in enumerate([("Alpha", "Beta", 2, 1), ("Beta", "Gamma", 0, 0), ("Alpha", "Gamma", 1, 1)]):
+        rows.append({"country": "C", "div": "LS:c/l", "league": "L", "date": pd.Timestamp(2026, 9, 1 + i),
+                     "home": h, "away": a, "hg": hg, "ag": ag, "hxg": None, "axg": None, "hs": None, "as": None,
+                     "hst": None, "ast": None, "hc": None, "ac": None, "hy": None, "ay": None, "hr": None,
+                     "ar": None, "hth": None, "hta": None, "referee": "", "home_id": None, "away_id": None})
+    ts.export(pd.DataFrame(rows), NOW, tmp_path)
+    idx = json.loads((tmp_path / "teams-index.json").read_text(encoding="utf-8"))
+    assert idx["count"] == 3
+    by_name = {x["n"]: x for x in idx["teams"]}
+    assert by_name["Alpha"]["d"] == "LS:c/l" and by_name["Alpha"]["c"] == "C"
+    assert set(by_name) == {"Alpha", "Beta", "Gamma"}
+
+
 # ---------------------------------------------------------------- stable ID chain
 
 

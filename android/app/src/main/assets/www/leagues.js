@@ -55,7 +55,8 @@
     parts.push(`<div class="lg-head"><div class="grow"><div class="b">${icon('trophy', 'sm')} Leagues</div><div class="tiny muted">Tables, results &amp; fixtures — every competition on the public feed</div></div>
       ${LG.idx ? `<span class="tiny muted">${LG.idx.count} competitions · ${new Set((LG.idx.leagues || []).map((x) => x.country)).size} countries${LG.idxStale ? ' · saved copy' : ''}</span>` : ''}</div>`);
     if (sum) parts.push(`<div class="tiny muted" style="margin:2px 4px 0">Data collection: <b>${sum.active}</b> active · <b>${sum.eligible}</b> model-eligible${sum.collecting ? ` · <b>${sum.collecting}</b> still collecting stats` : ''}${sum.no_stats ? ` · <b>${sum.no_stats}</b> where the provider publishes no stats (corners/cards N/A)` : ''}${sum.data_error ? ` · ${sum.data_error} data error${sum.data_error === 1 ? '' : 's'}` : ''}. One bad league never stops the worldwide scan.</div>`);
-    parts.push(`<div class="searchbar"><div class="field">${icon('search', 'sm')}<input id="lg-search" type="search" placeholder="Search a league or country" value="${esc(state.lgQ)}" autocomplete="off"></div></div>`);
+    parts.push(`<div class="searchbar"><div class="field">${icon('search', 'sm')}<input id="lg-search" type="search" placeholder="Search a league, country or team" value="${esc(state.lgQ)}" autocomplete="off"></div></div>`);
+    parts.push(`<div class="row" style="padding:0 4px 6px;gap:8px"><div class="grow tiny muted">${LG.idx ? `${LG.idx.count} competitions` : ''} · tap a league to open it</div>${select('lg-sort', [['country', 'Sort: Country'], ['name', 'Sort: Name'], ['next', 'Sort: Next fixture'], ['played', 'Sort: Most played'], ['teams', 'Sort: Most teams']], state.lgSort || 'country')}</div>`);
     if (!LG.idx) {
       if (!LG.loading) { state.lgQ = ''; parts.push(LG.error ? `<div class="card empty">Could not load the league data (${esc(LG.error)}).<br><button class="btn" id="lg-retry">Try again</button></div>` : skeleton(8)); }
       else parts.push(skeleton(8));
@@ -66,25 +67,46 @@
       return;
     }
     const q = (state.lgQ || '').trim().toLowerCase();
-    const rows = (LG.idx.leagues || []).filter((x) => !q || (x.league || '').toLowerCase().includes(q) || (x.country || '').toLowerCase().includes(q));
+    const sort = state.lgSort || 'country';
+    let rows = (LG.idx.leagues || []).filter((x) => !q || (x.league || '').toLowerCase().includes(q) || (x.country || '').toLowerCase().includes(q));
     if (!rows.length) parts.push(`<div class="card empty small">No league matches “${esc(state.lgQ)}”.</div>`);
-    let lastCountry = null;
-    rows.forEach((x) => {
-      if (x.country !== lastCountry) {
-        if (lastCountry !== null) parts.push('</div>');
-        parts.push(`<div class="card compact"><div class="comp-head">${flag(x.country)} ${esc(x.country || 'Other')}</div>`);
-        lastCountry = x.country;
-      }
-      const meta = [x.teams ? `${x.teams} teams` : null, x.played ? `${x.played} played` : null, x.season || null].filter(Boolean).join(' · ');
-      parts.push(`<div class="lg-row tap" data-lg="${esc(x.slug)}"><div class="lg-ic">${x.table ? icon('trophy') : flag(x.country)}</div>
-        <div class="grow"><div class="b">${esc(x.league)}</div><div class="tiny muted">${meta}</div></div>
-        <div class="lg-right">${x.next ? `<div class="tiny muted">next</div><div class="b" style="font-size:13px">${esc(koShort(x.next))}</div>` : ''}</div></div>`);
-    });
-    if (lastCountry !== null) parts.push('</div>');
+    const rowCard = (x, showCountry) => `<div class="lg-row tap" data-lg="${esc(x.slug)}"><div class="lg-ic">${x.table ? icon('trophy') : flag(x.country)}</div>
+      <div class="grow"><div class="b">${showCountry ? `${flag(x.country)} ` : ''}${esc(x.league)}</div><div class="tiny muted">${showCountry ? (x.country || '') : ''}${showCountry && x.teams ? ' · ' : ''}${x.teams ? `${x.teams} teams` : ''}${x.played ? ` · ${x.played} played` : ''}${x.season ? ` · ${x.season}` : ''}</div></div>
+      <div class="lg-right">${x.next ? `<div class="tiny muted">next</div><div class="b" style="font-size:13px">${esc(koShort(x.next))}</div>` : ''}</div></div>`;
+    if (sort === 'country') {
+      let lastCountry = null;
+      rows.forEach((x) => {
+        if (x.country !== lastCountry) {
+          if (lastCountry !== null) parts.push('</div>');
+          parts.push(`<div class="card compact"><div class="comp-head">${flag(x.country)} ${esc(x.country || 'Other')}</div>`);
+          lastCountry = x.country;
+        }
+        parts.push(rowCard(x, false));
+      });
+      if (lastCountry !== null) parts.push('</div>');
+    } else {
+      const srt = rows.slice().sort((a, b) =>
+        sort === 'name' ? (a.league || '').localeCompare(b.league || '') :
+        sort === 'next' ? String(a.next || '9999-12-31').localeCompare(String(b.next || '9999-12-31')) :
+        sort === 'played' ? (b.played || 0) - (a.played || 0) || (a.league || '').localeCompare(b.league || '') :
+        (b.teams || 0) - (a.teams || 0) || (a.league || '').localeCompare(b.league || ''));
+      parts.push(`<div class="card compact">${srt.map((x) => rowCard(x, true)).join('')}</div>`);
+    }
+    // team search: the query matches clubs worldwide (not just leagues)
+    if (q) {
+      if (!state.teamIdx) PR.loadTeamIndex().then((j) => { if (j) PR.render(); });
+      const tIdx = state.teamIdx;
+      const hits = tIdx ? (tIdx.teams || []).filter((t) => (t.n || '').toLowerCase().includes(q)).slice(0, 12) : [];
+      if (hits.length) {
+        parts.push(`<div class="card compact"><div class="comp-head">Teams (${hits.length}${tIdx && hits.length >= 12 ? '+' : ''})</div>${hits.map((t) => `<div class="lg-row tap" data-lgtm="${esc(t.n)}|${esc(t.c)}|${esc(t.d)}"><div class="lg-ic">${badge(t.n, null, 24)}</div><div class="grow"><div class="b">${esc(t.n)}</div><div class="tiny muted">${flag(t.c)} ${esc(t.c || '')} · ${esc(t.l || '')}</div></div></div>`).join('')}</div>`);
+      } else if (tIdx && !rows.length) parts.push(`<div class="card empty small">No club matches “${esc(state.lgQ)}” either.</div>`);
+    }
     parts.push(`<div class="tiny muted" style="margin:10px 4px 18px">Updated every 30 minutes from the public live-score archive · ${LG.idx.count} competitions · season history accumulates each matchday.</div>`);
     view().innerHTML = parts.join('');
     const s = $('#lg-search'); if (s) { s.oninput = (e) => { state.lgQ = e.target.value; PR.render(); const n = $('#lg-search'); if (n) { n.focus(); n.setSelectionRange(n.value.length, n.value.length); } }; }
+    const so = $('#lg-sort'); if (so) so.onchange = (e) => { state.lgSort = e.target.value; PR.render(); };
     $$('#view [data-lg]').forEach((el) => { el.onclick = () => openLeague(el.dataset.lg); });
+    $$('[data-lgtm]').forEach((el) => { el.onclick = () => { const p = el.dataset.lgtm.split('|'); PR.openTeam(p.slice(0, -2).join('|'), p[p.length - 2], p[p.length - 1]); }; });
   };
 
   // ------------------------------------------------------------------ PAGE: one league
@@ -139,18 +161,42 @@
       leagueNews(parts, d);
     } else if (seg === 'table') {
       const teamAttrs = (name) => d.teams_div ? ` class="tap" data-lgteam="${esc(name)}" data-country="${esc(d.country || '')}" data-div="${esc(d.teams_div)}"` : '';
-      parts.push(`<div class="card compact"><div class="b">Standings</div><div class="tiny muted" style="margin-bottom:4px">Points, goal difference, then goals scored · form is the last five matches · tap a team for its profile</div>
-        <table class="tbl head table" style="margin-top:4px"><tr><th>#</th><th>Team</th><th class="right">P</th><th class="right">W-D-L</th><th class="right">GD</th><th class="right">Pts</th><th class="right">Form</th></tr>
-        ${d.table.map((x) => `<tr${teamAttrs(x.team)}><td class="muted">${x.pos}</td><td><div class="tname">${badge(x.team, null, 22)}<span class="nm">${esc(x.team)}</span></div></td><td class="right">${x.p}</td><td class="right">${x.w}-${x.d}-${x.l}</td><td class="right">${x.gd > 0 ? '+' : ''}${x.gd}</td><td class="right b">${x.pts}</td><td class="right">${x.form ? formBadges(x.form.split('')) : '<span class="tiny muted">–</span>'}</td></tr>`).join('')}</table></div>`);
+      const ts = state.lgTableSort || 'pts';
+      const tbl = d.table.slice().sort((a, b) =>
+        ts === 'gd' ? (b.gd - a.gd) || (b.pts - a.pts) || (a.team || '').localeCompare(b.team || '') :
+        ts === 'gf' ? (b.gf - a.gf) || (b.pts - a.pts) || (a.team || '').localeCompare(b.team || '') :
+        ts === 'name' ? (a.team || '').localeCompare(b.team || '') :
+        (a.pos - b.pos));
+      const gd = (x) => (x.gd > 0 ? '+' : '') + x.gd;
+      parts.push(`<div class="card compact"><div class="row" style="gap:8px"><div class="grow"><div class="b">Standings</div><div class="tiny muted">pts · gd · gf · form = last five · tap a team for its profile</div></div>${select('lg-tsort', [['pts', 'Sort: Points'], ['gd', 'Sort: GD'], ['gf', 'Sort: Goals for'], ['name', 'Sort: Name']], ts)}</div>
+        <div class="tbl-wrap"><table class="tbl head table" style="margin-top:6px;min-width:560px"><tr><th>#</th><th>Team</th><th class="right">P</th><th class="right">W-D-L</th><th class="right">GF</th><th class="right">GA</th><th class="right">GD</th><th class="right">Pts</th><th class="right">Form</th></tr>
+        ${tbl.map((x) => `<tr${teamAttrs(x.team)}><td class="muted">${x.pos}</td><td><div class="tname">${badge(x.team, null, 22)}<span class="nm">${esc(x.team)}</span></div></td><td class="right">${x.p}</td><td class="right">${x.w}-${x.d}-${x.l}</td><td class="right">${x.gf}</td><td class="right">${x.ga}</td><td class="right">${gd(x)}</td><td class="right b">${x.pts}</td><td class="right">${x.form ? formBadges(x.form.split('')) : '<span class="tiny muted">–</span>'}</td></tr>`).join('')}</table></div></div>`);
+      const half = (key, title) => {
+        const rows = tbl.map((x) => ({ team: x.team, h: x[key] })).filter((r) => r.h && r.h.p)
+          .sort((a, b) => (b.h.pts - a.h.pts) || ((b.h.gf - b.h.ga) - (a.h.gf - a.h.ga)) || (b.h.gf - a.h.gf));
+        if (!rows.length) return '';
+        return `<div class="b tiny" style="margin-top:10px">${title} record</div><div class="tbl-wrap"><table class="tbl head" style="margin-top:2px"><tr><th>Team</th><th class="right">P</th><th class="right">W-D-L</th><th class="right">GF</th><th class="right">GA</th><th class="right">Pts</th></tr>
+          ${rows.map((r) => `<tr${teamAttrs(r.team)}><td><div class="tname">${badge(r.team, null, 20)}<span class="nm">${esc(r.team)}</span></div></td><td class="right">${r.h.p}</td><td class="right">${r.h.w}-${r.h.d}-${r.h.l}</td><td class="right">${r.h.gf}</td><td class="right">${r.h.ga}</td><td class="right b">${r.h.pts}</td></tr>`).join('')}</table></div>`;
+      };
+      if (d.table.some((x) => x.h && x.h.p)) {
+        parts.push(`<div class="card compact"><div class="b">Home &amp; away splits</div>${half('h', 'Home')}${half('a', 'Away')}</div>`);
+      }
     } else if (seg === 'results') {
       if (!(d.results && d.results.length)) parts.push(`<div class="card empty">No finished matches in the archive yet.</div>`);
       else {
+        // the day archive only covers days the scanner analysed (newest first) — gate taps on that
+        const availDays = new Set(((state.data.history || {}).days || []).map((x) => x.date));
+        const oldest = [...availDays].sort()[0] || null;
         const byDay = {};
         d.results.forEach((r) => { const day = r.ko.slice(0, 10); (byDay[day] = byDay[day] || []).push(r); });
-        const resRow = (r) => `<tr class="tap" data-lgday="${r.ko.slice(0, 10)}" data-lghome="${esc(r.home)}" data-lgaway="${esc(r.away)}"><td class="tiny muted nowrap">${esc(koTime(r.ko))}</td><td><div class="res-line">${badge(r.home, null, 20)}<span class="tm ${r.hg > r.ag ? 'won' : ''}">${esc(r.home)}</span><span class="sc">${r.hg} – ${r.ag}</span><span class="tm ${r.ag > r.hg ? 'won' : ''}">${esc(r.away)}</span>${badge(r.away, null, 20)}</div>${r.hth != null ? `<div class="tiny muted">HT ${r.hth}–${r.hta}</div>` : ''}</td></tr>`;
+        const resRow = (r) => {
+          const day = r.ko.slice(0, 10);
+          const tap = availDays.has(day) ? ` class="tap" data-lgday="${day}" data-lghome="${esc(r.home)}" data-lgaway="${esc(r.away)}"` : '';
+          return `<tr${tap}><td class="tiny muted nowrap">${esc(koTime(r.ko))}</td><td><div class="res-line">${badge(r.home, null, 20)}<span class="tm ${r.hg > r.ag ? 'won' : ''}">${esc(r.home)}</span><span class="sc">${r.hg} – ${r.ag}</span><span class="tm ${r.ag > r.hg ? 'won' : ''}">${esc(r.away)}</span>${badge(r.away, null, 20)}</div>${r.hth != null ? `<div class="tiny muted">HT ${r.hth}–${r.hta}</div>` : ''}</td></tr>`;
+        };
         const days = Object.keys(byDay).sort((a, b) => b.localeCompare(a));
-        parts.push(`<div class="card tiny muted" style="margin-top:-6px">Tap a match — the Match Center opens where the analysis is retained, otherwise that day's full archive.</div>`);
-        parts.push(`<div class="card compact">${days.map((day) => `<div class="comp-head">${esc(dayName(day))} · ${byDay[day].length}</div><table class="tbl" style="margin-top:2px">${byDay[day].map(resRow).join('')}</table>`).join('')}</div>`);
+        parts.push(`<div class="card tiny muted" style="margin-top:-6px">Tap a match for the Match Center or that day's full archive${oldest ? ` (day archive from ${esc(dayName(oldest))})` : ''} — earlier results show the score here.</div>`);
+        parts.push(`<div class="card compact">${days.map((day) => `<div class="comp-head">${esc(dayName(day))} · ${byDay[day].length}${availDays.has(day) ? '' : ' <span class="tiny muted">· final scores</span>'}</div><table class="tbl" style="margin-top:2px">${byDay[day].map(resRow).join('')}</table>`).join('')}</div>`);
       }
     } else {
       if (!(d.fixtures && d.fixtures.length)) parts.push(`<div class="card empty">No scheduled fixtures in the next three days.</div>`);
@@ -168,6 +214,7 @@
     $$('[data-lseg]').forEach((b) => { b.onclick = () => { state.lgSeg = b.dataset.lseg; PR.render(); }; });
     const r = $('#lg-retry'); if (r) r.onclick = () => { delete LG.det[page.slug]; ensureDetail(page.slug); };
     if (seg === 'news' && PR.wireNewsLinks) PR.wireNewsLinks();
+    const tsel = $('#lg-tsort'); if (tsel) tsel.onchange = (e) => { state.lgTableSort = e.target.value; PR.render(); };
     $$('[data-lgteam]').forEach((el) => { el.onclick = () => PR.openTeam(el.dataset.lgteam, el.dataset.country, el.dataset.div); });
     $$('[data-lgday]').forEach((el) => {
       el.onclick = () => {
@@ -212,7 +259,7 @@
       return `<div class="trend-metric"><div class="k">${label}</div><div class="v">${cells}</div></div>`;
     }).join('');
     parts.push(`<div class="card tiny muted">Data-driven league trends, computed only from published results. A window needs at least 5 finished matches — thinner windows show N/A rather than a guess. Corners/cards use only the matches whose statistics the provider publishes.</div>`);
-    parts.push(`<div class="card compact"><div class="b" style="margin-bottom:2px">Trend windows</div><div class="tiny muted" style="margin-bottom:4px">n = matches in window</div>${rows}</div>`);
+    parts.push(`<div class="card compact"><div class="b" style="margin-bottom:2px">Trend windows</div><div class="tiny muted" style="margin-bottom:4px">n = matches in window · swipe sideways for all windows</div><div class="tbl-wrap"><div class="trend-grid">${rows}</div></div></div>`);
     const ch = t.change_last10_vs_season;
     if (ch) {
       const pp = (v) => (v == null ? 'N/A' : (v > 0 ? '+' : '') + Math.round(v * 100) + ' pp');
@@ -225,9 +272,15 @@
   function leagueTeams(parts, d) {
     const attrs = (name) => d.teams_div ? ` data-lgteam="${esc(name)}" data-country="${esc(d.country || '')}" data-div="${esc(d.teams_div)}"` : '';
     if (d.table && d.table.length) {
+      const ts = state.lgTableSort || 'pts';
+      const tbl = d.table.slice().sort((a, b) =>
+        ts === 'gd' ? (b.gd - a.gd) || (b.pts - a.pts) || (a.team || '').localeCompare(b.team || '') :
+        ts === 'gf' ? (b.gf - a.gf) || (b.pts - a.pts) || (a.team || '').localeCompare(b.team || '') :
+        ts === 'name' ? (a.team || '').localeCompare(b.team || '') :
+        (a.pos - b.pos));
       parts.push(`<div class="card compact"><div class="b">Teams (${d.table.length})</div><div class="tiny muted" style="margin-bottom:4px">tap a team for its profile, form and season numbers</div>
-        <table class="tbl head table" style="margin-top:4px"><tr><th>#</th><th>Team</th><th class="right">P</th><th class="right">GD</th><th class="right">Pts</th><th class="right">Form</th></tr>
-        ${d.table.map((x) => `<tr class="tap"${attrs(x.team)}><td class="muted">${x.pos}</td><td><div class="tname">${badge(x.team, null, 22)}<span class="nm">${esc(x.team)}</span></div></td><td class="right">${x.p}</td><td class="right">${x.gd > 0 ? '+' : ''}${x.gd}</td><td class="right b">${x.pts}</td><td class="right">${x.form ? formBadges(x.form.split('')) : '<span class="tiny muted">–</span>'}</td></tr>`).join('')}</table></div>`);
+        <table class="tbl head table" style="margin-top:4px"><tr><th>#</th><th>Team</th><th class="right">P</th><th class="right">GF</th><th class="right">GA</th><th class="right">GD</th><th class="right">Pts</th><th class="right">Form</th></tr>
+        ${tbl.map((x) => `<tr class="tap"${attrs(x.team)}><td class="muted">${x.pos}</td><td><div class="tname">${badge(x.team, null, 22)}<span class="nm">${esc(x.team)}</span></div></td><td class="right">${x.p}</td><td class="right">${x.gf}</td><td class="right">${x.ga}</td><td class="right">${x.gd > 0 ? '+' : ''}${x.gd}</td><td class="right b">${x.pts}</td><td class="right">${x.form ? formBadges(x.form.split('')) : '<span class="tiny muted">–</span>'}</td></tr>`).join('')}</table></div>`);
       return;
     }
     // knockout / insufficient data: list the teams that appear in the archived results

@@ -467,3 +467,7 @@ ul.notes li { margin: 3px 0; }
 .trend-metric .cell b { font-size: 12.5px; }
 .trend-metric .cell.up b { color: var(--good); }
 .trend-metric .cell.down b { color: var(--bad); }
+/* ---- full-data tables: readable numbers + scroll when wider than the screen ---- */
+.tbl td, .tbl th { font-variant-numeric: tabular-nums; }
+.tbl-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; margin: 0 -4px; padding: 0 4px; }
+.trend-grid { min-width: 560px; }

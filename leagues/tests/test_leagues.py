@@ -55,6 +55,23 @@ def test_table_sorting_tie_breaks_and_form():
     assert e["hth"] == 1 and e["hta"] == 0
 
 
+def test_table_home_away_splits():
+    evts = [
+        _ev("202609011500", "A", "B", 2, 0),   # A home w
+        _ev("202609081500", "B", "A", 0, 1),   # A away w
+        _ev("202609151500", "A", "C", 3, 2),   # A home w
+    ]
+    t = {r["team"]: r for r in leagues.compute_table(evts)}
+    a = t["A"]
+    assert (a["p"], a["gf"], a["ga"]) == (3, 6, 2)
+    assert a["h"] == {"p": 2, "w": 2, "d": 0, "l": 0, "gf": 5, "ga": 2, "pts": 6}
+    assert a["a"] == {"p": 1, "w": 1, "d": 0, "l": 0, "gf": 1, "ga": 0, "pts": 3}
+    assert a["h"]["p"] + a["a"]["p"] == a["p"] and a["h"]["gf"] + a["a"]["gf"] == a["gf"]
+    b = t["B"]
+    assert b["h"] == {"p": 1, "w": 0, "d": 0, "l": 1, "gf": 0, "ga": 1, "pts": 0}
+    assert b["a"] == {"p": 1, "w": 0, "d": 0, "l": 1, "gf": 0, "ga": 2, "pts": 0}
+
+
 def test_league_like_detection():
     # group format: 4 teams, round robin -> league-like
     rr = [_ev(f"2026090{1 + i}1500", *p, 1, 0) for i, p in enumerate(
