@@ -43,6 +43,8 @@ Calibration of the adopted model on the test seasons — Over 1.5 ≥ 0.84 bucke
 
 _Generated 2026-09-26 11:50 (the sections below pre-date the data-first engine; 'final probability' there means the old market blend). Parameters: half-life 120 days, shrinkage K=40, venue K=20, Dixon-Coles rho=-0.05, market-xG weight=0.9._
 
+_Generated 2026-09-29 16:38. Parameters: half-life 120 days, shrinkage K=40, venue K=20, Dixon-Coles rho=-0.05, market-xG weight=0.9._
+
 ## Model accuracy
 
 Matches with a prediction from Aug 2023: **38,906** (main leagues with odds: 24,285; extra leagues: 14,621)
