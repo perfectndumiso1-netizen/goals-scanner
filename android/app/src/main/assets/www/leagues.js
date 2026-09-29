@@ -51,8 +51,10 @@
   // ------------------------------------------------------------------ TAB: league browser
   PR.views.leagues = function () {
     const parts = [];
+    const sum = LG.idx && LG.idx.summary;
     parts.push(`<div class="lg-head"><div class="grow"><div class="b">${icon('trophy', 'sm')} Leagues</div><div class="tiny muted">Tables, results &amp; fixtures — every competition on the public feed</div></div>
       ${LG.idx ? `<span class="tiny muted">${LG.idx.count} competitions · ${new Set((LG.idx.leagues || []).map((x) => x.country)).size} countries${LG.idxStale ? ' · saved copy' : ''}</span>` : ''}</div>`);
+    if (sum) parts.push(`<div class="tiny muted" style="margin:2px 4px 0">Data collection: <b>${sum.active}</b> active · <b>${sum.eligible}</b> model-eligible${sum.collecting ? ` · <b>${sum.collecting}</b> still collecting stats` : ''}${sum.no_stats ? ` · <b>${sum.no_stats}</b> where the provider publishes no stats (corners/cards N/A)` : ''}${sum.data_error ? ` · ${sum.data_error} data error${sum.data_error === 1 ? '' : 's'}` : ''}. One bad league never stops the worldwide scan.</div>`);
     parts.push(`<div class="searchbar"><div class="field">${icon('search', 'sm')}<input id="lg-search" type="search" placeholder="Search a league or country" value="${esc(state.lgQ)}" autocomplete="off"></div></div>`);
     if (!LG.idx) {
       if (!LG.loading) { state.lgQ = ''; parts.push(LG.error ? `<div class="card empty">Could not load the league data (${esc(LG.error)}).<br><button class="btn" id="lg-retry">Try again</button></div>` : skeleton(8)); }
@@ -107,10 +109,21 @@
     if (d.error) { parts.push(`<div class="card empty">Could not load this league (${esc(d.error)}).<br><button class="btn" id="lg-retry">Try again</button></div>`); view().innerHTML = parts.join(''); wireBack(); return; }
     // data-quality status from the coverage registry (the scanner's machine-readable registry)
     const st = d.status || (idxRow && idxRow.status);
+    const sq = (idxRow && idxRow.stats) || d.stats || null;
+    const reason = d.status_reason || '';
     if (st) {
       const cls = st === 'ACTIVE' ? 'good' : (st === 'FINISHED' ? '' : 'warn');
-      const label = { ACTIVE: 'active', UPCOMING: 'upcoming', FINISHED: 'finished', INSUFFICIENT_HISTORY: 'insufficient history', INSUFFICIENT_STATS: 'insufficient stats', DATA_ERROR: 'data error', NOT_SUPPORTED: 'not supported' }[st] || st;
-      parts.push(`<div class="chips small-chips" style="margin-top:-4px"><span class="chip ${cls}">${icon('shield', 'sm')} ${label}</span>${idxRow && idxRow.eligible === true ? '<span class="chip good">model-eligible</span>' : (idxRow && idxRow.eligible === false ? '<span class="chip warn">not model-eligible</span>' : '')}${d.status_reason ? `<span class="chip">${esc(d.status_reason)}</span>` : ''}</div>`);
+      const label = { ACTIVE: 'active', UPCOMING: 'upcoming', FINISHED: 'finished', DATA_ERROR: 'data error' }[st] || st;
+      let statsChip = '';
+      if (sq) {
+        if (sq.publishes === false) statsChip = '<span class="chip warn">provider publishes no stats</span>';
+        else if (sq.total == null) statsChip = '<span class="chip">no stats window yet</span>';
+        else if (sq.pct >= 0.99) statsChip = `<span class="chip good">stats ${sq.n}/${sq.total} · up to date</span>`;
+        else statsChip = `<span class="chip">stats ${sq.n}/${sq.total} (${Math.round(sq.pct * 100)}%) · collecting</span>`;
+      }
+      const earlier = (idxRow && idxRow.earlier) || d.earlier || {};
+      const earlierTxt = Object.entries(earlier).slice(0, 2).map(([s, n]) => `${n} from ${s}`).join(' · ');
+      parts.push(`<div class="chips small-chips" style="margin-top:-4px"><span class="chip ${cls}">${icon('shield', 'sm')} ${label}</span>${idxRow && idxRow.eligible === true ? '<span class="chip good">model-eligible</span>' : (idxRow && idxRow.eligible === false ? '<span class="chip warn">not model-eligible</span>' : '')}${statsChip}${earlierTxt ? `<span class="chip">${esc(earlierTxt)}</span>` : ''}${reason && !/^latest result \d{4}/.test(reason) ? `<span class="chip">${esc(reason)}</span>` : ''}</div>`);
     }
     let seg = state.lgSeg;
     if (seg === 'table' && !(d.table && d.table.length)) seg = 'results';
@@ -125,25 +138,28 @@
     } else if (seg === 'news') {
       leagueNews(parts, d);
     } else if (seg === 'table') {
-      parts.push(`<div class="card compact"><div class="b">Standings</div><div class="tiny muted" style="margin-bottom:4px">Points, goal difference, then goals scored · form is the last five matches</div>
+      const teamAttrs = (name) => d.teams_div ? ` class="tap" data-lgteam="${esc(name)}" data-country="${esc(d.country || '')}" data-div="${esc(d.teams_div)}"` : '';
+      parts.push(`<div class="card compact"><div class="b">Standings</div><div class="tiny muted" style="margin-bottom:4px">Points, goal difference, then goals scored · form is the last five matches · tap a team for its profile</div>
         <table class="tbl head table" style="margin-top:4px"><tr><th>#</th><th>Team</th><th class="right">P</th><th class="right">W-D-L</th><th class="right">GD</th><th class="right">Pts</th><th class="right">Form</th></tr>
-        ${d.table.map((x) => `<tr><td class="muted">${x.pos}</td><td><div class="tname">${badge(x.team, null, 22)}<span class="nm">${esc(x.team)}</span></div></td><td class="right">${x.p}</td><td class="right">${x.w}-${x.d}-${x.l}</td><td class="right">${x.gd > 0 ? '+' : ''}${x.gd}</td><td class="right b">${x.pts}</td><td class="right">${x.form ? formBadges(x.form.split('')) : '<span class="tiny muted">–</span>'}</td></tr>`).join('')}</table></div>`);
+        ${d.table.map((x) => `<tr${teamAttrs(x.team)}><td class="muted">${x.pos}</td><td><div class="tname">${badge(x.team, null, 22)}<span class="nm">${esc(x.team)}</span></div></td><td class="right">${x.p}</td><td class="right">${x.w}-${x.d}-${x.l}</td><td class="right">${x.gd > 0 ? '+' : ''}${x.gd}</td><td class="right b">${x.pts}</td><td class="right">${x.form ? formBadges(x.form.split('')) : '<span class="tiny muted">–</span>'}</td></tr>`).join('')}</table></div>`);
     } else if (seg === 'results') {
       if (!(d.results && d.results.length)) parts.push(`<div class="card empty">No finished matches in the archive yet.</div>`);
       else {
         const byDay = {};
         d.results.forEach((r) => { const day = r.ko.slice(0, 10); (byDay[day] = byDay[day] || []).push(r); });
-        const resRow = (r) => `<tr><td class="tiny muted nowrap">${esc(koTime(r.ko))}</td><td><div class="res-line">${badge(r.home, null, 20)}<span class="tm ${r.hg > r.ag ? 'won' : ''}">${esc(r.home)}</span><span class="sc">${r.hg} – ${r.ag}</span><span class="tm ${r.ag > r.hg ? 'won' : ''}">${esc(r.away)}</span>${badge(r.away, null, 20)}</div>${r.hth != null ? `<div class="tiny muted">HT ${r.hth}–${r.hta}</div>` : ''}</td></tr>`;
+        const resRow = (r) => `<tr class="tap" data-lgday="${r.ko.slice(0, 10)}" data-lghome="${esc(r.home)}" data-lgaway="${esc(r.away)}"><td class="tiny muted nowrap">${esc(koTime(r.ko))}</td><td><div class="res-line">${badge(r.home, null, 20)}<span class="tm ${r.hg > r.ag ? 'won' : ''}">${esc(r.home)}</span><span class="sc">${r.hg} – ${r.ag}</span><span class="tm ${r.ag > r.hg ? 'won' : ''}">${esc(r.away)}</span>${badge(r.away, null, 20)}</div>${r.hth != null ? `<div class="tiny muted">HT ${r.hth}–${r.hta}</div>` : ''}</td></tr>`;
         const days = Object.keys(byDay).sort((a, b) => b.localeCompare(a));
+        parts.push(`<div class="card tiny muted" style="margin-top:-6px">Tap a match — the Match Center opens where the analysis is retained, otherwise that day's full archive.</div>`);
         parts.push(`<div class="card compact">${days.map((day) => `<div class="comp-head">${esc(dayName(day))} · ${byDay[day].length}</div><table class="tbl" style="margin-top:2px">${byDay[day].map(resRow).join('')}</table>`).join('')}</div>`);
       }
     } else {
       if (!(d.fixtures && d.fixtures.length)) parts.push(`<div class="card empty">No scheduled fixtures in the next three days.</div>`);
       else {
         const byDay = {};
-        d.fixtures.forEach((f) => { const day = f.ko.slice(0, 10); (byDay[day] = byDay[day] || []).push(f); });
+        d.fixtures.forEach((f, i) => { const day = f.ko.slice(0, 10); (byDay[day] = byDay[day] || []).push([f, i]); });
         const days = Object.keys(byDay).sort((a, b) => a.localeCompare(b));
-        parts.push(`<div class="card compact">${days.map((day) => `<div class="comp-head">${esc(dayName(day))}</div><table class="tbl" style="margin-top:2px">${byDay[day].map((f) => `<tr><td class="tiny muted nowrap">${esc(koTime(f.ko))}</td><td><div class="res-line">${badge(f.home, null, 20)}<span class="tm">${esc(f.home)}</span><span class="sc muted">v</span><span class="tm">${esc(f.away)}</span>${badge(f.away, null, 20)}</div></td></tr>`).join('')}</table>`).join('')}</div>`);
+        parts.push(`<div class="card tiny muted" style="margin-top:-6px">Tap a fixture to open its Match Center once it enters the 24-hour analysis window.</div>`);
+        parts.push(`<div class="card compact">${days.map((day) => `<div class="comp-head">${esc(dayName(day))}</div><table class="tbl" style="margin-top:2px">${byDay[day].map(([f, i]) => `<tr class="tap" data-lgfx="${i}"><td class="tiny muted nowrap">${esc(koTime(f.ko))}</td><td><div class="res-line">${badge(f.home, null, 20)}<span class="tm">${esc(f.home)}</span><span class="sc muted">v</span><span class="tm">${esc(f.away)}</span>${badge(f.away, null, 20)}</div></td></tr>`).join('')}</table>`).join('')}</div>`);
       }
     }
     parts.push(`<div class="tiny muted" style="margin:10px 4px 18px">Source: public live-score archive (all competitions it publishes). ${d.played} matches on record${d.table && d.table.length ? ' · knockout rounds have no table' : ''}.</div>`);
@@ -153,6 +169,22 @@
     const r = $('#lg-retry'); if (r) r.onclick = () => { delete LG.det[page.slug]; ensureDetail(page.slug); };
     if (seg === 'news' && PR.wireNewsLinks) PR.wireNewsLinks();
     $$('[data-lgteam]').forEach((el) => { el.onclick = () => PR.openTeam(el.dataset.lgteam, el.dataset.country, el.dataset.div); });
+    $$('[data-lgday]').forEach((el) => {
+      el.onclick = () => {
+        const day = el.dataset.lgday;
+        const fid = `${day}|${d.country || ''}|${el.dataset.lghome}|${el.dataset.lgaway}`;
+        if (PR.fx(fid) || PR.dayRecord(fid)) PR.openMatch(fid);
+        else { state.dayView = 'results'; PR.push({ type: 'day', date: day }); }
+      };
+    });
+    $$('[data-lgfx]').forEach((el) => {
+      const f = (d.fixtures || [])[+el.dataset.lgfx];
+      if (!f) return;
+      const day = f.ko.slice(0, 10);
+      const inWin = (state.data.fixtures || []).find((x) => x.kickoff.slice(0, 10) === day && ((x.home === f.home && x.away === f.away) || (x.home === f.away && x.away === f.home)));
+      if (inWin) PR.openMatch(inWin.id, inWin.d);
+      else toast('Outside the 24-hour analysis window — it appears in the app when its day is analysed (results open from the day archive once finished).');
+    });
   };
 
   // ------------------------------------------------------------------ league TREND tab

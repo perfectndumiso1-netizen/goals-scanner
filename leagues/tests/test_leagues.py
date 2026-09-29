@@ -14,18 +14,18 @@ def _rec(esd, home, away, hg, ag, hth=None, hta=None):
     return [esd, "1", home, "2", away, hg, ag, hth, hta]
 
 
-def _ev(esd, home, away, hg, ag, hth=None, hta=None):
-    return leagues._evt(_rec(esd, home, away, hg, ag, hth, hta))
+def _ev(esd, home, away, hg, ag, hth=None, hta=None, eid="e"):
+    return leagues._evt(eid, _rec(esd, home, away, hg, ag, hth, hta))
 
 
 def test_evt_parses_9_and_7_field_records():
-    e = leagues._evt(["202609261600", "4533", "A", "3279", "B", 5, 1, None, None])
-    assert e["finished"] and e["hg"] == 5 and e["home"] == "A"
-    e7 = leagues._evt(["202609261600", "1", "A", "2", "B", 0, 0])
+    e = leagues._evt("1839917", ["202609261600", "4533", "A", "3279", "B", 5, 1, None, None])
+    assert e["finished"] and e["hg"] == 5 and e["home"] == "A" and e["eid"] == "1839917"
+    e7 = leagues._evt("1", ["202609261600", "1", "A", "2", "B", 0, 0])
     assert e7["hth"] is None and e7["hta"] is None
-    assert leagues._evt(["junk", "1", "A", "2", "B", 1, 0]) is None
-    assert leagues._evt(["202609261600", "1", "", "2", "B", 1, 0]) is None
-    assert leagues._evt(None) is None
+    assert leagues._evt("1", ["junk", "1", "A", "2", "B", 1, 0]) is None
+    assert leagues._evt("1", ["202609261600", "1", "", "2", "B", 1, 0]) is None
+    assert leagues._evt("1", None) is None
 
 
 def test_table_sorting_tie_breaks_and_form():

@@ -220,6 +220,15 @@ def test_leagues_build_keeps_status_registry(tmp_path):
     assert d["teams_div"] == "LS:c/good"          # stable team-page key for the Teams tab
     assert d["status"] == "ACTIVE" and d["eligible"] is True
     assert d["trends"]["season"]["n"] == 6
+    # stats-collection visibility for the app (is data still being collected?)
+    assert d["stats"]["publishes"] is True and d["stats"]["total"] is not None
+    assert d["stats"]["n"] == 0                  # this synthetic stage has no match statistics
+    assert d["hist"] == 6
+    idx = json.loads((out / "index.json").read_text())
+    assert idx["leagues"][0]["stats"]["publishes"] is True
+    s = idx["summary"]
+    assert s["active"] == 1 and s["eligible"] == 1 and s["no_stats"] == 0
+    assert s["collecting"] == 1                  # 0/6 with stats = still collecting
 
 
 def test_add_news_patches_only_active_leagues(tmp_path):

@@ -277,6 +277,11 @@ def build(stages_dir: Path, now: datetime, out_dir: Path, tz_hours: int = 2) -> 
         if st:
             entry["status"] = st["status"]
             entry["eligible"] = st["eligible"]
+            sq = st.get("stats_quality") or {}
+            entry["stats"] = {"n": sq.get("with_stats"), "total": sq.get("recent_window"),
+                              "pct": sq.get("pct"), "publishes": sq.get("provider_publishes", True)}
+            entry["hist"] = st.get("historical_matches")
+            entry["earlier"] = dict(list((st.get("seasons") or {}).items())[:2])
         index.append(entry)
         detail = {"key": key, "country": entry["country"], "league": entry["league"], "season": entry["season"],
                   "fetched": entry["fetched"], "teams": entry["teams"], "played": entry["played"],
@@ -284,6 +289,7 @@ def build(stages_dir: Path, now: datetime, out_dir: Path, tz_hours: int = 2) -> 
                   "generated": now.strftime("%Y-%m-%d %H:%M"),
                   "status": (st or {}).get("status"), "eligible": (st or {}).get("eligible"),
                   "status_reason": (st or {}).get("reason"),
+                  "stats": entry.get("stats"), "hist": entry.get("hist"), "earlier": entry.get("earlier"),
                   "trends": league_trends(finished, season_start, d.get("stats") or {}) if finished else None,
                   "table": table,
                   "results": [{"ko": _ko(e), "home": e["home"], "away": e["away"], "hg": e["hg"], "ag": e["ag"],
@@ -295,8 +301,18 @@ def build(stages_dir: Path, now: datetime, out_dir: Path, tz_hours: int = 2) -> 
         n += 1
 
     index.sort(key=lambda x: (x["country"].lower(), x["league"].lower()))
+    summary = {
+        "active": sum(1 for e in index if e.get("status") == "ACTIVE"),
+        "upcoming": sum(1 for e in index if e.get("status") == "UPCOMING"),
+        "finished": sum(1 for e in index if e.get("status") == "FINISHED"),
+        "data_error": sum(1 for e in index if e.get("status") == "DATA_ERROR"),
+        "eligible": sum(1 for e in index if e.get("eligible") is True),
+        "collecting": sum(1 for e in index if (e.get("stats") or {}).get("publishes")
+                          and (e.get("stats") or {}).get("pct") is not None and e["stats"]["pct"] < 0.99),
+        "no_stats": sum(1 for e in index if (e.get("stats") or {}).get("publishes") is False),
+    }
     (out_dir / "index.json").write_text(json.dumps(
-        {"generated": now.strftime("%Y-%m-%d %H:%M"), "count": len(index), "leagues": index},
+        {"generated": now.strftime("%Y-%m-%d %H:%M"), "count": len(index), "summary": summary, "leagues": index},
         ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
 
     # drop detail files of stages that no longer exist (renamed competitions) —
