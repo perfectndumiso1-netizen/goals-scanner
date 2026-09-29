@@ -28,13 +28,17 @@ PATTERNS: list[tuple[str, re.Pattern[str]]] = [
     ("Google API key", re.compile(r"\bAIza[0-9A-Za-z_-]{35}\b")),
     ("Private key block", re.compile(r"-----BEGIN (?:RSA |EC |OPENSSH |PGP )?PRIVATE KEY-----")),
     ("Bearer literal", re.compile(r"(?i)authorization\s*[:=]\s*[\"']?bearer\s+[A-Za-z0-9._-]{25,}")),
-    ("Hard-coded password", re.compile(r"(?i)\b(?:password|passwd|secret|api[_-]?key|access[_-]?token)\s*[:=]\s*[\"'][^\"'\s]{8,}[\"']")),
+    ("Hard-coded password", re.compile(r"(?i)\b(?:password|passwd|secret|api[_-]?key|access[_-]?token)\s*[:=]\s*[\"'][^\"']{8,}[\"']")),
+    # Bare shell-style assignments like KEY="deadbeef…" — the exact shape of the
+    # leak found in the Forex repo on 2026-09-28 (a live Twelve Data key, public since the first commit).
+    ("Hard-coded key variable", re.compile(r"(?i)\b(?:key|apikey|api_key|token|secret|auth|pass|credential)\s*=\s*[\"'][A-Za-z0-9_\-]{16,}[\"']")),
+    ("Opaque 32-char hex literal", re.compile(r"[\"'][0-9a-fA-F]{32}[\"']")),
 ]
 
 # Values that are obviously placeholders or wiring, not credentials.
 SAFE_HINTS = re.compile(
     r"(?i)(your[_-]?|example|placeholder|dummy|redacted|changeme|<[^>]+>|x{4,}|\*\*\*|"
-    r"secrets\.[A-Z_]+|process\.env|System\.getenv|os\.environ|getenv\(|"
+    r"secrets\.[A-Z_]+|process\.env|System\.getenv|os\.environ|getenv\(|hash|integrity|sha256|md5|checksum|"
     r"token\s*[:=]\s*[\"']?\$|secret\s*[:=]\s*[\"']?\$)"
 )
 
