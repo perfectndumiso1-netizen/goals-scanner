@@ -92,7 +92,8 @@
       <div class="t">${fxBadge(f, 'away').replace('s24', 's56')}${teamLink(f, 'away')}<div class="tiny muted">${ta && ta.pos ? `${ta.pos}${ord(ta.pos)} · ${ta.all.pts} pts` : 'Away'}</div>${form(teams.away)}${val('away')}</div></div>
       <div class="x12"><div class="lbl"><span>${esc(f.home)} ${pct(x12(f, 'H'))}</span><span>Draw ${pct(x12(f, 'D'))}</span><span>${esc(f.away)} ${pct(x12(f, 'A'))}</span></div>
         <div class="tri"><span class="h" style="width:${Math.round((x12(f, 'H') || 0) * 100)}%"></span><span class="d" style="width:${Math.round((x12(f, 'D') || 0) * 100)}%"></span><span class="a" style="width:${Math.round((x12(f, 'A') || 0) * 100)}%"></span></div></div>
-      <div class="chips small-chips" style="margin-top:6px;justify-content:center">${qualityChip(f)}${f.data_ok ? '' : '<span class="chip warn">⚠️ low data — never shortlisted</span>'}</div></div>`);
+      <div class="chips small-chips" style="margin-top:6px;justify-content:center">${qualityChip(f)}${f.data_ok ? '' : '<span class="chip warn">⚠️ low data — never shortlisted</span>'}</div>
+      ${PR.sbEventUrl(f.sportybet_event) ? `<a class="sb-open" href="${esc(PR.sbEventUrl(f.sportybet_event))}" style="display:flex;align-items:center;justify-content:center;gap:6px;margin-top:8px;padding:8px;border-radius:10px;background:var(--chip);font-size:13px;font-weight:600;color:var(--text)">${icon('target', 'sm')} Open in Sportybet — their live odds &amp; slip</a>` : ''}</div>`);
     parts.push(`<div class="card compact">${segmented([['overview', 'Overview'], ['form', 'Form'], ['markets', 'Markets'], ['trends', 'Trends'], ['stats', 'Stats'], ['table', 'Table'], ['h2h', 'H2H'], ['news', 'News'], ['data', 'Data'], ['lineups', 'Line-ups']], v, 'mv')}</div>`);
     if (v === 'lineups') parts.push(lineupsBlock(f, s));
     else if (!x) parts.push(skeleton(5));

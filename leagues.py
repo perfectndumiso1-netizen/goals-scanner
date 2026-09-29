@@ -33,7 +33,8 @@ log = logging.getLogger("leagues")
 
 RESULTS_KEEP = 40       # most recent finished matches published per stage
 FIXTURES_KEEP = 12      # upcoming fixtures published per stage
-FIXTURE_HOURS = 48      # look-ahead for the fixtures list (2 extra day-feeds, 36 h apart)
+FIXTURE_HOURS = 48      # look-ahead for the fixtures list when no coverage window is passed (standalone runs)
+FIXTURE_WINDOW_DAYS = 60  # how far ahead the Leagues tab's fixture lists reach (coverage window)
 _MIN_TEAMS = 4          # a table needs at least this many teams
 TREND_MIN_N = 5         # a trend window needs at least this many matches, otherwise N/A (never 0)
 
@@ -227,8 +228,31 @@ def _upcoming(now: datetime, tz_hours: int = 2) -> list[dict]:
     return list(out.values())
 
 
-def build(stages_dir: Path, now: datetime, out_dir: Path, tz_hours: int = 2) -> int:
-    """Publish index.json + one detail file per stage. Returns the number of league files written."""
+def _window_events(events: list[dict] | None, now: datetime, days: int = 60) -> dict[str, list[dict]]:
+    """Group pre-fetched coverage-window events by stage (not-started, within the next `days`).
+
+    The scanner passes the day-feed events it already fetched for the model — the Leagues tab's
+    fixture lists then span the whole coverage window with zero extra requests.
+    """
+    out: dict[str, list[dict]] = defaultdict(list)
+    if not events:
+        return out
+    lo, hi = now - timedelta(minutes=5), now + timedelta(days=days)
+    for e in events:
+        if e.get("status") != "NS" or not (lo <= e["kickoff"] <= hi):
+            continue
+        if e.get("ccd") and e.get("scd"):
+            out[f"{e['ccd']}/{e['scd']}"].append(e)
+    return out
+
+
+def build(stages_dir: Path, now: datetime, out_dir: Path, tz_hours: int = 2, events: list[dict] | None = None) -> int:
+    """Publish index.json + one detail file per stage. Returns the number of league files written.
+
+    `events` = the scanner's coverage-window day-feed events (naive SAST kick-offs); when given, the
+    fixture lists span the whole coverage window (60 days) with no extra network. Falls back to a
+    short day-feed look-ahead when called standalone.
+    """
     if now.tzinfo is not None:
         now = now.replace(tzinfo=None)   # feed kick-offs are naive display-time (SAST), like worldfeed.upcoming
     stages_dir = Path(stages_dir)
@@ -237,9 +261,10 @@ def build(stages_dir: Path, now: datetime, out_dir: Path, tz_hours: int = 2) -> 
     out_dir = Path(out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
 
-    up_by_stage: dict[str, list[dict]] = defaultdict(list)
-    for e in _upcoming(now, tz_hours):
-        up_by_stage[f"{e['ccd']}/{e['scd']}"].append(e)
+    up_by_stage = _window_events(events, now, days=FIXTURE_WINDOW_DAYS) if events else defaultdict(list)
+    if not events:
+        for e in _upcoming(now, tz_hours):
+            up_by_stage[f"{e['ccd']}/{e['scd']}"].append(e)
 
     # per-stage status from the coverage registry (coverage.build runs first in the scanner)
     status_by_key: dict[str, dict] = {}

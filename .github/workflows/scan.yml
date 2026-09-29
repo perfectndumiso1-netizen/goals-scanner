@@ -17,12 +17,14 @@ concurrency:
 jobs:
   scan:
     runs-on: ubuntu-latest
-    timeout-minutes: 28
+    timeout-minutes: 45   # the 60-day coverage window analyses ~17k fixtures per run
     env:
       TIMEZONE: "Africa/Johannesburg"   # timezone for all displayed times and the scan window
       TZ_LABEL: "SAST"
       RUN_HOURS: "7,12,17"  # full-report hours (local); the other half-hourly runs are refreshes
-      WINDOW_HOURS: "24"    # scan matches kicking off within the next 24 hours
+      COVER_DAYS: "60"      # discover + analyse fixtures up to 60 days out (early data collection)
+      APP_WINDOW_HOURS: "24"  # the app publication still carries today's matches only
+      NEWS_HOURS: "72"      # per-fixture news fetches only within 72 h of kick-off
       MIN_P_O15: "0.84"     # shortlist thresholds (final probability)
       MIN_P_O25: "0.60"
       MIN_P_BTTS: "0.60"

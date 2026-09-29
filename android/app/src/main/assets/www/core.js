@@ -322,6 +322,34 @@ window.PR = (function () {
     return fetchIt();
   }
   function teamsCached(div) { return state.teams[slug(div)] || null; }
+  /** Sportybet deep link for a match (public event page — opens in their app/site, no login to view). */
+  function sbSlug(s) {
+    s = String(s || '').normalize('NFKD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+    return (s.replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '')) || 'football';
+  }
+  function sbEventUrl(ev) {
+    if (!ev || !ev.id) return null;
+    const h = ev.home && ev.away ? `${sbSlug(ev.home)}_v_${sbSlug(ev.away)}` : '';
+    return `https://www.sportybet.com/za/sport/sr:sport:1/${sbSlug(ev.country || 'football')}/${sbSlug(ev.tournament || 'football')}/${h}/${ev.id}/`;
+  }
+  /** Sportybet booking-code share link (loads the code in the Sportybet app/site). */
+  function sbShareUrl(code) {
+    const c = String(code || '').replace(/[^A-Za-z0-9]/g, '');
+    return c ? `https://www.sportybet.com/za/?shareCode=${c}` : null;
+  }
+  function openSportybet(ev) { const u = sbEventUrl(ev); if (u) openExternal(u); }
+  function openBookingCode(code) { const u = sbShareUrl(code); if (u) openExternal(u); }
+  function openExternal(u) { if (PR.native && PR.native.openUrl) PR.native.openUrl(u); else window.open(u, '_blank'); }
+  /** Copy text to the clipboard (WebView-safe fallbacks), returns success. */
+  async function copyText(text) {
+    try { await navigator.clipboard.writeText(text); return true; } catch (e) { /* fall through */ }
+    try {
+      const ta = document.createElement('textarea');
+      ta.value = text; ta.style.position = 'fixed'; ta.style.opacity = '0';
+      document.body.appendChild(ta); ta.focus(); ta.select();
+      const ok = document.execCommand('copy'); ta.remove(); return ok;
+    } catch (e) { return false; }
+  }
   /** Global club index (data/app/teams/teams-index.json) for team search — every team in the model pool. */
   async function loadTeamIndex() {
     if (state.teamIdx) return state.teamIdx;
@@ -446,6 +474,7 @@ window.PR = (function () {
   return { native, settings, state, $, $$, saveSettings, nfetch, getJson, rawUrl, esc, pct, f1, f2, signed, DAYS, MONTHS, parseLocal, tzNow, ymd, stored, persist, cache, prefetchDetails, pubStamp,
     dayName, niceDate, koTime, koShort, toast, pill, bar, wdl, formBadges, md, GROUPS, GROUP_ICON, selGroup, selLabel, selShort, settleSel,
     liveVerdict, isLive, isFT, indexData, fx, loadDetail, detailCached, detailKey, loadData, statusLine, loadDay, dayRecord, finalFor, storedIncidents, loadTeams, teamsCached, loadTeamIndex, slug, TABS, render, setTab, push, replace,
+    sbEventUrl, sbShareUrl, openSportybet, openBookingCode, openExternal, copyText,
     back, openMatch, openTeam, toggleMenu, closeMenu, contactCard, editorCard, teamLink, matchLine, matchRow, segmented, select, scoreBox, statusIcon, CONTACT, APP_VERSION,
     confirmBox, isFav, toggleFav, favList: () => favs, saveFavs,
     icon, flag, badge, fxBadge, skeleton, ring, applyTheme, loadBadges, BADGE_BASE,

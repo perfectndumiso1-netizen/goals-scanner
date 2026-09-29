@@ -277,7 +277,11 @@ def export(path: Path, *, ctx: dict, rows: list, picks: dict, tracker_summary: d
             "x12": [_f(x12.get("H")), _f(x12.get("D")), _f(x12.get("A"))],
             "priced": bool(r.sb), "top": top, "safe": safe_best, "hi": hi, "bo": _board(sels),
             "badges": {"home": badges.get(fx["home"]), "away": badges.get(fx["away"])},
-            "livescore_id": eid, "sportybet_event": (r.sb_event or {}).get("id"),
+            "livescore_id": eid,
+            # full Sportybet event meta so the app can deep-link the match into Sportybet ("open in Sportybet")
+            "sportybet_event": ({"id": r.sb_event["id"], "country": r.sb_event.get("country"),
+                                  "tournament": r.sb_event.get("tournament"), "home": r.sb_event.get("home"),
+                                  "away": r.sb_event.get("away")} if r.sb_event else None),
         }
         index.append(slim)
         detail = dict(slim)
@@ -377,7 +381,8 @@ def export(path: Path, *, ctx: dict, rows: list, picks: dict, tracker_summary: d
     reports = sorted({p.stem for p in reports_dir.glob("20??-??-??.md")}, reverse=True)[:60]
     meta = {
         "generated": now.strftime("%Y-%m-%d %H:%M"), "tz": tz_label, "run": ctx["run"], "report_run": bool(report_run),
-        "window_start": ctx["start"].strftime("%Y-%m-%d %H:%M"), "window_end": ctx["end"].strftime("%Y-%m-%d %H:%M"),
+        "window_start": (ctx.get("app_start") or ctx["start"]).strftime("%Y-%m-%d %H:%M"),
+        "window_end": (ctx.get("app_end") or ctx["end"]).strftime("%Y-%m-%d %H:%M"),
         "fixtures": len(rows), "notes": notes, "repo": repo,
         "report_md": f"reports/{now:%Y-%m-%d}.md", "csv": f"reports/{now:%Y-%m-%d}.csv",
         "thresholds": {m: t["p"] for m, t in thresholds.items()}, "backtest": backtest,

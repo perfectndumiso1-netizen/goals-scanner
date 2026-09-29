@@ -109,6 +109,13 @@ CONFIG = {
     "TZ_LABEL": os.getenv("TZ_LABEL", "SAST"),
     # matches kicking off between "now" and now + WINDOW_HOURS are scanned
     "WINDOW_HOURS": _env_float("WINDOW_HOURS", 24),
+    # coverage window: fixtures up to COVER_DAYS out are discovered and analysed in every run, so the
+    # model gathers history/stats early and matches are analysed long before kick-off. The app
+    # publication still carries only the APP_WINDOW_HOURS window (the Matches tab stays "today").
+    "COVER_DAYS": int(_env_float("COVER_DAYS", 60)),
+    "APP_WINDOW_HOURS": _env_float("APP_WINDOW_HOURS", 24),
+    # per-fixture news is only useful close to kick-off; far-future fixtures get no news fetch
+    "NEWS_HOURS": _env_float("NEWS_HOURS", 72),
     # form weighting: a match HALF_LIFE_DAYS ago counts half as much as one played today
     "HALF_LIFE_DAYS": 120,
     "MAX_HISTORY_DAYS": 400,
@@ -667,15 +674,27 @@ def _valid_id(x) -> bool:
     return isinstance(x, str) and x.strip() != ""
 
 
+TEAM_HIST_CACHE: dict = {}   # (id(long), country, team, team_id) -> slice; pure lookups, cleared per run
+H2H_CACHE: dict = {}         # (id(results), country, home, away, limit, home_id, away_id) -> list; cleared per run
+PROFILE_CACHE: dict = {}     # (id(long), country, team, venue, id(now), team_id) -> TeamProfile; cleared per run
+
+
 def team_history(long: pd.DataFrame, country: str, team: str, team_id=None) -> pd.DataFrame:
     """A team's perspective rows: by Livescore id when known (any competition), else by country + name."""
+    key = (id(long), country, team, team_id)
+    hit = TEAM_HIST_CACHE.get(key)
+    if hit is not None:
+        return hit
     if long.empty:
         return long
     if _valid_id(team_id) and "team_id" in long.columns:
         rows = long[long["team_id"] == team_id]
         if not rows.empty:
+            TEAM_HIST_CACHE[key] = rows
             return rows
-    return long[(long["country"] == country) & (long["team"] == team)]
+    out = long[(long["country"] == country) & (long["team"] == team)]
+    TEAM_HIST_CACHE[key] = out
+    return out
 
 
 def shrink_ratings(att: float, dfc: float, n_eff: float) -> tuple[float, float]:
@@ -725,6 +744,10 @@ def compute_raw_ratings(long: pd.DataFrame, now: datetime) -> dict:
 
 
 def build_profile(long: pd.DataFrame, country: str, team: str, venue: str, now: datetime, team_id=None) -> TeamProfile:
+    key = (id(long), country, team, venue, id(now), team_id)
+    hit = PROFILE_CACHE.get(key)
+    if hit is not None:
+        return hit
     p = TeamProfile(name=team)
     if long.empty:
         return p
@@ -800,11 +823,16 @@ def build_profile(long: pd.DataFrame, country: str, team: str, venue: str, now: 
     p.sot_against = float(last10["sot_against"].mean()) if last10["sot_against"].notna().any() else float("nan")
     p.last5 = [{"date": r.date, "venue": r.venue, "opp": r.opp, "gf": int(r.gf), "ga": int(r.ga),
                 "league": r.league} for r in rows.head(5).itertuples()]
+    PROFILE_CACHE[key] = p
     return p
 
 
 def head_to_head(results: pd.DataFrame, country: str, home: str, away: str, limit: int = 10,
                  home_id=None, away_id=None) -> list[dict]:
+    key = (id(results), country, home, away, limit, home_id, away_id)
+    hit = H2H_CACHE.get(key)
+    if hit is not None:
+        return hit
     if results.empty:
         return []
     if _valid_id(home_id) and _valid_id(away_id) and "home_id" in results.columns:
@@ -815,8 +843,10 @@ def head_to_head(results: pd.DataFrame, country: str, home: str, away: str, limi
                     (((results["home"] == home) & (results["away"] == away)) |
                      ((results["home"] == away) & (results["away"] == home)))]
     m = m.sort_values("date", ascending=False).head(limit)
-    return [{"date": r.date, "home": r.home, "away": r.away, "hg": int(r.hg), "ag": int(r.ag),
-             "league": r.league} for r in m.itertuples()]
+    out = [{"date": r.date, "home": r.home, "away": r.away, "hg": int(r.hg), "ag": int(r.ag),
+            "league": r.league} for r in m.itertuples()]
+    H2H_CACHE[key] = out
+    return out
 
 
 @dataclass
@@ -2139,11 +2169,13 @@ def main() -> None:
     now = datetime.strptime(override, "%Y-%m-%d %H:%M").replace(tzinfo=tz) if override else datetime.now(tz)
     tz_off = int(now.utcoffset().total_seconds() // 3600)
     start = now - timedelta(minutes=5)
-    end = now + timedelta(hours=CONFIG["WINDOW_HOURS"])
+    end = now + timedelta(days=CONFIG["COVER_DAYS"])
+    app_end = now + timedelta(hours=CONFIG["APP_WINDOW_HOURS"])
     run_label, window_end = run_schedule(now)
     report_run = is_report_run(run_label)
-    ctx = {"now": now, "start": start, "end": end, "run": run_label, "window_end": window_end}
-    log.info("Run %s (%s): scan window %s -> %s, state %s", run_label, "report" if report_run else "refresh", start, end, STATE)
+    ctx = {"now": now, "start": start, "end": end, "app_start": start, "app_end": app_end, "run": run_label, "window_end": window_end}
+    log.info("Run %s (%s): coverage window %s -> %s (app window -> %s), state %s",
+             run_label, "report" if report_run else "refresh", start, end, app_end, STATE)
 
     REPORTS_DIR.mkdir(parents=True, exist_ok=True)
     DATA_DIR.mkdir(parents=True, exist_ok=True)
@@ -2247,12 +2279,13 @@ def main() -> None:
         log.warning("Coverage registry failed (non-fatal): %s", exc)
 
     # ---- league browser: tables / results / fixtures for the app's Leagues tab (standalone;
-    # reads the world archive + a short fixture window; never feeds the model)
+    # reads the world archive + the coverage window already fetched above; never feeds the model)
     try:
         import leagues
-        leagues.build(LS_DIR / "stages", now, DATA_DIR / "app" / "leagues", tz_hours=2)
+        leagues.build(LS_DIR / "stages", now, DATA_DIR / "app" / "leagues", tz_hours=2, events=ls_events or None)
     except Exception as exc:  # noqa: BLE001
         log.warning("Leagues build failed (non-fatal): %s", exc)
+    ls_events = None   # last use — free the ~17k window events before the analysis runs
 
     tracker = load_tracker()
     pending = tracker[tracker["status"] == "pending"] if not tracker.empty else tracker
@@ -2281,6 +2314,9 @@ def main() -> None:
 
     div_avgs = compute_div_avgs(results, now)
     long = make_long(results, div_avgs)
+    TEAM_HIST_CACHE.clear()
+    H2H_CACHE.clear()
+    PROFILE_CACHE.clear()
     SEASON_STARTS.clear()
     SEASON_STARTS.update(quality.season_starts(results, now))
     RAW_RATINGS.clear()
@@ -2292,11 +2328,13 @@ def main() -> None:
     MODELS["cards"] = markets.CountModel(cards_df, "hcards", "acards", now, markets.CARDS, use_ref=True)
 
     rows = [analyse(fx, long, results, div_avgs, now, pool) for _, fx in todays.iterrows()]
+    app_rows = [r for r in rows if r.fx["kickoff"] <= app_end]   # what the app publication carries
 
-    # ---- Sportybet prices
+    # ---- Sportybet prices (their feed lists every event they have priced — currently ~33 days out,
+    # so the 60-day coverage window gets priced for as far as the book has opened its lines)
     sbmap, sb_ok = {}, False
     if CONFIG["SPORTYBET"] and rows:
-        events = sporty.fetch_upcoming(CONFIG["WINDOW_HOURS"] + 6)
+        events = sporty.fetch_upcoming(CONFIG["COVER_DAYS"] * 24 + 6)
         sb_ok = bool(events)
         sbmap = sporty.match_fixtures(todays, events) if events else {}
     attach_prices(rows, sbmap, todays)
@@ -2312,10 +2350,14 @@ def main() -> None:
                 n_full += 1
     log.info("Sportybet: %d fixtures priced, %d full market lists", len(sbmap), n_full)
     picks = select_picks(rows)
+    # analysis lookups are done — drop the per-team caches and the long frame before the trends pass
+    # (trends works from its own frame); keeps the 60-day run inside a small runner's memory budget
+    TEAM_HIST_CACHE.clear()
+    PROFILE_CACHE.clear()
+    H2H_CACHE.clear()
+    del long
 
-    # ---- trends (team / match / head-to-head)
-    # squad market values (Transfermarkt, weekly) — context only
-    sq = None
+    # ---- squad market values (Transfermarkt, weekly) — context only
     try:
         sq = squads_mod.Squads(DATA_DIR / "squads.json")
         sq.refresh(set(str(d) for d in todays["div"]) if not todays.empty else set(), now)
@@ -2327,12 +2369,20 @@ def main() -> None:
         log.info("Squad values: %d of %d teams matched", n_sq, 2 * len(rows))
     except Exception as exc:  # noqa: BLE001
         log.warning("Squad values failed: %s", exc)
+    # ---- trends (team / match / head-to-head) — computed only for the matches the app publishes
+    # (the 24 h window's detail files); nothing else ships trend text, so the far part of the
+    # coverage window is pure model analysis
+    trends_mod.clear_caches()
+    lg_tr = None
     try:
         lg_tr = trends_mod._long(pool)
         for r in rows:
-            r.trends = trends_mod.for_fixture(lg_tr, r.fx, r.h2h)
+            if r.fx["kickoff"] <= app_end:
+                r.trends = trends_mod.for_fixture(lg_tr, r.fx, r.h2h)
     except Exception as exc:  # noqa: BLE001
         log.warning("Trends failed: %s", exc)
+    del lg_tr, pool            # the big history frames are done; keep RAM free for the day files and app export
+    trends_mod.clear_caches()  # the per-team slices pin the trends frame; drop them too
 
     # ---- evidence / data quality / explanation / warnings (quality.py) — descriptive, never changes a probability
     build_audits(rows, now)
@@ -2399,10 +2449,13 @@ def main() -> None:
     if CONFIG["SPORTYBET"]:
         notes.append(f"Sportybet ({sporty.CC.upper()}): {len(sbmap)} of {len(rows)} fixtures priced." if sb_ok
                      else "Sportybet prices unavailable this run — average market prices shown instead.")
-    coverage = {"fixtures": len(rows), "competitions": len({comp(r) for r in rows}), "priced": len(sbmap),
+    coverage = {"fixtures": len(rows), "app_window": len(app_rows), "cover_days": CONFIG["COVER_DAYS"],
+                "competitions": len({comp(r) for r in rows}), "priced": len(sbmap),
                 "main": sum(1 for r in rows if r.fx["source"] == "main"), "extra": sum(1 for r in rows if r.fx["source"] == "extra"),
                 "world": sum(1 for r in rows if r.fx["source"] == "world"), "data_ok": sum(1 for r in rows if r.data_ok)}
     ctx["coverage"] = coverage
+    log.info("Coverage: %d fixtures over %d days (%d inside the app window), %d priced by Sportybet",
+             len(rows), CONFIG["COVER_DAYS"], len(app_rows), len(sbmap))
 
     today_str = now.strftime("%Y-%m-%d")
     tracker = settle_tracker(tracker, results_s, now)
@@ -2417,6 +2470,7 @@ def main() -> None:
             days.annotate(tracker, ledger, accas_df, bets_df)
             days_index = days.summarise()
             log.info("History: %d day file(s) written", days.write())
+            days.days.clear()   # on disk now — free the 60-day in-memory archive before the team-page export
         except Exception as exc:  # noqa: BLE001
             log.warning("Day history write failed: %s", exc)
     try:
@@ -2438,7 +2492,10 @@ def main() -> None:
     try:
         ncache = news_mod.Cache(DATA_DIR / "news_cache.json", ttl_hours=CONFIG["NEWS_TTL_H"])
         budget = [CONFIG["NEWS_BUDGET"]]
+        news_end = now + timedelta(hours=CONFIG["NEWS_HOURS"])
         for r in rows:
+            if r.fx["kickoff"] > news_end:
+                continue     # headlines for far-future fixtures are noise; keep the budget for near matches
             home, away = str(r.fx["home"]), str(r.fx["away"])
             country = str(r.fx.get("country") or "")
             r.news = {
@@ -2463,13 +2520,15 @@ def main() -> None:
         ncache.save()
     except Exception as exc:  # noqa: BLE001
         log.warning("Per-fixture news failed (non-fatal): %s", exc)
-    # ---- structured export for the Android app: written to a staging directory, checked, then promoted
+    # ---- structured export for the Android app: written to a staging directory, checked, then promoted.
+    # The publication carries only the APP_WINDOW_HOURS window (the Matches tab is "today"); the rest of
+    # the coverage window lives in the day files (browseable per day) and feeds the model / tracker.
     staging = APP_FILE.parent / "_staging"
     try:
         if staging.exists():
             shutil.rmtree(staging)
         staging.mkdir(parents=True, exist_ok=True)
-        appdata.export(staging / APP_FILE.name, ctx=ctx, rows=rows, picks=picks, tracker_summary=summary, notes=notes, ls_map=ls_map,
+        appdata.export(staging / APP_FILE.name, ctx=ctx, rows=app_rows, picks=picks, tracker_summary=summary, notes=notes, ls_map=ls_map,
                        helpers={"render_details": render_details, "stars": stars, "comp": comp, "sb_price": sb_price,
                                 "selections": all_sels},
                        reports_dir=REPORTS_DIR, tz_label=TZL, thresholds=CONFIG["THRESHOLDS"],
@@ -2478,7 +2537,7 @@ def main() -> None:
                        coverage=coverage, safe_groups=safe_mod.SAFE_GROUPS,
                        extra_badges=archive.badge_map() if archive is not None else None, report_run=report_run,
                        live_dir=APP_FILE.parent)
-        errors, warns = verify.check_publication(staging, APP_FILE.parent, SAFE_BETS_FILE, now, expect_fixtures=len(rows))
+        errors, warns = verify.check_publication(staging, APP_FILE.parent, SAFE_BETS_FILE, now, expect_fixtures=len(app_rows))
         for w in warns[:20]:
             log.warning("Data check: %s", w)
         if errors:

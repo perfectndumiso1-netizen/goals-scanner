@@ -154,6 +154,31 @@ def fetch_event_markets(event_id: str) -> dict:
     return _parse_markets(data.get("markets"))
 
 
+def _slug(s) -> str:
+    """Path segment of a Sportybet name (their router uses lowercase with symbols as underscores)."""
+    s = unicodedata.normalize("NFKD", str(s or "")).encode("ascii", "ignore").decode().lower()
+    return re.sub(r"[^a-z0-9]+", "_", s).strip("_")
+
+
+def event_url(ev: dict | None) -> str | None:
+    """Public Sportybet page of one event — the 'open in Sportybet' deep link (no login needed to view).
+
+    Route format (from the Sportybet web router): /sport/:sportKey/:categoryName/:tournamentName/:homeVsAway?/:eventId/
+    """
+    if not ev or not ev.get("id"):
+        return None
+    cat = _slug(ev.get("country") or "football")
+    tour = _slug(ev.get("tournament") or "football")
+    home_vs_away = f"{_slug(ev.get('home'))}_v_{_slug(ev.get('away'))}" if ev.get("home") and ev.get("away") else ""
+    return (f"https://www.sportybet.com/{CC}/sport/sr:sport:1/{cat}/{tour}/{home_vs_away}/{ev['id']}/")
+
+
+def share_url(code: str) -> str:
+    """Sportybet booking-code share link: opens in the Sportybet app/site and loads the slip."""
+    c = re.sub(r"[^A-Za-z0-9]", "", str(code or ""))
+    return f"https://www.sportybet.com/{CC}/?shareCode={c}" if c else None
+
+
 # ----------------------------------------------------------------------------- matching to football-data fixtures
 STOP = set("fc afc cf sc ac as us ss ssc calcio club de cd ud sd rcd fk sk bk if ff ik sv vfb vfl tsg fsv spvgg "
            "1 04 05 1899 1900 1904 1909 1910 the and of ca cs csd cfr kf ks nk hk gks mks rks lks zks sp spa".split())

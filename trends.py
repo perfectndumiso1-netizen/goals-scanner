@@ -44,14 +44,28 @@ def _long(results: pd.DataFrame) -> pd.DataFrame:
     return lg.sort_values("date", ascending=False).reset_index(drop=True)
 
 
+TEAM_ROWS_CACHE: dict = {}   # (id(lg), country, team, team_id) -> slice; cleared by the scanner each run
+
+
+def clear_caches() -> None:
+    TEAM_ROWS_CACHE.clear()
+
+
 def team_rows(lg: pd.DataFrame, country: str, team: str, team_id: str | None = None) -> pd.DataFrame:
+    key = (id(lg), country, team, team_id)
+    hit = TEAM_ROWS_CACHE.get(key)
+    if hit is not None:
+        return hit
     if lg.empty:
         return lg
     if team_id and isinstance(team_id, str) and team_id.strip():
         m = lg[lg["tid"] == team_id]
         if not m.empty:
+            TEAM_ROWS_CACHE[key] = m
             return m
-    return lg[(lg["country"] == country) & (lg["team"] == team)]
+    out = lg[(lg["country"] == country) & (lg["team"] == team)]
+    TEAM_ROWS_CACHE[key] = out
+    return out
 
 
 # ----------------------------------------------------------------------------- rules

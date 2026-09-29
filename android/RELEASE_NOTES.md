@@ -1,3 +1,10 @@
+## What's new in PlayReport 1.6.2x — 📅 60-day fixture coverage + Sportybet deep links
+- 📅 **Fixtures covered up to 60 days ahead, in every league** — the scanner now discovers and analyses matches across the next 60 days worldwide (not just today), so the model gathers form, statistics and context early and every match is analysed well before kick-off. The Leagues tab's fixture lists span the same window; the Matches tab still shows today's games as before.
+- 🎫 **PlayReport tickets meet Sportybet** — every priced match, slip leg and ticket leg now has an **SB** link that opens the match directly in Sportybet (their live odds and slip), and tickets can be copied to the clipboard in one tap.
+- 🧾 **Sportybet booking codes** — paste any Sportybet booking code (SportyBet's daily picks, Telegram groups, tipsters) on the slip screen and PlayReport loads it straight into Sportybet for you.
+- 🎯 **Bets of the day = Sportybet markets** — the card only ever contains markets Sportybet actually prices (≥ 1.30), and each bet now labels its price as Sportybet's own.
+- 🧊 **Model untouched** — same input, same numbers; this is coverage, navigation and presentation.
+
 ## What's new in PlayReport 1.6.2x — 📊 Full tables, team search, sort options, zero dead-ends
 - 🔎 **Search now finds teams, not just leagues** — type any club in the Leagues search and it lists matching teams worldwide (with country and competition); the Matches search box finds teams, leagues and fixtures. Tap a team to open its profile.
 - 📊 **Standings are now complete** — P · W-D-L · **GF** · **GA** · GD · Pts · Form, with **sort options** (points, goal difference, goals for, name) and dedicated **Home record** and **Away record** tables under the main table. Team pages show GF/GA in the league table too.

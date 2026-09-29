@@ -20,7 +20,13 @@
   // ------------------------------------------------------------------ slip
   function leg(f, s) {
     return { fixture: f.id, d: f.d || null, eid: f.livescore_id || null, home: f.home, away: f.away, kickoff: f.kickoff, competition: f.competition, country: f.country,
-      badges: f.badges || null, sel: s.sel, label: selLabel(s.sel, f.home, f.away), odds: +s.odds, p: s.p };
+      badges: f.badges || null, sb: f.sportybet_event || null, sel: s.sel, label: selLabel(s.sel, f.home, f.away), odds: +s.odds, p: s.p };
+  }
+  const sbLink = (l) => (l && l.sb && PR.sbEventUrl(l.sb)) ? `<a class="link sb-open" href="${esc(PR.sbEventUrl(l.sb))}" title="Open this match in Sportybet">${icon('target', 'sm')} SB</a>` : '';
+  function ticketText(t) {
+    const lines = [`PlayReport ticket ${t.id} · odds ${f2(t.final_odds || t.odds)}${t.stake ? ` · stake ${f2(t.stake)}` : ''}`, ''];
+    t.legs.forEach((l, i) => lines.push(`${i + 1}. ${l.label} — ${l.home} v ${l.away} · ${koShort(l.kickoff)} @${f2(l.odds)}`));
+    return lines.join('\n');
   }
   // ---------------- tennis legs (same slip, same settlement engine) ----------------
   const TNS = () => PR.tennis;
@@ -162,20 +168,30 @@
       if (tickets.length) parts.push(`<div class="card compact tap" id="go-tickets"><div class="row"><span class="ico">${icon('ticket')}</span><div class="grow b">My tickets (${tickets.length})</div>${icon('next')}</div></div>`);
     } else {
       const odds = totalOdds(slip.items); const stake = parseFloat(slip.stake) || 0;
-      parts.push(`<div class="card compact"><table class="tbl">${slip.items.map((l, i) => `<tr><td class="tiny muted nowrap">${esc(koShort(l.kickoff))}</td><td><div class="row" style="gap:6px">${badge(l.home, l.badges && l.badges.home, 20)}${badge(l.away, l.badges && l.badges.away, 20)}<div class="b grow">${esc(l.home)} <span class="muted">v</span> ${esc(l.away)}</div></div><div class="sel"><b>${esc(l.label)}</b>${l.sport === 'tennis' ? '<span class="sport-chip">🎾 tennis</span>' : ''}</div><div class="tiny muted">${flag(l.country)} ${esc(l.competition)} · ${pct(l.p)}</div></td><td class="right nowrap"><b>${f2(l.odds)}</b></td><td class="right"><button class="link" data-rm="${i}" aria-label="Remove">${icon('x')}</button></td></tr>`).join('')}</table></div>`);
+      parts.push(`<div class="card compact"><table class="tbl">${slip.items.map((l, i) => `<tr><td class="tiny muted nowrap">${esc(koShort(l.kickoff))}</td><td><div class="row" style="gap:6px">${badge(l.home, l.badges && l.badges.home, 20)}${badge(l.away, l.badges && l.badges.away, 20)}<div class="b grow">${esc(l.home)} <span class="muted">v</span> ${esc(l.away)}</div>${sbLink(l)}</div><div class="sel"><b>${esc(l.label)}</b>${l.sport === 'tennis' ? '<span class="sport-chip">🎾 tennis</span>' : ''}</div><div class="tiny muted">${flag(l.country)} ${esc(l.competition)} · ${pct(l.p)}</div></td><td class="right nowrap"><b>${f2(l.odds)}</b></td><td class="right"><button class="link" data-rm="${i}" aria-label="Remove">${icon('x')}</button></td></tr>`).join('')}</table></div>`);
       parts.push(`<div class="card"><div class="row"><div class="grow"><div class="k tiny muted">Total odds</div><div class="v" style="font-size:24px;font-weight:800">${f2(odds)}</div></div><div class="grow"><label class="tiny muted">Stake (optional)</label><input id="slip-stake" type="number" inputmode="decimal" placeholder="e.g. 50" value="${esc(slip.stake)}"></div></div>
         ${stake ? `<div class="small" style="margin-top:8px">Potential return <b>${f2(stake * odds)}</b> · profit ${f2(stake * odds - stake)}</div>` : ''}
         <div class="tiny muted" style="margin-top:8px">Model probability that every leg wins: <b>${pct(slip.items.reduce((a, l) => a * (l.p || 0), 1))}</b> (fair odds ${f2(1 / Math.max(1e-6, slip.items.reduce((a, l) => a * (l.p || 0), 1)))}). Prices are the Sportybet prices at the last analysis — check them before you bet.</div>
-        <div class="row" style="margin-top:12px;gap:8px"><button class="btn primary grow" id="slip-place">${icon('lock', 'sm')} Done — lock this ticket</button><button class="btn" id="slip-clear">Clear</button></div>
+        <div class="row" style="margin-top:12px;gap:8px"><button class="btn primary grow" id="slip-place">${icon('lock', 'sm')} Done — lock this ticket</button><button class="btn" id="slip-copy">Copy</button><button class="btn" id="slip-clear">Clear</button></div>
         <div class="tiny muted" style="margin-top:6px">A locked ticket cannot be edited. PlayReport follows the scores and tells you when it is won or lost. This records your bet — it does not place it anywhere.</div></div>`);
       if (tickets.length) parts.push(`<div class="card compact tap" id="go-tickets"><div class="row"><span class="ico">${icon('ticket')}</span><div class="grow b">My tickets (${tickets.length})</div>${icon('next')}</div></div>`);
     }
+    parts.push(`<div class="card compact"><div class="row" style="gap:8px;align-items:center"><div class="grow"><div class="b">${icon('target', 'sm')} Sportybet booking code</div><div class="tiny muted">Paste a code (from SportyBet's daily picks, Telegram or a tipster) to load that slip in Sportybet, then add the selections you like here.</div></div><input id="sb-code" type="text" autocomplete="off" placeholder="e.g. 82J2ZU" style="width:104px"><button class="btn" id="sb-code-load">Load</button></div></div>`);
     view().innerHTML = parts.join('');
     $('#back').onclick = () => PR.back();
     $$('[data-rm]').forEach((b) => { b.onclick = () => { slip.items.splice(+b.dataset.rm, 1); saveSlip(); bar(); PR.render(); }; });
     const st = $('#slip-stake'); if (st) st.oninput = (e) => { slip.stake = e.target.value; saveSlip(); };
     const g = $('#go-tickets'); if (g) g.onclick = () => PR.push({ type: 'tickets' });
     const c = $('#slip-clear'); if (c) c.onclick = () => { slip.items = []; saveSlip(); bar(); PR.render(); };
+    const cp = $('#slip-copy'); if (cp) cp.onclick = async () => {
+      const ok = await PR.copyText(ticketText({ id: 'slip', odds: totalOdds(slip.items), legs: slip.items, stake: slip.stake }));
+      PR.toast(ok ? 'Ticket copied' : 'Could not copy');
+    };
+    const cl = $('#sb-code-load'); if (cl) cl.onclick = () => {
+      const code = ($('#sb-code') || {}).value || '';
+      if (!PR.sbShareUrl(code)) { PR.toast('Enter the booking code first'); return; }
+      PR.openBookingCode(code);
+    };
     const p = $('#slip-place'); if (p) p.onclick = async () => {
       const ok = await PR.confirmBox('Lock this ticket?', `${slip.items.length} selection${slip.items.length > 1 ? 's' : ''} · total odds ${f2(totalOdds(slip.items))}${slip.stake ? ` · stake ${slip.stake}` : ''}\n\nA locked ticket cannot be edited. It goes to Bets › Today and ☰ › My tickets, and is graded from the scores.`, 'Lock ticket');
       if (!ok) return;
@@ -281,11 +297,13 @@
     const parts = [head(`Ticket ${esc(t.id)}`, `${esc(t.created)} · ${t.legs.length} leg${t.legs.length > 1 ? 's' : ''}`)];
     parts.push(`<div class="card"><div class="row"><div class="grow"><div class="k tiny muted">Total odds</div><div class="v" style="font-size:24px;font-weight:800">${f2(t.final_odds || t.odds)}</div></div>${stChip(t.status)}</div>
       ${t.stake ? `<div class="small" style="margin-top:6px">Stake ${f2(t.stake)} · ${t.status === 'won' ? `<b class="good">return ${f2(t.stake * (t.final_odds || t.odds))}</b>` : t.status === 'lost' ? '<b class="bad">lost</b>' : `potential return ${f2(t.stake * t.odds)}`}</div>` : ''}
-      ${t.settled ? `<div class="tiny muted">Settled ${esc(t.settled)}</div>` : '<div class="tiny muted">Locked — follows the live scores automatically.</div>'}</div>`);
+      ${t.settled ? `<div class="tiny muted">Settled ${esc(t.settled)}</div>` : '<div class="tiny muted">Locked — follows the live scores automatically.</div>'}
+      <div class="row" style="margin-top:10px;gap:8px"><button class="btn" id="tk-copy">${icon('doc', 'sm')} Copy ticket</button><span class="tiny muted" style="align-self:center">Tap the <b>SB</b> link on a match to open it in Sportybet and add the selection to their slip.</span></div></div>`);
     parts.push(`<div class="card compact"><table class="tbl">${t.legs.map((l) => { const sc = scoreFor(l); const v = legLive(l, sc); const f = fx(l.fixture);
-      return `<tr ${f ? `class="tap" data-fx="${esc(l.fixture)}"` : ''}><td class="tiny muted nowrap">${esc(koShort(l.kickoff))}</td><td><div class="row" style="gap:6px">${badge(l.home, l.badges && l.badges.home, 20)}${badge(l.away, l.badges && l.badges.away, 20)}<div class="b grow">${esc(l.home)} <span class="muted">v</span> ${esc(l.away)}</div></div><div class="sel"><b>${esc(l.label)}</b></div><div class="tiny"><span class="${v.cls}">${esc(v.text)}</span>${sc && sc.hg != null ? ` · <b>${sc.hg}–${sc.ag}</b>${sc.live ? ' ' + esc(sc.status) : sc.ft ? ' FT' : ''}` : ''}</div></td><td class="right nowrap"><b>${f2(l.odds)}</b></td></tr>`; }).join('')}</table></div>`);
+      return `<tr ${f ? `class="tap" data-fx="${esc(l.fixture)}"` : ''}><td class="tiny muted nowrap">${esc(koShort(l.kickoff))}</td><td><div class="row" style="gap:6px">${badge(l.home, l.badges && l.badges.home, 20)}${badge(l.away, l.badges && l.badges.away, 20)}<div class="b grow">${esc(l.home)} <span class="muted">v</span> ${esc(l.away)}</div>${sbLink(l)}</div><div class="sel"><b>${esc(l.label)}</b></div><div class="tiny"><span class="${v.cls}">${esc(v.text)}</span>${sc && sc.hg != null ? ` · <b>${sc.hg}–${sc.ag}</b>${sc.live ? ' ' + esc(sc.status) : sc.ft ? ' FT' : ''}` : ''}</div></td><td class="right nowrap"><b>${f2(l.odds)}</b></td></tr>`; }).join('')}</table></div>`);
     view().innerHTML = parts.join('');
     $('#back').onclick = () => PR.back();
+    const tk = $('#tk-copy'); if (tk) tk.onclick = async () => { const ok = await PR.copyText(ticketText(t)); PR.toast(ok ? 'Ticket copied' : 'Could not copy'); };
     PR.reconcileTickets();
   };
   PR.tickets = () => tickets;
