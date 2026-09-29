@@ -143,6 +143,8 @@ def _upcoming(now: datetime, tz_hours: int = 2) -> list[dict]:
 
 def build(stages_dir: Path, now: datetime, out_dir: Path, tz_hours: int = 2) -> int:
     """Publish index.json + one detail file per stage. Returns the number of league files written."""
+    if now.tzinfo is not None:
+        now = now.replace(tzinfo=None)   # feed kick-offs are naive display-time (SAST), like worldfeed.upcoming
     stages_dir = Path(stages_dir)
     if not list(stages_dir.glob("*.json")) and list((stages_dir / "stages").glob("*.json")):
         stages_dir = stages_dir / "stages"  # tolerate being handed the data/ls dir

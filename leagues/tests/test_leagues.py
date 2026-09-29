@@ -116,6 +116,24 @@ def test_build_publishes_index_and_details(tmp_path):
     assert not (tmp_path / "out" / "england__gone.json").exists()
 
 
+def test_build_with_timezone_aware_now(tmp_path):
+    """CI runs with a tz-aware now (Africa/Johannesburg); the feed kick-offs are naive display-time."""
+    from datetime import timezone, timedelta
+    stages = tmp_path / "stages"
+    stages.mkdir()
+    ev = {"1000": _rec("202609011500", "A", "B", 1, 0), "1001": _rec("202609021500", "C", "D", 2, 1),
+          "1002": _rec("202609031500", "A", "C", 1, 1), "1003": _rec("202609041500", "B", "D", 0, 2),
+          "1004": _rec("202609051500", "A", "D", 2, 0), "1005": _rec("202609061500", "B", "C", 1, 1)}
+    (stages / "test__league.json").write_text(json.dumps(
+        {"key": "test/league", "country": "Test", "league": "League",
+         "fetched": "2026-09-29 08:00", "events": ev, "backfill": {"2024-2025": 6}}))
+    now = datetime(2026, 9, 29, 9, 0, tzinfo=timezone(timedelta(hours=2)))   # aware, like CI
+    n = leagues.build(stages, now, tmp_path / "out", tz_hours=2)
+    assert n == 1
+    idx = json.loads((tmp_path / "out" / "index.json").read_text())
+    assert idx["count"] == 1 and idx["leagues"][0]["table"] is True
+
+
 def test_real_archive_build_smoke(tmp_path):
     """Build against the real published archive when it is present (CI has it via the data branch)."""
     real = Path("/tmp/fb-data/data/ls/stages")
