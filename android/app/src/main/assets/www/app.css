@@ -435,3 +435,21 @@ ul.notes li { margin: 3px 0; }
   .tn-grid { grid-template-columns: repeat(3, 1fr); }
   .tn-grid > div:nth-child(n + 4) { grid-column: span 1; border-top: 1px solid var(--line-2); }
 }
+
+/* ------------------------------------------------------------------ leagues tab */
+.lg-head { display: flex; align-items: flex-start; gap: 10px; padding: 4px 2px 10px; }
+.lg-head .b { font-size: 16px; }
+.lg-head .b .ic { width: 18px; height: 18px; vertical-align: -3px; margin-right: 4px; }
+.lg-row { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-top: 1px solid var(--line-2); cursor: pointer; }
+.lg-row:first-child { border-top: 0; }
+.lg-row:active { background: var(--hl); }
+.lg-ic { width: 30px; height: 30px; border-radius: 50%; background: var(--card-2); border: 1px solid var(--line); display: flex; align-items: center; justify-content: center; color: var(--warn); font-size: 15px; flex: 0 0 auto; }
+.lg-ic .ic { width: 16px; height: 16px; }
+.lg-row .grow { min-width: 0; }
+.lg-row .b { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 14px; }
+.lg-right { text-align: right; flex: 0 0 auto; }
+.res-line { display: flex; align-items: center; gap: 8px; }
+.res-line .tm { flex: 1; min-width: 0; display: flex; align-items: center; gap: 6px; font-size: 13.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-weight: 500; }
+.res-line .tm:last-child { justify-content: flex-end; }
+.res-line .tm.won { font-weight: 700; }
+.res-line .sc { font-weight: 700; font-size: 14px; padding: 1px 7px; border-radius: 6px; background: var(--card-2); border: 1px solid var(--line); flex: 0 0 auto; }

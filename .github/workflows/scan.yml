@@ -85,3 +85,22 @@ jobs:
           fi
           git push -q -f "$STATE_URL" HEAD:data
           echo "published $(git rev-parse --short HEAD)"
+
+  unit-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Unit tests (leagues + world archive)
+        # pytest is a test-time tool for this job only; it is deliberately not added to requirements.txt
+        run: |
+          pip install --only-binary=:all: --retries 10 --timeout 60 -q -r requirements.txt
+          pip install --only-binary=:all: --retries 10 --timeout 60 -q pytest
+          python -m pytest leagues/tests tests -q

@@ -154,6 +154,11 @@ CONFIG = {
     "DETAIL_MAX": int(os.getenv("DETAIL_MAX", "12")),        # match dossiers in the report / PDF
     "BACKFILL_SEASONS": int(_env_float("BACKFILL_SEASONS", 2)),   # earlier Livescore seasons to archive per competition
     "BACKFILL_BUDGET_S": _env_float("BACKFILL_BUDGET_S", 45),
+    # major competitions to keep in the stage archive (and the app's Leagues tab) at all times, even
+    # between matchdays: every stage key was verified against the public Livescore feed in Sep 2026.
+    # Discovered stages (anything in the last three day feeds) and already-archived stages are added
+    # to this automatically on every run, so the list only needs a manual entry for a new code.
+    "SEED_STAGES": os.getenv("SEED_STAGES", "england/premier-league,england/championship,spain/laliga,spain/laliga-2,italy/serie-a,germany/bundesliga,germany/2-bundesliga,france/ligue-1,france/ligue-2,portugal/primeira-liga,scotland/scotland-premiership,turkey/super-lig,switzerland/super-league,greece/super-league,poland/ekstraklasa,ukraine/premier-league,romania/liga-1,croatia/1st-league,denmark/superliga,norway/eliteserien,sweden/allsvenskan,finland/veikkausliiga,austria/bundesliga,belgium/belgian-pro-league-2025,israel/premier-league,ireland/league-of-ireland-premier-division,wales/cymru-premier,south-africa/premiership,egypt/premier-league,morocco/botola-pro,algeria/ligue-1-2025,nigeria/npfl,ghana/premier-league,tanzania/premier-league,botswana/premier-league,brazil/serie-a,argentina/liga-profesional-clausura,chile/primera-division,colombia/primera-a-clausura,uruguay/primera-division-clausura,paraguay/division-profesional-clausura,peru/primera-division-clausura,ecuador/serie-a,venezuela/primera-division-clausura,usa/major-league-soccer-2026,mexico/liga-mx-apertura,japan/j-league-2025,iran/persian-gulf-pro-league,saudi-arabia/saudi-professional-league,qatar/qatar-stars-league,indonesia/super-league,australia/northern"),
     "STATS_BUDGET_S": _env_float("STATS_BUDGET_S", 75),      # Livescore match statistics per run: time budget
     "STATS_MAX": int(_env_float("STATS_MAX", 400)),          # ... and request cap
     "WORLD_COUNT_MIN_N": int(_env_float("WORLD_COUNT_MIN_N", 5)),  # corners/cards outside the main leagues need this many matches with stats per team
@@ -2186,6 +2191,29 @@ def main() -> None:
             archive = worldfeed.Archive(LS_DIR)
             archive.absorb_days(ls_events, now)
             prios = worldfeed.stage_priorities(todays)
+            # stage discovery, so the archive covers every in-season competition worldwide — not only
+            # the ones playing inside the 24 h window: stages from the window days (yesterday included)
+            # and from the day before that, plus every already-archived stage (kept fresh between
+            # matchdays). Newly found stages sit at priority 0, so in-window stages always refresh first.
+            for ev in ls_events:
+                if ev["ccd"] and ev["scd"]:
+                    k = worldfeed.stage_key(ev["ccd"], ev["scd"])
+                    if k not in prios:
+                        prios[k] = 0
+            try:
+                for ev in worldfeed.fetch_day(now - timedelta(days=2), tz_off):
+                    if ev["ccd"] and ev["scd"]:
+                        k = worldfeed.stage_key(ev["ccd"], ev["scd"])
+                        if k not in prios:
+                            prios[k] = 0
+            except Exception as exc:  # noqa: BLE001
+                log.warning("Stage discovery day failed: %s", exc)
+            for k in worldfeed.known_stages(LS_DIR / "stages"):
+                if k not in prios:
+                    prios[k] = 0
+            for k in (s.strip() for s in str(CONFIG["SEED_STAGES"]).split(",")):
+                if k and k not in prios:
+                    prios[k] = 0
             archive.refresh(prios, now, tz_off)
             archive.backfill(prios, now, tz_off, seasons=CONFIG["BACKFILL_SEASONS"], budget_s=CONFIG["BACKFILL_BUDGET_S"])
             archive.refresh_stats(prios, now, budget_s=CONFIG["STATS_BUDGET_S"], max_n=CONFIG["STATS_MAX"])
@@ -2194,6 +2222,14 @@ def main() -> None:
             log.warning("Livescore archive failed: %s", exc)
     elif todays.empty:
         pass
+
+    # ---- league browser: tables / results / fixtures for the app's Leagues tab (standalone;
+    # reads the world archive + a short fixture window; never feeds the model)
+    try:
+        import leagues
+        leagues.build(LS_DIR, now, DATA_DIR / "app" / "leagues", tz_hours=2)
+    except Exception as exc:  # noqa: BLE001
+        log.warning("Leagues build failed (non-fatal): %s", exc)
 
     tracker = load_tracker()
     pending = tracker[tracker["status"] == "pending"] if not tracker.empty else tracker

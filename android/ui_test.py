@@ -212,6 +212,32 @@ with sync_playwright() as p:
         assert 'Overview' in t, 'day row opens the match page'
         page.evaluate('window.app.back()'); page.wait_for_timeout(100)
     page.evaluate('window.app.back()'); page.wait_for_timeout(100)
+    # ---- leagues: worldwide tables / results / fixtures (data/app/leagues, published from the stage archive)
+    page.click('#tabs button[data-tab=leagues]'); page.wait_for_timeout(1200); t = shot(page, 'leagues')
+    assert page.locator('#view .lg-row').count() >= 100, 'league list'
+    assert page.locator('#view .comp-head').count() >= 10, 'country groups'
+    assert 'updated every 30 minutes' in t.lower() or 'public live-score archive' in t.lower(), 'source note'
+    page.fill('#lg-search', 'premier'); page.wait_for_timeout(400); t = shot(page, 'leagues_search')
+    assert page.locator('#view .lg-row').count() >= 3, 'league search filters'
+    assert 'Premier' in t, 'search shows premier leagues'
+    page.fill('#lg-search', ''); page.wait_for_timeout(300)
+    # open a league that has a table (first with a table in the index)
+    slug = page.evaluate("(() => { const L = window.app.PR.state.lg; const r = L.idx.leagues.find((x) => x.table); return r ? r.slug : null; })()")
+    assert slug, 'a table league exists in the index'
+    page.evaluate(f'window.app.PR.push({{ type: "league", slug: {json.dumps(slug)} }})'); page.wait_for_timeout(1500); t = shot(page, 'league_table')
+    assert page.locator('#view .tbl.table tr').count() >= 4, 'standings rows'
+    assert 'Standings' in t, 'standings header'
+    page.click('[data-lseg=results]'); page.wait_for_timeout(400); t = shot(page, 'league_results')
+    assert page.locator('#view .res-line').count() >= 5, 'result rows'
+    page.click('[data-lseg=fixtures]'); page.wait_for_timeout(400); shot(page, 'league_fixtures')
+    page.evaluate('window.app.back()'); page.wait_for_timeout(200)
+    # a knockout competition (no table) must not offer the Table segment
+    cup = page.evaluate("(() => { const L = window.app.PR.state.lg; const r = L.idx.leagues.find((x) => !x.table && x.played >= 2); return r ? r.slug : null; })()")
+    if cup:
+        page.evaluate(f'window.app.PR.push({{ type: "league", slug: {json.dumps(cup)} }})'); page.wait_for_timeout(1500); t = shot(page, 'league_cup')
+        assert page.locator('[data-lseg=table]').count() == 0, 'cup has no table segment'
+        assert page.locator('[data-lseg=results]').count() == 1, 'cup shows results'
+        page.evaluate('window.app.back()'); page.wait_for_timeout(200)
     # ---- menu pages
     page.click('#btn-menu'); page.wait_for_timeout(100); shot(page, 'menu')
     assert page.locator('#menu.open').count() == 1, 'menu opens'

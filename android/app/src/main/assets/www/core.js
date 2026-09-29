@@ -327,7 +327,7 @@ window.PR = (function () {
   }
 
   // ------------------------------------------------------------------ navigation
-  const TABS = ['home', 'bets', 'live', 'matches', 'days'];
+  const TABS = ['home', 'bets', 'live', 'matches', 'days', 'leagues'];
   function render() {
     if (!state.data && !(state.stack.length && state.stack[state.stack.length - 1].type === 'settings')) return;
     closeMenu();

@@ -477,3 +477,11 @@ def stage_priorities(fixtures: pd.DataFrame) -> dict[str, int]:
             key = str(div)[len(DIV_PREFIX):]
             out[key] = out.get(key, 0) + 1
     return out
+
+
+def known_stages(stages_dir: Path) -> set[str]:
+    """Stage keys of every archived stage file (the archive is never pruned, so this is all-time)."""
+    keys: set[str] = set()
+    for p in Path(stages_dir).glob("*.json"):
+        keys.add(p.stem.replace("__", "/", 1))
+    return keys
