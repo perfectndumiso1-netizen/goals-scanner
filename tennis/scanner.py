@@ -266,9 +266,12 @@ def main() -> int:
                     category=m["category"], surface=m["surface"], quality=m["quality"]["score"], match_id=m["id"])
     selections = sorted([_tag(m["selection"], m) for m in slims if m["selection"]], key=lambda x: -x["model_p"])
     strong = sorted([_tag(x, m) for m in slims for x in m["strong"]], key=lambda x: -x["model_p"])
+    # "Selections of the day" blocks, in display order; a block shows up to 7 (most probable first) and only
+    # selections that already met the rules — never padded, a block with none is omitted. Game-handicap picks are
+    # not a daily block; they stay on the match pages, the Bets tab and in `selections`.
     sections = []
-    for fam in ("Match winner", "Total games", "Player games", "Game handicap"):
-        items = [x for x in selections if x.get("family") == fam]
+    for fam in ("Match winner", "Player games", "Total games"):
+        items = [x for x in selections if x.get("family") == fam][:7]
         if items:
             sections.append({"title": fam, "selections": items})
     app_latest = {"meta": meta, "matches": slims, "selections": selections, "sections": sections, "strong": strong,

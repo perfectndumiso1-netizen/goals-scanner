@@ -6,7 +6,7 @@
    never "safe" / "banker" / "lock". Missing data is N/A, never 0. */
 (function (PR) {
   'use strict';
-  const { $, $$, esc, state, settings, icon, koShort, segmented, pct } = PR;
+  const { $, $$, esc, state, settings, icon, koShort, segmented, pct, toast } = PR;
   const TENNIS_BASE = 'https://raw.githubusercontent.com/perfectndumiso1-netizen/goals-scanner/tennis-data/';
   const LS = 'https://prod-public-api.livescore.com/v1/api/app';
   const T = { data: null, details: {}, days: {}, index: null, live: null, liveAt: 0, liveLoading: false, view: 'today', family: 'all', matchView: 'overview',
@@ -138,6 +138,48 @@
     if (isTennis() && !state.stack.length && (state.tab === 'live' || state.tab === 'home')) PR.render();
   };
   T.liveFor = (id) => (T.live || []).find((e) => e.id === String(id)) || null;
+
+  // ------------------------------------------------------------------ favourites (tennis's own list, like football's)
+  let tFavs = [];
+  try { tFavs = JSON.parse(PR.stored('pr_tennis_favs') || '[]') || []; } catch (e) { tFavs = []; }
+  const isTFav = (id) => tFavs.some((f) => String(f.id) === String(id));
+  const tnFavList = () => tFavs;
+  const localStartFull = (s) => {
+    const m = String(s || '').match(/(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2})/); if (!m) return '';
+    const d = new Date(Date.UTC(+m[1], +m[2] - 1, +m[3], +m[4], +m[5]) + (PR.settings.tzOffset || 0) * 3600000);
+    const p = (x) => String(x).padStart(2, '0');
+    return `${d.getUTCFullYear()}-${p(d.getUTCMonth() + 1)}-${p(d.getUTCDate())} ${p(d.getUTCHours())}:${p(d.getUTCMinutes())}`;
+  };
+  function saveTFavs() {
+    const keep = todaySast();
+    tFavs = tFavs.filter((f) => (f.kickoff || '').slice(0, 10) >= keep);
+    PR.persist('pr_tennis_favs', JSON.stringify(tFavs));
+    try { if (PR.native && PR.native.setString) PR.native.setString('tennis_favs', JSON.stringify(tFavs.map((f) => ({ eid: String(f.id), kickoff: f.kickoff, home: f.home, away: f.away, competition: [f.category, f.tournament].filter(Boolean).join(' · '), label: 'Tennis' })))); } catch (e) { /* ignore */ }
+  }
+  function toggleTFav(m) {
+    if (!m || !m.id) return;
+    const id = String(m.id);
+    if (isTFav(id)) { tFavs = tFavs.filter((f) => String(f.id) !== id); toast('Removed from favourites'); }
+    else {
+      const ko = localStartFull(m.start);
+      if (ko && ko.slice(0, 10) < todaySast()) { toast('This match already started — too late to track it'); return; }
+      tFavs.push({ id, kickoff: ko, home: m.p1 && m.p1.name, away: m.p2 && m.p2.name, tournament: m.tournament || '', category: m.category || '' });
+      toast('Added to favourites — kick-off and result alerts');
+    }
+    saveTFavs(); PR.render();
+  }
+  PR.tennisFavBtn = function (m) {
+    if (!m || !m.id) return '';
+    const on = isTFav(m.id);
+    return `<button class="tnfavbtn ${on ? 'on' : ''}" data-tnfav="${esc(m.id)}" title="${on ? 'Remove from favourites' : 'Add to favourites'}" aria-label="Favourite">${on ? '★' : '☆'}</button>`;
+  };
+  document.addEventListener('click', (e) => {
+    const b = e.target.closest('[data-tnfav]'); if (!b) return;
+    e.preventDefault(); e.stopPropagation();
+    const m = matchById(b.dataset.tnfav);
+    if (m) toggleTFav(m);
+    else { const lv = T.liveFor && T.liveFor(b.dataset.tnfav); if (lv && lv.start && lv.start.length === 12) toggleTFav({ id: lv.id, start: `${lv.start.slice(0, 4)}-${lv.start.slice(4, 6)}-${lv.start.slice(6, 8)} ${lv.start.slice(8, 10)}:${lv.start.slice(10, 12)}`, p1: { name: lv.p1 }, p2: { name: lv.p2 }, tournament: lv.tournament, category: lv.category }); }
+  }, true);
   T.statusLine = function () {
     const el = $('#status-line'); if (!el || !isTennis()) return;
     const d = T.data;
@@ -240,7 +282,7 @@
     const right = opts.right != null ? opts.right : `<div>${ppill(m.p.a)}</div><div>${ppill(m.p.b)}</div>`;
     return `<div class="mrow tap ${live ? 'is-live' : ''}" data-tennis="${esc(m.id)}"><div class="mrow-l">${left}</div>
       <div class="mrow-m">${ln(m.p1, w1, scoreSrc ? setsHtml(scoreSrc) : '')}${ln(m.p2, w2, scoreSrc ? setsHtml2(scoreSrc) : '')}<div class="sub">${sub}</div></div>
-      <div class="mrow-r">${right}</div></div>`;
+      <div class="mrow-r">${right}${PR.tennisFavBtn ? PR.tennisFavBtn(m) : ''}</div></div>`;
   }
   const outcome = (won) => won === '1' ? '<span class="good">✅ won</span>' : won === '0' ? '<span class="bad">❌ lost</span>' : won === 'void' ? '<span class="muted">void</span>' : '';
   /** selection row (football safeRow layout): time · match + selection + context · odds · model pill */
@@ -251,7 +293,7 @@
     return `<tr class="tap" data-tennis="${esc(x.match_id)}"><td class="tiny muted nowrap">${esc(opts.day ? localStart(x.start) : localStart(x.start, true))}</td>
       <td><div class="b">${esc(name)}</div><div class="sel"><b>${esc(x.label)}</b>${x.strong ? '<span class="tn-strong">STRONG</span>' : ''}</div>
       <div class="tiny muted">${esc(x.tournament || m.tournament || '')} · ${esc(MARKET[x.market] || x.market)} · market ${pc(x.implied_fair, 0)} · <span class="${x.quality >= 80 ? 'pos' : x.quality < 60 ? 'warn' : ''}">data ${x.quality}%</span>${won ? ` · ${outcome(won)}` : live ? ` · <span class="good">live ${esc(lv.status)}</span>` : ''}</div></td>
-      <td class="right nowrap"><b>${od(x.book_odds)}</b><div class="tiny muted">fair ${od(x.fair_odds)}</div></td><td class="right">${ppill(x.model_p)}</td></tr>`;
+      <td class="right nowrap"><b>${od(x.book_odds)}</b><div class="tiny muted">fair ${od(x.fair_odds)}</div></td><td class="right"><div class="row" style="gap:0;justify-content:flex-end">${ppill(x.model_p)}${PR.tennisAddBtn ? PR.tennisAddBtn(x.match_id, x) : ''}</div></td></tr>`;
   }
   const rulesCard = (d) => `<div class="card tiny muted"><b>How selections are chosen.</b> ${esc((d.rules || {}).day || '')}. <b>STRONG</b> = ${esc((d.rules || {}).strong || '')}. Ranked by model probability — the bookmaker is a check, never an input. A 70% selection still loses three times in ten; data quality describes the evidence, not the chance of winning.</div>`;
   function perfCard(tr, compact) {
@@ -280,10 +322,13 @@
     const secs = d.sections || [];
     if (!sels.length) parts.push(`<div class="card empty small">No match clears the selection rules right now (model ≥ 60%, Sportybet price ≥ 1.30 not contradicting the model, data quality ≥ 60%, both players with 30+ rated matches). The next scan may add some.</div>`);
     else {
-      const body = secs.map((g) => `<div class="botd-sec">${esc(g.title)} <span class="muted">· ${g.selections.length}</span></div><table class="tbl">${g.selections.slice(0, 3).map((x) => selRow(x, { day: true })).join('')}</table>`).join('');
+      const body = secs.map((g) => `<div class="botd-sec">${esc(g.title)} <span class="muted">· ${g.selections.length}</span></div><table class="tbl">${g.selections.slice(0, 4).map((x) => selRow(x, { day: true })).join('')}</table>`).join('');
       const settled = sels.filter((x) => x.won === '0' || x.won === '1');
       parts.push(`<div class="card botd">${body}<div class="row tiny muted" style="margin-top:6px"><div class="grow">${sels.length} matches · one preferred market each · ${strong.length} strong${todaySels.length && tomorrowSels.length ? ` · ${todaySels.length} today, ${tomorrowSels.length} tomorrow` : ''}</div>${settled.length ? `<div>${settled.filter((x) => x.won === '1').length}/${settled.length} won</div>` : ''}</div></div>`);
     }
+    // your matches (favourites)
+    const tf = tFavs.map((f) => matchById(f.id)).filter(Boolean).sort((a, b) => String(a.start).localeCompare(String(b.start)));
+    if (tf.length) parts.push(`<div class="section-head">${sh('star', 'Your matches', 'amber')}</div><div class="card compact">${tf.slice(0, 5).map((m) => matchRow(m, { sub: `${esc(localStart(m.start))} · ${esc(m.category)} · ${esc(m.tournament)}${m.selection ? ` · <b>${esc(m.selection.label)}</b> ${pc(m.selection.model_p, 0)}` : ''}` })).join('')}</div>`);
     // strong markets
     if (strong.length) parts.push(`<div class="section-head">${sh('trend', 'Strong markets', 'green')}<button class="link" data-tn-bets="strong">All ${strong.length} ${icon('next')}</button></div><div class="card compact"><table class="tbl">${strong.slice(0, 5).map((x) => selRow(x, { day: true })).join('')}</table><div class="tiny muted" style="margin-top:4px">Model ≥ 70% and market implied ≥ 50%. Rows of the same match are correlated.</div></div>`);
     // model above market
@@ -308,6 +353,7 @@
     $$('[data-tnl]').forEach((b) => { b.onclick = () => { T.liveView = b.dataset.tnl; PR.render(); }; });
     $$('[data-tnm]').forEach((b) => { b.onclick = () => { T.mf = b.dataset.tnm; PR.render(); }; });
     $$('[data-tn-day]').forEach((b) => { b.onclick = (e) => { e.stopPropagation(); PR.push({ type: 'tennisDay', day: b.dataset.tnDay }); }; });
+    $$('[data-tnfavs]').forEach((b) => { b.onclick = () => { T.favOnly = !T.favOnly; PR.render(); }; });
   }
 
   // ------------------------------------------------------------------ BETS (selections)
@@ -338,6 +384,7 @@
       parts.push(`<div class="card compact"><table class="tbl head"><tr><th>Match</th><th class="right">Model</th><th class="right">Odds</th><th class="right">Edge</th></tr>${ms.map((m) => { const fa = m.p.a >= 0.5; const p = fa ? m.p.a : m.p.b; const o = fa ? m.odds.a : m.odds.b; const imp = fa ? m.odds.implied_a : (m.odds.implied_a == null ? null : 1 - m.odds.implied_a); const edge = imp == null ? null : (p - imp) * 100;
         return `<tr class="tap" data-tennis="${esc(m.id)}"><td><div class="b">${esc(fa ? m.p1.name : m.p2.name)} <span class="muted tiny">to beat</span> ${esc(fa ? m.p2.name : m.p1.name)}</div><div class="tiny muted">${esc(localStart(m.start))} · ${esc(m.tournament)} · data ${m.quality.score}%${m.selection ? ` · preferred: <b>${esc(m.selection.label)}</b> ${pc(m.selection.model_p, 0)}` : ''}</div></td><td class="right">${ppill(p)}</td><td class="right nowrap"><b>${od(o)}</b><div class="tiny muted">mkt ${pc(imp, 0)}</div></td><td class="right ${edgeCls(edge)}">${pp(edge)}</td></tr>`; }).join('')}</table></div>`);
     }
+    if (PR.ticketsCard && PR.tickets && PR.tickets().some((t) => t.status === 'pending')) parts.push(PR.ticketsCard(true));
     parts.push(`<div class="card compact tap" data-tn-guide="1"><div class="row"><span class="ico">${icon('info')}</span><div class="grow"><b>How the tennis model works</b><div class="tiny muted">Ratings, surface, best-of-3 vs best-of-5, games, and why the bookmaker is never an input.</div></div>${icon('next')}</div></div>`);
     view().innerHTML = parts.join('');
     wire();
@@ -377,8 +424,9 @@
     const parts = [];
     const q = (T.search || '').trim().toLowerCase();
     parts.push(`<div class="card compact sticky-ish"><div class="row"><input id="fx-search" type="search" placeholder="Search player or tournament…" value="${esc(T.search || '')}" style="flex:1"></div>
-      ${segmented([['all', 'All'], ['atp', 'ATP'], ['wta', 'WTA'], ['ch', 'Challengers'], ['sel', `${icon('star')} With selection`]], T.mf, 'tnm')}</div>`);
+      ${segmented([['all', 'All'], ['atp', 'ATP'], ['wta', 'WTA'], ['ch', 'Challengers'], ['sel', `${icon('star')} With selection`]], T.mf, 'tnm')}${tFavs.length ? `<div class="chips small-chips" style="margin-top:6px"><button class="chip tapchip ${T.favOnly ? 'on' : ''}" data-tnfavs="1">${icon('star', 'sm')} Favourites (${tFavs.length})</button></div>` : ''}</div>`);
     let ms = (d.matches || []).slice();
+    if (T.favOnly) ms = ms.filter((m) => isTFav(m.id));
     if (T.mf === 'atp') ms = ms.filter((m) => m.tour === 'atp' && !/challenger/i.test(m.category));
     else if (T.mf === 'wta') ms = ms.filter((m) => m.tour === 'wta' && !/challenger|125/i.test(m.category));
     else if (T.mf === 'ch') ms = ms.filter((m) => /challenger|125/i.test(m.category));
@@ -435,7 +483,7 @@
     const det = T.detail(page.id);
     const slim = matchById(page.id);
     const title = det && det.p1 ? `${esc(det.p1.name)} v ${esc(det.p2.name)}` : slim ? `${esc(slim.p1.name)} v ${esc(slim.p2.name)}` : 'Tennis match';
-    const parts = [head(title, det && det.tournament ? `${esc(det.category)} · ${esc(det.tournament)}${det.qualifying ? ' (Q)' : ''} · ${esc(det.surface || 'surface N/A')} · best of ${det.best_of} · ${esc(localStart(det.start))}` : '')];
+    const parts = [head(title, det && det.tournament ? `${esc(det.category)} · ${esc(det.tournament)}${det.qualifying ? ' (Q)' : ''} · ${esc(det.surface || 'surface N/A')} · best of ${det.best_of} · ${esc(localStart(det.start))}` : '', PR.tennisFavBtn(matchById(page.id)))];
     if (!det || det.loading) { parts.push('<div class="card empty">Loading match analysis…</div>'); view().innerHTML = parts.join(''); wireBack(); return; }
     if (det.error) { parts.push(`<div class="card empty">This analysis could not be loaded (${esc(det.error)}). ${slim ? '' : 'It may be older than the seven days kept on the server.'}</div>`); view().innerHTML = parts.join(''); wireBack(); return; }
     const p1 = det.p1, p2 = det.p2, q = det.quality || {}, f1_ = p1.features || {}, f2_ = p2.features || {};
@@ -486,7 +534,7 @@
     fams.forEach(([k, title]) => {
       const list = rows.filter((r) => r.market === k); if (!list.length) return;
       parts.push(`<div class="card compact"><div class="b">${esc(title)}</div>${list.map((r) => { const isSel = sel && sel.market === r.market && sel.selection === r.selection && sel.line === r.line; const isStrong = (det.strong || []).some((x) => x.market === r.market && x.selection === r.selection && x.line === r.line);
-        return `<div class="tn-item ${isSel ? 'hl' : ''}"><div class="row"><div class="grow ${r.flag || isSel ? 'b' : ''}">${esc(r.label)}${isSel ? ' <span class="chip brand">preferred</span>' : ''}${isStrong ? '<span class="tn-strong">STRONG</span>' : ''}${r.low_confidence ? ' <span class="chip warn">low data confidence</span>' : ''}${r.flag ? ` <span class="chip ok">${esc(r.flag)}</span>` : ''}</div>${ppill(r.model_p)}</div>
+        return `<div class="tn-item ${isSel ? 'hl' : ''}"><div class="row"><div class="grow ${r.flag || isSel ? 'b' : ''}">${esc(r.label)}${isSel ? ' <span class="chip brand">preferred</span>' : ''}${isStrong ? '<span class="tn-strong">STRONG</span>' : ''}${r.low_confidence ? ' <span class="chip warn">low data confidence</span>' : ''}${r.flag ? ` <span class="chip ok">${esc(r.flag)}</span>` : ''}</div><div class="row" style="gap:0;justify-content:flex-end;align-items:center">${ppill(r.model_p)}${PR.tennisAddBtn ? PR.tennisAddBtn(det.id, r) : ''}</div></div>
           <div class="tn-grid">${cell('MODEL', pc(r.model_p))}${cell('FAIR', od(r.fair_odds))}${cell('SPORTYBET', od(r.book_odds))}${cell('IMPLIED', pc(r.implied_fair))}${cell('EDGE', pp(r.edge_pp), edgeCls(r.edge_pp))}</div></div>`; }).join('')}</div>`);
     });
     if (det.games) parts.push(`<div class="card compact"><div class="b">Games model</div><div class="tiny muted">Expected total ${det.games.expected_total != null ? det.games.expected_total.toFixed(1) : 'N/A'} games · service points won on an average day: ${esc(det.p1.name)} ${pc(det.games.pa)}, ${esc(det.p2.name)} ${pc(det.games.pb)} (split pinned to the match probability; day-form spread validated in the backtest). Expected-total error in the backtest ≈ 5 games, so game markets need a larger model/market gap before they are flagged.</div></div>`);

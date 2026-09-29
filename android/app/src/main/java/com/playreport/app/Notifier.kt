@@ -18,14 +18,17 @@ import androidx.core.content.ContextCompat
 object Notifier {
     // v1.6: every channel has PlayReport's own sound (res/raw/pr_*.ogg). Android fixes a channel's sound when the
     // channel is first created, so the ids carry a version suffix and the old channels are deleted.
-    const val CH_REPORTS = "reports_v2"
-    const val CH_GOALS = "goals_v2"
+    // v3: the ids carry a version suffix so the new sounds (crowd goal, tennis ping, ticket fanfare) take over.
+    const val CH_REPORTS = "reports_v3"
+    const val CH_GOALS = "goals_v3"
     const val CH_UPDATES = "updates"
-    const val CH_BETS = "bets_v2"
-    const val CH_MATCH = "match_v2"
-    const val CH_KICKOFF = "kickoff_v2"
+    const val CH_BETS = "bets_v3"
+    const val CH_MATCH = "match_v3"
+    const val CH_KICKOFF = "kickoff_v3"
+    const val CH_TENNIS = "tennis_v3"
+    const val CH_TICKETS = "tickets_v3"
     const val PREFS = "playreport"
-    private val OLD_CHANNELS = listOf("reports", "goals", "bets", "match")
+    private val OLD_CHANNELS = listOf("reports", "goals", "bets", "match", "reports_v2", "goals_v2", "bets_v2", "match_v2", "kickoff_v2")
 
     private fun sound(ctx: Context, name: String): Uri =
         Uri.parse("android.resource://${ctx.packageName}/raw/$name")
@@ -57,6 +60,10 @@ object Notifier {
             "A tracked or favourite match is about to start", "pr_kickoff"))
         nm.createNotificationChannel(channel(ctx, CH_MATCH, "Half-time & full-time", NotificationManager.IMPORTANCE_DEFAULT,
             "Half-time and full-time scores of tracked matches", "pr_fulltime", vibrate = false))
+        nm.createNotificationChannel(channel(ctx, CH_TENNIS, "Tennis live & results", NotificationManager.IMPORTANCE_HIGH,
+            "Finished matches and kick-offs of your tennis favourites", "pr_tennis"))
+        nm.createNotificationChannel(channel(ctx, CH_TICKETS, "Ticket results", NotificationManager.IMPORTANCE_HIGH,
+            "One of your locked tickets was settled — won or lost", "pr_tickets"))
         nm.createNotificationChannel(NotificationChannel(CH_UPDATES, "App updates", NotificationManager.IMPORTANCE_LOW).apply {
             description = "A newer PlayReport version is available"
         })
@@ -64,7 +71,8 @@ object Notifier {
 
     /** Sound file (res/raw name) behind each channel — used by the Settings page previews. */
     fun soundFor(channel: String): String? = when (channel) {
-        CH_REPORTS -> "pr_report"; CH_GOALS -> "pr_goal"; CH_BETS -> "pr_selection"; CH_KICKOFF -> "pr_kickoff"; CH_MATCH -> "pr_fulltime"
+        CH_REPORTS -> "pr_report"; CH_GOALS -> "pr_goal"; CH_BETS -> "pr_selection"; CH_KICKOFF -> "pr_kickoff"
+        CH_MATCH -> "pr_fulltime"; CH_TENNIS -> "pr_tennis"; CH_TICKETS -> "pr_tickets"
         else -> null
     }
 

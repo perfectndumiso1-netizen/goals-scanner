@@ -92,6 +92,8 @@ class CheckWorker(ctx: Context, params: WorkerParameters) : Worker(ctx, params) 
 
     private data class Ev(val eid: String, val status: String, val hg: Int?, val ag: Int?, val home: String, val away: String, val comp: String)
 
+    private data class TNev(val eid: String, val p1: String, val p2: String, val sets: List<IntArray>, val status: String, val finished: Boolean, val winner: Int?)
+
     private fun isFinished(st: String) = st == "FT" || st == "AET" || st == "AP" || st == "Awarded"
     private fun isVoid(st: String) = st == "Postp." || st == "Canc." || st == "Aband."
 
@@ -100,16 +102,23 @@ class CheckWorker(ctx: Context, params: WorkerParameters) : Worker(ctx, params) 
         val wantGoals = prefs.getBoolean("pref_goals", true)
         val wantHt = prefs.getBoolean("pref_ht", false)
         val wantFt = prefs.getBoolean("pref_ft", true)
+        val wantTennis = prefs.getBoolean("pref_tennis", true)
         val tickets = try { JSONArray(prefs.getString("str_tickets", "[]") ?: "[]") } catch (e: Exception) { JSONArray() }
         val favs = try { JSONArray(prefs.getString("str_favs", "[]") ?: "[]") } catch (e: Exception) { JSONArray() }
+        val tnFavs = try { JSONArray(prefs.getString("str_tennis_favs", "[]") ?: "[]") } catch (e: Exception) { JSONArray() }
         val want = HashSet<String>()
+        val tnWant = HashSet<String>()
         meta.optJSONArray("tracked_eids")?.let { for (i in 0 until it.length()) want.add(it.getString(i)) }
         val mine = ArrayList<JSONObject>()      // favourites + ticket legs: kick-off reminders
         for (i in 0 until tickets.length()) {
             val legs = tickets.getJSONObject(i).optJSONArray("legs") ?: continue
-            for (j in 0 until legs.length()) { val l = legs.getJSONObject(j); val e = l.optString("eid"); if (e.isNotEmpty() && e != "null") { want.add(e); mine.add(l) } }
+            for (j in 0 until legs.length()) {
+                val l = legs.getJSONObject(j); val e = l.optString("eid")
+                if (e.isNotEmpty() && e != "null") { if (l.optString("sport", "football") == "tennis") tnWant.add(e) else want.add(e); mine.add(l) }
+            }
         }
         for (i in 0 until favs.length()) { val f = favs.getJSONObject(i); val e = f.optString("eid"); if (e.isNotEmpty() && e != "null") { want.add(e); mine.add(f) } }
+        for (i in 0 until tnFavs.length()) { val f = tnFavs.getJSONObject(i); val e = f.optString("eid"); if (e.isNotEmpty() && e != "null") { tnWant.add(e); mine.add(f) } }
         val zone = java.time.ZoneId.of("Africa/Johannesburg")
         val today = java.time.LocalDate.now(zone)
         // kick-off reminders (15-20 min before) for the user's own matches
@@ -127,24 +136,69 @@ class CheckWorker(ctx: Context, params: WorkerParameters) : Worker(ctx, params) 
                 }
             }
         }
-        if (want.isEmpty()) return
         val found = HashMap<String, Ev>()
-        for (day in listOf(today, today.minusDays(1))) {
-            val ymd = day.toString().replace("-", "")
-            val r = Net.get("https://prod-public-api.livescore.com/v1/api/app/date/soccer/$ymd/2?MD=1")
-            if (r.code != 200) continue
-            val stages = JSONObject(r.body).optJSONArray("Stages") ?: continue
-            for (s in 0 until stages.length()) {
-                val st = stages.getJSONObject(s)
-                val events = st.optJSONArray("Events") ?: continue
-                for (e in 0 until events.length()) {
-                    val ev = events.getJSONObject(e)
-                    val eid = ev.optString("Eid")
-                    if (!want.contains(eid) || found.containsKey(eid)) continue
-                    val home = ev.optJSONArray("T1")?.optJSONObject(0)?.optString("Nm") ?: "Home"
-                    val away = ev.optJSONArray("T2")?.optJSONObject(0)?.optString("Nm") ?: "Away"
-                    val comp = listOf(st.optString("Cnm"), st.optString("Snm")).filter { it.isNotEmpty() }.joinToString(" · ")
-                    found[eid] = Ev(eid, ev.optString("Eps"), ev.optString("Tr1").toIntOrNull(), ev.optString("Tr2").toIntOrNull(), home, away, comp)
+        if (want.isNotEmpty()) {
+            for (day in listOf(today, today.minusDays(1))) {
+                val ymd = day.toString().replace("-", "")
+                val r = Net.get("https://prod-public-api.livescore.com/v1/api/app/date/soccer/$ymd/2?MD=1")
+                if (r.code != 200) continue
+                val stages = JSONObject(r.body).optJSONArray("Stages") ?: continue
+                for (s in 0 until stages.length()) {
+                    val st = stages.getJSONObject(s)
+                    val events = st.optJSONArray("Events") ?: continue
+                    for (e in 0 until events.length()) {
+                        val ev = events.getJSONObject(e)
+                        val eid = ev.optString("Eid")
+                        if (!want.contains(eid) || found.containsKey(eid)) continue
+                        val home = ev.optJSONArray("T1")?.optJSONObject(0)?.optString("Nm") ?: "Home"
+                        val away = ev.optJSONArray("T2")?.optJSONObject(0)?.optString("Nm") ?: "Away"
+                        val comp = listOf(st.optString("Cnm"), st.optString("Snm")).filter { it.isNotEmpty() }.joinToString(" · ")
+                        found[eid] = Ev(eid, ev.optString("Eps"), ev.optString("Tr1").toIntOrNull(), ev.optString("Tr2").toIntOrNull(), home, away, comp)
+                    }
+                }
+            }
+        }
+        // tennis favourites + tennis ticket legs (same Livescore day feed the app's Live tab uses)
+        val tnFound = HashMap<String, TNev>()
+        if (tnWant.isNotEmpty()) {
+            for (day in listOf(today, today.minusDays(1))) {
+                val ymd = day.toString().replace("-", "")
+                val r = Net.get("https://prod-public-api.livescore.com/v1/api/app/date/tennis/$ymd/2?MD=1")
+                if (r.code != 200) continue
+                val stages = JSONObject(r.body).optJSONArray("Stages") ?: continue
+                for (s in 0 until stages.length()) {
+                    val st = stages.getJSONObject(s)
+                    val events = st.optJSONArray("Events") ?: continue
+                    for (e in 0 until events.length()) {
+                        val ev = events.getJSONObject(e)
+                        val eid = ev.optString("Eid")
+                        if (!tnWant.contains(eid) || tnFound.containsKey(eid)) continue
+                        val p1 = ev.optJSONArray("T1")?.optJSONObject(0)?.optString("Nm") ?: "Player 1"
+                        val p2 = ev.optJSONArray("T2")?.optJSONObject(0)?.optString("Nm") ?: "Player 2"
+                        val sets = ArrayList<IntArray>()
+                        for (i in 1..5) {
+                            val a = ev.optString("Tr1S$i").toIntOrNull(); val b = ev.optString("Tr2S$i").toIntOrNull()
+                            if (a == null || b == null) break
+                            sets.add(intArrayOf(a, b))
+                        }
+                        val eps = ev.optString("Eps")
+                        val finished = ev.optInt("Epr") == 2 || eps == "FT" || Regex("^ret|^w\\.?o|^def", RegexOption.IGNORE_CASE).matches(eps)
+                        val w = ev.optInt("Ewt")
+                        tnFound[eid] = TNev(eid, p1, p2, sets, eps, finished, if (w in 1..2) w else null)
+                    }
+                }
+            }
+        }
+        // tennis favourites: finished-match alert with the set score (kick-offs are reminded above)
+        if (wantTennis) {
+            for (ev in tnFound.values) {
+                if (ev.finished && ev.winner != null && !prefs.getBoolean("tnft_${ev.eid}", false)) {
+                    prefs.edit().putBoolean("tnft_${ev.eid}", true).apply()
+                    val setsTxt = ev.sets.joinToString(" ") { "${it[0]}-${it[1]}" }
+                    val win = if (ev.winner == 1) ev.p1 else ev.p2
+                    val note = if (ev.status.startsWith("ret", true) || ev.status.startsWith("w.", true)) " · retirement — game markets void" else ""
+                    Notifier.notify(ctx, Notifier.CH_TENNIS, 8000 + (ev.eid.hashCode() and 0xfff),
+                        "🎾 Match finished · ${win} wins", "${ev.p1}  $setsTxt  ${ev.p2}$note", "live")
                 }
             }
         }
@@ -180,9 +234,15 @@ class CheckWorker(ctx: Context, params: WorkerParameters) : Worker(ctx, params) 
             val lines = ArrayList<String>()
             for (j in 0 until legs.length()) {
                 val l = legs.getJSONObject(j)
-                val ev = found[l.optString("eid")]
-                val sel = l.optString("sel")
-                val res: Boolean? = if (ev != null && isFinished(ev.status) && ev.hg != null && ev.ag != null) settle(sel, ev.hg, ev.ag) else if (ev != null && isVoid(ev.status)) true else null
+                val res: Boolean?
+                if (l.optString("sport", "football") == "tennis") {
+                    val ev = tnFound[l.optString("eid")]
+                    res = if (ev != null && ev.finished && ev.winner != null) settleTennis(l, ev) else null
+                } else {
+                    val ev = found[l.optString("eid")]
+                    val sel = l.optString("sel")
+                    res = if (ev != null && isFinished(ev.status) && ev.hg != null && ev.ag != null) settle(sel, ev.hg, ev.ag) else if (ev != null && isVoid(ev.status)) true else null
+                }
                 if (res == null) allWon = false else if (!res) { lost = true }
                 lines.add((if (res == true) "✅ " else if (res == false) "❌ " else "⏳ ") + l.optString("label") + " (" + l.optString("home") + " v " + l.optString("away") + ")")
             }
@@ -191,7 +251,7 @@ class CheckWorker(ctx: Context, params: WorkerParameters) : Worker(ctx, params) 
                 val odds = t.optDouble("odds", 0.0)
                 val stake = t.optDouble("stake", 0.0)
                 val title = if (lost) "❌ Ticket lost" else "🎉 Ticket won · odds ${"%.2f".format(odds)}" + if (stake > 0) " · return ${"%.2f".format(stake * odds)}" else ""
-                Notifier.notify(ctx, Notifier.CH_BETS, 3000 + (id.hashCode() and 0xfff), title, lines.joinToString("\n"), "bets")
+                Notifier.notify(ctx, Notifier.CH_TICKETS, 3000 + (id.hashCode() and 0xfff), title, lines.joinToString("\n"), "bets")
             }
         }
     }
@@ -207,6 +267,23 @@ class CheckWorker(ctx: Context, params: WorkerParameters) : Worker(ctx, params) 
             Regex("^[OU]\\d+$").matches(sel) -> if (sel[0] == 'O') tot > line(sel) else tot < line(sel)
             Regex("^[HA][OU]\\d+$").matches(sel) -> { val g = if (sel[0] == 'H') hg else ag; if (sel[1] == 'O') g > line(sel) else g < line(sel) }
             else -> null
+        }
+    }
+
+    /** Grade a tennis ticket leg. Winner legs settle from the result; game markets stay open (null) on retirements
+     *  so the app can mark them void (same rule as the tracker); games are the sum of the set scores. */
+    private fun settleTennis(l: JSONObject, ev: TNev): Boolean? {
+        val mkt = l.optString("market")
+        val sel = l.optString("selection")
+        val line = l.optDouble("line", Double.NaN).let { if (it.isNaN()) null else it }
+        return when (mkt) {
+            "winner" -> (if (ev.winner == 1) "player_a" else "player_b") == sel
+            else -> {
+                if (ev.status.startsWith("ret", true) || ev.status.startsWith("w.", true)) return null
+                val games = ev.sets.fold(intArrayOf(0, 0)) { acc, s -> intArrayOf(acc[0] + s[0], acc[1] + s[1]) }
+                val v = when (mkt) { "p1_games" -> games[0]; "p2_games" -> games[1]; "total_games" -> games[0] + games[1]; else -> return null }
+                if (line == null) null else if (sel == "over") v > line else v < line
+            }
         }
     }
 

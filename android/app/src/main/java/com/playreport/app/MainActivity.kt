@@ -297,7 +297,8 @@ class MainActivity : AppCompatActivity() {
             try {
                 val ch = when (channel) {
                     "goals" -> Notifier.CH_GOALS; "bets" -> Notifier.CH_BETS; "match" -> Notifier.CH_MATCH
-                    "kickoff" -> Notifier.CH_KICKOFF; "reports" -> Notifier.CH_REPORTS; else -> channel
+                    "kickoff" -> Notifier.CH_KICKOFF; "reports" -> Notifier.CH_REPORTS
+                    "tennis" -> Notifier.CH_TENNIS; "tickets" -> Notifier.CH_TICKETS; else -> channel
                 }
                 startActivity(android.content.Intent(android.provider.Settings.ACTION_CHANNEL_NOTIFICATION_SETTINGS).apply {
                     putExtra(android.provider.Settings.EXTRA_APP_PACKAGE, packageName)

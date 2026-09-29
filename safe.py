@@ -51,13 +51,15 @@ def is_under(sel: str) -> bool:
 # (key, title, selection filter, minimum probability, picks per section). The card is strong on Over 1.5 & team goals;
 # 1X2 / BTTS / Over 2.5 only enter with a strong signal (model >= 70%, market view not below 70%, AND recent form backing it —
 # see scanner.strong_signal). One market per match across the whole card.
+# Blocks of the "Bets of the day" card, in display order. A block shows only the bets that meet its
+# threshold that day (1-2 is fine, never padded); a block that has no qualifying bet is hidden.
 BOTD_GROUPS = [
-    ("o15", "Over 1.5 & team goals", lambda sel: sel in ("O15", "HO05", "AO05", "HO15", "AO15"), 0.70, 5),
-    ("result", "1X2", lambda sel: sel in ("H", "A"), 0.70, 2),
-    ("btts", "Both teams to score", lambda sel: sel == "BTTS", 0.70, 2),
-    ("o25", "Over 2.5 goals", lambda sel: sel in ("O25", "O35"), 0.70, 2),
-    ("cards", "Bookings", lambda sel: sel.startswith("KO"), 0.65, 2),
-    ("corners", "Corners", lambda sel: sel.startswith("CO"), 0.65, 2),
+    ("o15", "Goals · Over 1.5 & team goals", lambda sel: sel in ("O15", "HO05", "AO05", "HO15", "AO15"), 0.70, 7),
+    ("o25", "Over 2.5 goals", lambda sel: sel in ("O25", "O35"), 0.70, 7),
+    ("btts", "Both teams to score", lambda sel: sel == "BTTS", 0.70, 7),
+    ("result", "1X2", lambda sel: sel in ("H", "A"), 0.70, 7),
+    ("corners", "Corners", lambda sel: sel.startswith("CO"), 0.65, 7),
+    ("cards", "Bookings", lambda sel: sel.startswith("KO"), 0.65, 7),
 ]
 SIGNAL_SECTIONS = ("result", "btts", "o25")
 BOTD_PER_GROUP = 3
@@ -434,10 +436,11 @@ def botd_group(sel: str) -> str | None:
 def pick_bets_of_the_day(df: pd.DataFrame, now: datetime, n: int = BOTD_PER_GROUP,
                          candidates: list[Bet] | None = None, run: str = "") -> pd.DataFrame:
     """Sticky, grouped 'bets of the day': for every section of BOTD_GROUPS the most probable eligible selections on
-    today's matches, up to the section's cap (Over 1.5 & team goals 5, the rest 2), one market per match across the
-    whole card. Picked by the first run that sees them and kept for the day; a section is only topped up while it has
-    fewer picks than its cap. Candidates not yet in the ledger are added with kind='botd' so they are graded like
-    everything else (`n` is kept for compatibility and no longer used)."""
+    today's matches, up to the section's cap (7 per block, never padded — a block shows only bets that meet its
+    threshold and is hidden when it has none), one market per match across the whole card. Picked by the first run
+    that sees them and kept for the day; a section is only topped up while it has fewer picks than its cap.
+    Candidates not yet in the ledger are added with kind='botd' so they are graded like everything else
+    (`n` is kept for compatibility and no longer used)."""
     today = now.strftime("%Y-%m-%d")
     df = df.copy()
     for col, default in (("botd", ""), ("kind", "safe")):

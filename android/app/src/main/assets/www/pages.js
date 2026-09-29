@@ -493,11 +493,12 @@
       <label class="row" style="margin-top:6px"><input type="checkbox" id="s-goals" ${settings.goalAlerts ? 'checked' : ''}> <span class="grow">⚽ Score changes (goals with the scorer) in tracked matches — bets of the day, high-probability selections, shortlist and your tickets</span></label>
       <label class="row" style="margin-top:6px"><input type="checkbox" id="s-ht" ${settings.htAlerts ? 'checked' : ''}> <span class="grow">⏸ Half-time results of tracked matches</span></label>
       <label class="row" style="margin-top:6px"><input type="checkbox" id="s-ft" ${settings.ftAlerts !== false ? 'checked' : ''}> <span class="grow">🏁 Full-time results of tracked matches · tickets won / lost</span></label>
-      <label class="row" style="margin-top:6px"><input type="checkbox" id="s-ko" ${settings.koAlerts !== false ? 'checked' : ''}> <span class="grow">⏰ Kick-off reminders (15 min before) for favourites and ticket matches</span></label></div>`);
-    const SOUNDS = [['goals', 'goal', '⚽ Goal'], ['kickoff', 'kickoff', '⏰ Kick-off'], ['match', 'fulltime', '🏁 Half / full time'], ['bets', 'selection', '📈 New selection'], ['reports', 'report', '📊 Report published']];
+      <label class="row" style="margin-top:6px"><input type="checkbox" id="s-ko" ${settings.koAlerts !== false ? 'checked' : ''}> <span class="grow">⏰ Kick-off reminders (15 min before) for favourites and ticket matches</span></label>
+      <label class="row" style="margin-top:6px"><input type="checkbox" id="s-tennis" ${settings.tennisAlerts !== false ? 'checked' : ''}> <span class="grow">🎾 Tennis favourites — finished matches with the set score</span></label></div>`);
+    const SOUNDS = [['goals', 'goal', '⚽ Goal (crowd & horn)'], ['tennis', 'tennis', '🎾 Tennis — finished match'], ['tickets', 'tickets', '🎫 Ticket won / lost'], ['kickoff', 'kickoff', '⏰ Kick-off'], ['match', 'fulltime', '🏁 Half / full time'], ['bets', 'selection', '📈 New selection'], ['reports', 'report', '📊 Report published'], ['', 'card', '🟨 Referee whistle (gallery)']];
     parts.push(`<div class="card settings"><h2>${icon('bell')} Notification sounds</h2>
       <div class="small muted">Each alert type has its own short sound so you know what arrived without looking. Tap ▶ to preview; the gear opens Android's settings for that alert (sound, vibration, silent).</div>
-      <div class="sounds">${SOUNDS.map(([ch, file, label]) => `<div class="row snd"><button class="btn sm" data-play="${file}">▶</button><span class="grow">${label}</span>${PR.native && PR.native.openChannelSettings ? `<button class="btn sm" data-chan="${ch}" title="Android settings">${icon('settings', 'sm')}</button>` : ''}</div>`).join('')}</div></div>`);
+      <div class="sounds">${SOUNDS.map(([ch, file, label]) => `<div class="row snd"><button class="btn sm" data-play="${file}">▶</button><span class="grow">${label}</span>${ch && PR.native && PR.native.openChannelSettings ? `<button class="btn sm" data-chan="${ch}" title="Android settings">${icon('settings', 'sm')}</button>` : ''}</div>`).join('')}</div></div>`);
     parts.push(`<div class="card settings"><h2>${icon('moon')} Appearance</h2>${segmented([['system', 'System'], ['light', 'Light'], ['dark', 'Dark']], settings.theme || 'system', 'th')}
       <div class="tiny muted" style="margin-top:6px">System follows your phone's dark-mode setting.</div></div>`);
     parts.push(`<div class="card settings"><h2>${icon('clock')} Display</h2>
@@ -525,6 +526,7 @@
     $('#s-reports').onchange = (e) => { settings.reportAlerts = e.target.checked; PR.saveSettings(); pref('reports', settings.reportAlerts); };
     $('#s-ht').onchange = (e) => { settings.htAlerts = e.target.checked; PR.saveSettings(); pref('ht', settings.htAlerts); };
     $('#s-ko').onchange = (e) => { settings.koAlerts = e.target.checked; PR.saveSettings(); pref('ko', settings.koAlerts); };
+    $('#s-tennis').onchange = (e) => { settings.tennisAlerts = e.target.checked; PR.saveSettings(); pref('tennis', settings.tennisAlerts); };
     $('#s-ft').onchange = (e) => { settings.ftAlerts = e.target.checked; PR.saveSettings(); pref('ft', settings.ftAlerts); };
     $$('[data-th]').forEach((b) => { b.onclick = () => { settings.theme = b.dataset.th; PR.saveSettings(); PR.applyTheme(); PR.render(); }; });
     $$('[data-lgs]').forEach((b) => { b.onclick = () => { settings.leagues = b.dataset.lgs; PR.saveSettings(); PR.render(); }; });

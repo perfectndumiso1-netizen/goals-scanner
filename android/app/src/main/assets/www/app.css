@@ -416,3 +416,22 @@ ul.notes li { margin: 3px 0; }
 .sounds{margin-top:8px;display:flex;flex-direction:column;gap:6px}
 .sounds .snd{gap:10px}
 .sounds .btn.sm{padding:4px 10px;min-width:38px}
+
+/* ---------------------------------------------------------------- v1.7: tennis favourites, slip, small-screen polish */
+.tnfavbtn { border: 0; background: transparent; font-size: 17px; line-height: 1; padding: 4px 6px; color: var(--muted); transition: transform .1s, color .2s; flex: 0 0 auto; }
+.tnfavbtn:active { transform: scale(.88); }
+.tnfavbtn.on { color: var(--warn); }
+.sport-chip { display: inline-block; vertical-align: 1px; margin-left: 8px; padding: 1px 7px; border: 1px solid var(--line); border-radius: 20px; background: var(--card-2); color: var(--muted); font-size: 10px; font-weight: 600; letter-spacing: .3px; white-space: nowrap; }
+.mrow-r { display: flex; flex-direction: column; align-items: flex-end; gap: 2px; }
+.mrow-r .tnfavbtn { align-self: flex-end; }
+@media (max-width: 400px) {
+  .hero-nums { flex-wrap: wrap; row-gap: 6px; }
+  .hero-nums > div { flex: 1 1 44%; }
+  .hero-nums b { font-size: 21px; }
+  .seg button { padding: 6px 9px; font-size: 12px; }
+  .card.botd .tbl td:first-child { display: none; }
+  .slipbtn { font-size: 13px; }
+  .detail-head { padding: 8px 10px; }
+  .tn-grid { grid-template-columns: repeat(3, 1fr); }
+  .tn-grid > div:nth-child(n + 4) { grid-column: span 1; border-top: 1px solid var(--line-2); }
+}

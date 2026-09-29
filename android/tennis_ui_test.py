@@ -6,6 +6,7 @@ views; fails on console errors, missing elements, forbidden wording or a backend
 Football must render untouched when the switch is back on ⚽.
 Usage: DATA_ROOT=/tmp/fb-data TENNIS_ROOT=/tmp/tennis-state python3 tennis_ui_test.py"""
 import json, os, re, sys, pathlib
+from datetime import datetime, timedelta
 from playwright.sync_api import sync_playwright
 
 ROOT = pathlib.Path(__file__).resolve().parent
@@ -160,6 +161,59 @@ with sync_playwright() as p:
     check(page.evaluate("() => window.app.settings.sport === 'tennis'") and 'How selections are chosen' in page.inner_text('#view'), 'menu entry switches to tennis (same tab)')
     page.click('#btn-menu'); page.wait_for_timeout(200); page.click('#menu [data-sport-menu]'); page.wait_for_timeout(600)
     check(page.evaluate("() => window.app.settings.sport === 'football'"), 'menu entry switches back to football')
+    # ---- v1.7: tennis bet slip + favourites
+    page.click('#sport-bar [data-sport="tennis"]'); page.wait_for_timeout(1500)
+    live_ids = {str(TENNIS['matches'][0]['id'])}
+    def _not_started(m, tz=2):
+        try: return (datetime.strptime(m['start'], '%Y-%m-%d %H:%M') + timedelta(hours=tz)) > datetime.utcnow()
+        except Exception: return False
+    priced = None
+    for s in (TENNIS.get('selections') or []):          # a selection whose match has live book odds in its detail
+        m = next((x for x in TENNIS['matches'] if str(x['id']) == str(s.get('match_id'))), None)
+        if m and s.get('book_odds') and str(m['id']) not in live_ids and _not_started(m):
+            priced = m; break
+    if not priced:
+        priced = next((m for m in TENNIS['matches'] if m.get('odds') and m.get('selection') and str(m['id']) not in live_ids and _not_started(m)), None)
+    if priced:
+        page.evaluate(f"() => window.app.PR.push({{type: 'tennisMatch', id: '{priced['id']}'}})"); page.wait_for_timeout(1500)
+        page.click('[data-tmv="markets"]'); page.wait_for_timeout(500)
+        n_add = page.evaluate("() => document.querySelectorAll('[data-tadd-fx]').length")
+        check(n_add > 0, 'match markets: add-to-slip buttons on priced rows')
+        page.evaluate("() => document.querySelector('[data-tadd-fx]').click()"); page.wait_for_timeout(600)
+        check(page.evaluate("() => !!document.querySelector('#slipbar.show')"), 'slip bar appears after adding a tennis leg')
+        page.click('#slip-open'); page.wait_for_timeout(500)
+        txt = page.inner_text('#view')
+        check('Bet slip' in txt and 'tennis' in txt.lower(), 'slip page shows the tennis leg with its tag')
+        check(page.evaluate("() => window.app.PR.tennisInSlip !== undefined"), 'tennis slip API registered')
+        # lock the ticket
+        page.click('#slip-place'); page.wait_for_timeout(400)
+        check(page.evaluate("() => !document.querySelector('#modal').hidden"), 'lock ticket confirmation shown')
+        page.click('#modal-ok'); page.wait_for_timeout(600)
+        check(page.evaluate("() => window.app.state.betsView === 'today'"), 'locked ticket lands on Bets › Today')
+        check('🎾' in page.inner_text('#view') or 'Ticket' in page.inner_text('#view'), 'ticket listed in My tickets')
+        # second leg on the same match replaces the first (one leg per tennis match)
+        page.evaluate(f"() => window.app.PR.push({{type: 'tennisMatch', id: '{priced['id']}'}})"); page.wait_for_timeout(900)
+        page.click('[data-tmv="markets"]'); page.wait_for_timeout(400)
+        btns = page.locator('[data-tadd-fx]')
+        if btns.count() >= 2:
+            btns.nth(1).click(); page.wait_for_timeout(500)
+            check(page.evaluate("() => !!document.querySelector('#slipbar.show')"), 'second pick on the same match replaced the first (one leg per match)')
+    else:
+        check(False, 'no priced tennis match available in the test data')
+    # favourites: star from the match page, see it on home + filter on Matches
+    favm = priced or TENNIS['matches'][0]
+    page.evaluate(f"() => window.app.PR.push({{type: 'tennisMatch', id: '{favm['id']}'}})"); page.wait_for_timeout(1200)
+    check(page.evaluate("() => !!document.querySelector('[data-tnfav]')"), 'match page: favourite star present')
+    page.evaluate("() => document.querySelector('[data-tnfav]').click()"); page.wait_for_timeout(500)
+    check(page.evaluate("() => JSON.parse(window.PR.stored('pr_tennis_favs') || '[]').some((f) => f.id === '%s')" % favm['id']), 'favourite stored natively + locally')
+    page.click('#back'); page.wait_for_timeout(400)
+    page.click('#tabs [data-tab="home"]'); page.wait_for_timeout(900)
+    check('Your matches' in page.inner_text('#view'), 'tennis home shows the Your matches card')
+    page.click('#tabs [data-tab="matches"]'); page.wait_for_timeout(600)
+    check('Favourites' in page.inner_text('#view'), 'matches tab: Favourites filter chip')
+    page.evaluate("() => document.querySelector('[data-tnfavs]').click()"); page.wait_for_timeout(400)
+    check(favm['p1']['name'] in page.inner_text('#view'), 'favourites filter keeps the starred match')
+    page.screenshot(path='/tmp/ui_tennis_fav_slip.png', full_page=False)
     b.close()
 print('\n' + ('ALL OK' if not errors else f'{len(errors)} problem(s):\n' + '\n'.join(errors)))
 sys.exit(1 if errors else 0)

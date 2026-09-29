@@ -13,7 +13,7 @@
   function saveTickets() {
     localStorage.setItem('pr_tickets', JSON.stringify(tickets));
     PR.persist('pr_tickets_full', JSON.stringify(tickets));
-    if (PR.native && PR.native.setString) { try { PR.native.setString('tickets', JSON.stringify(tickets.filter((t) => t.status === 'pending').map((t) => ({ id: t.id, odds: t.odds, stake: t.stake, legs: t.legs.map((l) => ({ eid: l.eid, sel: l.sel, home: l.home, away: l.away, kickoff: l.kickoff, label: l.label })) })))); } catch (e) { /* ignore */ } }
+    if (PR.native && PR.native.setString) { try { PR.native.setString('tickets', JSON.stringify(tickets.filter((t) => t.status === 'pending').map((t) => ({ id: t.id, odds: t.odds, stake: t.stake, legs: t.legs.map((l) => ({ eid: l.eid, sel: l.sel, sport: l.sport || 'football', market: l.market || '', selection: l.selection || '', line: l.line == null ? null : l.line, home: l.home, away: l.away, kickoff: l.kickoff, label: l.label })) })))); } catch (e) { /* ignore */ } }
   }
   const totalOdds = (legs) => legs.reduce((a, l) => a * (l.status === 'void' ? 1 : (l.odds || 1)), 1);
 
@@ -21,6 +21,99 @@
   function leg(f, s) {
     return { fixture: f.id, d: f.d || null, eid: f.livescore_id || null, home: f.home, away: f.away, kickoff: f.kickoff, competition: f.competition, country: f.country,
       badges: f.badges || null, sel: s.sel, label: selLabel(s.sel, f.home, f.away), odds: +s.odds, p: s.p };
+  }
+  // ---------------- tennis legs (same slip, same settlement engine) ----------------
+  const TNS = () => PR.tennis;
+  const tnLocal = (startUtc) => {
+    const d = new Date(String(startUtc || '').replace(' ', 'T') + ':00Z');
+    if (isNaN(d)) return '';
+    const l = new Date(d.getTime() + (PR.settings.tzOffset || 0) * 3600000);
+    const p = (x) => String(x).padStart(2, '0');
+    return `${l.getUTCFullYear()}-${p(l.getUTCMonth() + 1)}-${p(l.getUTCDate())} ${p(l.getUTCHours())}:${p(l.getUTCMinutes())}`;
+  };
+  const tnLegKey = (id, r) => `${id}|${r.market}|${r.selection || ''}|${r.line == null ? '' : r.line}`;
+  const tnKeyOf = (l) => `${l.fixture}|${l.market}|${l.selection || ''}|${l.line == null ? '' : l.line}`;
+  function tennisLeg(id, r, det) {
+    const T = TNS();
+    const m = (det && det.p1) ? det : (T.data && (T.data.matches || []).find((x) => String(x.id) === String(id)));
+    if (!m || !r) return null;
+    let row = r;
+    if (!r.book_odds && m.markets) {   // buttons pass only market/selection/line — the prices come from the detail row
+      row = (m.markets || []).find((x) => x.market === r.market && x.selection === (r.selection || null) && x.line === r.line) || r;
+    }
+    if (!row.book_odds) return null;
+    const p1 = m.p1 ? m.p1.name : 'Player 1', p2 = m.p2 ? m.p2.name : 'Player 2';
+    const line = row.line == null ? null : +row.line;
+    const sel = row.market === 'winner' ? `TNW:${row.selection}` : row.market === 'game_handicap' ? `TGH:${row.selection}:${line}` : `TNG:${row.market}:${row.selection}:${line}`;
+    return { sport: 'tennis', fixture: String(id), eid: String(id), d: null, home: p1, away: p2,
+      kickoff: tnLocal(m.start), competition: [m.category, m.tournament].filter(Boolean).join(' · '), country: '',
+      badges: null, sel, label: row.label || (row.market === 'winner' ? `${(row.selection === 'player_b' ? p2 : p1)} to win` : row.label), odds: +row.book_odds,
+      p: row.model_p == null ? null : +row.model_p, market: row.market, selection: row.selection || null, line };
+  }
+  PR.tennisInSlip = (id, r) => slip.items.some((l) => l.sport === 'tennis' && tnKeyOf(l) === tnLegKey(id, r));
+  PR.tennisAddBtn = function (id, r) {
+    if (!r || !r.book_odds) return '';
+    const T = TNS();
+    const m = (T.data && (T.data.matches || []).find((x) => String(x.id) === String(id)));
+    const ko = m && parseLocal(tnLocal(m.start)); const started = ko && ko < tzNow();
+    if (started) return '';
+    const on = PR.tennisInSlip(id, r);
+    return `<button class="addsel ${on ? 'on' : ''}" data-tadd-fx="${esc(id)}" data-tadd-market="${esc(r.market || '')}" data-tadd-sel="${esc(r.selection || '')}" data-tadd-line="${r.line == null ? '' : r.line}" data-tadd-label="${esc(r.label || '')}" title="${on ? 'Remove from slip' : 'Add to slip'}" aria-label="Add to slip">${on ? icon('check') : '+'}</button>`;
+  };
+  PR.tennisSlipToggle = function (id, r) {
+    const T = TNS(); if (!T || !T.data) { toast('Tennis analysis is still loading'); return; }
+    const key = tnLegKey(id, r);
+    const i = slip.items.findIndex((l) => l.sport === 'tennis' && tnKeyOf(l) === key);
+    if (i >= 0) { slip.items.splice(i, 1); saveSlip(); bar(); PR.render(); return; }
+    const det = T.details && T.details[String(id)];
+    const g = tennisLeg(id, r, det && !det.error && det.p1 ? det : null);
+    if (!g) { toast('No Sportybet price for this selection'); return; }
+    const ko = parseLocal(g.kickoff); if (ko && ko < tzNow()) { toast('This match has already started'); return; }
+    const same = slip.items.findIndex((l) => l.sport === 'tennis' && l.fixture === String(id));
+    if (same >= 0) { slip.items.splice(same, 1); toast('One leg per tennis match — replaced the earlier pick'); }
+    slip.items.push(g); saveSlip(); bar(); PR.render();
+    if (same < 0 && slip.items.length === 1) toast('Added to your slip — tap the slip bar when you are done');
+  };
+  document.addEventListener('click', (e) => {
+    const b = e.target.closest('[data-tadd-fx]'); if (!b) return;
+    e.preventDefault(); e.stopPropagation();
+    PR.tennisSlipToggle(b.dataset.taddFx, { market: b.dataset.taddMarket, selection: b.dataset.taddSel || null, line: b.dataset.taddLine === '' ? null : +b.dataset.taddLine, label: b.dataset.taddLabel || '' });
+  }, true);
+  /** final result of a tennis leg: the day file once published, otherwise the live feed (sum of set games) */
+  function tennisScoreFor(l) {
+    const T = TNS();
+    const lv = T && T.liveFor ? T.liveFor(l.eid) : null;
+    if (lv && lv.finished) {
+      const games = [0, 0]; (lv.sets || []).forEach((s) => { games[0] += s[0]; games[1] += s[1]; });
+      return { ft: true, postponed: false, winner: lv.winner || null, retired: /^ret|^w\.?o/i.test(lv.status || ''), games, live: false, status: lv.status };
+    }
+    const day = T && T.day ? T.day(String(l.kickoff).slice(0, 10)) : null;
+    const m = day && day.matches ? day.matches.find((x) => String(x.id) === String(l.eid)) : null;
+    if (m && m.result) return { ft: true, postponed: false, winner: m.result.winner || null, retired: !!m.result.retired, games: m.result.games || null, live: false, status: m.result.status };
+    return null;
+  }
+  const overUnder = (v, l) => (l.selection === 'over' ? v > l.line : v < l.line);
+  function settleTennis(l, sc) {
+    if (sc.postponed) return 'void';
+    if (!sc.ft) return 'pending';
+    const w = sc.winner;
+    if (l.market === 'winner') {
+      if (!w) return 'pending';
+      return l.selection === (w === 1 ? 'player_a' : 'player_b') ? 'won' : 'lost';
+    }
+    const g = sc.games;
+    if (!g || g.length < 2) return 'pending';
+    if (sc.retired) return 'void';   // same rule as the tracker: retirements void the game markets
+    const ga = g[0], gb = g[1];
+    if (l.market === 'p1_games') return overUnder(ga, l) ? 'won' : 'lost';
+    if (l.market === 'p2_games') return overUnder(gb, l) ? 'won' : 'lost';
+    if (l.market === 'total_games') return overUnder(ga + gb, l) ? 'won' : 'lost';
+    if (l.market === 'game_handicap') {
+      const gx = l.selection === 'player_a' ? ga : gb, go = l.selection === 'player_a' ? gb : ga;
+      const adj = gx + (l.line || 0);
+      return adj === go ? 'void' : adj > go ? 'won' : 'lost';
+    }
+    return 'pending';
   }
   PR.inSlip = (fid, sel) => slip.items.some((l) => l.fixture === fid && l.sel === sel);
   PR.slipToggle = function (fid, sel) {
@@ -62,13 +155,14 @@
   PR.slipBar = bar;
 
   PR.pages.slip = function () {
-    const parts = [head('Bet slip', slip.items.length ? `${slip.items.length} selection${slip.items.length > 1 ? 's' : ''}` : 'empty')];
+    const tn = slip.items.filter((l) => l.sport === 'tennis').length;
+    const parts = [head('Bet slip', slip.items.length ? `${slip.items.length} selection${slip.items.length > 1 ? 's' : ''}${tn ? ` · ${tn} tennis` : ''}` : 'empty')];
     if (!slip.items.length) {
-      parts.push(`<div class="card empty">Your slip is empty.<br><span class="small muted">Tap <b>+</b> next to any priced selection (match page › Markets, safest bets, bets of the day) to add it.</span></div>`);
+      parts.push(`<div class="card empty">Your slip is empty.<br><span class="small muted">Tap <b>+</b> next to any priced selection — football (match page › Markets, safest bets, bets of the day) or tennis (markets &amp; selections). One leg per match; the new pick replaces the earlier one.</span></div>`);
       if (tickets.length) parts.push(`<div class="card compact tap" id="go-tickets"><div class="row"><span class="ico">${icon('ticket')}</span><div class="grow b">My tickets (${tickets.length})</div>${icon('next')}</div></div>`);
     } else {
       const odds = totalOdds(slip.items); const stake = parseFloat(slip.stake) || 0;
-      parts.push(`<div class="card compact"><table class="tbl">${slip.items.map((l, i) => `<tr><td class="tiny muted nowrap">${esc(koShort(l.kickoff))}</td><td><div class="row" style="gap:6px">${badge(l.home, l.badges && l.badges.home, 20)}${badge(l.away, l.badges && l.badges.away, 20)}<div class="b grow">${esc(l.home)} <span class="muted">v</span> ${esc(l.away)}</div></div><div class="sel"><b>${esc(l.label)}</b></div><div class="tiny muted">${flag(l.country)} ${esc(l.competition)} · ${pct(l.p)}</div></td><td class="right nowrap"><b>${f2(l.odds)}</b></td><td class="right"><button class="link" data-rm="${i}" aria-label="Remove">${icon('x')}</button></td></tr>`).join('')}</table></div>`);
+      parts.push(`<div class="card compact"><table class="tbl">${slip.items.map((l, i) => `<tr><td class="tiny muted nowrap">${esc(koShort(l.kickoff))}</td><td><div class="row" style="gap:6px">${badge(l.home, l.badges && l.badges.home, 20)}${badge(l.away, l.badges && l.badges.away, 20)}<div class="b grow">${esc(l.home)} <span class="muted">v</span> ${esc(l.away)}</div></div><div class="sel"><b>${esc(l.label)}</b>${l.sport === 'tennis' ? '<span class="sport-chip">🎾 tennis</span>' : ''}</div><div class="tiny muted">${flag(l.country)} ${esc(l.competition)} · ${pct(l.p)}</div></td><td class="right nowrap"><b>${f2(l.odds)}</b></td><td class="right"><button class="link" data-rm="${i}" aria-label="Remove">${icon('x')}</button></td></tr>`).join('')}</table></div>`);
       parts.push(`<div class="card"><div class="row"><div class="grow"><div class="k tiny muted">Total odds</div><div class="v" style="font-size:24px;font-weight:800">${f2(odds)}</div></div><div class="grow"><label class="tiny muted">Stake (optional)</label><input id="slip-stake" type="number" inputmode="decimal" placeholder="e.g. 50" value="${esc(slip.stake)}"></div></div>
         ${stake ? `<div class="small" style="margin-top:8px">Potential return <b>${f2(stake * odds)}</b> · profit ${f2(stake * odds - stake)}</div>` : ''}
         <div class="tiny muted" style="margin-top:8px">Model probability that every leg wins: <b>${pct(slip.items.reduce((a, l) => a * (l.p || 0), 1))}</b> (fair odds ${f2(1 / Math.max(1e-6, slip.items.reduce((a, l) => a * (l.p || 0), 1)))}). Prices are the Sportybet prices at the last analysis — check them before you bet.</div>
@@ -93,6 +187,7 @@
 
   // ------------------------------------------------------------------ settlement
   function scoreFor(l) {
+    if (l.sport === 'tennis') return tennisScoreFor(l);
     // live feed while the match is on, the published day file (final score + match statistics) afterwards
     const s = l.eid && state.live[l.eid];
     const day = state.days[l.kickoff.slice(0, 10)];
@@ -105,6 +200,7 @@
   }
   function settleLeg(l, sc) {
     if (!sc) return 'pending';
+    if (l.sport === 'tennis') return settleTennis(l, sc);
     if (sc.postponed) return 'void';
     if (!sc.ft) return 'pending';
     const g = selGroup(l.sel);
@@ -117,8 +213,15 @@
     return ok == null ? 'pending' : ok ? 'won' : 'lost';
   }
   function legLive(l, sc) {
-    if (!sc) return { cls: '', text: 'not started' };
     if (l.status === 'won') return { cls: 'good', text: '✅ won' }; if (l.status === 'lost') return { cls: 'bad', text: '❌ lost' }; if (l.status === 'void') return { cls: '', text: 'void' };
+    if (l.sport === 'tennis') {
+      if (!sc) return { cls: '', text: 'not started' };
+      const T = TNS(); const lv = T && T.liveFor ? T.liveFor(l.eid) : null;
+      if (lv && lv.live) { const sets = (lv.sets || []).map((s) => s.join('-')).join(' '); return { cls: 'warn', text: sets ? `in play · ${sets}` : 'in play' }; }
+      if (sc.ft) return { cls: '', text: 'final result in' };
+      return { cls: 'warn', text: 'in play' };
+    }
+    if (!sc) return { cls: '', text: 'not started' };
     if (selGroup(l.sel) === 'corners' || selGroup(l.sel) === 'cards') return { cls: sc.ft ? '' : 'warn', text: sc.ft ? 'waiting for match stats' : 'in play' };
     return liveVerdict(l.sel, { status: sc.live ? sc.status : sc.ft ? 'FT' : 'NS', hg: sc.hg, ag: sc.ag });
   }
