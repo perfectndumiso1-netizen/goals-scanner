@@ -2227,7 +2227,7 @@ def main() -> None:
     # reads the world archive + a short fixture window; never feeds the model)
     try:
         import leagues
-            leagues.build(LS_DIR / "stages", now, DATA_DIR / "app" / "leagues", tz_hours=2)
+        leagues.build(LS_DIR / "stages", now, DATA_DIR / "app" / "leagues", tz_hours=2)
     except Exception as exc:  # noqa: BLE001
         log.warning("Leagues build failed (non-fatal): %s", exc)
 
