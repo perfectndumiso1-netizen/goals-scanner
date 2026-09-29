@@ -90,6 +90,7 @@
     state.lgSeg = 'table';
     PR.push({ type: 'league', slug });
   }
+  PR.openLeague = openLeague;
   PR.pages.league = function (page) {
     const d = detailCached(page.slug);
     const idxRow = (LG.idx && (LG.idx.leagues || []).find((x) => x.slug === page.slug)) || null;
@@ -104,13 +105,26 @@
       view().innerHTML = parts.join(''); wireBack(); return;
     }
     if (d.error) { parts.push(`<div class="card empty">Could not load this league (${esc(d.error)}).<br><button class="btn" id="lg-retry">Try again</button></div>`); view().innerHTML = parts.join(''); wireBack(); return; }
+    // data-quality status from the coverage registry (the scanner's machine-readable registry)
+    const st = d.status || (idxRow && idxRow.status);
+    if (st) {
+      const cls = st === 'ACTIVE' ? 'good' : (st === 'FINISHED' ? '' : 'warn');
+      const label = { ACTIVE: 'active', UPCOMING: 'upcoming', FINISHED: 'finished', INSUFFICIENT_HISTORY: 'insufficient history', INSUFFICIENT_STATS: 'insufficient stats', DATA_ERROR: 'data error', NOT_SUPPORTED: 'not supported' }[st] || st;
+      parts.push(`<div class="chips small-chips" style="margin-top:-4px"><span class="chip ${cls}">${icon('shield', 'sm')} ${label}</span>${idxRow && idxRow.eligible === true ? '<span class="chip good">model-eligible</span>' : (idxRow && idxRow.eligible === false ? '<span class="chip warn">not model-eligible</span>' : '')}${d.status_reason ? `<span class="chip">${esc(d.status_reason)}</span>` : ''}</div>`);
+    }
     let seg = state.lgSeg;
     if (seg === 'table' && !(d.table && d.table.length)) seg = 'results';
     const items = [];
     if (d.table && d.table.length) items.push(['table', `${icon('chart', 'sm')} Table`]);
-    items.push(['results', `${icon('ball', 'sm')} Results`], ['fixtures', `${icon('calendar', 'sm')} Fixtures`]);
+    items.push(['trends', `${icon('trend', 'sm')} Trends`], ['results', `${icon('ball', 'sm')} Results`], ['fixtures', `${icon('calendar', 'sm')} Fixtures`], ['teams', `${icon('users', 'sm')} Teams`], ['news', `${icon('doc', 'sm')} News`]);
     parts.push(`<div class="card compact">${segmented(items, seg, 'lseg')}</div>`);
-    if (seg === 'table') {
+    if (seg === 'trends') {
+      leagueTrends(parts, d);
+    } else if (seg === 'teams') {
+      leagueTeams(parts, d);
+    } else if (seg === 'news') {
+      leagueNews(parts, d);
+    } else if (seg === 'table') {
       parts.push(`<div class="card compact"><div class="b">Standings</div><div class="tiny muted" style="margin-bottom:4px">Points, goal difference, then goals scored · form is the last five matches</div>
         <table class="tbl head table" style="margin-top:4px"><tr><th>#</th><th>Team</th><th class="right">P</th><th class="right">W-D-L</th><th class="right">GD</th><th class="right">Pts</th><th class="right">Form</th></tr>
         ${d.table.map((x) => `<tr><td class="muted">${x.pos}</td><td><div class="tname">${badge(x.team, null, 22)}<span class="nm">${esc(x.team)}</span></div></td><td class="right">${x.p}</td><td class="right">${x.w}-${x.d}-${x.l}</td><td class="right">${x.gd > 0 ? '+' : ''}${x.gd}</td><td class="right b">${x.pts}</td><td class="right">${x.form ? formBadges(x.form.split('')) : '<span class="tiny muted">–</span>'}</td></tr>`).join('')}</table></div>`);
@@ -137,7 +151,75 @@
     wireBack();
     $$('[data-lseg]').forEach((b) => { b.onclick = () => { state.lgSeg = b.dataset.lseg; PR.render(); }; });
     const r = $('#lg-retry'); if (r) r.onclick = () => { delete LG.det[page.slug]; ensureDetail(page.slug); };
+    if (seg === 'news' && PR.wireNewsLinks) PR.wireNewsLinks();
+    $$('[data-lgteam]').forEach((el) => { el.onclick = () => PR.openTeam(el.dataset.lgteam, el.dataset.country, el.dataset.div); });
   };
+
+  // ------------------------------------------------------------------ league TREND tab
+  function leagueTrends(parts, d) {
+    const t = d.trends;
+    if (!t) { parts.push(`<div class="card empty">No finished matches on record yet — trends appear as results come in.</div>`); return; }
+    const W = [['last5', 'L5'], ['last10', 'L10'], ['last20', 'L20'], ['season', 'Season'], ['previous_season', 'Prev. season']];
+    const pctf = (v) => (v == null ? 'N/A' : Math.round(v * 100) + '%');
+    const num2 = (v) => (v == null ? 'N/A' : String(Math.round(v * 100) / 100));
+    const M = [
+      ['avg_goals', 'Avg goals', num2], ['o05', 'Over 0.5', pctf], ['o15', 'Over 1.5', pctf],
+      ['o25', 'Over 2.5', pctf], ['o35', 'Over 3.5', pctf], ['btts', 'BTTS', pctf],
+      ['home_win', 'Home win', pctf], ['draw', 'Draw', pctf], ['away_win', 'Away win', pctf],
+      ['home_goals', 'Home goals', num2], ['away_goals', 'Away goals', num2],
+      ['home_clean_sheet', 'Home clean sheet', pctf], ['away_clean_sheet', 'Away clean sheet', pctf],
+      ['home_failed_to_score', 'Home fails to score', pctf], ['away_failed_to_score', 'Away fails to score', pctf],
+      ['avg_corners', 'Avg corners', num2], ['avg_cards', 'Avg cards', num2],
+    ];
+    const rows = M.map(([k, label, fmt]) => {
+      const cells = W.map(([wk, wl]) => {
+        const w = t[wk]; const v = w ? w[k] : null;
+        const note = (k === 'avg_corners' || k === 'avg_cards') && w && w.n && w[k + '_n'] != null && w[k + '_n'] < w.n ? ` <span class="tiny muted">(${w[k + '_n']}/${w.n})</span>` : '';
+        return `<div class="cell"><span class="cl">${wl}${w ? ` · ${w.n}` : ''}</span><b>${fmt(v)}</b></div>`;
+      }).join('');
+      return `<div class="trend-metric"><div class="k">${label}</div><div class="v">${cells}</div></div>`;
+    }).join('');
+    parts.push(`<div class="card tiny muted">Data-driven league trends, computed only from published results. A window needs at least 5 finished matches — thinner windows show N/A rather than a guess. Corners/cards use only the matches whose statistics the provider publishes.</div>`);
+    parts.push(`<div class="card compact"><div class="b" style="margin-bottom:2px">Trend windows</div><div class="tiny muted" style="margin-bottom:4px">n = matches in window</div>${rows}</div>`);
+    const ch = t.change_last10_vs_season;
+    if (ch) {
+      const pp = (v) => (v == null ? 'N/A' : (v > 0 ? '+' : '') + Math.round(v * 100) + ' pp');
+      parts.push(`<div class="card compact"><div class="b">Last 10 vs season average</div><div class="tiny muted" style="margin-top:4px">descriptive only — the prediction model does not use these numbers</div>
+        <div class="grid4" style="margin-top:6px"><div class="cell"><div class="k">Avg goals</div><div class="v">${ch.avg_goals > 0 ? '+' : ''}${ch.avg_goals}</div></div><div class="cell"><div class="k">Over 2.5</div><div class="v">${pp(ch.o25)}</div></div><div class="cell"><div class="k">BTTS</div><div class="v">${pp(ch.btts)}</div></div></div></div>`);
+    }
+  }
+
+  // ------------------------------------------------------------------ league TEAMS tab
+  function leagueTeams(parts, d) {
+    const attrs = (name) => d.teams_div ? ` data-lgteam="${esc(name)}" data-country="${esc(d.country || '')}" data-div="${esc(d.teams_div)}"` : '';
+    if (d.table && d.table.length) {
+      parts.push(`<div class="card compact"><div class="b">Teams (${d.table.length})</div><div class="tiny muted" style="margin-bottom:4px">tap a team for its profile, form and season numbers</div>
+        <table class="tbl head table" style="margin-top:4px"><tr><th>#</th><th>Team</th><th class="right">P</th><th class="right">GD</th><th class="right">Pts</th><th class="right">Form</th></tr>
+        ${d.table.map((x) => `<tr class="tap"${attrs(x.team)}><td class="muted">${x.pos}</td><td><div class="tname">${badge(x.team, null, 22)}<span class="nm">${esc(x.team)}</span></div></td><td class="right">${x.p}</td><td class="right">${x.gd > 0 ? '+' : ''}${x.gd}</td><td class="right b">${x.pts}</td><td class="right">${x.form ? formBadges(x.form.split('')) : '<span class="tiny muted">–</span>'}</td></tr>`).join('')}</table></div>`);
+      return;
+    }
+    // knockout / insufficient data: list the teams that appear in the archived results
+    const cnt = {};
+    (d.results || []).forEach((r) => { cnt[r.home] = (cnt[r.home] || 0) + 1; cnt[r.away] = (cnt[r.away] || 0) + 1; });
+    const teams = Object.entries(cnt).sort((a, b) => b[1] - a[1]).slice(0, 24);
+    if (!teams.length) { parts.push(`<div class="card empty">No teams on record yet.</div>`); return; }
+    parts.push(`<div class="card compact"><div class="b">Teams seen in the archive</div><div class="tiny muted" style="margin-bottom:4px">knockout / round format — no league table applies · matches in the archive</div>
+      ${teams.map(([t, n]) => `<div class="lg-row tap"${attrs(t)}><div class="lg-ic">${badge(t, null, 24)}</div><div class="grow b">${esc(t)}</div><div class="lg-right tiny muted">${n} match${n === 1 ? '' : 'es'}</div></div>`).join('')}</div>`);
+  }
+
+  // ------------------------------------------------------------------ league NEWS tab
+  function leagueNews(parts, d) {
+    const news = d.news || {};
+    const teams = Object.entries(news.teams || {}).filter(([, a]) => (a || []).length);
+    if (!(news.league || []).length && !teams.length) {
+      parts.push(`<div class="card empty">No recent headlines for this competition yet. News refreshes at most every 6 hours with each scan.</div>`);
+      return;
+    }
+    const item = (it) => (PR.newsItem ? PR.newsItem(it) : `<div class="news-item"><b style="font-size:13px">${esc(it.title || '')}</b><div class="tiny muted">${esc(it.source || '')}</div></div>`);
+    parts.push(`<div class="card tiny muted">Recent reporting about this competition and its leading teams — headlines only, from Google News. Clicking opens the original source. News is never used by the prediction model.</div>`);
+    if ((news.league || []).length) parts.push(`<div class="card compact"><div class="b" style="margin-bottom:4px">${icon('trophy', 'sm')} ${esc(d.league || 'This competition')}</div>${news.league.map(item).join('')}</div>`);
+    teams.forEach(([t, list]) => parts.push(`<div class="card compact"><div class="b" style="margin-bottom:4px">${badge(t, null, 20)} ${esc(t)}</div>${list.map(item).join('')}</div>`));
+  }
 
   // expose for tests
   PR.leaguesApi = { loadIndex, loadDetail };

@@ -93,13 +93,16 @@
       <div class="x12"><div class="lbl"><span>${esc(f.home)} ${pct(x12(f, 'H'))}</span><span>Draw ${pct(x12(f, 'D'))}</span><span>${esc(f.away)} ${pct(x12(f, 'A'))}</span></div>
         <div class="tri"><span class="h" style="width:${Math.round((x12(f, 'H') || 0) * 100)}%"></span><span class="d" style="width:${Math.round((x12(f, 'D') || 0) * 100)}%"></span><span class="a" style="width:${Math.round((x12(f, 'A') || 0) * 100)}%"></span></div></div>
       <div class="chips small-chips" style="margin-top:6px;justify-content:center">${qualityChip(f)}${f.data_ok ? '' : '<span class="chip warn">⚠️ low data — never shortlisted</span>'}</div></div>`);
-    parts.push(`<div class="card compact">${segmented([['overview', 'Overview'], ['markets', 'Markets'], ['trends', 'Trends'], ['stats', 'Stats'], ['h2h', 'H2H'], ['data', 'Data'], ['lineups', 'Line-ups']], v, 'mv')}</div>`);
+    parts.push(`<div class="card compact">${segmented([['overview', 'Overview'], ['form', 'Form'], ['markets', 'Markets'], ['trends', 'Trends'], ['stats', 'Stats'], ['table', 'Table'], ['h2h', 'H2H'], ['news', 'News'], ['data', 'Data'], ['lineups', 'Line-ups']], v, 'mv')}</div>`);
     if (v === 'lineups') parts.push(lineupsBlock(f, s));
     else if (!x) parts.push(skeleton(5));
     else if (v === 'overview') matchOverview(parts, x, s);
+    else if (v === 'form') matchForm(parts, f);
     else if (v === 'trends') matchTrends(parts, x);
     else if (v === 'markets') matchMarkets(parts, x);
     else if (v === 'stats') matchStats(parts, x, th, ta);
+    else if (v === 'table') matchTable(parts, f, th, ta);
+    else if (v === 'news') matchNews(parts, f, x);
     else if (v === 'data') matchData(parts, x);
     else matchH2H(parts, x);
     if (x) parts.push(`<div class="card compact"><div class="small muted">Detailed stats of this analysis as a spreadsheet file — probabilities, prices, team profiles, recent form, head-to-head, trends, corners & cards (opens in Google Sheets / Excel).</div><button class="btn" id="dl-csv" style="margin-top:8px;width:100%">${icon('download', 'sm')} Download stats (CSV)</button></div>`);
@@ -341,6 +344,114 @@
     parts.push(recent(A, f.away_long || f.away, 'away', A.venue_last5, 'last 5 away'));
   }
 
+  // ------------------------------------------------------------------ FORM TAB
+  function matchForm(parts, f) {
+    const tp = teamsCached(f.div) || {};
+    const rec = (side) => ((tp.teams || {})[side === 'home' ? f.home : f.away]) || null;
+    const rowsOf = (ms) => (ms || []).map((m) =>
+      `<tr><td class="tiny muted nowrap">${esc(m.date)}</td><td><div class="row" style="gap:6px"><i class="f ${wdl(m.gf, m.ga)}">${wdl(m.gf, m.ga)}</i>${badge(m.opp, null, 22)}<span class="nowrap">${m.venue === 'H' ? 'v' : '@'} ${esc(m.opp)}</span></div></td><td class="right nowrap"><b>${m.gf} – ${m.ga}</b></td><td class="tiny muted nowrap">${esc(m.league || '')}</td></tr>`).join('');
+    const block = (side, name, r) => {
+      const last = (r && r.last) || [];
+      const venue = side === 'home' ? 'H' : 'A';
+      const ven = last.filter((m) => m.venue === venue).slice(0, 5);
+      const t10 = (r && r.trends && r.trends.last10) || null;
+      const t5 = (r && r.trends && r.trends.last5) || null;
+      const chips = [];
+      if (t10) chips.push(`<span class="chip">last 10: ${t10.pts} pts · ${t10.gf_avg} gf / ${t10.ga_avg} ga</span>`);
+      if (t10) chips.push(`<span class="chip">O1.5 ${pct(t10.o15)} · O2.5 ${pct(t10.o25)}</span>`);
+      if (t5) chips.push(`<span class="chip">last 5: ${t5.pts} pts</span>`);
+      return `<div class="card compact"><div class="row" style="gap:6px;flex-wrap:wrap"><div class="grow b row" style="gap:6px">${fxBadge(f, side)}${esc(name)}</div>${chips.join('')}</div>
+        ${last.length ? `<table class="tbl" style="margin-top:4px"><tr><th>Date</th><th>Match (all comps.)</th><th class="right">Score</th><th>Competition</th></tr>${rowsOf(last)}</table>` : `<div class="tiny muted" style="margin-top:6px">N/A — not enough recent matches to show form.</div>`}
+        ${ven.length ? `<div class="b tiny" style="margin-top:8px">Last ${ven.length} ${side === 'home' ? 'at home' : 'away'}</div><table class="tbl" style="margin-top:2px">${rowsOf(ven)}</table>` : ''}</div>`;
+    };
+    parts.push(`<div class="card tiny muted">Recent results of both clubs (all competitions, most recent first). Points and rates are historical frequencies, not model inputs — the model's own numbers live on the Overview.</div>`);
+    parts.push(block('home', f.home_long || f.home, rec('home')));
+    parts.push(block('away', f.away_long || f.away, rec('away')));
+  }
+
+  // ------------------------------------------------------------------ TABLE TAB
+  function matchTable(parts, f, th, ta) {
+    const tp = teamsCached(f.div);
+    const tbl = tp && tp.table;
+    if (!tbl || !tbl.length) {
+      parts.push(`<div class="card empty">No standings for this competition${(f.competition || '').toLowerCase().includes('cup') || (f.league || '').toLowerCase().includes('cup') ? ' (knockout format — a bracket is not a table)' : ''}.</div>`);
+      return;
+    }
+    const hl = (name) => name === f.home || name === f.away;
+    parts.push(`<div class="card compact"><div class="row" style="gap:6px;flex-wrap:wrap"><div class="grow b">${icon('chart', 'sm')} ${esc(f.competition || f.league || 'Standings')}</div><span class="tiny muted">${tp.season_from ? 'season from ' + esc(tp.season_from) : ''} · ${tbl.length} teams</span></div>
+      <table class="tbl table head" style="margin-top:4px"><tr><th>#</th><th>Team</th><th class="right">P</th><th class="right">W-D-L</th><th class="right">GF</th><th class="right">GA</th><th class="right">GD</th><th class="right">Pts</th><th class="right">Form</th></tr>
+      ${tbl.map((r) => `<tr class="${hl(r.team) ? 'hl' : ''}"><td class="muted">${r.pos}</td><td><div class="tname">${badge(r.team, null, 20)}<span class="nm">${esc(r.team)}${r.team === f.home ? ' <span class="tiny">H</span>' : r.team === f.away ? ' <span class="tiny">A</span>' : ''}</span></div></td><td class="right">${r.p}</td><td class="right">${r.w}-${r.d}-${r.l}</td><td class="right">${r.gf}</td><td class="right">${r.ga}</td><td class="right">${r.gd > 0 ? '+' : ''}${r.gd}</td><td class="right b">${r.pts}</td><td class="right">${r.form ? formBadges(r.form.split('')) : '<span class="tiny muted">–</span>'}</td></tr>`).join('')}</table></div>`);
+    // home / away record of the two clubs
+    const rec = (side) => ((tp.teams || {})[side === 'home' ? f.home : f.away]) || null;
+    const half = (side, name, r) => {
+      if (!r) return '';
+      const s = side === 'home' ? r.home : r.away;
+      if (!s || !s.p) return '';
+      return `<div class="card compact"><div class="b row" style="gap:6px">${fxBadge(f, side)}${esc(name)} <span class="muted" style="font-weight:500">— ${side === 'home' ? 'home' : 'away'} record</span></div>
+        <div class="grid4" style="margin-top:6px"><div class="cell"><div class="k">P</div><div class="v">${s.p}</div></div><div class="cell"><div class="k">W-D-L</div><div class="v">${s.w}-${s.d}-${s.l}</div></div><div class="cell"><div class="k">GF / GA</div><div class="v">${s.gf} / ${s.ga}</div></div><div class="cell"><div class="k">O2.5</div><div class="v">${pct(s.o25)}</div></div></div></div>`;
+    };
+    parts.push(half('home', f.home_long || f.home, rec('home')));
+    parts.push(half('away', f.away_long || f.away, rec('away')));
+  }
+
+  // ------------------------------------------------------------------ NEWS TAB
+  PR.wireNewsLinks = function () {
+    setTimeout(() => {
+      $$('[data-newslink]').forEach((el) => { if (el.dataset.wired) return; el.dataset.wired = '1'; el.onclick = () => { const u = el.dataset.newslink; if (!u) return; if (PR.native && PR.native.openUrl) PR.native.openUrl(u); else window.open(u, '_blank'); }; });
+    }, 0);
+  };
+  function newsItem(it) {
+    const when = it.when ? esc(String(it.when).replace('T', ' ').slice(0, 16)) : '';
+    const b = { '24h': 'chip good', '3d': 'chip', '7d': 'chip warn' }[it.bucket] || 'chip';
+    return `<div class="news-item tap" data-newslink="${esc(it.link || '')}"><div class="row" style="gap:6px;align-items:flex-start"><div class="grow"><div class="b" style="font-size:13px">${esc(it.title || '(untitled)')}</div><div class="tiny muted" style="margin-top:2px">${esc(it.source || 'Google News')}${when ? ' · ' + when : ''} ${b ? `<span class="${b}" style="margin-left:4px">${it.bucket === '24h' ? '24 h' : it.bucket === '3d' ? '3 d' : '7 d'}</span>` : ''}</div></div></div></div>`;
+  }
+  PR.newsItem = newsItem;
+  function matchNews(parts, f, x) {
+    const news = x.news || {};
+    const sec = (title, items) => (items && items.length ? `<div class="card compact"><div class="b" style="margin-bottom:4px">${title}</div>${items.map(newsItem).join('')}</div>` : '');
+    const total = (news.match || []).length + (news.home || []).length + (news.away || []).length;
+    if (!total) {
+      parts.push(`<div class="card empty">No recent headlines found for this match or either club. News refreshes at most every 6 hours with each scan.</div>`);
+    } else {
+      parts.push(`<div class="card tiny muted">Recent reporting from Google News — headlines only, for your reference. Clicking an item opens the original source. News is never used by the prediction model.</div>`);
+      parts.push(sec(`${icon('sparkle', 'sm')} This match`, news.match));
+      parts.push(sec(`${icon('ball', 'sm')} ${esc(f.home)}`, news.home));
+      parts.push(sec(`${icon('ball', 'sm')} ${esc(f.away)}`, news.away));
+    }
+    PR.wireNewsLinks();
+  }
+
+  // ------------------------------------------------------------------ team TREND tab
+  function teamTrends(parts, r) {
+    const t = r.trends;
+    if (!t || (!t.last5 && !t.last10 && !t.season)) {
+      parts.push(`<div class="card empty">Not enough finished matches yet to compute trend windows (minimum 3 per window).</div>`);
+      return;
+    }
+    const W = [['last5', 'L5'], ['last10', 'L10'], ['last20', 'L20'], ['season', 'Season'], ['previous_season', 'Prev. season']];
+    const pctf = (v) => (v == null ? 'N/A' : Math.round(v * 100) + '%');
+    const num2 = (v) => (v == null ? 'N/A' : String(Math.round(v * 100) / 100));
+    const inN = (w, k) => (w && w.n ? `${w[k]}/${w.n}` : 'N/A');
+    const M = [
+      ['pts', 'Points', (w) => (w ? w.pts : null)], ['ppg', 'Pts / game', (w) => (w ? w.ppg : null), num2],
+      ['gf_avg', 'Goals for / game', (w) => (w ? w.gf_avg : null), num2], ['ga_avg', 'Goals against / game', (w) => (w ? w.ga_avg : null), num2],
+      ['o15', 'Over 1.5 goals', (w) => (w ? w.o15 : null), pctf], ['o25', 'Over 2.5 goals', (w) => (w ? w.o25 : null), pctf], ['o35', 'Over 3.5 goals', (w) => (w ? w.o35 : null), pctf],
+      ['btts', 'Both teams scored', (w) => (w ? w.btts : null), pctf], ['cs', 'Clean sheets', (w) => (w ? w.cs : null), pctf], ['fts', 'Failed to score', (w) => (w ? w.fts : null), pctf],
+      ['win', 'Win rate', (w) => (w ? w.win : null), pctf],
+      ['scored_in_n', 'Scored in', (w) => (w ? `${w.scored_in_n}/${w.n}` : null)], ['conceded_in_n', 'Conceded in', (w) => (w ? `${w.conceded_in_n}/${w.n}` : null)],
+    ];
+    const rows = M.map(([k, label, get, fmt]) => {
+      const cells = W.map(([wk, wl]) => {
+        const w = t[wk]; const v = get(w);
+        return `<div class="cell"><span class="cl">${wl}${w ? ` · ${w.n}` : ''}</span><b>${v == null ? 'N/A' : (fmt ? fmt(v) : v)}</b></div>`;
+      }).join('');
+      return `<div class="trend-metric"><div class="k">${label}</div><div class="v">${cells}</div></div>`;
+    }).join('');
+    parts.push(`<div class="card tiny muted">Trend windows for ${esc(pageName(r))}, computed only from published results. A window needs at least 3 finished matches — thinner windows show N/A, never a guess. “Prev. season” is the part of the archive before the current season start; it is N/A when the archive does not reach back that far. These are historical frequencies, not model probabilities.</div>`);
+    parts.push(`<div class="card compact"><div class="b" style="margin-bottom:2px">Trend windows</div><div class="tiny muted" style="margin-bottom:4px">n = matches in window</div>${rows}</div>`);
+  }
+  function pageName(r) { return r && r.name ? r.name : 'this team'; }
+
   // ------------------------------------------------------------------ TEAM PAGE
   PR.pages.team = function (page) {
     ensureTeams(page.div);
@@ -352,8 +463,9 @@
     const a = r.all;
     parts.push(`<div class="card"><div class="thead">${badge(page.name, null, 56)}<div class="grow"><div class="h1">${esc(page.name)}</div><div class="small muted">${flag(page.country)} ${esc(t.league)} · ${r.pos ? `${r.pos}${ord(r.pos)} of ${r.teams_in_league}` : ''} · ${a.pts} pts from ${a.p}</div>${r.squad && r.squad.value ? `<div class="value-tag">💶 Squad value ${fmtValue(r.squad.value)} · avg age ${f1(r.squad.avg_age)} · ${r.squad.size} players</div>` : ''}<div style="margin-top:4px">${formBadges(r.form.split(''))}</div></div></div>
       <div class="grid4" style="margin-top:8px"><div class="cell"><div class="k">Record</div><div class="v">${a.w}-${a.d}-${a.l}</div><div class="tiny muted">W-D-L</div></div><div class="cell"><div class="k">Goals</div><div class="v">${a.gf} : ${a.ga}</div><div class="tiny muted">${f2(a.gf_avg)} / ${f2(a.ga_avg)} per game</div></div><div class="cell"><div class="k">Points / game</div><div class="v">${f2(a.ppg)}</div><div class="tiny muted">streak ${esc(r.streak || '–')}</div></div><div class="cell"><div class="k">Over 2.5</div><div class="v">${pct(a.o25)}</div><div class="tiny muted">BTTS ${pct(a.btts)}</div></div></div></div>`);
-    parts.push(`<div class="card compact">${segmented([['overview', 'Overview'], ['matches', 'Matches'], ['table', 'Table']], v, 'tv')}</div>`);
-    if (v === 'overview') {
+    parts.push(`<div class="card compact">${segmented([['overview', 'Overview'], ['trends', 'Trends'], ['matches', 'Matches'], ['table', 'Table']], v, 'tv')}</div>`);
+    if (v === 'trends') teamTrends(parts, r);
+    else if (v === 'overview') {
       const row = (label, k, fmt) => `<tr><td>${label}</td><td class="right">${(fmt || pct)(r.all[k])}</td><td class="right">${(fmt || pct)(r.home[k])}</td><td class="right">${(fmt || pct)(r.away[k])}</td></tr>`;
       parts.push(`<div class="card compact"><div class="b">Season splits</div><table class="tbl head" style="margin-top:4px"><tr><th></th><th class="right">All</th><th class="right">Home</th><th class="right">Away</th></tr>
         <tr><td>Played</td><td class="right">${r.all.p}</td><td class="right">${r.home.p}</td><td class="right">${r.away.p}</td></tr>

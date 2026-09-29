@@ -27,12 +27,15 @@ from collections import defaultdict
 from datetime import datetime, timedelta
 from pathlib import Path
 
+from teamstats import CALENDAR_YEAR   # season-boundary convention (presentation only — never model input)
+
 log = logging.getLogger("leagues")
 
 RESULTS_KEEP = 40       # most recent finished matches published per stage
 FIXTURES_KEEP = 12      # upcoming fixtures published per stage
 FIXTURE_HOURS = 48      # look-ahead for the fixtures list (2 extra day-feeds, 36 h apart)
 _MIN_TEAMS = 4          # a table needs at least this many teams
+TREND_MIN_N = 5         # a trend window needs at least this many matches, otherwise N/A (never 0)
 
 
 def slug(key: str) -> str:
@@ -40,7 +43,7 @@ def slug(key: str) -> str:
     return re.sub(r"[^A-Za-z0-9_.-]+", "_", key.replace("/", "__")) + ".json"
 
 
-def _evt(rec) -> dict | None:
+def _evt(eid, rec) -> dict | None:
     """One archived event [esd, home_id, home, away_id, away, hg, ag, (hth, hta)] -> dict, or None."""
     if not isinstance(rec, (list, tuple)) or len(rec) < 7:
         return None
@@ -57,7 +60,7 @@ def _evt(rec) -> dict | None:
     if not home or not away:
         return None
     finished = hg is not None and ag is not None
-    return {"ko": ko, "home": str(home), "away": str(away), "hg": hg, "ag": ag,
+    return {"eid": str(eid), "ko": ko, "home": str(home), "away": str(away), "hg": hg, "ag": ag,
             "hth": hth, "hta": hta, "finished": finished}
 
 
@@ -87,6 +90,77 @@ def compute_table(evts: list[dict]) -> list[dict]:
     for i, r in enumerate(rows, 1):
         r["pos"] = i
     return rows
+
+
+def _rate(n: int, d: int):
+    return round(n / d, 3) if d else None
+
+
+def _window_trend(evts: list[dict], stats: dict) -> dict | None:
+    """Aggregate trend for one list of finished events (newest first). None when too few matches:
+    a trend is only computed from real data — insufficient windows stay N/A, never zero."""
+    n = len(evts)
+    if n < TREND_MIN_N:
+        return None
+    tot = [e["hg"] + e["ag"] for e in evts]
+    home_g = [e["hg"] for e in evts]
+    away_g = [e["ag"] for e in evts]
+    # corners / cards: only over the matches that actually carry match statistics (N/A otherwise)
+    corner_n = card_n = 0
+    corners = cards = 0
+    for e in evts:
+        st = stats.get(e["eid"])
+        if st and len(st) >= 6:
+            if st[0] is not None and st[1] is not None:
+                corners += st[0] + st[1]; corner_n += 1
+            if None not in (st[2], st[3], st[4], st[5]):
+                cards += st[2] + st[4] + st[3] + st[5]; card_n += 1
+    return {
+        "n": n,
+        "avg_goals": round(sum(tot) / n, 2),
+        "o05": _rate(sum(1 for t in tot if t >= 1), n),
+        "o15": _rate(sum(1 for t in tot if t >= 2), n),
+        "o25": _rate(sum(1 for t in tot if t >= 3), n),
+        "o35": _rate(sum(1 for t in tot if t >= 4), n),
+        "btts": _rate(sum(1 for e in evts if e["hg"] > 0 and e["ag"] > 0), n),
+        "home_win": _rate(sum(1 for e in evts if e["hg"] > e["ag"]), n),
+        "draw": _rate(sum(1 for e in evts if e["hg"] == e["ag"]), n),
+        "away_win": _rate(sum(1 for e in evts if e["ag"] > e["hg"]), n),
+        "home_goals": round(sum(home_g) / n, 2),
+        "away_goals": round(sum(away_g) / n, 2),
+        "home_clean_sheet": _rate(sum(1 for e in evts if e["ag"] == 0), n),
+        "away_clean_sheet": _rate(sum(1 for e in evts if e["hg"] == 0), n),
+        "home_failed_to_score": _rate(sum(1 for e in evts if e["hg"] == 0), n),
+        "away_failed_to_score": _rate(sum(1 for e in evts if e["ag"] == 0), n),
+        "avg_corners": round(corners / corner_n, 2) if corner_n else None,
+        "corners_n": corner_n,
+        "avg_cards": round(cards / card_n, 2) if card_n else None,
+        "cards_n": card_n,
+    }
+
+
+def league_trends(finished: list[dict], season_start, stats: dict) -> dict:
+    """Per-league trend block: last 5/10/20, current season, previous season, plus the
+    descriptive last-10-vs-season change. All windows are data-driven; None = N/A."""
+    season = [e for e in finished if e["ko"] >= season_start]
+    previous = [e for e in finished if e["ko"] < season_start]
+    out = {
+        "last5": _window_trend(finished[:5], stats),
+        "last10": _window_trend(finished[:10], stats),
+        "last20": _window_trend(finished[:20], stats),
+        "season": _window_trend(season, stats),
+        "previous_season": _window_trend(previous, stats),
+        "season_from": season_start.strftime("%Y-%m-%d") if season_start else None,
+    }
+    # change detection: last 10 vs season average (descriptive only — never a recommendation)
+    a, b = out["last10"], out["season"]
+    if a and b:
+        out["change_last10_vs_season"] = {
+            "avg_goals": round(a["avg_goals"] - b["avg_goals"], 2),
+            "o25": round(a["o25"] - b["o25"], 3) if (a["o25"] is not None and b["o25"] is not None) else None,
+            "btts": round(a["btts"] - b["btts"], 3) if (a["btts"] is not None and b["btts"] is not None) else None,
+        }
+    return out
 
 
 def league_like(evts: list[dict]) -> bool:
@@ -155,6 +229,17 @@ def build(stages_dir: Path, now: datetime, out_dir: Path, tz_hours: int = 2) -> 
     for e in _upcoming(now, tz_hours):
         up_by_stage[f"{e['ccd']}/{e['scd']}"].append(e)
 
+    # per-stage status from the coverage registry (coverage.build runs first in the scanner)
+    status_by_key: dict[str, dict] = {}
+    status_file = out_dir / "status.json"
+    if status_file.exists():
+        try:
+            for e in json.loads(status_file.read_text(encoding="utf-8")).get("competitions", []):
+                if e.get("provider") == "livescore":
+                    status_by_key[e["provider_id"]] = e
+        except (OSError, ValueError):
+            pass
+
     index: list[dict] = []
     slugs: set[str] = set()
     n = 0
@@ -162,7 +247,7 @@ def build(stages_dir: Path, now: datetime, out_dir: Path, tz_hours: int = 2) -> 
         d = _stage_data(path)
         if not d:
             continue
-        evts = [ev for ev in (_evt(v) for v in (d.get("events") or {}).values()) if ev]
+        evts = [ev for ev in (_evt(eid, v) for eid, v in (d.get("events") or {}).items()) if ev]
         if not evts:
             continue
         finished = sorted((e for e in evts if e["finished"]), key=lambda e: e["ko"], reverse=True)
@@ -170,15 +255,36 @@ def build(stages_dir: Path, now: datetime, out_dir: Path, tz_hours: int = 2) -> 
         key = d["key"]
         up = sorted((e for e in up_by_stage.get(key, []) if e["kickoff"] >= now - timedelta(minutes=5)),
                     key=lambda e: e["kickoff"])
-        table = compute_table(finished) if (finished and league_like(evts) and len(teams) >= _MIN_TEAMS) else []
+        # season boundary (existing convention, shared with the team pages)
+        season_start = None
+        if finished:
+            latest = finished[0]["ko"]
+            if (d.get("country") or "") in CALENDAR_YEAR:
+                season_start = datetime(latest.year, 1, 1)
+            else:
+                y = latest.year if latest.month >= 7 else latest.year - 1
+                season_start = datetime(y, 7, 1)
+        # standings are the CURRENT season's table (backfilled earlier seasons stay in the
+        # results/trends, never mixed into the table)
+        season_events = [e for e in finished if season_start is None or e["ko"] >= season_start]
+        table = compute_table(season_events) if (season_events and league_like(evts) and len(teams) >= _MIN_TEAMS) else []
+        st = status_by_key.get(key)
         entry = {"slug": path.name, "country": d.get("country") or "", "league": d.get("league") or "",
-                 "teams": len(teams), "played": len(finished), "season": _season(d.get("backfill")),
+                 "teams": len(teams), "played": len(finished),
+                 "season": (st or {}).get("season") or _season(d.get("backfill")),
                  "table": bool(table), "next": up[0]["kickoff"].strftime("%Y-%m-%d %H:%M") if up else None,
                  "fetched": d.get("fetched") or None}
+        if st:
+            entry["status"] = st["status"]
+            entry["eligible"] = st["eligible"]
         index.append(entry)
         detail = {"key": key, "country": entry["country"], "league": entry["league"], "season": entry["season"],
                   "fetched": entry["fetched"], "teams": entry["teams"], "played": entry["played"],
+                  "teams_div": f"LS:{key}",  # the model pool's division for this stage = the team pages' key
                   "generated": now.strftime("%Y-%m-%d %H:%M"),
+                  "status": (st or {}).get("status"), "eligible": (st or {}).get("eligible"),
+                  "status_reason": (st or {}).get("reason"),
+                  "trends": league_trends(finished, season_start, d.get("stats") or {}) if finished else None,
                   "table": table,
                   "results": [{"ko": _ko(e), "home": e["home"], "away": e["away"], "hg": e["hg"], "ag": e["ag"],
                                "hth": e["hth"], "hta": e["hta"]} for e in finished[:RESULTS_KEEP]],
@@ -193,14 +299,53 @@ def build(stages_dir: Path, now: datetime, out_dir: Path, tz_hours: int = 2) -> 
         {"generated": now.strftime("%Y-%m-%d %H:%M"), "count": len(index), "leagues": index},
         ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
 
-    # drop detail files of stages that no longer exist (renamed competitions)
+    # drop detail files of stages that no longer exist (renamed competitions) —
+    # the coverage registry (status.json / STATUS.md) lives in this directory too
     for old in out_dir.glob("*.json"):
-        if old.name != "index.json" and old.name not in slugs:
+        if old.name not in ("index.json", "status.json") and old.name not in slugs:
             try:
                 old.unlink()
             except OSError:
                 pass
     log.info("leagues: %d stages published (index + detail)", n)
+    return n
+
+
+def add_news(out_dir: Path, league_fn, team_fn) -> int:
+    """Patch the published league details with a News section (context only — never a model input).
+
+    league_fn(league_name, country) -> [headlines]; team_fn(team_name) -> [headlines].
+    Both are backed by the scanner's TTL cache, so repeated runs within the TTL cost no network.
+    Only competitions with an upcoming fixture are served fresh news; the rest keep their last
+    cached section. Returns the number of detail files patched."""
+    out_dir = Path(out_dir)
+    idx = out_dir / "index.json"
+    if not idx.exists():
+        return 0
+    try:
+        rows = json.loads(idx.read_text(encoding="utf-8")).get("leagues") or []
+    except (OSError, ValueError):
+        return 0
+    n = 0
+    for row in sorted((r for r in rows if r.get("next")), key=lambda r: r["next"]):
+        p = out_dir / row["slug"]
+        if not p.exists():
+            continue
+        try:
+            d = json.loads(p.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            continue
+        top = [t["team"] for t in (d.get("table") or [])[:2]] or \
+            list({e["home"] for e in (d.get("results") or [])[:5]} | {e["away"] for e in (d.get("results") or [])[:5]})[:3]
+        try:
+            d["news"] = {
+                "league": league_fn(d.get("league") or row.get("league") or "", d.get("country") or row.get("country") or "") or [],
+                "teams": {t: (team_fn(t) or []) for t in top},
+            }
+            p.write_text(json.dumps(d, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
+            n += 1
+        except Exception as exc:  # noqa: BLE001 — one bad league must not kill the rest
+            log.warning("league news failed for %s: %s", row.get("slug"), exc)
     return n
 
 

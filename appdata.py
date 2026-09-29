@@ -317,6 +317,8 @@ def export(path: Path, *, ctx: dict, rows: list, picks: dict, tracker_summary: d
             # sels: [sel, p (model), p_model, p_market (implied), odds, disagreement flag, diff pp, EV]
             "sels": [[d["sel"], d["p"], d["p_model"], d["p_sb"], d["odds"], 1 if d["diff"] else 0, d.get("diff_pp"), d.get("ev")] for d in sels],
             "trends": r.trends or {},
+            # per-fixture news (home / away / the fixture itself). Context only — never a model input.
+            "news": getattr(r, "news", None) or None,
             "squad": getattr(r, "squad", None) or None,
             # ---- data-first engine: evidence, quality, explanation, warnings (quality.py)
             "quality": (r.audit or {}).get("quality"),

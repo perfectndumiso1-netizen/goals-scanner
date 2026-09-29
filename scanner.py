@@ -162,6 +162,10 @@ CONFIG = {
     "STATS_BUDGET_S": _env_float("STATS_BUDGET_S", 75),      # Livescore match statistics per run: time budget
     "STATS_MAX": int(_env_float("STATS_MAX", 400)),          # ... and request cap
     "WORLD_COUNT_MIN_N": int(_env_float("WORLD_COUNT_MIN_N", 5)),  # corners/cards outside the main leagues need this many matches with stats per team
+    # per-fixture news for the app's Match Center (context only — never a model input):
+    # distinct headline queries fetched per run (the rest is served from the 6 h TTL cache)
+    "NEWS_BUDGET": int(_env_float("NEWS_BUDGET", 90)),
+    "NEWS_TTL_H": _env_float("NEWS_TTL_H", 6),
     "H2H_SEASONS": int(_env_float("H2H_SEASONS", 5)),  # seasons of main-league history kept for head-to-head
     "REQUEST_TIMEOUT": 30,
     "USER_AGENT": "Mozilla/5.0 (compatible; GoalsScanner/1.0)",
@@ -2223,6 +2227,25 @@ def main() -> None:
     elif todays.empty:
         pass
 
+    # ---- coverage registry: per-competition status dashboard (read-only report on what the
+    # scanner has; written before the league build so the browser index can carry the status)
+    try:
+        import coverage
+        window_counts: dict[str, int] = {}
+        nexts: dict[str, str] = {}
+        if not todays.empty:
+            for r in todays[todays["source"] == "world"].itertuples():
+                k = str(r.div)[3:] if str(r.div).startswith("LS:") else None
+                if not k:
+                    continue
+                window_counts[k] = window_counts.get(k, 0) + 1
+                ko = r.kickoff.strftime("%Y-%m-%d %H:%M")
+                if k not in nexts or ko < nexts[k]:
+                    nexts[k] = ko
+        coverage.build(LS_DIR / "stages", DATA_DIR / "app" / "leagues", now, window_counts, nexts)
+    except Exception as exc:  # noqa: BLE001
+        log.warning("Coverage registry failed (non-fatal): %s", exc)
+
     # ---- league browser: tables / results / fixtures for the app's Leagues tab (standalone;
     # reads the world archive + a short fixture window; never feeds the model)
     try:
@@ -2410,6 +2433,36 @@ def main() -> None:
     (REPORTS_DIR / f"{today_str}.md").write_text(report_md, encoding="utf-8")
     (REPORTS_DIR / "latest.md").write_text(report_md, encoding="utf-8")
     rows_to_csv(rows, REPORTS_DIR / f"{today_str}.csv")
+    # ---- per-fixture news for the app's Match Center (context only — shown for the user's
+    # reference, never used by the model). Budgeted + TTL-cached across the half-hourly runs.
+    try:
+        ncache = news_mod.Cache(DATA_DIR / "news_cache.json", ttl_hours=CONFIG["NEWS_TTL_H"])
+        budget = [CONFIG["NEWS_BUDGET"]]
+        for r in rows:
+            home, away = str(r.fx["home"]), str(r.fx["away"])
+            country = str(r.fx.get("country") or "")
+            r.news = {
+                "home": ncache.items(f"team:{home}",
+                                     lambda h=home: news_mod.team_headlines(h, country, limit=4), budget)[0],
+                "away": ncache.items(f"team:{away}",
+                                     lambda a=away: news_mod.team_headlines(a, country, limit=4), budget)[0],
+                "match": ncache.items(f"match:{home}|{away}",
+                                      lambda hh=home, aa=away: news_mod.fixture_headlines(hh, aa, country, limit=4),
+                                      budget)[0],
+            }
+        # league-level news for the League Center's News tab (top-two teams + the competition name)
+        try:
+            import leagues as _lg
+            _lg.add_news(DATA_DIR / "app" / "leagues",
+                         league_fn=lambda league, country="": ncache.items(
+                             f"q:{league}", lambda lg=league, cc=country: news_mod.team_headlines(lg, cc, limit=4), budget)[0],
+                         team_fn=lambda name: ncache.items(
+                             f"team:{name}", lambda t=name: news_mod.team_headlines(t, "", limit=3), budget)[0])
+        except Exception as exc:  # noqa: BLE001
+            log.warning("League news failed (non-fatal): %s", exc)
+        ncache.save()
+    except Exception as exc:  # noqa: BLE001
+        log.warning("Per-fixture news failed (non-fatal): %s", exc)
     # ---- structured export for the Android app: written to a staging directory, checked, then promoted
     staging = APP_FILE.parent / "_staging"
     try:

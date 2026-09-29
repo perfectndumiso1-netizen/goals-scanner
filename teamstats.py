@@ -86,8 +86,24 @@ def _split(g: pd.DataFrame) -> dict:
             "win": _rate(g["res"] == "W")}
 
 
+def _trend_window(g: pd.DataFrame, n: int | None = None) -> dict | None:
+    """Trend block for the team's last n matches (n=None: the whole list). None when fewer than
+    3 matches — a trend is only computed from real data, never zero-filled."""
+    g = g if n is None else g.head(n)
+    n = len(g)
+    if n < 3:
+        return None
+    gf, ga = g["gf"], g["ga"]
+    return {"n": n, "evidence": _evidence(n), "pts": int(g["pts"].sum()), "ppg": round(float(g["pts"].mean()), 2),
+            "gf_avg": _mean(gf), "ga_avg": _mean(ga),
+            "o15": _rate(gf + ga >= 2), "o25": _rate(gf + ga >= 3), "o35": _rate(gf + ga >= 4),
+            "btts": _rate((gf > 0) & (ga > 0)), "cs": _rate(ga == 0), "fts": _rate(gf == 0),
+            "win": _rate(g["res"] == "W"),
+            "scored_in_n": int((gf > 0).sum()), "conceded_in_n": int((ga > 0).sum())}
+
+
 def team_record(lg_team: pd.DataFrame, season: pd.DataFrame, name: str, country: str, league: str, div: str,
-                since: pd.Timestamp) -> dict:
+                since: pd.Timestamp, prev: pd.DataFrame | None = None) -> dict:
     rec = {"name": name, "country": country, "league": league, "div": div, "season_from": since.strftime("%Y-%m-%d"),
            "all": _split(season), "home": _split(season[season["venue"] == "H"]),
            "away": _split(season[season["venue"] == "A"]),
@@ -102,7 +118,11 @@ def team_record(lg_team: pd.DataFrame, season: pd.DataFrame, name: str, country:
                      "cards": int(pd.to_numeric(season["kf"], errors="coerce").notna().sum())},
            "form": "".join(season.head(5)["res"].tolist()[::-1]),
            "last": [{"date": r.date.strftime("%Y-%m-%d"), "venue": r.venue, "opp": r.opp, "gf": int(r.gf), "ga": int(r.ga),
-                     "r": r.res, "league": r.league} for r in lg_team.head(10).itertuples()]}
+                     "r": r.res, "league": r.league} for r in lg_team.head(10).itertuples()],
+           # trend windows (last 5/10/20, season, previous season) — None = N/A, never zero-filled
+           "trends": {"last5": _trend_window(lg_team, 5), "last10": _trend_window(lg_team, 10),
+                      "last20": _trend_window(lg_team, 20), "season": _trend_window(season),
+                      "previous_season": _trend_window(prev) if prev is not None else None}}
     # streaks (current)
     seq = season["res"].tolist()
     if seq:
@@ -141,7 +161,9 @@ def export(results: pd.DataFrame, now: datetime, out_dir: Path, squad_lookup=Non
         lg_country = lg_all[lg_all["team"].isin(teams)]
         for t in teams:
             s = lg_season[lg_season["team"] == t]
-            rec = team_record(lg_country[lg_country["team"] == t], s, t, country, league, div, since)
+            prev = lg_country[(lg_country["team"] == t) & (lg_country["date"] < since)]
+            rec = team_record(lg_country[lg_country["team"] == t], s, t, country, league, div, since,
+                              prev=prev if len(prev) else None)
             if squad_lookup is not None:
                 try:
                     rec["squad"] = squad_lookup(div, t)

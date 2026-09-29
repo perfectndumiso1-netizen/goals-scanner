@@ -453,3 +453,17 @@ ul.notes li { margin: 3px 0; }
 .res-line .tm:last-child { justify-content: flex-end; }
 .res-line .tm.won { font-weight: 700; }
 .res-line .sc { font-weight: 700; font-size: 14px; padding: 1px 7px; border-radius: 6px; background: var(--card-2); border: 1px solid var(--line); flex: 0 0 auto; }
+/* ---- Match Center: News tab ---- */
+.news-item { padding: 9px 2px; border-top: 1px solid var(--line); }
+.news-item:first-of-type { border-top: 0; }
+.news-item:active { opacity: .55; }
+/* ---- League Center: Trends tab ---- */
+.trend-metric { display: flex; align-items: center; gap: 8px; padding: 5px 0; border-top: 1px solid var(--line); font-size: 13px; }
+.trend-metric:first-child { border-top: 0; }
+.trend-metric .k { flex: 0 0 34%; font-weight: 600; color: var(--muted); }
+.trend-metric .v { flex: 1; display: flex; gap: 4px; justify-content: flex-end; }
+.trend-metric .cell { flex: 1; text-align: center; font-variant-numeric: tabular-nums; min-width: 0; }
+.trend-metric .cell .cl { display: block; font-size: 9.5px; color: var(--muted); font-weight: 600; }
+.trend-metric .cell b { font-size: 12.5px; }
+.trend-metric .cell.up b { color: var(--good); }
+.trend-metric .cell.down b { color: var(--bad); }

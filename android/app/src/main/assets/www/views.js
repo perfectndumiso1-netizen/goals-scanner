@@ -159,7 +159,7 @@
       ${inPlay.length ? `<div class="live-strip" data-tab-go="live"><span class="status-dot live"></span><div class="grow"><b>${inPlay.length} tracked in play</b> · ${inPlay.slice(0, 2).map((f) => { const s = live.for(f); return `${esc(f.home)} ${s.hg}–${s.ag} ${esc(f.away)}`; }).join(' · ')}${inPlay.length > 2 ? ' …' : ''}</div>${icon('next', 'sm')}</div>` : ''}</div>`);
     if (PR.APP_VERSION && settings.seenVersion !== PR.APP_VERSION) {
       parts.push(`<div class="card whatsnew"><div class="row"><div class="grow"><b>${icon('sparkle', 'sm')} New in PlayReport ${esc(PR.APP_VERSION)}</b></div><button class="link" id="wn-close">${icon('x')}</button></div>
-        <ul><li>🏆 <b>Leagues tab</b> — worldwide football: standings, previous results and the next fixtures for 270+ competitions, grouped by country, with a search box</li><li>📈 Big leagues pre-loaded with the full season plus two earlier seasons — Premier League, LaLiga, Serie A, Bundesliga, Ligue 1 and the South Africa Premiership among them</li><li>⚡ Updates keep your tickets, favourites and settings; data pages open from the on-phone cache and refresh quietly when a newer publication is out</li><li>🏆 Cup and knockout competitions show results and fixtures — no table, because a bracket is not a table; missing data stays N/A, never guessed</li></ul></div>`);
+        <ul><li>🌍 <b>Worldwide league coverage</b> — the scanner tracks every competition on the public feed (300+), each with a data-quality status: active, model-eligible, insufficient history, no published stats, finished or data error. Accuracy first — a league is never forced into the model on thin data.</li><li>📋 <b>Match Center grew</b> — every match now has <b>Form</b> (both clubs' recent results, all competitions), <b>Table</b> (full standings with both clubs highlighted, home/away records) and <b>News</b> (recent headlines about the fixture and each team — context only; the prediction model never reads news)</li><li>📈 <b>League Center grew</b> — every competition now has <b>Trends</b> (avg goals, Over 0.5/1.5/2.5/3.5, BTTS, home/draw/away, corners &amp; cards over Last 5/10/20, Season and Previous season, with “last 10 vs season” changes), <b>Teams</b> (tap a club for its profile) and <b>News</b>. Thin windows show N/A, never a guess.</li><li>🔎 <b>Global search</b> — typing in the Matches search box now also finds leagues and clubs, not just today's fixtures. Team pages add a Trends tab with last 5/10/20, season and previous-season windows.</li><li>⚡ Everything is cached on your phone with short TTLs, and one bad league can never stop the worldwide scan. The prediction model is untouched — same input, same numbers.</li></ul></div>`);
     }
     parts.push(botdCard(true));
     if (PR.ticketsCard && PR.tickets().some((t) => t.status === 'pending')) parts.push(PR.ticketsCard(true));
@@ -329,6 +329,27 @@
     return `${withComp ? flag(f.country) + ' ' + esc(f.competition) + ' · ' : ''}xG ${f1(f.xg[0])}–${f1(f.xg[1])}${b ? ` · ${f.safe ? '📈 ' : ''}<b>${esc(selShort(b[0]))}</b> ${pct(b[1])} @ ${f2(b[2])}` : f.priced ? '' : ' · <span class="muted">no price</span>'}${f.data_ok ? '' : ' · <span class="warn">low data</span>'}${f.time_known === false ? ' · <span class="muted">time tbc</span>' : ''}`;
   }
   function matchRight(f, s) { return s && s.hg != null ? '' : `<span class="tiny muted">O2.5 ${pill(f.p.O25, 0.6, 0.5)}</span><span class="tiny muted">BTTS ${pill(f.p.BTTS, 0.6, 0.5)}</span>`; }
+  /** Global search: while typing, also surface matching LEAGUES and CLUBS (not just the window's fixtures). */
+  function globalSearchParts(parts, q, d) {
+    const ql = q.toLowerCase();
+    const lix = (state.lg && state.lg.idx && state.lg.idx.leagues) || [];
+    const leagues = lix.filter((x) => (x.league || '').toLowerCase().includes(ql) || (x.country || '').toLowerCase().includes(ql)).slice(0, 5);
+    const clubs = new Map();
+    (d.fixtures || []).forEach((f) => {
+      [f.home, f.away].forEach((name) => { if (name && !clubs.has(name.toLowerCase())) clubs.set(name.toLowerCase(), { name, country: f.country || '', div: f.div || '' }); });
+    });
+    Object.values(state.teams || {}).forEach((tp) => {
+      if (!tp) return;
+      Object.keys(tp.teams || {}).forEach((name) => { if (!clubs.has(name.toLowerCase())) clubs.set(name.toLowerCase(), { name, country: tp.country || '', div: tp.div || '' }); });
+    });
+    const clubHits = [...clubs.values()].filter((c) => c.name.toLowerCase().includes(ql)).slice(0, 6);
+    if (!leagues.length && !clubHits.length) return;
+    const E = encodeURIComponent;
+    parts.push(`<div class="card compact"><div class="comp-head">Top matches — leagues &amp; clubs</div>`);
+    leagues.forEach((x) => parts.push(`<div class="list-item tap" data-gs="league|${E(x.slug)}" style="padding:8px 10px"><div class="row" style="gap:8px">${icon('trophy', 'sm')}<div class="grow"><div class="b" style="font-size:13px">${esc(x.league)}</div><div class="tiny muted">${flag(x.country)} ${esc(x.country || '')}${x.season ? ' · ' + esc(x.season) : ''}</div></div>${x.next ? `<span class="tiny muted">next ${esc(koShort(x.next))}</span>` : ''}</div></div>`));
+    clubHits.forEach((c) => parts.push(`<div class="list-item tap" data-gs="team|${E(c.name)}|${E(c.country)}|${E(c.div)}" style="padding:8px 10px"><div class="row" style="gap:8px">${badge(c.name, null, 24)}<div class="grow b" style="font-size:13px">${esc(c.name)}</div><span class="tiny muted">${flag(c.country)} ${esc(c.country || '')}</span></div></div>`));
+    parts.push('</div>');
+  }
   PR.views.matches = function () {
     const d = state.data; const q = (state.search || '').trim().toLowerCase(); const key = state.sort || 'ko'; const filt = state.matchFilter || 'all'; const mode = state.matchesView || 'time';
     let lst = d.fixtures.filter((f) => !q || `${f.home} ${f.away} ${f.competition} ${f.country}`.toLowerCase().includes(q));
@@ -343,6 +364,7 @@
       <div style="margin-top:8px">${segmented([['time', `${icon('clock')} By time`], ['comp', `${icon('trend')} By country & competition`]], mode, 'mmode')}</div>
       <div class="chips small-chips" style="margin-top:6px">${[['all', `All ${d.fixtures.length}`], ['live', '🔴 Live'], ['fav', '★ Favourites'], ['major', '🏆 Major'], ['priced', 'Priced'], ['safe', '📈 High probability'], ['ok', 'Enough data']].map(([k, l]) => `<button class="chip tapchip ${filt === k ? 'on' : ''}" data-mf="${k}">${l}</button>`).join('')}
       ${mode === 'time' ? select('fx-sort', [['ko', 'Kick-off'], ['safe', 'Best bet first'], ['O25', 'Over 2.5'], ['O15', 'Over 1.5'], ['BTTS', 'BTTS'], ['H', 'Home win']], key) : ''}</div></div>`];
+    if (q) globalSearchParts(parts, q, d);
     if (!q && (filt === 'all' || filt === 'live')) {
       // matches that finished earlier today (or yesterday evening) leave the current analysis — point to the day archive
       const today = ymd(tzNow()); const dayRec = state.days[today]; const have = new Set(d.fixtures.map((f) => f.id));
@@ -392,6 +414,7 @@
     const so = $('#fx-sort'); if (so) so.onchange = (e) => { state.sort = e.target.value; PR.render(); };
     $$('[data-mf]').forEach((b) => { b.onclick = () => { state.matchFilter = b.dataset.mf; PR.render(); }; });
     $$('[data-mmode]').forEach((b) => { b.onclick = () => { state.matchesView = b.dataset.mmode; PR.render(); }; });
+    $$('[data-gs]').forEach((el) => { el.onclick = () => { const g = el.dataset.gs.split('|'); const D = (s) => decodeURIComponent(s); if (g[0] === 'league' && PR.openLeague) PR.openLeague(D(g[1])); else if (g[0] === 'team') PR.openTeam(D(g[1]), D(g[2]), D(g[3])); }; });
     $$('[data-more]').forEach((b) => { b.onclick = () => { state.expanded[b.dataset.more] = true; PR.render(); }; });
     $$('[data-acc]').forEach((b) => { b.onclick = () => { const o = state.openCountries; if (o.has(b.dataset.acc)) o.delete(b.dataset.acc); else o.add(b.dataset.acc); PR.render(); }; });
     const all = $('#acc-all'); if (all) all.onclick = () => { const cs = Object.keys(d.fixtures.reduce((a, f) => { a[f.country] = 1; return a; }, {})); if (state.openCountries.size >= cs.length) state.openCountries = new Set(); else state.openCountries = new Set(cs); PR.render(); };
