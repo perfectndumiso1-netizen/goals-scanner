@@ -4,7 +4,7 @@
    data file, refreshed in the background when the publication is newer. */
 (function (PR) {
   'use strict';
-  const { $, $$, esc, state, toast, segmented, icon, flag, badge, skeleton, parseLocal, niceDate, koTime, dayName, koShort, getJson, rawUrl, formBadges, wdl } = PR;
+  const { $, $$, esc, state, toast, segmented, select, icon, flag, badge, skeleton, parseLocal, niceDate, koTime, dayName, koShort, getJson, rawUrl, formBadges, wdl } = PR;
   const view = () => $('#view');
   const head = (title, sub, right) => `<div class="detail-head"><button class="back" id="back" aria-label="Back">${icon('back')}</button><div class="grow"><div class="b">${title}</div>${sub ? `<div class="tiny muted">${sub}</div>` : ''}</div>${right || ''}</div>`;
   function wireBack() { const b = $('#back'); if (b) b.onclick = () => PR.back(); }

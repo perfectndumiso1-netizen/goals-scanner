@@ -2,7 +2,7 @@
 (function (PR) {
   'use strict';
   const { $, $$, esc, pct, f1, f2, signed, state, settings, fx, pill, koShort, koTime, dayName, niceDate, toast, selLabel, selGroup,
-    GROUPS, liveVerdict, isLive, isFT, segmented, select, contactCard, teamLink, statusIcon, formBadges, wdl, md, icon, flag, badge, fxBadge, matchRow, ring, skeleton, parseLocal, tzNow } = PR;
+    GROUPS, liveVerdict, isLive, isFT, segmented, select, contactCard, teamLink, statusIcon, formBadges, wdl, md, icon, flag, badge, fxBadge, matchRow, ring, skeleton, parseLocal, tzNow, teamsCached } = PR;
   const GICON = { result: 'shield', dc: 'swap', goals: 'ball', btts: 'swap', team: 'target', corners: 'corner', cards: 'card' };
   const view = () => $('#view');
   const live = PR.live;
