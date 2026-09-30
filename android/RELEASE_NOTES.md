@@ -1,3 +1,12 @@
+## What's new in PlayReport 1.6.25 — 🔗 Everything tappable · 🏆 Best of the day · 📣 Instant updates
+- 🔗 **Every fixture and team is tappable** — open any match from any league and any day: full analysis inside the 24-hour window, the head-to-head and goals kept for 14 days, and the day archive (scores, statistics, H2H) for 60 days. Fixtures beyond the analysis window open straight from Leagues into the archive — the old "outside the 24-hour window" dead end is gone.
+- ⚔️ **Head-to-head, AiScore style** — the Match Center's head-to-head section now opens with both clubs' **recent form strips** (last five results, colour-coded) above the win/draw/win bar and the previous meetings. Archived matches keep their head-to-head too.
+- 📊 **Two new groups on Today** — **Today's strong markets** (every market at 70%+ model probability whatever the odds, highest first) and **Value** (markets Sportybet misprices with the strongest model signals, biggest edge first, edge shown). Everything already on Today stays exactly where it was.
+- 🏆 **Best of the day** — new entry at the top of the ☰ menu: best matches of the day, best home teams and best away teams of the week, and the strongest Over 2.5, BTTS, Over 1.5 and team-goals candidates in one page.
+- 🕐 **Cleaner header** — the clock line is gone; kick-off times stay where they belong, on every match.
+- 📣 **Instant update notifications, no pop-ups** — no banners and no modal dialogs. When a new version lands you get one Android notification like a goal alert — checked the moment you open the app, when it returns to the foreground, and every few minutes in the background (no 6-hour wait) — and **tapping it downloads and installs the update immediately**.
+- 🧊 **Model untouched** — same input, same numbers; grouping and presentation only.
+
 ## What's new in PlayReport 1.6.2x — 📅 60-day fixture coverage + Sportybet deep links
 - 📅 **Fixtures covered up to 60 days ahead, in every league** — the scanner now discovers and analyses matches across the next 60 days worldwide (not just today), so the model gathers form, statistics and context early and every match is analysed well before kick-off. The Leagues tab's fixture lists span the same window; the Matches tab still shows today's games as before.
 - 🎫 **PlayReport tickets meet Sportybet** — every priced match, slip leg and ticket leg now has an **SB** link that opens the match directly in Sportybet (their live odds and slip), and tickets can be copied to the clipboard in one tap.

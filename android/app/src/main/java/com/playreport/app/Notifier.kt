@@ -21,14 +21,16 @@ object Notifier {
     // v3: the ids carry a version suffix so the new sounds (crowd goal, tennis ping, ticket fanfare) take over.
     const val CH_REPORTS = "reports_v3"
     const val CH_GOALS = "goals_v3"
-    const val CH_UPDATES = "updates"
+    // v2: the update channel becomes HIGH importance with PlayReport's sound — a new release must
+    // announce itself like goals do (the old silent, low-priority channel is deleted).
+    const val CH_UPDATES = "updates_v2"
     const val CH_BETS = "bets_v3"
     const val CH_MATCH = "match_v3"
     const val CH_KICKOFF = "kickoff_v3"
     const val CH_TENNIS = "tennis_v3"
     const val CH_TICKETS = "tickets_v3"
     const val PREFS = "playreport"
-    private val OLD_CHANNELS = listOf("reports", "goals", "bets", "match", "reports_v2", "goals_v2", "bets_v2", "match_v2", "kickoff_v2")
+    private val OLD_CHANNELS = listOf("reports", "goals", "bets", "match", "updates", "reports_v2", "goals_v2", "bets_v2", "match_v2", "kickoff_v2")
 
     private fun sound(ctx: Context, name: String): Uri =
         Uri.parse("android.resource://${ctx.packageName}/raw/$name")
@@ -64,15 +66,14 @@ object Notifier {
             "Finished matches and kick-offs of your tennis favourites", "pr_tennis"))
         nm.createNotificationChannel(channel(ctx, CH_TICKETS, "Ticket results", NotificationManager.IMPORTANCE_HIGH,
             "One of your locked tickets was settled — won or lost", "pr_tickets"))
-        nm.createNotificationChannel(NotificationChannel(CH_UPDATES, "App updates", NotificationManager.IMPORTANCE_LOW).apply {
-            description = "A newer PlayReport version is available"
-        })
+        nm.createNotificationChannel(channel(ctx, CH_UPDATES, "App updates", NotificationManager.IMPORTANCE_HIGH,
+            "A newer PlayReport version is available — tap to download and install", "pr_report"))
     }
 
     /** Sound file (res/raw name) behind each channel — used by the Settings page previews. */
     fun soundFor(channel: String): String? = when (channel) {
         CH_REPORTS -> "pr_report"; CH_GOALS -> "pr_goal"; CH_BETS -> "pr_selection"; CH_KICKOFF -> "pr_kickoff"
-        CH_MATCH -> "pr_fulltime"; CH_TENNIS -> "pr_tennis"; CH_TICKETS -> "pr_tickets"
+        CH_MATCH -> "pr_fulltime"; CH_TENNIS -> "pr_tennis"; CH_TICKETS -> "pr_tickets"; CH_UPDATES -> "pr_report"
         else -> null
     }
 
@@ -95,12 +96,28 @@ object Notifier {
                 .setStyle(NotificationCompat.BigTextStyle().bigText(text))
                 .setContentIntent(pi)
                 .setAutoCancel(true)
-                .setPriority(if (channel == CH_GOALS || channel == CH_BETS) NotificationCompat.PRIORITY_HIGH else NotificationCompat.PRIORITY_DEFAULT)
+                .setPriority(if (channel == CH_GOALS || channel == CH_BETS || channel == CH_UPDATES) NotificationCompat.PRIORITY_HIGH else NotificationCompat.PRIORITY_DEFAULT)
                 .build()
             NotificationManagerCompat.from(ctx).notify(id, n)
         } catch (_: SecurityException) {
         } catch (_: Exception) {
         }
+    }
+
+    /**
+     * Announce a newer release at most once per version, from any entry point (open app or background
+     * worker). The content intent carries tab="install", so tapping the notification starts the
+     * download and opens the installer straight away — no extra taps inside the app.
+     */
+    fun notifyUpdateOnce(ctx: Context, version: String, notes: String) {
+        val p = ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        if (p.getString("update_notified", null) == version) return
+        p.edit().putString("update_notified", version).apply()
+        val whatsNew = notes.lines().map { it.trim().trimStart('-', '*', '•', ' ') }
+            .filter { it.isNotBlank() && !it.startsWith("#") && !it.startsWith("Download") }.take(3)
+        val text = if (whatsNew.isEmpty()) "Tap to download and install — tickets and favourites are kept."
+        else "New: " + whatsNew.joinToString(" · ") + " — tap to download and install."
+        notify(ctx, CH_UPDATES, 1002, "PlayReport $version is available", text, "install")
     }
 
     /** Remember a (match, score) pair so the same goal is never announced twice (app open or background). */

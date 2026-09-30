@@ -14,7 +14,7 @@ import org.json.JSONObject
  *  3. tracked matches (high-probability selections, bets of the day, shortlist, the user's tickets):
  *     goals with the scorer, half-time and full-time scores       -> notifications (each switchable in Settings)
  *  4. the user's pending tickets settled from the final scores   -> notification
- *  5. newer app version                                          -> notification (every 6 h at most)
+ *  5. newer app version                                          -> notification (every run; once per version)
  */
 class CheckWorker(ctx: Context, params: WorkerParameters) : Worker(ctx, params) {
 
@@ -45,21 +45,13 @@ class CheckWorker(ctx: Context, params: WorkerParameters) : Worker(ctx, params) 
         // 3 + 4. tracked matches and tickets
         try { checkMatches(ctx, meta) } catch (_: Exception) { }
 
-        // 5. app update (at most every 6 hours)
-        val lastUpd = prefs.getLong("last_update_check", 0L)
-        if (System.currentTimeMillis() - lastUpd > 6 * 3600 * 1000L) {
-            prefs.edit().putLong("last_update_check", System.currentTimeMillis()).apply()
+        // 5. app update — checked every run now (no 6-hour wait); notifyUpdateOnce dedupes per version
+        try {
             val info = Updater.check()
-            if (info != null && Updater.isNewer(info.version, BuildConfig.VERSION_NAME) &&
-                prefs.getString("update_notified", "") != info.version) {
-                prefs.edit().putString("update_notified", info.version).apply()
-                val whatsNew = info.notes.lines().map { it.trim().trimStart('-', '*', '•', ' ') }
-                    .filter { it.isNotBlank() && !it.startsWith("#") && !it.startsWith("Download") }.take(3)
-                val text = if (whatsNew.isEmpty()) "Open the app to install the update."
-                    else "New: " + whatsNew.joinToString(" · ") + " — open the app to install."
-                Notifier.notify(ctx, Notifier.CH_UPDATES, 1002, "PlayReport ${info.version} is available", text, "home")
+            if (info != null && Updater.isNewer(info.version, BuildConfig.VERSION_NAME)) {
+                Notifier.notifyUpdateOnce(ctx, info.version, info.notes)
             }
-        }
+        } catch (_: Exception) { }
         return Result.success()
     }
 

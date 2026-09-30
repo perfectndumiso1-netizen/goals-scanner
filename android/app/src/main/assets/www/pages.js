@@ -2,7 +2,7 @@
 (function (PR) {
   'use strict';
   const { $, $$, esc, pct, f1, f2, signed, state, settings, fx, pill, koShort, koTime, dayName, niceDate, toast, selLabel, selGroup,
-    GROUPS, liveVerdict, isLive, isFT, segmented, select, contactCard, teamLink, statusIcon, formBadges, wdl, md, icon, flag, badge, fxBadge, matchRow, ring, skeleton, parseLocal, tzNow, teamsCached } = PR;
+    GROUPS, liveVerdict, isLive, isFT, segmented, select, contactCard, teamLink, statusIcon, formBadges, wdl, md, icon, flag, badge, fxBadge, matchRow, ring, skeleton, parseLocal, tzNow, ymd, teamsCached } = PR;
   const GICON = { result: 'shield', dc: 'swap', goals: 'ball', btts: 'swap', team: 'target', corners: 'corner', cards: 'card' };
   const view = () => $('#view');
   const live = PR.live;
@@ -74,7 +74,22 @@
     const archived = !x && !f0 && drec && (state.details[key] && state.details[key].error || !key);
     if (archived) { archiveMatchPage(drec); return; }
     const f = x || f0;
-    if (!f) { view().innerHTML = head('Match') + (state.details[key] && state.details[key].error ? `<div class="card empty">This match is no longer available (${esc(state.details[key].error)}).</div>` : skeleton(6)); wireBack(); return; }
+    if (!f) {
+      // not in the 24-hour index and no detail yet: fall back to the 60-day day archive (loads the day file if needed)
+      const idp = String(page.id || '').split('|');
+      const dt = idp[0];
+      const day = /^\d{4}-\d{2}-\d{2}$/.test(dt) ? state.days[dt] : null;
+      const rec = day && day.fixtures ? day.fixtures.find((r2) => r2.id === page.id || (idp.length > 3 && r2.home === idp[2] && r2.away === idp.slice(3).join('|'))) : null;
+      if (rec) { archiveMatchPage(rec); wireBack(); return; }
+      if (/^\d{4}-\d{2}-\d{2}$/.test(dt) && !state.days[dt] && !state.days[dt + '_loading'] && !state.days[dt + '_failed']) {
+        state.days[dt + '_loading'] = true;
+        view().innerHTML = head('Match') + skeleton(6); wireBack();
+        PR.loadDay(dt).then(() => { state.days[dt + '_loading'] = false; PR.render(); }).catch(() => { state.days[dt + '_loading'] = false; state.days[dt + '_failed'] = true; PR.render(); });
+        return;
+      }
+      view().innerHTML = head('Match') + (state.details[key] && state.details[key].error ? `<div class="card empty">Stats for this match are not available.</div>` : skeleton(6));
+      wireBack(); return;
+    }
     ensureTeams(f.div);
     const fin = PR.finalFor(f);
     const s0 = live.for(f); const s = s0 && s0.hg != null ? s0 : (fin ? { status: 'FT', hg: fin.hg, ag: fin.ag, ht: [fin.hth, fin.hta], t: 0, stored: true } : s0);
@@ -141,6 +156,14 @@
       ${(r.top || []).length ? `<div class="tiny muted" style="margin-top:6px">Top priced selections at the time: ${r.top.map((t) => `${esc(t.label || t[0] || '')}${t.p != null ? ' ' + pct(t.p) : ''}${t.odds ? ' @ ' + f2(t.odds) : ''}`).join(' · ')}</div>` : ''}</div>`);
     const bets = r.bets || [];
     if (bets.length) parts.push(`<div class="card compact"><div class="b">Bets on this match</div><div class="chips" style="margin-top:6px">${bets.map((b) => `<span class="chip ${b.status === 'hit' ? 'good' : b.status === 'miss' ? 'bad' : ''}">${b.botd ? '⭐ ' : ''}${esc(b.label)}${b.odds ? ' @ ' + f2(b.odds) : ''} ${statusIcon(b.status)}</span>`).join('')}</div></div>`);
+    const ah2h = r.h2h || [];
+    if (ah2h.length) {
+      const wins = (name) => ah2h.filter((m) => (m.home === name && m.hg > m.ag) || (m.away === name && m.ag > m.hg)).length;
+      const dr = ah2h.filter((m) => m.hg === m.ag).length;
+      parts.push(`<div class="card compact"><div class="row"><div class="grow b">Head to head · last ${ah2h.length}</div><span class="chip">previous meetings</span></div>
+        <div class="h2h-bar"><span class="h" style="flex:${wins(f.home) || 0.001}">${wins(f.home)}</span><span class="d" style="flex:${dr || 0.001}">${dr}</span><span class="a" style="flex:${wins(f.away) || 0.001}">${wins(f.away)}</span></div><div class="lbl tiny muted row"><span class="grow">${esc(f.home)} wins</span><span>draws</span><span class="grow right">${esc(f.away)} wins</span></div>
+        <table class="tbl" style="margin-top:6px">${ah2h.map((m) => `<tr><td class="tiny muted nowrap">${esc(m.date || '')}</td><td class="${m.hg > m.ag ? 'b' : ''}"><div class="row" style="gap:6px">${esc(m.home)}</div></td><td class="right nowrap"><b>${m.hg} – ${m.ag}</b></td><td class="${m.ag > m.hg ? 'b' : ''}">${esc(m.away)}</td><td class="tiny muted">${esc(m.league || '')}</td></tr>`).join('')}</table></div>`);
+    }
     parts.push(`<div class="card tiny muted">The full pre-match analysis (trends, markets, data audit) is kept for 14 days; the result, statistics and goals stay in the day archive for 60 days.</div>`);
     view().innerHTML = parts.join('');
     wireBack();
@@ -326,6 +349,12 @@
   function matchH2H(parts, f) {
     const h2h = f.h2h || [];
     const hm = f.h2h_meta;
+    // AiScore-style form strips first: last five results of each team (W/D/L, tap-free, colour-coded)
+    const th = f.teams.home || {}, ta = f.teams.away || {};
+    const strip = (name, list) => `<div class="row" style="gap:4px;align-items:center;margin-top:4px"><span class="grow tiny" style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(name)}</span>${(list || []).slice(0, 5).map((m) => `<span class="chip ${m.gf > m.ga ? 'good' : m.gf < m.ga ? 'bad' : ''}" title="${esc((m.venue === 'H' ? 'v ' : '@ ') + m.opp + ' ' + m.gf + '–' + m.ga)}">${wdl(m.gf, m.ga)}</span>`).join('') || '<span class="tiny muted">no recent matches</span>'}</div>`;
+    if ((th.last5 || []).length || (ta.last5 || []).length) {
+      parts.push(`<div class="card compact"><div class="b">Recent form</div>${strip(f.home_long || f.home, th.last5)}${strip(f.away_long || f.away, ta.last5)}</div>`);
+    }
     if (hm && hm.n) parts.push(`<div class="card compact"><div class="row" style="gap:6px;flex-wrap:wrap"><span class="b">H2H sample</span>${evChip(hm.n)}<span class="chip ${hm.used_by_model ? '' : 'warn'}">${hm.used_by_model ? 'used by the model' : 'context only — not a model input'}</span></div><div class="tiny muted" style="margin-top:4px">${esc(hm.note || '')}${hm.first_date ? ` Meetings ${esc(hm.first_date)} → ${esc(hm.last_date)}` : ''}${(hm.competitions || []).length ? ` · ${esc(hm.competitions.join(', '))}` : ''}. Figures below are historical frequencies of ${hm.n} match${hm.n === 1 ? '' : 'es'}.</div></div>`);
     if (h2h.length) {
       const tot = h2h.map((m) => m.hg + m.ag);
@@ -456,6 +485,20 @@
   // ------------------------------------------------------------------ TEAM PAGE
   PR.pages.team = function (page) {
     ensureTeams(page.div);
+    // a league without a published team index (knockout cups etc.): resolve the team's division from the
+    // global team search index so the profile still opens
+    if (!page.div) {
+      const cur = PR.teamsCached(page.div);
+      if (!cur || cur.missing) {
+        const idx = state.teamIdx;
+        const hit = idx && (idx.teams || []).find((x) => x.n === page.name && (!page.country || x.c === page.country));
+        if (hit && hit.d) { page.div = hit.d; ensureTeams(page.div); }
+        else if (!idx && !page._idxTried && !state.teamIdxLoading) {
+          page._idxTried = true; state.teamIdxLoading = true;
+          PR.loadTeamIndex().then(() => PR.render()).catch(() => PR.render());
+        }
+      }
+    }
     const t = PR.teamsCached(page.div); const v = state.teamView || 'overview';
     const parts = [head(esc(page.name), esc(page.country))];
     if (!t) { parts.push(skeleton(6)); view().innerHTML = parts.join(''); wireBack(); return; }
@@ -571,6 +614,87 @@
     parts.push(`<div class="note">Everything on this page is graded automatically from final scores. Bookings and corner bets settle from the match statistics feed a few hours after full time. Statistical information, not betting advice.</div>`);
     view().innerHTML = parts.join('');
     wireBack();
+  };
+
+  // ------------------------------------------------------------------ BEST OF THE DAY (☰ dropdown)
+  PR.pages.best = function () {
+    const d = state.data || {};
+    const parts = [head('Best of the day', 'model picks · kick-offs in SAST')];
+    const all = (d.fixtures || []).filter((f) => f.data_ok && f.p);
+
+    // 1 — best matches: each fixture ranked by its strongest market
+    const bestSel = (f) => {
+      if (f.hi && f.hi.length) return f.hi[0];
+      if (f.top && f.top.length === 3 && f.top[1] != null) return f.top;
+      if (f.bo) { let best = null; Object.entries(f.bo).forEach(([k, v]) => { if (v && v[0] != null && (!best || v[0] > best[1][0])) best = [k, v[0], v[1]]; }); return best; }
+      return null;
+    };
+    const ranked = all.map((f) => ({ f, b: bestSel(f) })).filter((x) => x.b).sort((a, b) => (b.b[1] || 0) - (a.b[1] || 0));
+    parts.push(`<div class="card compact"><div class="row"><div class="grow b">${icon('sparkle', 'sm')} Best matches of the day</div><span class="chip">${ranked.length}</span></div>
+      <div class="tiny muted" style="margin-bottom:4px">Ranked by the strongest market on the match — model probability first, Sportybet price where priced. Tap a row for the full analysis.</div>
+      <table class="tbl head"><tr><th></th><th>Match</th><th>Best market</th><th class="right">Price</th><th class="right">Prob.</th></tr>
+      ${ranked.slice(0, 12).map(({ f, b }) => `<tr class="tap" data-fx="${esc(f.id)}"><td class="tiny muted nowrap">${esc(koShort(f.kickoff))}</td><td><div class="row" style="gap:6px">${fxBadge(f, 'home').replace('s24', 's20')}${fxBadge(f, 'away').replace('s24', 's20')}<div class="b grow">${esc(f.home)} <span class="muted">v</span> ${esc(f.away)}</div></div><div class="tiny muted">${flag(f.country)} ${esc(f.competition)}</div></td><td class="tiny">${esc(selLabel(b[0], f.home, f.away))}</td><td class="right nowrap">${b[2] ? f2(b[2]) : '<span class="muted">–</span>'}</td><td class="right">${pill(b[1], 0.7, 0.6)}</td></tr>`).join('')}</table></div>`);
+
+    // 2+3 — best home / away teams of the week (last 7 days of the day archive)
+    const today = ymd(tzNow());
+    const hist = ((d.history || {}).days || []).map((x) => x.date).filter(Boolean);
+    const week = hist.filter((dt) => dt <= today).sort().reverse().slice(0, 7);
+    const missing = week.filter((dt) => !state.days[dt] && !state.days[dt + '_failed']);
+    if (missing.length) {
+      parts.push(`<div class="card tiny muted">Loading the week’s results…</div>`);
+      parts.push(skeleton(4));
+      view().innerHTML = parts.join(''); wireBack();
+      missing.slice(0, 7).forEach((dt) => {
+        if (state.days[dt + '_loading']) return;
+        state.days[dt + '_loading'] = true;
+        PR.loadDay(dt).then(() => { state.days[dt + '_loading'] = false; PR.render(); }).catch(() => { state.days[dt + '_loading'] = false; state.days[dt + '_failed'] = true; PR.render(); });
+      });
+      return;
+    }
+    const teamCard = (title, side) => {
+      const rec = {};
+      week.slice().reverse().forEach((dt) => {
+        const dayRec = state.days[dt];
+        ((dayRec && dayRec.fixtures) || []).forEach((m) => {
+          const sc = m.score; if (!sc || sc.hg == null) return;
+          const t = m[side]; if (!t) return;
+          const gf = side === 'home' ? sc.hg : sc.ag, ga = side === 'home' ? sc.ag : sc.hg;
+          const r = rec[t] || (rec[t] = { n: 0, w: 0, d: 0, l: 0, gf: 0, ga: 0, pts: 0, country: m.country, div: m.div });
+          r.n++; r.gf += gf; r.ga += ga;
+          if (gf > ga) { r.w++; r.pts += 3; } else if (gf === ga) { r.d++; r.pts += 1; } else r.l++;
+        });
+      });
+      const rows = Object.entries(rec).map(([t, r]) => ({ t, r })).sort((a, b) => b.r.pts - a.r.pts || (b.r.gf - b.r.ga) - (a.r.gf - a.r.ga) || b.r.gf - a.r.gf).slice(0, 8);
+      if (!rows.length) return `<div class="card empty small">No finished ${side}-side matches in the last 7 days of the archive.</div>`;
+      return `<div class="card compact"><div class="row"><div class="grow b">${icon('trophy', 'sm')} ${title}</div><span class="chip">last 7 days</span></div>
+        <div class="tiny muted" style="margin-bottom:4px">Points from matches played in the last week (win 3 · draw 1), then goal difference. Tap a team for its profile.</div>
+        <table class="tbl head"><tr><th>#</th><th>Team</th><th class="right">P</th><th class="right">W-D-L</th><th class="right">GF:GA</th><th class="right">Pts</th></tr>
+        ${rows.map(({ t, r }, i) => `<tr class="tap" data-bteam="${esc(t)}" data-bcountry="${esc(r.country || '')}" data-bdiv="${esc(r.div || '')}"><td class="muted">${i + 1}</td><td><div class="row" style="gap:6px">${badge(t, null, 20)}<span class="b">${esc(t)}</span></div></td><td class="right">${r.n}</td><td class="right">${r.w}-${r.d}-${r.l}</td><td class="right">${r.gf}:${r.ga}</td><td class="right b">${r.pts}</td></tr>`).join('')}</table></div>`;
+    };
+    parts.push(teamCard('Best home teams of the week', 'home'));
+    parts.push(teamCard('Best away teams of the week', 'away'));
+
+    // 4 — market candidates
+    const candCard = (title, get) => {
+      const lst = all.map((f) => ({ f, p: get(f) })).filter((x) => x.p != null).sort((a, b) => b.p - a.p).slice(0, 8);
+      if (!lst.length) return `<div class="card empty small">No ${esc(title.toLowerCase())} candidate in this window.</div>`;
+      return `<div class="card compact"><div class="row"><div class="grow b">${esc(title)}</div><span class="chip">${lst.length}</span></div>
+        <table class="tbl">${lst.map(({ f, p }) => `<tr class="tap" data-fx="${esc(f.id)}"><td class="tiny muted nowrap">${esc(koShort(f.kickoff))}</td><td><div class="b">${esc(f.home)} <span class="muted">v</span> ${esc(f.away)}</div><div class="tiny muted">${flag(f.country)} ${esc(f.competition)}</div></td><td class="right">${pill(p, 0.7, 0.6)}</td></tr>`).join('')}</table></div>`;
+    };
+    parts.push(candCard('Best Over 2.5 candidates', (f) => (f.p || {}).O25));
+    parts.push(candCard('Best BTTS candidates', (f) => (f.p || {}).BTTS));
+    parts.push(candCard('Best Over 1.5 candidates', (f) => (f.p || {}).O15));
+    const tg = [];
+    all.forEach((f) => (f.hi || []).forEach((b) => { if (selGroup(b[0]) === 'team') tg.push({ f, p: b[1], sel: b[0] }); }));
+    tg.sort((a, b) => b.p - a.p);
+    if (tg.length) {
+      parts.push(`<div class="card compact"><div class="row"><div class="grow b">${icon('target', 'sm')} Best team-goals candidates</div><span class="chip">${tg.length}</span></div>
+        <table class="tbl">${tg.slice(0, 8).map(({ f, p, sel }) => `<tr class="tap" data-fx="${esc(f.id)}"><td class="tiny muted nowrap">${esc(koShort(f.kickoff))}</td><td><div class="b">${esc(f.home)} <span class="muted">v</span> ${esc(f.away)}</div><div class="tiny muted">${esc(selLabel(sel, f.home, f.away))}</div></td><td class="right">${pill(p, 0.7, 0.6)}</td></tr>`).join('')}</table></div>`);
+    }
+    parts.push(`<div class="note">Probabilities are the football-data model's, refreshed with every analysis run. A high probability is not a certainty. Statistical information, not betting advice.</div>`);
+    view().innerHTML = parts.join('');
+    wireBack();
+    $$('[data-bteam]').forEach((el) => { el.onclick = () => PR.openTeam(el.dataset.bteam, el.dataset.bcountry, el.dataset.bdiv); });
   };
 
   // ------------------------------------------------------------------ GUIDE

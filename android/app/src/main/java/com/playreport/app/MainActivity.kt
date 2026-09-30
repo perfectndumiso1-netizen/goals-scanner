@@ -108,7 +108,7 @@ class MainActivity : AppCompatActivity() {
             }
 
             override fun onPageFinished(view: WebView, url: String) {
-                pendingTab?.let { t -> js("window.app && window.app.setTab && window.app.setTab(${JSONObject.quote(t)});"); pendingTab = null }
+                pendingTab?.let { t -> handleTab(t); pendingTab = null }
             }
         }
         web.addJavascriptInterface(Bridge(), "Android")
@@ -138,7 +138,37 @@ class MainActivity : AppCompatActivity() {
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
-        intent.getStringExtra("tab")?.let { t -> js("window.app && window.app.setTab && window.app.setTab(${JSONObject.quote(t)});") }
+        intent.getStringExtra("tab")?.let { t -> handleTab(t) }
+    }
+
+    /**
+     * Routes a notification "tab" extra. "install" (the update notification) starts the download and
+     * the system installer immediately — the user taps once and waits for nothing; anything else is
+     * a normal tab switch in the page.
+     */
+    private fun handleTab(t: String) {
+        if (t == "install") startUpdateInstall()
+        else js("window.app && window.app.setTab && window.app.setTab(${JSONObject.quote(t)});")
+    }
+
+    /** Update notification tapped: check the release, download the APK, hand it to the installer. */
+    private fun startUpdateInstall() {
+        pool.execute {
+            val info = Updater.check()?.takeIf { Updater.isNewer(it.version, BuildConfig.VERSION_NAME) }
+            val payload = if (info != null)
+                JSONObject().put("version", info.version).put("url", info.url).put("notes", info.notes).toString()
+            else "null"
+            js("window.__updateInfo && window.__updateInfo($payload);")
+            if (info == null) return@execute
+            js("window.__updateProgress && window.__updateProgress('downloading');")
+            val f = Updater.download(this@MainActivity, info.url)
+            if (f == null) {
+                js("window.__updateProgress && window.__updateProgress('failed');")
+            } else {
+                js("window.__updateProgress && window.__updateProgress('installing');")
+                runOnUiThread { Updater.install(this@MainActivity, f) }
+            }
+        }
     }
 
     private fun requestNotificationPermission() {
@@ -327,8 +357,10 @@ class MainActivity : AppCompatActivity() {
         @JavascriptInterface
         fun checkUpdate() {
             pool.execute {
-                val info = Updater.check()
-                val payload = if (info != null && Updater.isNewer(info.version, BuildConfig.VERSION_NAME))
+                val info = Updater.check()?.takeIf { Updater.isNewer(it.version, BuildConfig.VERSION_NAME) }
+                // newer release: announce once per version — the notification's tap installs directly
+                if (info != null) Notifier.notifyUpdateOnce(this@MainActivity, info.version, info.notes)
+                val payload = if (info != null)
                     JSONObject().put("version", info.version).put("url", info.url).put("notes", info.notes).toString()
                 else "null"
                 js("window.__updateInfo && window.__updateInfo($payload);")

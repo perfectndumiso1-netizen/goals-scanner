@@ -124,7 +124,7 @@
   }
   function safeRow(b, opts) {
     opts = opts || {}; const f = fx(b.fixture); const st = betStatus(b);
-    const tap = f ? `class="tap" data-fx="${esc(b.fixture)}"` : '';
+    const tap = `class="tap" data-fx="${esc(b.fixture)}"`;
     return `<tr ${tap}><td class="tiny muted nowrap">${esc(opts.time ? koTime(b.kickoff) : koShort(b.kickoff))}</td>
       <td><div class="row" style="gap:6px">${badge(b.home, b.badges && b.badges.home, 20)}${badge(b.away, b.badges && b.badges.away, 20)}<div class="b grow">${esc(b.home)} <span class="muted">v</span> ${esc(b.away)}</div></div>
       <div class="sel"><b>${esc(b.label)}</b></div><div class="tiny muted">${flag(b.country)} ${esc(b.league)}${b.q ? ` · <span class="${b.q === 'High' ? 'pos' : b.q === 'Low' ? 'warn' : ''}">data ${esc(b.q)}</span>` : ''}${b.p_sb != null ? ` · market ${pct(b.p_sb)}` : ''}${st.text !== 'not started' ? ` · <span class="${st.cls}">${esc(st.text)}</span>` : ''}</div></td>
@@ -133,7 +133,7 @@
   function selRow(f, s) {
     return `<tr class="tap" data-fx="${esc(f.id)}"><td class="tiny muted nowrap">${esc(koShort(f.kickoff))}</td>
       <td><div class="match">${esc(f.home)} <span class="muted">v</span> ${esc(f.away)}</div><div class="sel"><b>${esc(selLabel(s.sel, f.home, f.away))}</b></div><div class="tiny muted">${flag(f.country)} ${esc(f.competition)}${s.diff ? ' · <span class="warn">views differ</span>' : ''}</div></td>
-      <td class="right nowrap">${s.odds ? `<b>${f2(s.odds)}</b>` : '<span class="muted">–</span>'}</td><td class="right"><div class="row" style="gap:0;justify-content:flex-end">${pill(s.p, 0.8, 0.7)}${PR.addBtn ? PR.addBtn(f.id, s.sel, s.odds) : ''}</div></td></tr>`;
+      <td class="right nowrap">${s.odds ? `<b>${f2(s.odds)}</b>` : '<span class="muted">–</span>'}</td><td class="right"><div class="row" style="gap:0;justify-content:flex-end">${pill(s.p, 0.8, 0.7)}${PR.addBtn ? PR.addBtn(f.id, s.sel, s.odds) : ''}</div>${s.ev != null ? `<div class="tiny good" style="text-align:right">edge +${Math.round(s.ev * 100)}%</div>` : ''}</td></tr>`;
   }
   function botdCard(compact) {
     const sf = state.data.safe || {}; const today = sf.today || { bets: [] }; const bets = today.bets || []; const groups = today.groups || [];
@@ -218,7 +218,30 @@
     const max = state.expanded['top_' + key] ? lst.length : 20;
     parts.push(`<div class="card compact"><table class="tbl head"><tr><th></th><th>Match</th><th class="right">Price</th><th class="right">Prob.</th></tr>${lst.slice(0, max).map(({ f, p, odds }) => `<tr class="tap" data-fx="${esc(f.id)}"><td class="tiny muted nowrap">${esc(koShort(f.kickoff))}</td><td><div class="row" style="gap:6px">${fxBadge(f, 'home').replace('s24', 's20')}${fxBadge(f, 'away').replace('s24', 's20')}<div class="b grow">${esc(f.home)} <span class="muted">v</span> ${esc(f.away)}</div></div><div class="tiny muted">${flag(f.country)} ${esc(f.competition)} · ${esc(selLabel(key, f.home, f.away))}</div></td><td class="right nowrap">${odds ? `<b>${f2(odds)}</b>` : '<span class="muted">–</span>'}</td><td class="right"><div class="row" style="gap:0;justify-content:flex-end">${pill(p, 0.7, 0.6)}${PR.addBtn ? PR.addBtn(f.id, key, odds) : ''}</div></td></tr>`).join('')}</table>${lst.length > max ? `<button class="btn wide" data-more="top_${key}">Show all ${lst.length}</button>` : ''}</div>`);
   }
+  /** the two pick groups: strong markets (any odds) and value (mispriced by Sportybet) */
+  function groupsCards(parts) {
+    const g = (state.data.groups) || {};
+    const strong = (g.strong || []).map((p) => ({ p, f: fx(p.id) })).filter((x) => x.f);
+    const value = (g.value || []).map((p) => ({ p, f: fx(p.id) })).filter((x) => x.f);
+    parts.push(`<div class="section-head">${sh('shield', 'Today’s strong markets', 'green')}<span class="tiny muted">${strong.length}</span></div>`);
+    if (!strong.length) parts.push(`<div class="card empty small">No strong market in this window yet — the list fills in as the probabilities firm up.</div>`);
+    else {
+      const max = state.expanded.grp_strong ? strong.length : 15;
+      parts.push(`<div class="card compact"><div class="tiny muted" style="margin-bottom:6px">Every market with a model probability of at least <b>70%</b> that the market view does not contradict — <b>any odds</b>, highest probability first.</div>
+        <table class="tbl head"><tr><th></th><th>Match · selection</th><th class="right">Price</th><th class="right">Model</th></tr>${strong.slice(0, max).map(({ p, f }) => selRow(f, p)).join('')}</table>
+        ${strong.length > max ? `<button class="btn wide" data-more="grp_strong">Show all ${strong.length}</button>` : ''}</div>`);
+    }
+    parts.push(`<div class="section-head">${sh('trend', 'Value', 'amber')}<span class="tiny muted">${value.length}</span></div>`);
+    if (!value.length) parts.push(`<div class="card empty small">No value selection right now — nothing is mispriced enough by the market with solid stats behind it.</div>`);
+    else {
+      const max = state.expanded.grp_value ? value.length : 15;
+      parts.push(`<div class="card compact"><div class="tiny muted" style="margin-bottom:6px">Markets <b>Sportybet</b> misprices: the model probability beats the price by at least <b>8%</b> expected value at 60%+ probability, with strong data behind it — biggest edge first.</div>
+        <table class="tbl head"><tr><th></th><th>Match · selection</th><th class="right">Price</th><th class="right">Model</th></tr>${value.slice(0, max).map(({ p, f }) => selRow(f, p)).join('')}</table>
+        ${value.length > max ? `<button class="btn wide" data-more="grp_value">Show all ${value.length}</button>` : ''}</div>`);
+    }
+  }
   function renderToday(parts) {
+    groupsCards(parts);
     parts.push(botdCard(false));
     if (PR.ticketsCard) parts.push(PR.ticketsCard(false));
     const rec = ((state.data.safe || {}).summary || {}).botd || {};
@@ -284,9 +307,13 @@
         parts.push('<div class="card compact">');
         keys.forEach((k) => {
           const g = groups[k]; parts.push(`<div class="comp-head">${flag(g[0].country)} ${esc(k)}</div>`);
-          g.forEach((e) => { const m = { id: e.fixture || 'live:' + e.eid, home: e.home, away: e.away, badges: { home: e.img[0], away: e.img[1] }, country: e.country, competition: e.league, kickoff: '' };
+          g.forEach((e) => {
+            const fid = e.fixture || `${ymd(tzNow())}|${e.country || ''}|${e.home}|${e.away}`;
+            const m = { id: fid, home: e.home, away: e.away, badges: { home: e.img[0], away: e.img[1] }, country: e.country, competition: e.league, kickoff: '' };
+            state.liveTeams = state.liveTeams || {};
+            state.liveTeams[fid] = [e.home, e.away];
             const f = e.fixture ? fx(e.fixture) : null; const sub = f ? `<span class="chip brand">analysed</span>${f.safe ? ` <b>${esc(selLabel(f.safe[0], f.home, f.away))}</b> · ${esc(liveVerdict(f.safe[0], state.live[e.eid]).text)}` : ''}` : '';
-            parts.push(matchRow(m, { live: state.live[e.eid], tap: !!f, short: true, sub, right: '' })); });
+            parts.push(matchRow(m, { live: state.live[e.eid], tap: true, short: true, sub, right: '' })); });
         });
         parts.push('</div>');
       }

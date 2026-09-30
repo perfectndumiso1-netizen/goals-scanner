@@ -74,6 +74,10 @@ class Days:
                 "q": ((r.audit or {}).get("quality") or {}).get("overall"),
                 "p": {"O15": _f(r.p_final["O15"]), "O25": _f(r.p_final["O25"]), "BTTS": _f(r.p_final["BTTS"])},
                 "x12": [_f(x12.get("H")), _f(x12.get("D")), _f(x12.get("A"))],
+                # previous meetings between the two teams (AiScore-style head-to-head on the match page)
+                "h2h": [{"date": str(m.get("date"))[:10], "home": m.get("home"), "away": m.get("away"),
+                         "hg": m.get("hg"), "ag": m.get("ag"), "league": m.get("league")}
+                        for m in (r.h2h or [])[:6]],
                 "top": [s for s in sels_of(r)[:3]],
                 "data_ok": bool(r.data_ok),
             }

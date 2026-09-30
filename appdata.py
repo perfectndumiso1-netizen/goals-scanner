@@ -251,6 +251,10 @@ def export(path: Path, *, ctx: dict, rows: list, all_rows: list | None = None, p
         prev = json.loads(prev_path.read_text(encoding="utf-8")) if prev_path.exists() else None
     except (OSError, ValueError):
         prev = None
+    # pick groups for the app: "today's strong markets" (any odds) and "value" (priced by Sportybet but the
+    # model beats that price). Presentation only — probabilities are the unchanged model probabilities.
+    strong_picks: list[dict] = []
+    value_picks: list[dict] = []
     for r in rows:
         fx = r.fx
         date = fx["date"].strftime("%Y-%m-%d")
@@ -268,6 +272,24 @@ def export(path: Path, *, ctx: dict, rows: list, all_rows: list | None = None, p
         hi = sorted([[d["sel"], round(d["p"], 3), round(d["odds"], 2) if d.get("odds") else None] for d in sels
                      if d.get("p") is not None and d["p"] >= 0.70 and not d["diff"] and d["group"] in ("goals", "btts", "team", "corners", "cards")
                      and (not d.get("odds") or d["odds"] >= 1.15)], key=lambda x: -x[1])[:12]
+        _qo = _q.get("overall")
+        for d in sels:
+            # selections(r) yields plain dicts (safe.sel_dict): {sel, group, p, odds, diff, ev, ...}
+            try:
+                p = float(d.get("p"))
+            except (TypeError, ValueError):
+                continue
+            if not (0.0 < p < 1.0):
+                continue
+            base = {"id": fid, "sel": d.get("sel"), "p": round(p, 3),
+                    "odds": d.get("odds"), "g": d.get("group"), "q": _qo}
+            # strong: model probability ≥ 0.70, market not contradicting, decent data — odds irrelevant
+            if p >= 0.70 and not d.get("diff") and _qo != "Low":
+                strong_picks.append(base)
+            # value: Sportybet prices it, the model beats that price by ≥ 8 points of expected value at p ≥ 0.60
+            _ev = d.get("ev")
+            if d.get("odds") and _ev is not None and _ev >= 0.08 and p >= 0.60 and _qo != "Low":
+                value_picks.append({**base, "ev": round(float(_ev), 3)})
         safe_best = _best(sels, safe_groups or None, min_odds, min_p) if r.data_ok else None
         eid = (ls or {}).get("eid")
         slim = {
@@ -397,9 +419,12 @@ def export(path: Path, *, ctx: dict, rows: list, all_rows: list | None = None, p
         "next_run": ctx["window_end"].strftime("%Y-%m-%d %H:%M"), "refresh_minutes": 30,
         "coverage": coverage or {},
     }
+    strong_picks.sort(key=lambda x: -x["p"])
+    value_picks.sort(key=lambda x: -x["ev"])
     data = {
         "version": VERSION, "meta": meta,
         "fixtures": index, "picks": picks_out, "safe": safe_out, "tracker": tracker_out,
+        "groups": {"strong": strong_picks[:60], "value": value_picks[:40]},
         "tracked": sorted(tracked), "history": {"reports": reports, "days": days_index or []},
     }
     path.parent.mkdir(parents=True, exist_ok=True)

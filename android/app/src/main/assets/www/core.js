@@ -247,8 +247,40 @@ window.PR = (function () {
     clear() { const keys = []; for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); if (k && k.startsWith('pr_c:')) keys.push(k); } keys.forEach((k) => localStorage.removeItem(k)); },
   };
   const pubStamp = () => (state.data && state.data.meta ? state.data.meta.generated.replace(/\D/g, '') : '');
+  /** sha1 hex — lets the app derive a fixture's detail-file key (data/app/fx/<key>.json) even when the
+      fixture is not in the 24-hour index (server key = sha1(fixture_id)[:12]). */
+  function sha1hex(str) {
+    const data = unescape(encodeURIComponent(str));
+    const n = data.length;
+    const total = Math.ceil((n + 9) / 64) * 64;
+    const bytes = new Uint8Array(total);
+    for (let i = 0; i < n; i++) bytes[i] = data.charCodeAt(i);
+    bytes[n] = 0x80;
+    const bitLen = n * 8;
+    bytes[total - 4] = (bitLen >>> 24) & 255; bytes[total - 3] = (bitLen >>> 16) & 255;
+    bytes[total - 2] = (bitLen >>> 8) & 255; bytes[total - 1] = bitLen & 255;
+    let h0 = 0x67452301, h1 = 0xefcdab89, h2 = 0x98badcfe, h3 = 0x10325476, h4 = 0xc3d2e1f0;
+    const w = new Int32Array(80);
+    for (let b = 0; b < total; b += 64) {
+      for (let i = 0; i < 16; i++) w[i] = (bytes[b + i * 4] << 24) | (bytes[b + i * 4 + 1] << 16) | (bytes[b + i * 4 + 2] << 8) | bytes[b + i * 4 + 3];
+      for (let i = 16; i < 80; i++) { const x = w[i - 3] ^ w[i - 8] ^ w[i - 14] ^ w[i - 16]; w[i] = (x << 1) | (x >>> 31); }
+      let a = h0, bb = h1, c = h2, d = h3, e = h4;
+      for (let i = 0; i < 80; i++) {
+        let f, k;
+        if (i < 20) { f = (bb & c) | (~bb & d); k = 0x5a827999; }
+        else if (i < 40) { f = bb ^ c ^ d; k = 0x6ed9eba1; }
+        else if (i < 60) { f = (bb & c) | (bb & d) | (c & d); k = 0x8f1bbcdc; }
+        else { f = bb ^ c ^ d; k = 0xca62c1d6; }
+        const t = (((a << 5) | (a >>> 27)) + f + e + k + w[i]) | 0;
+        e = d; d = c; c = (bb << 30) | (bb >>> 2); bb = a; a = t;
+      }
+      h0 = (h0 + a) | 0; h1 = (h1 + bb) | 0; h2 = (h2 + c) | 0; h3 = (h3 + d) | 0; h4 = (h4 + e) | 0;
+    }
+    return [h0, h1, h2, h3, h4].map((x) => (x >>> 0).toString(16).padStart(8, '0')).join('');
+  }
   /** full analysis of one match (per-match file); session memory first, then the on-phone cache, then the network */
-  const detailKey = (id, d) => d || (fx(id) && fx(id).d) || null;
+  const detailKey = (id, d) => d || (fx(id) && fx(id).d) ||
+    (id && String(id).includes('|') && !String(id).startsWith('live:') ? sha1hex(String(id)).slice(0, 12) : null);
   function detailCached(id, d) { const k = detailKey(id, d); return k ? state.details[k] || null : null; }
   function prepDetail(j) { j.sels = (j.sels || []).map(selObj); j.trends = j.trends || {}; j.teams = j.teams || { home: {}, away: {} }; j.h2h = j.h2h || []; return j; }
   async function fetchDetail(k, stamp) {
@@ -298,8 +330,10 @@ window.PR = (function () {
     } finally { state.loading = false; $('#btn-refresh').classList.remove('spin'); if (native && native.refreshDone) native.refreshDone(); }
   }
   function statusLine() {
+    const el = $('#status-line');
+    if (!el) return;                      // the header clock was removed — kick-off times live on each match
     const m = state.data && state.data.meta; if (!m) return;
-    $('#status-line').textContent = `Updated ${koShort(m.generated)} · next ${koTime(m.next_run || '')} · ${m.fixtures} matches`;
+    el.textContent = `Updated ${koShort(m.generated)} · next ${koTime(m.next_run || '')} · ${m.fixtures} matches`;
   }
   async function loadDay(date) {
     if (state.days[date] && state.days[date].fixtures) return state.days[date];
@@ -423,7 +457,21 @@ window.PR = (function () {
     const T = { own_goal: 'own goal', second_yellow: 'second yellow', missed_penalty: 'missed penalty' };
     return sc.inc.map((r) => ({ min: r[0], team: r[1], type: T[r[2]] || r[2], player: r[3], score: r[4] }));
   }
-  function openMatch(id, d) { if (fx(id) || d || dayRecord(id)) { state.matchView = 'overview'; push({ type: 'match', id, d: d || null }); } else toast('This match is no longer in the current analysis'); }
+  function openMatch(id, d) {
+    const go = () => { state.matchView = 'overview'; push({ type: 'match', id, d: d || null }); };
+    if (fx(id) || d || dayRecord(id)) return go();
+    // not in the 24-hour index: the match page resolves the fixture from its detail file (sha1 key) or the
+    // 60-day day archive — every fixture with published stats stays reachable
+    if (id && String(id).includes('|') && !String(id).startsWith('live:')) return go();
+    const date = ymd(tzNow());
+    const teams = (state.liveTeams || {})[id];
+    loadDay(date).then(() => {
+      const day = state.days[date];
+      const rec = day && day.fixtures ? day.fixtures.find((x) => x.id === id || (teams && x.home === teams[0] && x.away === teams[1])) : null;
+      if (rec) { state.matchView = 'overview'; push({ type: 'match', id: rec.id, d: null }); }
+      else toast('Stats for this match are not available yet.');
+    }).catch(() => toast('Stats for this match are not available yet.'));
+  }
   function openTeam(name, country, div) { state.teamView = 'overview'; push({ type: 'team', name, country, div }); }
   function toggleMenu() { state.menuOpen = !state.menuOpen; $('#menu').classList.toggle('open', state.menuOpen); }
   function closeMenu() { state.menuOpen = false; const m = $('#menu'); if (m) m.classList.remove('open'); }

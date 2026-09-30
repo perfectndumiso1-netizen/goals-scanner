@@ -160,7 +160,7 @@
     } else if (seg === 'news') {
       leagueNews(parts, d);
     } else if (seg === 'table') {
-      const teamAttrs = (name) => d.teams_div ? ` class="tap" data-lgteam="${esc(name)}" data-country="${esc(d.country || '')}" data-div="${esc(d.teams_div)}"` : '';
+      const teamAttrs = (name) => ` class="tap" data-lgteam="${esc(name)}" data-country="${esc(d.country || '')}" data-div="${esc(d.teams_div || '')}"`;
       const ts = state.lgTableSort || 'pts';
       const tbl = d.table.slice().sort((a, b) =>
         ts === 'gd' ? (b.gd - a.gd) || (b.pts - a.pts) || (a.team || '').localeCompare(b.team || '') :
@@ -229,8 +229,9 @@
       if (!f) return;
       const day = f.ko.slice(0, 10);
       const inWin = (state.data.fixtures || []).find((x) => x.kickoff.slice(0, 10) === day && ((x.home === f.home && x.away === f.away) || (x.home === f.away && x.away === f.home)));
+      // inside the app window: the index fixture; beyond it: the fixture id resolves the detail file or day archive
       if (inWin) PR.openMatch(inWin.id, inWin.d);
-      else toast('Outside the 24-hour analysis window — it appears in the app when its day is analysed (results open from the day archive once finished).');
+      else PR.openMatch(`${day}|${d.country || ''}|${f.home}|${f.away}`);
     });
   };
 
@@ -270,7 +271,7 @@
 
   // ------------------------------------------------------------------ league TEAMS tab
   function leagueTeams(parts, d) {
-    const attrs = (name) => d.teams_div ? ` data-lgteam="${esc(name)}" data-country="${esc(d.country || '')}" data-div="${esc(d.teams_div)}"` : '';
+    const attrs = (name) => ` data-lgteam="${esc(name)}" data-country="${esc(d.country || '')}" data-div="${esc(d.teams_div || '')}"`;
     if (d.table && d.table.length) {
       const ts = state.lgTableSort || 'pts';
       const tbl = d.table.slice().sort((a, b) =>
