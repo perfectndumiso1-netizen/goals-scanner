@@ -617,85 +617,195 @@
   };
 
   // ------------------------------------------------------------------ BEST OF THE DAY (☰ dropdown)
+  // The day's best bets, sectioned by market. Every pick clears a model bar first (results ≥60%,
+  // goals ≥70%, corners/bookings ≥65%, market view not contradicting, priced); home/away wins are
+  // then confirmed against the clubs' own venue/road runs from the detail file. All performance
+  // numbers below are presentation only — no model maths lives on this page.
   PR.pages.best = function () {
     const d = state.data || {};
-    const parts = [head('Best of the day', 'model picks · kick-offs in SAST')];
-    const all = (d.fixtures || []).filter((f) => f.data_ok && f.p);
+    const today = ymd(tzNow());
+    const all = (d.fixtures || []).filter((f) => f.date === today && f.data_ok && f.p);
+    const parts = [head('Best of the day', 'the bets to enter today · kick-offs in SAST')];
+    const selsOf = (f) => f.sels || [];
+    const detOf = (f) => { const x = PR.detailCached(f.id, f.d); return x && !x.error && x.teams ? x : null; };
+    const detFailed = (f) => { const k = PR.detailKey(f.id, f.d); const x = k && state.details[k]; return !!(x && x.error); };
+    const tally = (list) => {
+      const t = { n: 0, w: 0, d: 0, l: 0, gf: 0, ga: 0 };
+      (list || []).forEach((m) => { t.n++; t.gf += m.gf || 0; t.ga += m.ga || 0; if (m.gf > m.ga) t.w++; else if (m.gf === m.ga) t.d++; else t.l++; });
+      return t;
+    };
 
-    // 1 — best matches: each fixture ranked by its strongest market
-    const bestSel = (f) => {
-      if (f.hi && f.hi.length) return f.hi[0];
-      if (f.top && f.top.length === 3 && f.top[1] != null) return f.top;
-      if (f.bo) { let best = null; Object.entries(f.bo).forEach(([k, v]) => { if (v && v[0] != null && (!best || v[0] > best[1][0])) best = [k, v[0], v[1]]; }); return best; }
+    // ---- candidates from the published index (model bars applied here)
+    const resCand = (code) => all.map((f) => {
+      const e = selsOf(f).find((s) => s.sel === code);
+      if (!e || e.p == null || e.p < 0.60 || !e.odds || e.odds < 1.15 || e.diff || f.q === 'Low') return null;
+      return { f, p: e.p, odds: e.odds, ev: e.ev, sel: code };
+    }).filter(Boolean).sort((a, b) => b.p - a.p);
+
+    const goalCand = []; const coCand = []; const koCand = [];
+    all.forEach((f) => {
+      (f.hi || []).forEach((h) => {
+        const [code, p, odds] = h;
+        if (p == null || !odds) return;
+        const g = selGroup(code);
+        if (g === 'goals' || g === 'btts' || g === 'team') {
+          const e = selsOf(f).find((s) => s.sel === code);
+          goalCand.push({ f, p, odds, ev: e ? e.ev : null, sel: code });
+        }
+      });
+      ['CO', 'KO'].forEach((pref) => {
+        const list = selsOf(f).filter((s) => s.sel.startsWith(pref) && s.p != null && s.p >= 0.65 && s.p < 1 &&
+          s.odds && s.odds >= 1.15 && !s.diff && f.q !== 'Low');
+        if (!list.length) return;
+        const e = list.sort((a, b) => b.p - a.p)[0];
+        (pref === 'CO' ? coCand : koCand).push({ f, p: e.p, odds: e.odds, ev: e.ev, sel: e.sel });
+      });
+    });
+    goalCand.sort((a, b) => b.p - a.p); coCand.sort((a, b) => b.p - a.p); koCand.sort((a, b) => b.p - a.p);
+    // goals: strongest few of each family so one market can't flood the card
+    const famN = {};
+    const goalsShown = goalCand.filter((it) => {
+      const fam = selGroup(it.sel) === 'team' ? 'team' : it.sel === 'BTTS' ? 'BTTS' : it.sel === 'O15' ? 'O15' : 'O25+';
+      famN[fam] = (famN[fam] || 0) + 1;
+      return famN[fam] <= 3;
+    });
+
+    // ---- club-performance confirmation for the result picks (detail file venue/road splits)
+    const resultRow = (it) => {
+      const det = detOf(it.f);
+      if (!det) {
+        return { ok: true, why: detFailed(it.f)
+          ? '<div class="tiny muted">club form data unavailable — model bar only</div>'
+          : '<div class="tiny muted">checking club form…</div>' };
+      }
+      const H = det.teams.home || {}, A = det.teams.away || {};
+      const vt = tally(H.venue_last5);                                  // home club's last games at its venue
+      const rt = tally((A.last5 || []).filter((m) => m.venue === 'A')); // away club's last games on the road
+      const homeStrong = ((H.venue_n || 0) >= 3 && H.venue_gf != null && H.venue_ga != null)
+        ? ((H.venue_gf - H.venue_ga) >= 0.3 || (vt.n >= 3 && vt.w >= 3 && vt.l <= 1))
+        : (vt.n >= 3 && ((vt.w >= 3 && vt.l <= 1) || (vt.gf - vt.ga) / vt.n >= 0.3));
+      const awayStrong = rt.n >= 3 && ((rt.w >= 3 && rt.l <= 1) || (rt.gf - rt.ga) / rt.n >= 0.3);
+      const ok = it.sel === 'H' ? (homeStrong && !awayStrong) : (awayStrong && !homeStrong);
+      if (!ok) return { ok: false };
+      const homeSeg = vt.n
+        ? `${esc(H.name || it.f.home)}: <b>${vt.w}-${vt.d}-${vt.l}</b> at home (last ${vt.n})${H.venue_gf != null ? ` · ${f1(H.venue_gf)}–${f1(H.venue_ga)} avg` : ''}`
+        : (H.venue_n ? `${esc(H.name || it.f.home)}: <b>${H.venue_n}</b> home games${H.venue_gf != null ? ` · ${f1(H.venue_gf)}–${f1(H.venue_ga)} avg` : ''}` : '');
+      const awaySeg = rt.n
+        ? `${esc(A.name || it.f.away)}: <b>${rt.w}-${rt.d}-${rt.l}</b> on the road (last ${rt.n})`
+        : `${esc(A.name || it.f.away)}: little road data`;
+      const why = it.sel === 'H'
+        ? `<div class="tiny" style="margin-top:2px">🏠 ${homeSeg} · ✈ ${awaySeg}</div>`
+        : `<div class="tiny" style="margin-top:2px">✈ ${awaySeg} · 🏠 ${homeSeg}</div>`;
+      return { ok: true, why };
+    };
+    const applyResult = (code) => resCand(code).map((it) => ({ it, r: resultRow(it) }))
+      .filter((x) => x.r.ok).map((x) => Object.assign({}, x.it, { why: x.r.why }));
+    const home = applyResult('H');
+    const away = applyResult('A');
+
+    // ---- performance evidence lines for the other markets (shown, never gated)
+    const goalRate = (t, sel) => {
+      if (!t) return null;
+      if (sel === 'O15' && t.last_n) return `O1.5 in ${t.last_o15}/${t.last_n}`;
+      if (sel === 'O25' && t.last_n) return `O2.5 in ${t.last_o25}/${t.last_n}`;
+      if (sel === 'O35' && t.o35 != null) return `O3.5 in ${pct(t.o35)} of games`;
+      if (t.o25 != null) return `O2.5 in ${pct(t.o25)} of games`;
       return null;
     };
-    const ranked = all.map((f) => ({ f, b: bestSel(f) })).filter((x) => x.b).sort((a, b) => (b.b[1] || 0) - (a.b[1] || 0));
-    parts.push(`<div class="card compact"><div class="row"><div class="grow b">${icon('sparkle', 'sm')} Best matches of the day</div><span class="chip">${ranked.length}</span></div>
-      <div class="tiny muted" style="margin-bottom:4px">Ranked by the strongest market on the match — model probability first, Sportybet price where priced. Tap a row for the full analysis.</div>
-      <table class="tbl head"><tr><th></th><th>Match</th><th>Best market</th><th class="right">Price</th><th class="right">Prob.</th></tr>
-      ${ranked.slice(0, 12).map(({ f, b }) => `<tr class="tap" data-fx="${esc(f.id)}"><td class="tiny muted nowrap">${esc(koShort(f.kickoff))}</td><td><div class="row" style="gap:6px">${fxBadge(f, 'home').replace('s24', 's20')}${fxBadge(f, 'away').replace('s24', 's20')}<div class="b grow">${esc(f.home)} <span class="muted">v</span> ${esc(f.away)}</div></div><div class="tiny muted">${flag(f.country)} ${esc(f.competition)}</div></td><td class="tiny">${esc(selLabel(b[0], f.home, f.away))}</td><td class="right nowrap">${b[2] ? f2(b[2]) : '<span class="muted">–</span>'}</td><td class="right">${pill(b[1], 0.7, 0.6)}</td></tr>`).join('')}</table></div>`);
-
-    // 2+3 — best home / away teams of the week (last 7 days of the day archive)
-    const today = ymd(tzNow());
-    const hist = ((d.history || {}).days || []).map((x) => x.date).filter(Boolean);
-    const week = hist.filter((dt) => dt <= today).sort().reverse().slice(0, 7);
-    const missing = week.filter((dt) => !state.days[dt] && !state.days[dt + '_failed']);
-    if (missing.length) {
-      parts.push(`<div class="card tiny muted">Loading the week’s results…</div>`);
-      parts.push(skeleton(4));
-      view().innerHTML = parts.join(''); wireBack();
-      missing.slice(0, 7).forEach((dt) => {
-        if (state.days[dt + '_loading']) return;
-        state.days[dt + '_loading'] = true;
-        PR.loadDay(dt).then(() => { state.days[dt + '_loading'] = false; PR.render(); }).catch(() => { state.days[dt + '_loading'] = false; state.days[dt + '_failed'] = true; PR.render(); });
-      });
-      return;
-    }
-    const teamCard = (title, side) => {
-      const rec = {};
-      week.slice().reverse().forEach((dt) => {
-        const dayRec = state.days[dt];
-        ((dayRec && dayRec.fixtures) || []).forEach((m) => {
-          const sc = m.score; if (!sc || sc.hg == null) return;
-          const t = m[side]; if (!t) return;
-          const gf = side === 'home' ? sc.hg : sc.ag, ga = side === 'home' ? sc.ag : sc.hg;
-          const r = rec[t] || (rec[t] = { n: 0, w: 0, d: 0, l: 0, gf: 0, ga: 0, pts: 0, country: m.country, div: m.div });
-          r.n++; r.gf += gf; r.ga += ga;
-          if (gf > ga) { r.w++; r.pts += 3; } else if (gf === ga) { r.d++; r.pts += 1; } else r.l++;
-        });
-      });
-      const rows = Object.entries(rec).map(([t, r]) => ({ t, r })).sort((a, b) => b.r.pts - a.r.pts || (b.r.gf - b.r.ga) - (a.r.gf - a.r.ga) || b.r.gf - a.r.gf).slice(0, 8);
-      if (!rows.length) return `<div class="card empty small">No finished ${side}-side matches in the last 7 days of the archive.</div>`;
-      return `<div class="card compact"><div class="row"><div class="grow b">${icon('trophy', 'sm')} ${title}</div><span class="chip">last 7 days</span></div>
-        <div class="tiny muted" style="margin-bottom:4px">Points from matches played in the last week (win 3 · draw 1), then goal difference. Tap a team for its profile.</div>
-        <table class="tbl head"><tr><th>#</th><th>Team</th><th class="right">P</th><th class="right">W-D-L</th><th class="right">GF:GA</th><th class="right">Pts</th></tr>
-        ${rows.map(({ t, r }, i) => `<tr class="tap" data-bteam="${esc(t)}" data-bcountry="${esc(r.country || '')}" data-bdiv="${esc(r.div || '')}"><td class="muted">${i + 1}</td><td><div class="row" style="gap:6px">${badge(t, null, 20)}<span class="b">${esc(t)}</span></div></td><td class="right">${r.n}</td><td class="right">${r.w}-${r.d}-${r.l}</td><td class="right">${r.gf}:${r.ga}</td><td class="right b">${r.pts}</td></tr>`).join('')}</table></div>`;
+    const goalsWhy = (it) => {
+      const det = detOf(it.f);
+      if (!det) return detFailed(it.f) ? '' : '<div class="tiny muted">loading club stats…</div>';
+      const H = det.teams.home || {}, A = det.teams.away || {};
+      const g = selGroup(it.sel);
+      if (g === 'team') {
+        const t = it.sel[0] === 'H' ? H : A;
+        const atHome = it.sel[0] === 'H';
+        const scored = atHome && t.venue_gf != null ? f1(t.venue_gf) : (t.gf != null ? f1(t.gf) : null);
+        return `<div class="tiny" style="margin-top:2px">${esc(t.name || it.f.home)}: <b>${scored != null ? scored : '–'}</b> goals/game${atHome ? ' at home' : ''}${t.form5_goals != null ? ` · last 5: ${f1(t.form5_goals)}/game` : ''}</div>`;
+      }
+      if (g === 'btts') {
+        const hs = H.btts != null ? `${pct(H.btts)}${H.venue_btts != null ? ` (${pct(H.venue_btts)} at home)` : ''}` : null;
+        const as = A.btts != null ? pct(A.btts) : null;
+        if (!hs && !as) return '';
+        return `<div class="tiny" style="margin-top:2px">BTTS rate — ${esc(H.name || it.f.home)}: <b>${hs || '–'}</b> · ${esc(A.name || it.f.away)}: <b>${as || '–'}</b></div>`;
+      }
+      const hr = goalRate(H, it.sel), ar = goalRate(A, it.sel);
+      const venue = it.sel === 'O15' ? H.venue_o15 : it.sel === 'O25' ? H.venue_o25 : null;
+      if (!hr && !ar) return '';
+      return `<div class="tiny" style="margin-top:2px">${esc(H.name || it.f.home)}: <b>${hr || '–'}</b>${venue != null ? ` · ${pct(venue)} at home` : ''} · ${esc(A.name || it.f.away)}: <b>${ar || '–'}</b></div>`;
     };
-    parts.push(teamCard('Best home teams of the week', 'home'));
-    parts.push(teamCard('Best away teams of the week', 'away'));
-
-    // 4 — market candidates
-    const candCard = (title, get) => {
-      const lst = all.map((f) => ({ f, p: get(f) })).filter((x) => x.p != null).sort((a, b) => b.p - a.p).slice(0, 8);
-      if (!lst.length) return `<div class="card empty small">No ${esc(title.toLowerCase())} candidate in this window.</div>`;
-      return `<div class="card compact"><div class="row"><div class="grow b">${esc(title)}</div><span class="chip">${lst.length}</span></div>
-        <table class="tbl">${lst.map(({ f, p }) => `<tr class="tap" data-fx="${esc(f.id)}"><td class="tiny muted nowrap">${esc(koShort(f.kickoff))}</td><td><div class="b">${esc(f.home)} <span class="muted">v</span> ${esc(f.away)}</div><div class="tiny muted">${flag(f.country)} ${esc(f.competition)}</div></td><td class="right">${pill(p, 0.7, 0.6)}</td></tr>`).join('')}</table></div>`;
+    const statsWhy = (it, kind) => {
+      const det = detOf(it.f);
+      if (!det) return detFailed(it.f) ? '' : '<div class="tiny muted">loading stats…</div>';
+      const s = det[kind];
+      if (!s || s.total == null) return `<div class="tiny muted">${kind === 'corners' ? 'Corner' : 'Card'} averages are not modelled for this league.</div>`;
+      const ref = kind === 'cards' && det.referee ? ` · ref <b>${esc(det.referee)}</b>` : '';
+      return `<div class="tiny" style="margin-top:2px">${kind === 'corners' ? 'Avg' : 'Expected'} <b>${f1(s.home)} v ${f1(s.away)}</b> ${kind === 'corners' ? 'corners' : 'cards'} · ${s.n[0]}+${s.n[1]} games (${esc(s.evidence || '')})${s.low_confidence ? ' · thin data' : ''}${ref}</div>`;
     };
-    parts.push(candCard('Best Over 2.5 candidates', (f) => (f.p || {}).O25));
-    parts.push(candCard('Best BTTS candidates', (f) => (f.p || {}).BTTS));
-    parts.push(candCard('Best Over 1.5 candidates', (f) => (f.p || {}).O15));
-    const tg = [];
-    all.forEach((f) => (f.hi || []).forEach((b) => { if (selGroup(b[0]) === 'team') tg.push({ f, p: b[1], sel: b[0] }); }));
-    tg.sort((a, b) => b.p - a.p);
-    if (tg.length) {
-      parts.push(`<div class="card compact"><div class="row"><div class="grow b">${icon('target', 'sm')} Best team-goals candidates</div><span class="chip">${tg.length}</span></div>
-        <table class="tbl">${tg.slice(0, 8).map(({ f, p, sel }) => `<tr class="tap" data-fx="${esc(f.id)}"><td class="tiny muted nowrap">${esc(koShort(f.kickoff))}</td><td><div class="b">${esc(f.home)} <span class="muted">v</span> ${esc(f.away)}</div><div class="tiny muted">${esc(selLabel(sel, f.home, f.away))}</div></td><td class="right">${pill(p, 0.7, 0.6)}</td></tr>`).join('')}</table></div>`);
-    }
-    parts.push(`<div class="note">Probabilities are the football-data model's, refreshed with every analysis run. A high probability is not a certainty. Statistical information, not betting advice.</div>`);
+
+    // ---- progressive detail loads (bounded): performance evidence lives in each match's detail file
+    const shown = {
+      home: state.expanded.bw_h ? home : home.slice(0, 10),
+      away: state.expanded.bw_a ? away : away.slice(0, 10),
+      goals: state.expanded.bw_goals ? goalCand : goalsShown,
+      co: state.expanded.bw_co ? coCand : coCand.slice(0, 8),
+      ko: state.expanded.bw_ko ? koCand : koCand.slice(0, 8),
+    };
+    let budget = 18;
+    const kick = (f) => {
+      if (budget <= 0 || !f.d) return;
+      const k = PR.detailKey(f.id, f.d);
+      if (!k || state.details[k] || state.details[k + '_loading']) return;
+      budget -= 1;
+      state.details[k + '_loading'] = true;
+      PR.loadDetail(f.id, f.d).then(() => PR.render())
+        .catch((e) => { state.details[k] = { error: e.message }; PR.render(); })
+        .finally(() => { delete state.details[k + '_loading']; });
+    };
+    const seenK = new Set();
+    Object.keys(shown).forEach((kk) => shown[kk].forEach((it) => { if (!seenK.has(it.f.id)) { seenK.add(it.f.id); kick(it.f); } }));
+
+    // ---- render
+    parts.push(`<div class="card small"><b>How these picks are made</b><div class="muted" style="margin-top:4px">Each pick clears its model bar first — home/away wins <b>≥60%</b>, goals <b>≥70%</b>, corners &amp; bookings <b>≥65%</b>, with the market view not contradicting it and a Sportybet price on. Home and away wins are then confirmed against the clubs' own runs: one side's <b>venue form</b> against the other's <b>road form</b> — the kind of streak you'd back yourself. Prices are Sportybet's; the model itself never changes.</div></div>`);
+    const secHead = (ico, title, n) => `<div class="section-head"><h2><span class="ico">${icon(ico)}</span>${title}</h2>${n ? `<span class="tiny muted">${n} pick${n === 1 ? '' : 's'}</span>` : ''}</div>`;
+    const pickRow = (it) => {
+      const f = it.f;
+      return `<tr class="tap" data-fx="${esc(f.id)}"><td class="tiny muted nowrap">${esc(koShort(f.kickoff))}</td>
+        <td><div class="row" style="gap:6px">${fxBadge(f, 'home').replace('s24', 's20')}${fxBadge(f, 'away').replace('s24', 's20')}<div class="b grow">${esc(f.home)} <span class="muted">v</span> ${esc(f.away)}</div></div>
+          <div class="sel"><b>${esc(selLabel(it.sel, f.home, f.away))}</b></div>
+          <div class="tiny muted">${flag(f.country)} ${esc(f.competition)}</div>${it.why || ''}</td>
+        <td class="right nowrap"><b>${f2(it.odds)}</b></td>
+        <td class="right"><div class="row" style="gap:0;justify-content:flex-end">${pill(it.p, 0.7, 0.6)}${PR.addBtn ? PR.addBtn(f.id, it.sel, it.odds) : ''}</div>${it.ev != null ? `<div class="tiny good" style="text-align:right">edge +${Math.round(it.ev * 100)}%</div>` : ''}</td></tr>`;
+    };
+    const tbl = (rows, key, capN, kind) => {
+      if (!rows.length) return null;
+      const max = state.expanded[key] ? rows.length : capN;
+      const rowWith = (it) => pickRow(Object.assign({}, it, { why: it.why != null ? it.why
+        : kind === 'goals' ? goalsWhy(it)
+          : kind === 'co' ? statsWhy(it, 'corners')
+            : kind === 'ko' ? statsWhy(it, 'cards') : '' }));
+      return `<div class="card compact"><table class="tbl head">${rows.slice(0, max).map(rowWith).join('')}</table>${rows.length > max
+        ? `<button class="btn wide" data-more="${key}">Show all ${rows.length}</button>`
+        : (state.expanded[key] ? `<button class="btn wide" data-less="${key}">Show less</button>` : '')}</div>`;
+    };
+    const section = (ico, title, rows, key, capN, empty, kind) => {
+      parts.push(secHead(ico, title, rows.length));
+      const t = tbl(rows, key, capN, kind);
+      parts.push(t || `<div class="card empty small">${empty}</div>`);
+    };
+    section('shield', 'Home wins', home, 'bw_h', 10, 'No home-win pick clears 60% with the club runs behind it right now.');
+    section('swap', 'Away wins', away, 'bw_a', 10, 'No away-win pick clears 60% with the club runs behind it right now.');
+    const goalsRows = state.expanded.bw_goals ? goalCand : goalsShown;
+    section('ball', 'Goals · over & BTTS', goalsRows, 'bw_goals', 12, 'No goals pick at 70%+ with a price right now.', 'goals');
+    section('corner', 'Corners', coCand, 'bw_co', 8, 'No corners pick at 65%+ — corner stats cover the modelled leagues only.', 'co');
+    section('card', 'Bookings', koCand, 'bw_ko', 8, 'No bookings pick at 65%+ right now.', 'ko');
+    parts.push(`<div class="note">A probability is not a certainty — a 70% pick still loses three times in ten. Statistical information, not betting advice. 18+.</div>`);
     view().innerHTML = parts.join('');
     wireBack();
-    $$('[data-bteam]').forEach((el) => { el.onclick = () => PR.openTeam(el.dataset.bteam, el.dataset.bcountry, el.dataset.bdiv); });
+    $$('[data-more]').forEach((b) => { b.onclick = () => { state.expanded[b.dataset.more] = true; PR.render(); }; });
+    $$('[data-less]').forEach((b) => { b.onclick = () => { state.expanded[b.dataset.less] = false; PR.render(); }; });
   };
+
 
   // ------------------------------------------------------------------ GUIDE
   PR.pages.guide = function () {
