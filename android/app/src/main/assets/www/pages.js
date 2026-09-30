@@ -171,8 +171,11 @@
   function matchOverview(parts, f, s) {
     const xg = f.xg || {}; const q = f.quality || null; const conf = f.confidence || {};
     const mk = xg.market_home != null ? `<div class="cell" style="display:inline-block;margin-left:10px"><div class="k">Market xG</div><div class="v muted">${f1(xg.market_home)} – ${f1(xg.market_away)}</div><div class="tiny muted">total ${f2(xg.market_total)}</div></div>` : `<div class="cell" style="display:inline-block;margin-left:10px"><div class="k">Market xG</div><div class="v muted">N/A</div><div class="tiny muted">no prices</div></div>`;
-    parts.push(`<div class="card"><div class="row"><div class="grow"><div class="cell" style="display:inline-block"><div class="k">Model xG</div><div class="v">${f1(xgH(f))} – ${f1(xgA(f))}</div><div class="tiny muted">total ${f2(xg.total)}</div></div>${mk}</div>
-      <div class="rings" style="flex:2">${ring(f.p.O15, 'Over 1.5')}${ring(f.p.O25, 'Over 2.5')}${ring(f.p.BTTS, 'BTTS')}</div></div>
+    const x12 = f.x12;
+    const ringSet = Array.isArray(x12) ? `${ring(x12[0] || 0, 'Home win')}${ring(x12[1] || 0, 'Draw')}${ring(x12[2] || 0, 'Away win')}` : `${ring(f.p.O15, 'Over 1.5')}${ring(f.p.O25, 'Over 2.5')}${ring(f.p.BTTS, 'BTTS')}`;
+    parts.push(`<div class="card"><div class="model-head"><span class="t">Model</span><span class="tiny muted">1X2 \u00b7 football data only</span></div>
+      <div class="row"><div class="grow"><div class="cell" style="display:inline-block"><div class="k">Model xG</div><div class="v">${f1(xgH(f))} – ${f1(xgA(f))}</div><div class="tiny muted">total ${f2(xg.total)}</div></div>${mk}</div>
+      <div class="rings" style="flex:2">${ringSet}</div></div>
       <div class="tiny muted" style="margin-top:8px"><b>Model probabilities</b> from football data only (goals, form, venue, league baseline) — bookmaker prices are compared, never blended in. Confidence ${esc(conf.O25 || 'N/A')}${q ? ` · data quality ${esc(q.overall)}` : ''} · samples ${(f.teams.home || {}).n || 0} / ${(f.teams.away || {}).n || 0} matches · league avg ${f2((f.league_avg.home_goals || 0) + (f.league_avg.away_goals || 0))} goals, O2.5 in ${pct(f.league_avg.o25)}${xg.market_total != null ? ` · model v market total ${(xg.total - xg.market_total) >= 0 ? '+' : ''}${f2(xg.total - xg.market_total)}` : ''}</div></div>`);
     const warns = (f.warnings || []).filter((w) => w.level === 'warn');
     if (warns.length) parts.push(`<div class="card compact"><div class="b">${icon('alert', 'sm')} Checks</div><div class="small" style="margin-top:4px">${warns.slice(0, 4).map((w) => `<div>⚠️ ${esc(w.text)}</div>`).join('')}</div><div class="tiny muted" style="margin-top:4px">All checks under Data.</div></div>`);
@@ -602,6 +605,30 @@
   // ------------------------------------------------------------------ PERFORMANCE
   PR.pages.performance = function () {
     const d = state.data; const sf = (d.safe || {}).summary || {}; const parts = [head('Performance', 'Auto-graded from official results')];
+    // reference cards on top: all-time stats, calibration band, market types
+    const bAll = (sf.bets || {}).all || {};
+    const nAll = bAll.n || 0; const rate = bAll.rate || 0; const exp = bAll.exp_rate || 0;
+    parts.push(`<div class="card perf-hero"><div class="ph-label">All time</div>
+      <div class="perf-tri"><div><b>${nAll}</b><span>Selections</span></div><div><b>${nAll ? pct(rate) : '–'}</b><span>Hit rate</span></div><div><b>${nAll ? pct(exp) : '–'}</b><span>Avg. model</span></div></div></div>`);
+    if (nAll) {
+      const dpp = (rate - exp) * 100; const ad = Math.abs(dpp);
+      const vcls = ad <= 2 ? 'ok' : ad <= 5 ? 'warn' : 'bad';
+      const vtext = ad <= 2 ? 'Excellent calibration' : ad <= 5 ? 'Close to the model' : dpp < 0 ? 'Model running hot' : 'Model running conservative';
+      parts.push(`<div class="card" style="margin-top:10px"><div class="ph-label">Calibration</div>
+        <div class="calib-row"><span class="muted">Model predicted</span><b>${pct(exp)}</b></div>
+        <div class="calib-row"><span class="muted">Actual result</span><b>${pct(rate)}</b></div>
+        <div class="calib-bar"><i style="width:${Math.max(2, Math.min(100, rate * 100)).toFixed(1)}%"></i></div>
+        <div class="calib-verdict ${vcls}">${vtext} \u00b7 ${dpp >= 0 ? '+' : ''}${f1(dpp)} pp</div></div>`);
+    }
+    parts.push(`<div class="card" style="margin-top:10px"><div class="ph-label">Market types</div>
+      <div class="mkt-types">
+        <button class="mkt-type" data-mkt-go="goals">${icon('ball')}<span>O1.5</span></button>
+        <button class="mkt-type" data-mkt-go="goals">${icon('trend')}<span>O2.5</span></button>
+        <button class="mkt-type" data-mkt-go="goals">${icon('target')}<span>BTTS</span></button>
+        <button class="mkt-type" data-mkt-go="top">${icon('shield')}<span>1X2</span></button>
+        <button class="mkt-type" data-mkt-go="corners">${icon('corner')}<span>Corners</span></button>
+        <button class="mkt-type" data-mkt-go="cards">${icon('card')}<span>Cards</span></button>
+      </div></div>`);
     const row = (name, s, wonKey) => s && s.n ? `<tr><td>${name}</td><td class="right">${s[wonKey || 'won']}/${s.n}</td><td class="right"><b>${pct(s.rate)}</b></td><td class="right muted">${pct(s.exp_rate)}</td><td class="right">${f2(s.avg_odds)}</td><td class="right ${s.roi > 0 ? 'good' : s.roi < 0 ? 'bad' : ''}"><b>${signed(s.roi)}</b></td></tr>` : `<tr><td>${name}</td><td class="right muted">0/0</td><td class="right muted">–</td><td class="right muted">–</td><td class="right muted">–</td><td class="right muted">–</td></tr>`;
     const tbl = (rows) => `<table class="tbl head perf" style="margin-top:6px"><tr><th>Scope</th><th class="right">Won</th><th class="right">Hit</th><th class="right">Exp.</th><th class="right">Odds</th><th class="right">Return</th></tr>${rows}</table>`;
     const bo = sf.botd || {};
@@ -614,6 +641,7 @@
     parts.push(`<div class="note">Everything on this page is graded automatically from final scores. Bookings and corner bets settle from the match statistics feed a few hours after full time. Statistical information, not betting advice.</div>`);
     view().innerHTML = parts.join('');
     wireBack();
+    $$('[data-mkt-go]').forEach((b) => { b.onclick = () => { state.betsView = b.dataset.mktGo; PR.setTab('bets'); }; });
   };
 
   // ------------------------------------------------------------------ PAGE: team search (V2 More hub → Teams)

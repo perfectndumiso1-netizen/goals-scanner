@@ -419,11 +419,13 @@ window.PR = (function () {
     if (top) return PR.pages[top.type](top);
     PR.views[state.tab]();
   }
+  const TAB_TITLE = { home: 'PlayReport', bets: 'Scan', live: 'Live', matches: 'Matches', more: 'More', days: 'Days', leagues: 'Leagues' };
   function setTab(tab) {
     if (tab === 'today') tab = 'home';
     if (!TABS.includes(tab)) tab = 'home';
     state.tab = tab; state.stack = [];
     const navTab = (tab === 'days' || tab === 'leagues') ? 'more' : tab;   // sub-tabs live under More in the V2 nav
+    const ttl = $('#top .title'); if (ttl) ttl.textContent = TAB_TITLE[tab] || 'PlayReport';
     $$('#tabs button').forEach((b) => b.classList.toggle('active', b.dataset.tab === navTab));
     render(); window.scrollTo(0, 0);
     if (tab === 'live' && state.data && Date.now() - state.lastLive > 15000) PR.live.refresh(false);

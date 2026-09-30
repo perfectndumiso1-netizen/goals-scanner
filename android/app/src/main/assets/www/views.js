@@ -149,14 +149,16 @@
   PR.safeRow = safeRow; PR.betStatus = betStatus;
 
   // ------------------------------------------------------------------ V2 components (signal card + scan hero) — real data only
-  function signalCard(b) {
+  function signalCard(b, opts) {
+    opts = opts || {};
     const f = fx(b.fixture); const st = betStatus(b); const p = (f && f.p) || {};
     const lv = f ? live.for(f) : null;
     const mid = lv && lv.hg != null ? `<span class="score">${lv.hg}\u2013${lv.ag}</span>` : 'VS';
     const time = lv ? (lv.status || 'LIVE') : koShort(b.kickoff);
     const qcls = b.q === 'High' ? '' : b.q === 'Low' ? 'na' : 'moderate';
-    return `<article class="signal tap" data-fx="${esc(b.fixture)}">
-      <div class="signal-top"><span class="competition">${flag(b.country)} ${esc(b.league || '')}</span><span class="time ${lv ? 'live-txt' : ''}">${esc(time)}</span></div>
+    const top = opts.bare ? '' : `<div class="signal-top"><span class="competition">${flag(b.country)} ${esc(b.league || '')}</span><span class="time ${lv ? 'live-txt' : ''}">${esc(time)}</span></div>`;
+    return `<article class="signal tap${opts.bare ? ' bare' : ''}" data-fx="${esc(b.fixture)}">
+      ${top}
       <div class="teams">
         <div class="team">${badge(b.home, f && f.badges && f.badges.home, 40)}<div class="team-name">${esc(b.home)}</div></div>
         <div class="vs">${mid}</div>
@@ -179,21 +181,16 @@
     </article>`;
   }
   function scanHero() {
-    const d = state.data; const all = d.fixtures || []; const sf = d.safe || {};
+    const d = state.data; const all = d.fixtures || [];
     const safe = safeList('all'); const picks = d.picks || {};
     const valueN = Object.keys(picks).reduce((n, k) => n + (Array.isArray(picks[k]) ? picks[k].length : 0), 0);
     const strongN = all.filter((f) => f.data_ok && f.priced).length;
-    const topN = (sf.today && sf.today.bets ? sf.today.bets.length : 0);
-    return `<div class="scan-hero">
-      <strong>Scan today\u2019s board</strong>
-      <p>Model vs market across every priced match. Tap a card to jump straight to the list.</p>
-      <div class="scan-grid">
-        <button class="scan-card" data-bets="safest"><b>${safe.length}</b><span>High model probability</span></button>
-        <button class="scan-card" data-bets="picks"><b>${valueN}</b><span>Model &gt; Market</span></button>
-        <button class="scan-card" data-tab-go="matches"><b>${strongN}</b><span>Strong data</span></button>
-        <button class="scan-card" data-bets="today"><b>${topN}</b><span>Top signals</span></button>
-      </div>
-    </div>`;
+    const card = (cls, ico, title, count, cta, attrs) => `<button class="scan-stat" ${attrs}><span class="tile ${cls}">${icon(ico)}</span>
+      <span class="grow"><strong>${title}</strong><span class="n">${count}</span><span class="go">${cta} ${icon('next', 'sm')}</span></span></button>`;
+    return `<div class="scan-top"><span class="date-pill">${icon('calendar', 'sm')} ${esc(dayName(ymd(tzNow())))}</span></div>
+      ${card('g', 'trend', 'High model probability', `${safe.length} signal${safe.length === 1 ? '' : 's'}`, 'View signals', 'data-bets="safest"')}
+      ${card('y', 'swap', 'Model &gt; Market', `${valueN} market difference${valueN === 1 ? '' : 's'}`, 'View differences', 'data-bets="picks"')}
+      ${card('b', 'check', 'Strong data', `${strongN} matches`, 'View matches', 'data-tab-go="matches"')}`;
   }
 
   // ------------------------------------------------------------------ HOME
@@ -201,21 +198,39 @@
     const d = state.data, m = d.meta, sf = d.safe || { bets: [] }; const parts = [];
     const inPlay = live.inPlay(); const cov = m.coverage || {};
     const safe = safeList('all');
-    parts.push(`<div class="card hero"><div class="eyebrow">Live analysis · updated every 30 minutes</div><div class="b" style="font-size:17px">${esc(dayName(m.generated))} · ${esc(koTime(m.generated))} ${esc(m.tz)}</div>
-      <div class="tiny muted">Next update ${esc(koTime(m.next_run || ''))} · ${cov.competitions || '–'} competitions worldwide · ${cov.priced || 0} priced by Sportybet</div>
+    // reference Home: date line + TODAY stats tile row
+    parts.push(`<div class="hero-row"><div><div class="kicker">Football intelligence</div><h1>${esc(String(dayName(m.generated || '')).replace(/^Today · /, ''))}</h1></div><span class="quality">updated ${esc(koTime(m.generated || ''))}</span></div>`);
+    parts.push(`<div class="card hero"><div class="eyebrow">Today</div>
       <div class="hero-nums"><div><b>${m.fixtures}</b><span>Matches</span></div><div><b>${d.fixtures.filter((f) => f.data_ok).length}</b><span>Analysed</span></div><div><b>${safe.length}</b><span>High confidence</span></div><div><b>${(state.liveAll || []).length || inPlay.length}</b><span>Live</span></div></div>
+      <div class="tiny muted" style="margin-top:8px">Next update ${esc(koTime(m.next_run || ''))} · ${cov.competitions || '–'} competitions worldwide · ${cov.priced || 0} priced by Sportybet</div>
       ${inPlay.length ? `<div class="live-strip" data-tab-go="live"><span class="status-dot live"></span><div class="grow"><b>${inPlay.length} tracked in play</b> · ${inPlay.slice(0, 2).map((f) => { const s = live.for(f); return `${esc(f.home)} ${s.hg}–${s.ag} ${esc(f.away)}`; }).join(' · ')}${inPlay.length > 2 ? ' …' : ''}</div>${icon('next', 'sm')}</div>` : ''}</div>`);
+    // TODAY'S SIGNALS hero — the top signal, rest behind View all
+    if (safe.length) {
+      parts.push(`<div class="signals-hero"><div class="sh-head"><span class="t">Today\u2019s signals</span><span class="c">${safe.length} strong model signal${safe.length === 1 ? '' : 's'}</span></div>
+        ${signalCard(safe[0], { bare: true })}
+        <div class="sh-viewall"><button class="link" data-bets="safest">View all ${safe.length} ${icon('next', 'sm')}</button></div></div>`);
+    } else {
+      parts.push(`<div class="signals-hero"><div class="sh-head"><span class="t">Today\u2019s signals</span></div><div class="empty small" style="border:0;background:transparent">Nothing priced at \u2265 ${f2(sf.min_odds || 1.3)} reached ${pct(sf.min_p || 0.7)} on both views${majorOnly() ? ' in the major leagues' : ''} yet \u2014 the board fills as probabilities firm up.</div></div>`);
+    }
+    // BEST OF TODAY — first pick of the graded card, straight into the Best page
+    const botd = (sf.today && sf.today.bets) || [];
+    if (botd.length) {
+      const b0 = botd[0];
+      const grp = ((sf.today && sf.today.groups) || []).find((g) => (g.bets || []).indexOf(b0) >= 0);
+      const glabel = (grp && grp.title) || (GROUPS[selGroup(b0.sel)] || 'Best bet');
+      parts.push(`<div class="card botd-hero tap" data-page-go="best"><div class="bh-head"><span class="t">Best of today</span>${icon('next', 'sm')}</div>
+        <div class="bh-label">${esc(glabel)}</div>
+        <div class="bh-main"><div><div class="bh-sel">${esc(b0.label)}</div><div class="bh-match">${esc(b0.home)} v ${esc(b0.away)}</div></div>
+        <div class="bh-prob"><b>${pct(b0.p)}</b><span>Model probability</span></div></div>
+        <div class="tiny muted" style="margin-top:8px">${botd.length} pick${botd.length === 1 ? '' : 's'} on the card \u00b7 built section by section through the day</div></div>`);
+    }
     if (PR.APP_VERSION && settings.seenVersion !== PR.APP_VERSION) {
       parts.push(`<div class="card whatsnew"><div class="row"><div class="grow"><b>${icon('sparkle', 'sm')} New in PlayReport ${esc(PR.APP_VERSION)}</b></div><button class="link" id="wn-close">${icon('x')}</button></div>
         <ul><li>📅 <b>60 days of fixtures, every league</b> — the scanner now analyses matches up to 60 days ahead worldwide, so form, statistics and context are gathered early and every match is analysed long before kick-off. League fixture lists span the whole window.</li><li>🎫 <b>Your tickets meet Sportybet</b> — the <b>SB</b> link on any priced match, slip leg or ticket leg opens that match in Sportybet (live odds &amp; slip), and tickets copy to the clipboard in one tap.</li><li>🧾 <b>Booking codes</b> — paste a Sportybet booking code on the slip screen and PlayReport loads it in Sportybet for you.</li><li>🎯 <b>Bets of the day are Sportybet markets</b> — only markets Sportybet actually prices (≥ 1.30), each labelled with its Sportybet price.</li><li>🧊 Model untouched — same input, same numbers.</li></ul></div>`);
     }
-    parts.push(botdCard(true));
     if (PR.ticketsCard && PR.tickets().some((t) => t.status === 'pending')) parts.push(PR.ticketsCard(true));
     const favs = (PR.favList ? PR.favList() : []).map((x) => fx(x.fixture)).filter(Boolean).sort((a, b) => a.kickoff.localeCompare(b.kickoff));
     if (favs.length) parts.push(`<div class="section-head"><h2><span class="ico amber">${icon('star')}</span>Your matches</h2><button class="link" data-tab-go="matches" data-mf-go="fav">All ${favs.length} ${icon('next')}</button></div><div class="card compact">${favs.slice(0, 5).map((f) => { const s = live.for(f); return matchRow(f, { live: s, sub: `${flag(f.country)} ${esc(f.competition)}${f.safe ? ` · 📈 <b>${esc(selShort(f.safe[0]))}</b> ${pct(f.safe[1])}` : ''}`, right: s && s.hg != null ? '' : `<span class="pill ${f.p.O25 >= 0.6 ? 'hi' : ''}">O2.5 ${pct(f.p.O25)}</span>` }); }).join('')}</div>`);
-    parts.push(`<div class="section-head">${sh('trend', 'High-probability selections', 'green')}<button class="link" data-bets="safest">All ${safe.length} ${icon('next')}</button></div>`);
-    if (!safe.length) parts.push(`<div class="card empty small">Nothing priced at ≥ ${f2(sf.min_odds || 1.3)} reached ${pct(sf.min_p || 0.7)} on both views${majorOnly() ? ' in the major leagues' : ''}.</div>`);
-    else parts.push(safe.slice(0, 3).map((b) => signalCard(b)).join(''));
     const pk = d.picks || {};
     parts.push(`<div class="card compact"><div class="row" style="flex-wrap:wrap"><div class="grow b">Explore</div></div>
       <div class="chips">${['O15', 'O25', 'BTTS'].map((k) => `<button class="chip tapchip" data-bets="picks">${icon('star', 'sm')} ${esc(MK[k])} <b>${(pk[k] || []).length}</b></button>`).join('')}<button class="chip tapchip" data-bets="corners">${icon('corner', 'sm')} Corners</button><button class="chip tapchip" data-bets="cards">${icon('card', 'sm')} Cards</button><button class="chip tapchip" data-tab-go="leagues">${icon('trophy', 'sm')} World leagues</button><button class="chip tapchip" data-page-go="guide">${icon('info', 'sm')} Guide to the markets</button></div></div>`);
@@ -374,18 +389,32 @@
       Object.entries(d.picks || {}).forEach(([mk, lst]) => lst.forEach((p) => { (betsByFx[p.fixture] = betsByFx[p.fixture] || []).push({ label: MK[mk], sel: mk, kind: 'pick' }); }));
       const rank = (f) => { const s = live.for(f); return isLive(s) ? 0 : isFT(s) ? 2 : 1; };
       const ordered = tracked.slice().sort((x, y) => rank(x) - rank(y) || x.kickoff.localeCompare(y.kickoff));
-      let lastGroup = null; const GROUP_LABEL = ['In play', 'Upcoming', 'Finished'];
-      parts.push('<div class="card compact">');
       ordered.forEach((f) => {
-        const g = rank(f); if (g !== lastGroup) { parts.push(`<div class="comp-head">${GROUP_LABEL[g]}</div>`); lastGroup = g; }
+        const g = rank(f);
         const s = live.for(f); const inc = f.livescore_id && state.incidents[f.livescore_id];
         const seen = new Set();
         const chips = (betsByFx[f.id] || []).filter((b) => { const k = b.sel; if (seen.has(k)) return false; seen.add(k); return true; })
           .map((b) => { const vd = liveVerdict(b.sel, s); return `<span class="chip ${vd.cls}">${b.kind === 'botd' ? '⭐ ' : b.kind === 'safe' ? '📈 ' : ''}${esc(b.label)}${b.odds ? ' @ ' + f2(b.odds) : ''} · ${esc(vd.text)}</span>`; }).join('');
         const goals = inc && g !== 1 ? inc.items.filter((it) => ['goal', 'own goal', 'penalty'].includes(it.type)) : [];
-        parts.push(matchRow(f, { live: s, sub: `${flag(f.country)} ${esc(f.competition)}`, right: '' }) + `<div class="mrow-extra"><div class="chips">${chips}</div>${goals.length ? `<div class="tiny muted">${goals.map((it) => `⚽ ${esc(it.player || '')} ${it.min != null ? it.min + "'" : ''}${it.team === 'A' ? ' (away)' : ''}`).join(' · ')}</div>` : ''}</div>`);
+        const bub = g === 0 ? `<span class="lc-badge">${esc((s && s.status) || 'LIVE')}</span>`
+          : g === 2 ? `<span class="lc-badge ft">FT</span>`
+          : `<span class="lc-badge up">${esc(koTime(f.kickoff))}</span>`;
+        const vd0 = f.safe ? liveVerdict(f.safe[0], s) : null;
+        const meta = g === 0 ? (vd0 ? esc(vd0.text) : 'in play')
+          : g === 2 ? 'finished'
+          : `${esc(koShort(f.kickoff))}`;
+        parts.push(`<div class="live-card tap" data-fx="${esc(f.id)}">
+          <div class="lc-top">${bub}<span class="lc-comp">${flag(f.country)} ${esc(f.competition)}</span></div>
+          <div class="lc-grid">
+            <div>
+              <div class="lc-team">${badge(f.home, f.badges && f.badges.home, 22)}<span class="nm">${esc(f.home)}</span><span class="score">${s && s.hg != null ? s.hg : '\u2013'}</span></div>
+              <div class="lc-team">${badge(f.away, f.badges && f.badges.away, 22)}<span class="nm">${esc(f.away)}</span><span class="score">${s && s.ag != null ? s.ag : '\u2013'}</span></div>
+            </div>
+            <div class="lc-meta"><span class="chip brand">O2.5 ${pct(f.p.O25)}</span><span class="lc-verdict">${meta}</span></div>
+          </div>
+          ${(chips || goals.length) ? `<div class="lc-extra">${chips ? `<div class="chips">${chips}</div>` : ''}${goals.length ? `<div class="tiny muted" style="margin-top:4px">${goals.map((it) => `⚽ ${esc(it.player || '')} ${it.min != null ? it.min + "'" : ''}${it.team === 'A' ? ' (away)' : ''}`).join(' · ')}</div>` : ''}</div>` : ''}
+        </div>`);
       });
-      parts.push('</div>');
     }
     parts.push(`<div class="tiny muted" style="padding:0 6px">Scores from a public live feed (unofficial). Auto-refresh every ${settings.liveEvery}s while this tab is open. The settled results in Days are the final word.</div>`);
     view().innerHTML = parts.join('');
@@ -522,35 +551,26 @@
 
   // ------------------------------------------------------------------ MORE (V2 hub: Days / Leagues / Teams / Performance / Tickets / settings)
   PR.views.more = function () {
-    const d = state.data; const all = d.fixtures || []; const sf = d.safe || {};
-    const safe = safeList('all'); const inPlay = live.inPlay();
+    const d = state.data;
     const tickets = PR.tickets ? PR.tickets() : [];
     const pendingTickets = tickets.filter((t) => t.status === 'pending').length;
-    const topN = (sf.today && sf.today.bets ? sf.today.bets.length : 0);
     const parts = [];
-    parts.push(`<div class="hero-row"><div><div class="kicker">Football intelligence</div><h1>More</h1></div><span class="quality">up to date</span></div>`);
-    parts.push(`<div class="perf-grid">
-      <div class="perf-card"><strong>${all.filter((f) => f.data_ok).length}</strong><small>Matches analysed</small></div>
-      <div class="perf-card"><strong>${safe.length}</strong><small>High confidence</small></div>
-      <div class="perf-card"><strong>${topN}</strong><small>Today\u2019s signals</small></div>
-      <div class="perf-card"><strong>${inPlay.length}</strong><small>Live now</small></div>
+    const row = (icn, title, sub, attrs, right) => `<button class="more-row" ${attrs}><span class="tile">${icon(icn)}</span><span class="grow"><span class="b">${title}</span><span class="s">${sub}</span></span>${right || `<span class="chev">${icon('next')}</span>`}</button>`;
+    parts.push(`<div class="more-list">
+      ${row('calendar', 'Days', 'Daily analysis &amp; overview', 'data-tab-go="days"')}
+      ${row('trophy', 'Leagues', 'Worldwide competitions', 'data-tab-go="leagues"')}
+      ${row('users', 'Teams', 'Stats, form &amp; trends', 'data-page-go="teams"')}
+      ${row('chart', 'Performance', 'Your results &amp; calibration', 'data-page-go="performance"')}
+      ${row('ticket', 'Tickets', pendingTickets ? `${pendingTickets} awaiting result` : 'My selections &amp; history', 'data-page-go="tickets"', pendingTickets ? `<span class="cnt">${pendingTickets}</span>` : undefined)}
+      ${row('sparkle', 'Best of the day', 'Grounded daily shortlist', 'data-page-go="best"')}
+      ${row('info', 'Guide to the markets', 'FAQ &amp; how the model works', 'data-page-go="guide"')}
+      ${row('doc', 'Full analysis', 'The complete daily report', 'data-page-go="analysis"')}
+      ${row('ball', 'Tennis', 'Separate section with live scores', 'data-page-go="tennis"')}
+      ${row('settings', 'Settings', 'App preferences', 'data-page-go="settings"')}
+      ${row('download', 'Download today\u2019s data (CSV)', 'Spreadsheet of the whole window', 'id="more-csv"')}
+      ${row('chat', 'Contact on WhatsApp', 'Questions, feedback &amp; support', 'id="more-contact"')}
     </div>`);
-    const tile = (icn, title, sub, attrs) => `<button class="more-card" ${attrs}><span class="ico">${icon(icn)}</span><strong>${title}</strong><span>${sub}</span></button>`;
-    parts.push(`<div class="more-grid" style="margin-top:12px">
-      ${tile('calendar', 'Days', 'Browse and re-open any analysis day', 'data-tab-go="days"')}
-      ${tile('trophy', 'Leagues', 'Standings and league analysis', 'data-tab-go="leagues"')}
-      ${tile('users', 'Teams', 'Search any team — form, venues, fixtures', 'data-page-go="teams"')}
-      ${tile('chart', 'Performance', 'Hit rate, calibration, records', 'data-page-go="performance"')}
-      ${tile('ticket', 'My tickets', pendingTickets ? `${pendingTickets} awaiting result` : 'Track your bets', 'data-page-go="tickets"')}
-      ${tile('sparkle', 'Best of the day', 'Grounded daily shortlist', 'data-page-go="best"')}
-      ${tile('info', 'Guide to the markets', 'How every market works', 'data-page-go="guide"')}
-      ${tile('doc', 'Full analysis', 'The complete daily report', 'data-page-go="analysis"')}
-      ${tile('ball', 'Tennis', 'Separate section with live scores', 'data-page-go="tennis"')}
-      ${tile('settings', 'Settings', 'Theme, odds format, alerts', 'data-page-go="settings"')}
-      <button class="more-card wide" id="more-csv"><span class="ico">${icon('download')}</span><strong>Download today\u2019s data (CSV)</strong></button>
-      <button class="more-card wide" id="more-contact"><span class="ico">${icon('chat')}</span><strong>Contact on WhatsApp</strong></button>
-    </div>`);
-    parts.push(`<div class="card version-card" style="margin-top:12px"><div class="b">PlayReport ${esc(PR.APP_VERSION || '')}</div><div class="tiny muted">Football intelligence \u00b7 better decisions</div></div>`);
+    parts.push(`<div class="card version-card" style="margin-top:12px"><div class="b">PlayReport ${esc(PR.APP_VERSION || '')}</div><div class="tiny muted">Model \u00b7 Data \u00b7 Performance</div></div>`);
     view().innerHTML = parts.join('');
     wireCommon(); if (PR.wireTickets) PR.wireTickets();
     const csv = $('#more-csv'); if (csv) csv.onclick = () => PR.downloadDayCsv();

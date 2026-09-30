@@ -1,3 +1,12 @@
+## What's new in PlayReport 1.6.28 — 🎨 The redesign, screen by screen
+- 🏠 **Home rebuilt like the reference design** — date headline, the **TODAY** tile row (matches · analysed · high confidence · live), a **Today's signals** hero card showing the strongest signal with both crests, the full home/draw/away model view and the model/market/price strip (**View all** opens the whole list), and a **Best of today** card straight into the graded shortlist.
+- 🔭 **Scan screen** — three summary cards with coloured icon tiles: **High model probability**, **Model > Market** and **Strong data**, each with its live count and one tap to the matching list, plus the date pill and today's boards below.
+- ⚽ **Live screen, reference layout** — every followed match is now its own card: minute badge (LIVE xx' / FT / kick-off), both clubs with crests and score, the Over 2.5 model view, a plain-language verdict, and the selection chips + goal scorers underneath.
+- 🧭 **More screen as a list** — Days, Leagues, Teams, Performance, Tickets, Best of the day, Guide, Analysis, Tennis, Settings, CSV and WhatsApp as icon rows with subtitles (and a pending-tickets badge), under the version card.
+- 📊 **Performance upgraded** — All-time card (selections · hit rate · average model), a **Calibration** card comparing predicted vs actual with a verdict, and **Market types** icons that jump to the right Scan board. The detailed tables stay underneath.
+- 🎯 **Match Center** — the Model card now leads with **1X2 rings** (home win · draw · away win) exactly like the reference, above the expected-goals comparison.
+- 🧊 **Model untouched** — probabilities, calibration, data pipeline and every feature exactly where they were; presentation only.
+
 ## What's new in PlayReport 1.6.27 — 🎨 New look, same engine
 - 🌙 **A fresh visual design** — deeper dark theme, cleaner cards and pill-shaped filters everywhere. High-probability selections now arrive as proper signal cards: both clubs with crests, the model's home / draw / away view, and the pick's model probability, market view and Sportybet price side by side.
 - 📱 **New bottom navigation** — **Home · Scan · Live · Matches · More**. Scan opens today's board in one tap, with summary cards for high model probability, model-vs-market, strong data and today's top signals.
