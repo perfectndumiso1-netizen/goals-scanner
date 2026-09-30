@@ -1,3 +1,10 @@
+## What's new in PlayReport 1.6.27 — 🎨 New look, same engine
+- 🌙 **A fresh visual design** — deeper dark theme, cleaner cards and pill-shaped filters everywhere. High-probability selections now arrive as proper signal cards: both clubs with crests, the model's home / draw / away view, and the pick's model probability, market view and Sportybet price side by side.
+- 📱 **New bottom navigation** — **Home · Scan · Live · Matches · More**. Scan opens today's board in one tap, with summary cards for high model probability, model-vs-market, strong data and today's top signals.
+- 🧭 **More hub** — Days, Leagues, **Teams**, Performance, My tickets, Best of the day, the market guide, full analysis, Tennis, Settings, CSV and WhatsApp all live in one place, plus a live snapshot (matches analysed, high confidence, today's signals, live now).
+- 🔎 **Team search** — find any club in the fixture window by team, league or country and jump straight to its profile: form, venues, head-to-head and upcoming fixtures.
+- 🧊 **Model untouched** — same probabilities, same calibration, same data pipeline and every feature exactly where it was; this release is presentation only.
+
 ## What's new in PlayReport 1.6.25 — 🔗 Everything tappable · 🏆 Best of the day · 📣 Instant updates
 - 🔗 **Every fixture and team is tappable** — open any match from any league and any day: full analysis inside the 24-hour window, the head-to-head and goals kept for 14 days, and the day archive (scores, statistics, H2H) for 60 days. Fixtures beyond the analysis window open straight from Leagues into the archive — the old "outside the 24-hour window" dead end is gone.
 - ⚔️ **Head-to-head, AiScore style** — the Match Center's head-to-head section now opens with both clubs' **recent form strips** (last five results, colour-coded) above the win/draw/win bar and the previous meetings. Archived matches keep their head-to-head too.

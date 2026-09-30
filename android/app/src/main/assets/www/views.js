@@ -148,6 +148,54 @@
   }
   PR.safeRow = safeRow; PR.betStatus = betStatus;
 
+  // ------------------------------------------------------------------ V2 components (signal card + scan hero) — real data only
+  function signalCard(b) {
+    const f = fx(b.fixture); const st = betStatus(b); const p = (f && f.p) || {};
+    const lv = f ? live.for(f) : null;
+    const mid = lv && lv.hg != null ? `<span class="score">${lv.hg}\u2013${lv.ag}</span>` : 'VS';
+    const time = lv ? (lv.status || 'LIVE') : koShort(b.kickoff);
+    const qcls = b.q === 'High' ? '' : b.q === 'Low' ? 'na' : 'moderate';
+    return `<article class="signal tap" data-fx="${esc(b.fixture)}">
+      <div class="signal-top"><span class="competition">${flag(b.country)} ${esc(b.league || '')}</span><span class="time ${lv ? 'live-txt' : ''}">${esc(time)}</span></div>
+      <div class="teams">
+        <div class="team">${badge(b.home, f && f.badges && f.badges.home, 40)}<div class="team-name">${esc(b.home)}</div></div>
+        <div class="vs">${mid}</div>
+        <div class="team">${badge(b.away, f && f.badges && f.badges.away, 40)}<div class="team-name">${esc(b.away)}</div></div>
+      </div>
+      <div class="model-grid">
+        <div class="model-box"><label>Home</label><strong>${pct(p.H || 0)}</strong><div class="progress"><i style="width:${Math.round((p.H || 0) * 100)}%"></i></div></div>
+        <div class="model-box"><label>Draw</label><strong>${pct(p.D || 0)}</strong><div class="progress d"><i style="width:${Math.round((p.D || 0) * 100)}%"></i></div></div>
+        <div class="model-box"><label>Away</label><strong>${pct(p.A || 0)}</strong><div class="progress a"><i style="width:${Math.round((p.A || 0) * 100)}%"></i></div></div>
+      </div>
+      <div class="market-strip">
+        <div><div class="market-name">${esc(b.label)}</div>${b.q ? `<div class="quality ${qcls}">data ${esc(b.q)}</div>` : ''}</div>
+        <div class="market-values">
+          <div><small>Model</small><b>${pct(b.p)}</b></div>
+          <div><small>Market</small><b>${b.p_sb != null ? pct(b.p_sb) : 'N/A'}</b></div>
+          <div><small>Price</small><b>${b.odds ? f2(b.odds) : 'N/A'}</b></div>
+        </div>
+      </div>
+      <div class="row" style="justify-content:flex-end;margin-top:8px;gap:8px">${st.text !== 'not started' ? `<span class="tiny ${st.cls}">${esc(st.text)}</span>` : ''}${PR.addBtn ? PR.addBtn(b.fixture, b.sel, b.odds) : ''}</div>
+    </article>`;
+  }
+  function scanHero() {
+    const d = state.data; const all = d.fixtures || []; const sf = d.safe || {};
+    const safe = safeList('all'); const picks = d.picks || {};
+    const valueN = Object.keys(picks).reduce((n, k) => n + (Array.isArray(picks[k]) ? picks[k].length : 0), 0);
+    const strongN = all.filter((f) => f.data_ok && f.priced).length;
+    const topN = (sf.today && sf.today.bets ? sf.today.bets.length : 0);
+    return `<div class="scan-hero">
+      <strong>Scan today\u2019s board</strong>
+      <p>Model vs market across every priced match. Tap a card to jump straight to the list.</p>
+      <div class="scan-grid">
+        <button class="scan-card" data-bets="safest"><b>${safe.length}</b><span>High model probability</span></button>
+        <button class="scan-card" data-bets="picks"><b>${valueN}</b><span>Model &gt; Market</span></button>
+        <button class="scan-card" data-tab-go="matches"><b>${strongN}</b><span>Strong data</span></button>
+        <button class="scan-card" data-bets="today"><b>${topN}</b><span>Top signals</span></button>
+      </div>
+    </div>`;
+  }
+
   // ------------------------------------------------------------------ HOME
   PR.views.home = function () {
     const d = state.data, m = d.meta, sf = d.safe || { bets: [] }; const parts = [];
@@ -155,7 +203,7 @@
     const safe = safeList('all');
     parts.push(`<div class="card hero"><div class="eyebrow">Live analysis · updated every 30 minutes</div><div class="b" style="font-size:17px">${esc(dayName(m.generated))} · ${esc(koTime(m.generated))} ${esc(m.tz)}</div>
       <div class="tiny muted">Next update ${esc(koTime(m.next_run || ''))} · ${cov.competitions || '–'} competitions worldwide · ${cov.priced || 0} priced by Sportybet</div>
-      <div class="hero-nums"><div><b>${m.fixtures}</b><span>matches</span></div><div><b>${(sf.today && sf.today.bets ? sf.today.bets.length : 0)}</b><span>bets of the day</span></div><div><b>${safe.length}</b><span>high-probability</span></div><div><b>${(state.liveAll || []).length || inPlay.length}</b><span>in play</span></div></div>
+      <div class="hero-nums"><div><b>${m.fixtures}</b><span>Matches</span></div><div><b>${d.fixtures.filter((f) => f.data_ok).length}</b><span>Analysed</span></div><div><b>${safe.length}</b><span>High confidence</span></div><div><b>${(state.liveAll || []).length || inPlay.length}</b><span>Live</span></div></div>
       ${inPlay.length ? `<div class="live-strip" data-tab-go="live"><span class="status-dot live"></span><div class="grow"><b>${inPlay.length} tracked in play</b> · ${inPlay.slice(0, 2).map((f) => { const s = live.for(f); return `${esc(f.home)} ${s.hg}–${s.ag} ${esc(f.away)}`; }).join(' · ')}${inPlay.length > 2 ? ' …' : ''}</div>${icon('next', 'sm')}</div>` : ''}</div>`);
     if (PR.APP_VERSION && settings.seenVersion !== PR.APP_VERSION) {
       parts.push(`<div class="card whatsnew"><div class="row"><div class="grow"><b>${icon('sparkle', 'sm')} New in PlayReport ${esc(PR.APP_VERSION)}</b></div><button class="link" id="wn-close">${icon('x')}</button></div>
@@ -167,7 +215,7 @@
     if (favs.length) parts.push(`<div class="section-head"><h2><span class="ico amber">${icon('star')}</span>Your matches</h2><button class="link" data-tab-go="matches" data-mf-go="fav">All ${favs.length} ${icon('next')}</button></div><div class="card compact">${favs.slice(0, 5).map((f) => { const s = live.for(f); return matchRow(f, { live: s, sub: `${flag(f.country)} ${esc(f.competition)}${f.safe ? ` · 📈 <b>${esc(selShort(f.safe[0]))}</b> ${pct(f.safe[1])}` : ''}`, right: s && s.hg != null ? '' : `<span class="pill ${f.p.O25 >= 0.6 ? 'hi' : ''}">O2.5 ${pct(f.p.O25)}</span>` }); }).join('')}</div>`);
     parts.push(`<div class="section-head">${sh('trend', 'High-probability selections', 'green')}<button class="link" data-bets="safest">All ${safe.length} ${icon('next')}</button></div>`);
     if (!safe.length) parts.push(`<div class="card empty small">Nothing priced at ≥ ${f2(sf.min_odds || 1.3)} reached ${pct(sf.min_p || 0.7)} on both views${majorOnly() ? ' in the major leagues' : ''}.</div>`);
-    else parts.push(`<div class="card compact"><table class="tbl">${safe.slice(0, 5).map((b) => safeRow(b)).join('')}</table></div>`);
+    else parts.push(safe.slice(0, 3).map((b) => signalCard(b)).join(''));
     const pk = d.picks || {};
     parts.push(`<div class="card compact"><div class="row" style="flex-wrap:wrap"><div class="grow b">Explore</div></div>
       <div class="chips">${['O15', 'O25', 'BTTS'].map((k) => `<button class="chip tapchip" data-bets="picks">${icon('star', 'sm')} ${esc(MK[k])} <b>${(pk[k] || []).length}</b></button>`).join('')}<button class="chip tapchip" data-bets="corners">${icon('corner', 'sm')} Corners</button><button class="chip tapchip" data-bets="cards">${icon('card', 'sm')} Cards</button><button class="chip tapchip" data-tab-go="leagues">${icon('trophy', 'sm')} World leagues</button><button class="chip tapchip" data-page-go="guide">${icon('info', 'sm')} Guide to the markets</button></div></div>`);
@@ -190,6 +238,7 @@
   const leagueChips = () => `<div class="chips small-chips"><button class="chip tapchip ${!majorOnly() ? 'on' : ''}" data-lg="all">🌍 All leagues</button><button class="chip tapchip ${majorOnly() ? 'on' : ''}" data-lg="major">🏆 Major leagues</button></div>`;
   PR.views.bets = function () {
     const parts = []; const v = state.betsView || 'today';
+    parts.push(scanHero());
     parts.push(`<div class="card compact sticky-ish">${segmented([['today', `${icon('star')} Today`], ['top', `${icon('shield')} Top leagues`], ['safest', `${icon('trend')} High prob.`], ['goals', `${icon('ball')} Goals`], ['corners', `${icon('corner')} Corners`], ['cards', `${icon('card')} Cards`], ['picks', `${icon('trend')} Shortlist`]], v, 'bv')}</div>`);
     if (v === 'today') renderToday(parts);
     else if (v === 'top') renderTop(parts);
@@ -470,4 +519,41 @@
   };
   function chipCls(o, k) { const settled = o.n - (o.pending || 0); if (!settled) return ''; const r = o[k] / settled; return r >= 0.6 ? 'good' : r <= 0.35 ? 'bad' : 'warn'; }
   PR.chipCls = chipCls;
+
+  // ------------------------------------------------------------------ MORE (V2 hub: Days / Leagues / Teams / Performance / Tickets / settings)
+  PR.views.more = function () {
+    const d = state.data; const all = d.fixtures || []; const sf = d.safe || {};
+    const safe = safeList('all'); const inPlay = live.inPlay();
+    const tickets = PR.tickets ? PR.tickets() : [];
+    const pendingTickets = tickets.filter((t) => t.status === 'pending').length;
+    const topN = (sf.today && sf.today.bets ? sf.today.bets.length : 0);
+    const parts = [];
+    parts.push(`<div class="hero-row"><div><div class="kicker">Football intelligence</div><h1>More</h1></div><span class="quality">up to date</span></div>`);
+    parts.push(`<div class="perf-grid">
+      <div class="perf-card"><strong>${all.filter((f) => f.data_ok).length}</strong><small>Matches analysed</small></div>
+      <div class="perf-card"><strong>${safe.length}</strong><small>High confidence</small></div>
+      <div class="perf-card"><strong>${topN}</strong><small>Today\u2019s signals</small></div>
+      <div class="perf-card"><strong>${inPlay.length}</strong><small>Live now</small></div>
+    </div>`);
+    const tile = (icn, title, sub, attrs) => `<button class="more-card" ${attrs}><span class="ico">${icon(icn)}</span><strong>${title}</strong><span>${sub}</span></button>`;
+    parts.push(`<div class="more-grid" style="margin-top:12px">
+      ${tile('calendar', 'Days', 'Browse and re-open any analysis day', 'data-tab-go="days"')}
+      ${tile('trophy', 'Leagues', 'Standings and league analysis', 'data-tab-go="leagues"')}
+      ${tile('users', 'Teams', 'Search any team — form, venues, fixtures', 'data-page-go="teams"')}
+      ${tile('chart', 'Performance', 'Hit rate, calibration, records', 'data-page-go="performance"')}
+      ${tile('ticket', 'My tickets', pendingTickets ? `${pendingTickets} awaiting result` : 'Track your bets', 'data-page-go="tickets"')}
+      ${tile('sparkle', 'Best of the day', 'Grounded daily shortlist', 'data-page-go="best"')}
+      ${tile('info', 'Guide to the markets', 'How every market works', 'data-page-go="guide"')}
+      ${tile('doc', 'Full analysis', 'The complete daily report', 'data-page-go="analysis"')}
+      ${tile('ball', 'Tennis', 'Separate section with live scores', 'data-page-go="tennis"')}
+      ${tile('settings', 'Settings', 'Theme, odds format, alerts', 'data-page-go="settings"')}
+      <button class="more-card wide" id="more-csv"><span class="ico">${icon('download')}</span><strong>Download today\u2019s data (CSV)</strong></button>
+      <button class="more-card wide" id="more-contact"><span class="ico">${icon('chat')}</span><strong>Contact on WhatsApp</strong></button>
+    </div>`);
+    parts.push(`<div class="card version-card" style="margin-top:12px"><div class="b">PlayReport ${esc(PR.APP_VERSION || '')}</div><div class="tiny muted">Football intelligence \u00b7 better decisions</div></div>`);
+    view().innerHTML = parts.join('');
+    wireCommon(); if (PR.wireTickets) PR.wireTickets();
+    const csv = $('#more-csv'); if (csv) csv.onclick = () => PR.downloadDayCsv();
+    const ct = $('#more-contact'); if (ct) ct.onclick = () => { if (PR.native && PR.native.openUrl) PR.native.openUrl(`https://wa.me/${PR.CONTACT.whatsapp}`); else window.open(`https://wa.me/${PR.CONTACT.whatsapp}`); };
+  };
 })(window.PR);

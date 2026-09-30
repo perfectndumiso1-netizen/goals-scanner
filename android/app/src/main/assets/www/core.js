@@ -403,8 +403,9 @@ window.PR = (function () {
     try { const j = await getJson(rawUrl('data/app/badges.json') + '?t=' + Math.floor(Date.now() / 86400000)); if (j && typeof j === 'object') { state.badges = j; localStorage.setItem('pr_badges', JSON.stringify(j)); } } catch (e) { /* offline: keep cache */ }
   }
 
-  // ------------------------------------------------------------------ navigation
-  const TABS = ['home', 'bets', 'live', 'matches', 'days', 'leagues'];
+  // ------------------------------------------------------------------ navigation (V2 shell: Home / Scan / Live / Matches / More —
+  // Days and Leagues stay valid tabs, reached from the More page)
+  const TABS = ['home', 'bets', 'live', 'matches', 'days', 'leagues', 'more'];
   function render() {
     if (!state.data && !(state.stack.length && state.stack[state.stack.length - 1].type === 'settings')) return;
     closeMenu();
@@ -422,7 +423,8 @@ window.PR = (function () {
     if (tab === 'today') tab = 'home';
     if (!TABS.includes(tab)) tab = 'home';
     state.tab = tab; state.stack = [];
-    $$('#tabs button').forEach((b) => b.classList.toggle('active', b.dataset.tab === tab));
+    const navTab = (tab === 'days' || tab === 'leagues') ? 'more' : tab;   // sub-tabs live under More in the V2 nav
+    $$('#tabs button').forEach((b) => b.classList.toggle('active', b.dataset.tab === navTab));
     render(); window.scrollTo(0, 0);
     if (tab === 'live' && state.data && Date.now() - state.lastLive > 15000) PR.live.refresh(false);
   }

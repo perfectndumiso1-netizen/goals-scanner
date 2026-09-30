@@ -616,6 +616,35 @@
     wireBack();
   };
 
+  // ------------------------------------------------------------------ PAGE: team search (V2 More hub → Teams)
+  // Picks clubs straight out of the 60-day fixture window and hands each row to the
+  // existing team page (form · venues · H2H · fixtures). No new data source.
+  PR.pages.teams = function () {
+    const d = state.data || {}; const q = (state.tmQ || '').trim().toLowerCase();
+    const seen = new Map();
+    (d.fixtures || []).forEach((f) => {
+      if (!f) return;
+      [[f.home, f.league || f.competition], [f.away, f.league || f.competition]].forEach(([n, l]) => {
+        if (!n) return;
+        const k = String(n).toLowerCase();
+        if (!seen.has(k)) seen.set(k, { n, c: f.country || '', l: l || '', d: f.league || '' });
+      });
+    });
+    const all = [...seen.values()].sort((a, b) => a.n.localeCompare(b.n));
+    const list = q ? all.filter((t) => t.n.toLowerCase().includes(q) || t.l.toLowerCase().includes(q) || t.c.toLowerCase().includes(q)) : all;
+    const parts = [head('Teams', `${all.length} clubs in the current fixture window · tap one for form, venues and fixtures`)];
+    parts.push(`<div class="searchbar" style="margin-bottom:10px"><div class="field">${icon('search', 'sm')}<input id="tm-search" type="search" placeholder="Search team, league or country" value="${esc(state.tmQ || '')}" autocomplete="off"></div></div>`);
+    const show = list.slice(0, 80);
+    if (!show.length) parts.push(`<div class="card empty small">No team matches \u201c${esc(state.tmQ)}\u201d.</div>`);
+    else parts.push(`<div class="card compact">${show.map((t) => `<div class="lg-row tap" data-tmq="${esc(t.n)}|${esc(t.c)}|${esc(t.d)}"><div class="lg-ic">${badge(t.n, null, 24)}</div><div class="grow"><div class="b">${esc(t.n)}</div><div class="tiny muted">${flag(t.c)} ${esc(t.c)}${t.l ? ' · ' + esc(t.l) : ''}</div></div></div>`).join('')}</div>`);
+    if (list.length > show.length) parts.push(`<div class="tiny muted" style="margin-top:8px">Showing first ${show.length} of ${list.length} matches \u2014 keep typing to narrow it down.</div>`);
+    parts.push(`<div class="tiny muted" style="margin:10px 4px 18px">Team pages combine recent form, home/away splits, head-to-head and upcoming fixtures from the same analysis files.</div>`);
+    view().innerHTML = parts.join('');
+    wireBack();
+    const sIn = $('#tm-search'); if (sIn) sIn.oninput = (e) => { state.tmQ = e.target.value; PR.render(); const n = $('#tm-search'); if (n) { n.focus(); n.setSelectionRange(n.value.length, n.value.length); } };
+    $$('[data-tmq]').forEach((el) => el.onclick = () => { const pp = el.dataset.tmq.split('|'); PR.openTeam(pp[0], pp[1], pp.slice(2).join('|')); });
+  };
+
   // ------------------------------------------------------------------ BEST OF THE DAY (☰ dropdown)
   // The day's best bets, sectioned by market. Every pick clears a model bar first (results ≥60%,
   // goals ≥70%, corners/bookings ≥65%, market view not contradicting, priced); home/away wins are
