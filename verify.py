@@ -18,6 +18,27 @@ MAX_LATEST_MB = 4.0
 STATUSES = {"pending", "hit", "miss", "void"}
 
 
+def _archive_ids(staging: Path) -> set:
+    """Fixture ids present in the day archive (the 60-day history files).
+
+    High-probability selections and shortlist picks can legitimately point at matches outside the
+    published app window (they are analysed early, up to 60 days ahead); the app renders them from
+    the bet objects themselves and the Days tab carries their detail.
+    """
+    out = set()
+    days_dir = staging.parent / "days"
+    if days_dir.is_dir():
+        for p in days_dir.glob("*.json"):
+            try:
+                d = json.loads(p.read_text(encoding="utf-8"))
+            except (OSError, ValueError):
+                continue
+            for f in d.get("fixtures") or []:
+                if f.get("id"):
+                    out.add(f["id"])
+    return out
+
+
 def _num(x) -> bool:
     return isinstance(x, (int, float)) and not (isinstance(x, float) and math.isnan(x))
 
@@ -107,8 +128,9 @@ def check_publication(staging: Path, live: Path, ledger: Path, now: datetime, ex
                       "(market contamination)")
     sf = d.get("safe") or {}
     min_p, min_odds = float(sf.get("min_p") or 0.7), float(sf.get("min_odds") or 1.3)
+    known = ids | _archive_ids(staging)
     for b in sf.get("bets") or []:
-        if b.get("fixture") not in ids:
+        if b.get("fixture") not in known:
             errors.append(f"safest bet on unknown fixture {b.get('fixture')}")
         if not b.get("live"):
             if not _num(b.get("p")) or b["p"] < min_p - 1e-6:
@@ -139,7 +161,7 @@ def check_publication(staging: Path, live: Path, ledger: Path, now: datetime, ex
         card_matches[m] = b.get("sel")
     for mkt, lst in (d.get("picks") or {}).items():
         for pk in lst:
-            if pk.get("fixture") not in ids:
+            if pk.get("fixture") not in known:
                 errors.append(f"{mkt} pick on unknown fixture {pk.get('fixture')}")
     for name in ("meta.json", "alerts.json", "badges.json"):
         p = staging / name

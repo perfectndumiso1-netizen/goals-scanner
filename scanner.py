@@ -2528,7 +2528,7 @@ def main() -> None:
         if staging.exists():
             shutil.rmtree(staging)
         staging.mkdir(parents=True, exist_ok=True)
-        appdata.export(staging / APP_FILE.name, ctx=ctx, rows=app_rows, picks=picks, tracker_summary=summary, notes=notes, ls_map=ls_map,
+        appdata.export(staging / APP_FILE.name, ctx=ctx, rows=app_rows, all_rows=rows, picks=picks, tracker_summary=summary, notes=notes, ls_map=ls_map,
                        helpers={"render_details": render_details, "stars": stars, "comp": comp, "sb_price": sb_price,
                                 "selections": all_sels},
                        reports_dir=REPORTS_DIR, tz_label=TZL, thresholds=CONFIG["THRESHOLDS"],

@@ -216,7 +216,7 @@ def _write(path: Path, data) -> None:
         path.write_text(body, encoding="utf-8")
 
 
-def export(path: Path, *, ctx: dict, rows: list, picks: dict, tracker_summary: dict, notes: list[str], ls_map: dict,
+def export(path: Path, *, ctx: dict, rows: list, all_rows: list | None = None, picks: dict, tracker_summary: dict, notes: list[str], ls_map: dict,
            helpers: dict, reports_dir: Path, tz_label: str, thresholds: dict, backtest: dict, repo: str | None,
            days_index: list | None = None, safe_summary: dict | None = None, botd: list | None = None, botd_groups: list | None = None,
            alerts: list | None = None, coverage: dict | None = None, safe_groups: tuple = (), extra_badges: dict | None = None,
@@ -236,6 +236,13 @@ def export(path: Path, *, ctx: dict, rows: list, picks: dict, tracker_summary: d
     conf_by_key: dict = {}
     badges = update_badges(app_dir / "badges.json", rows, ls_map, extra_badges, src=live_dir / "badges.json")
     live_eids = []
+    # the fixture-id map must cover every analysed fixture, not just the published window: shortlist picks
+    # (and the high-probability list) can point at matches weeks ahead of the app window
+    for r in all_rows or []:
+        all_fx = r.fx
+        all_date = all_fx["date"].strftime("%Y-%m-%d")
+        all_key = (all_date, all_fx["country"], all_fx["home"], all_fx["away"])
+        ids_by_key.setdefault(all_key, fixture_id(all_date, all_fx["country"], all_fx["home"], all_fx["away"]))
     # the previous publication: matches that have kicked off are carried over unchanged ("frozen") for 3 hours so the
     # app keeps their pre-match analysis, live status, bets and tickets while they are in play
     prev = None
@@ -343,7 +350,8 @@ def export(path: Path, *, ctx: dict, rows: list, picks: dict, tracker_summary: d
         picks_out[mkt] = []
         for r in lst:
             fx = r.fx
-            fid = ids_by_key[(fx["date"].strftime("%Y-%m-%d"), fx["country"], fx["home"], fx["away"])]
+            _key = (fx["date"].strftime("%Y-%m-%d"), fx["country"], fx["home"], fx["away"])
+            fid = ids_by_key.get(_key) or fixture_id(*_key)   # fall back to the deterministic id if the map missed it
             tracked.add(fid)
             picks_out[mkt].append({"fixture": fid, "p": _f(r.p_final[mkt]), "stars": stars(r.p_final[mkt], mkt),
                                    "sportybet": _f(helpers["sb_price"](r, mkt), 2)})
