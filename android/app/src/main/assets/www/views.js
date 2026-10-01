@@ -111,6 +111,7 @@
   live.inPlay = () => live.tracked().filter((f) => isLive(live.for(f)));
 
   // ------------------------------------------------------------------ bets helpers
+  const sameDay = (b) => String((b && b.kickoff) || '').slice(0, 10) === ymd(tzNow());
   function safeList(group) {
     const sf = state.data.safe || { bets: [] };
     let lst = (sf.bets || []).filter((b) => inScope(fx(b.fixture)));
@@ -197,7 +198,7 @@
   PR.views.home = function () {
     const d = state.data, m = d.meta, sf = d.safe || { bets: [] }; const parts = [];
     const inPlay = live.inPlay(); const cov = m.coverage || {};
-    const safe = safeList('all');
+    const safe = safeList('all').filter(sameDay);   // only matches played on this day — never future fixtures
     // reference Home: date line + TODAY stats tile row
     parts.push(`<div class="hero-row"><div><div class="kicker">Football intelligence</div><h1>${esc(String(dayName(m.generated || '')).replace(/^Today · /, ''))}</h1></div><span class="quality">updated ${esc(koTime(m.generated || ''))}</span></div>`);
     parts.push(`<div class="card hero"><div class="eyebrow">Today</div>
@@ -210,7 +211,7 @@
         ${signalCard(safe[0], { bare: true })}
         <div class="sh-viewall"><button class="link" data-bets="safest">View all ${safe.length} ${icon('next', 'sm')}</button></div></div>`);
     } else {
-      parts.push(`<div class="signals-hero"><div class="sh-head"><span class="t">Today\u2019s signals</span></div><div class="empty small" style="border:0;background:transparent">Nothing priced at \u2265 ${f2(sf.min_odds || 1.3)} reached ${pct(sf.min_p || 0.7)} on both views${majorOnly() ? ' in the major leagues' : ''} yet \u2014 the board fills as probabilities firm up.</div></div>`);
+      parts.push(`<div class="signals-hero"><div class="sh-head"><span class="t">Today\u2019s signals</span></div><div class="empty small" style="border:0;background:transparent">Nothing priced at \u2265 ${f2(sf.min_odds || 1.3)} reached ${pct(sf.min_p || 0.7)} on both views${majorOnly() ? ' in the major leagues' : ''} for today's matches yet \u2014 the board fills as probabilities firm up.</div></div>`);
     }
     // BEST OF TODAY — first pick of the graded card, straight into the Best page
     const botd = (sf.today && sf.today.bets) || [];
@@ -263,6 +264,7 @@
     parts.push(`<div class="card compact tap" id="guide-link"><div class="row"><span class="ico">${icon('info')}</span><div class="grow"><b>What do these markets mean?</b><div class="tiny muted">Over/Under, BTTS, team goals, corners, cards — and how the probabilities are made.</div></div>${icon('next')}</div></div>`);
     view().innerHTML = parts.join('');
     $$('[data-bv]').forEach((b) => { b.onclick = () => { state.betsView = b.dataset.bv; PR.render(); window.scrollTo(0, 0); }; });
+    $$('[data-scope]').forEach((b) => { b.onclick = () => { state.safestAll = b.dataset.scope === 'all'; PR.render(); }; });
     $$('[data-lg]').forEach((b) => { b.onclick = () => { settings.leagues = b.dataset.lg; PR.saveSettings(); PR.render(); }; });
     const hp = $('#f-hip'); if (hp) hp.onchange = (e) => { settings.hiP = +e.target.value; PR.saveSettings(); PR.render(); };
     const mg = $('#f-group'); if (mg) mg.onchange = (e) => { state.betGroup = e.target.value; PR.render(); };
@@ -291,7 +293,7 @@
     if (!strong.length) parts.push(`<div class="card empty small">No strong market in this window yet — the list fills in as the probabilities firm up.</div>`);
     else {
       const max = state.expanded.grp_strong ? strong.length : 15;
-      parts.push(`<div class="card compact"><div class="tiny muted" style="margin-bottom:6px">Every market with a model probability of at least <b>70%</b> that the market view does not contradict — <b>any odds</b>, highest probability first.</div>
+      parts.push(`<div class="card compact"><div class="tiny muted" style="margin-bottom:6px">Today's matches only — every market with a model probability of at least <b>70%</b> that the market view does not contradict, <b>any odds</b>, highest probability first.</div>
         <table class="tbl head"><tr><th></th><th>Match · selection</th><th class="right">Price</th><th class="right">Model</th></tr>${strong.slice(0, max).map(({ p, f }) => selRow(f, p)).join('')}</table>
         ${strong.length > max ? `<button class="btn wide" data-more="grp_strong">Show all ${strong.length}</button>` : ''}</div>`);
     }
@@ -309,15 +311,21 @@
     parts.push(botdCard(false));
     if (PR.ticketsCard) parts.push(PR.ticketsCard(false));
     const rec = ((state.data.safe || {}).summary || {}).botd || {};
-    parts.push(`<div class="card small"><b>How the card is picked</b><div class="muted" style="margin-top:4px">Six blocks, in order: <b>Goals</b> (Over 1.5 & team goals), <b>Over 2.5</b>, <b>BTTS</b>, <b>1X2</b>, <b>Corners</b> and <b>Bookings</b>. Each block shows at most 7 of the strongest qualifying bets — if only one or two meet the bar, only those are listed, and a block with none disappears. Goals needs ≥70%; Over 2.5, BTTS and 1X2 need ≥70% on both the model and the market view <i>and</i> recent form backing the pick; Corners and Bookings need ≥65%. Overs only, Sportybet price ≥ 1.30, one market per match across the whole card. Picks are made by the first analysis that sees them and kept for the day; every one is graded automatically.</div>
+    parts.push(`<div class="card small"><b>How the card is picked</b><div class="muted" style="margin-top:4px">Six blocks: <b>Goals</b> (Over 1.5 & team goals), <b>Over 2.5</b>, <b>BTTS</b>, <b>1X2</b>, <b>Corners</b> and <b>Bookings</b> — filled in that order so <b>1X2 claims its matches first (up to five picks a day)</b>, then Over 2.5, then the rest. Each block shows at most 7 of the strongest qualifying bets — if only one or two meet the bar, only those are listed, and a block with none disappears. Goals needs ≥70%; Over 2.5, BTTS and 1X2 need ≥70% on both the model and the market view <i>and</i> recent form backing the pick; Corners and Bookings need ≥65%. Overs only, Sportybet price ≥ 1.30, one market per match across the whole card. Picks are made by the first analysis that sees them and kept for the day; every one is graded automatically.</div>
       ${rec.all && rec.all.n ? `<table class="tbl head" style="margin-top:8px"><tr><th>Bets of the day</th><th class="right">Won</th><th class="right">Hit</th><th class="right">Exp.</th><th class="right">Return</th></tr>${[['All time', rec.all], ['Last 30 days', rec['30d']]].filter(([, s]) => s && s.n).map(([n, s]) => `<tr><td>${n}</td><td class="right">${s.won}/${s.n}</td><td class="right"><b>${pct(s.rate)}</b></td><td class="right muted">${pct(s.exp_rate)}</td><td class="right ${s.roi > 0 ? 'good' : s.roi < 0 ? 'bad' : ''}">${signed(s.roi)}</td></tr>`).join('')}</table>` : '<div class="tiny muted" style="margin-top:6px">The record starts with the first settled card.</div>'}</div>`);
   }
   function renderSafest(parts) {
-    const sf = state.data.safe || {}; const lst = safeList(state.betGroup || 'all');
+    const sf = state.data.safe || {}; const all = safeList(state.betGroup || 'all');
+    const winAll = !!state.safestAll;
+    const lst = winAll ? all : all.filter(sameDay);
+    const nToday = all.filter(sameDay).length;
     const groupOptions = [['all', 'All markets'], ['goals', 'Goals (incl. BTTS, team goals)'], ['corners', 'Corners'], ['cards', 'Cards']];
-    parts.push(`<div class="card compact">${leagueChips()}<div class="filters" style="margin-top:6px"><label>Market ${select('f-group', groupOptions, state.betGroup || 'all')}</label></div>
-      <div class="tiny muted">High-probability selection = <b>model probability</b> of at least ${pct(sf.min_p || 0.7)} (football data only) with the de-margined Sportybet price not contradicting it, price ≥ ${f2(sf.min_odds || 1.3)}, in the goals, corners and cards markets. A high probability is not a certainty: expect roughly ${pct(sf.min_p || 0.7)}–85% of these to land. Each one shows its data quality and is graded in Days.</div></div>`);
-    if (!lst.length) parts.push(`<div class="card empty">No high-probability selection in this window${majorOnly() ? ' for the major leagues' : ''}.</div>`);
+    parts.push(`<div class="card compact">${leagueChips()}<div class="chips small-chips" style="margin-top:6px">
+      <button class="chip tapchip ${!winAll ? 'on' : ''}" data-scope="today">📅 Today (${nToday})</button>
+      <button class="chip tapchip ${winAll ? 'on' : ''}" data-scope="all">🗓 Next 60 days (${all.length})</button></div>
+      <div class="filters" style="margin-top:6px"><label>Market ${select('f-group', groupOptions, state.betGroup || 'all')}</label></div>
+      <div class="tiny muted">High-probability selection = <b>model probability</b> of at least ${pct(sf.min_p || 0.7)} (football data only) with the de-margined Sportybet price not contradicting it, price ≥ ${f2(sf.min_odds || 1.3)}, in the goals, corners and cards markets. <b>Today</b> shows matches kicking off this day; the 60-day view lists every upcoming analysed match. A high probability is not a certainty: expect roughly ${pct(sf.min_p || 0.7)}–85% of these to land. Each one shows its data quality and is graded in Days.</div></div>`);
+    if (!lst.length) parts.push(`<div class="card empty">${winAll ? 'No high-probability selection in this window' : 'No high-probability selection for today’s matches'}${majorOnly() ? ' for the major leagues' : ''}.</div>`);
     else {
       const max = state.expanded.safest ? lst.length : 30;
       parts.push(`<div class="card compact"><table class="tbl head"><tr><th></th><th>Match · selection</th><th class="right">Price</th><th class="right">Model</th></tr>${lst.slice(0, max).map((b) => safeRow(b)).join('')}</table>
@@ -537,14 +545,19 @@
   // ------------------------------------------------------------------ DAYS
   PR.views.days = function () {
     const d = state.data; const days = (d.history && d.history.days) || []; const parts = [];
-    parts.push(`<div class="card small"><b>Day by day</b> — every analysed match of each day with the final score, and how the bets of the day, high-probability selections and shortlists did. Results fill in within a few hours of the final whistle; 60 days are kept.</div>`);
+    const asc = state.daysOld === true;
+    const ordered = asc ? days.slice().reverse() : days;
+    parts.push(`<div class="hero-row"><div><div class="kicker">Analysed fixtures</div><h1>Day by day</h1></div><span class="quality">kept permanently</span></div>`);
+    parts.push(`<div class="card small"><b>Every analysed fixture, sorted by date</b> — each day lists its matches with the final score and how the bets of the day, high-probability selections and shortlists did. Results and statistics fill in within a few hours of the final whistle. <b>Nothing is ever deleted:</b> once the model captures a fixture it stays on record permanently.</div>`);
+    parts.push(`<div class="chips small-chips" style="margin-bottom:8px"><button class="chip tapchip ${!asc ? 'on' : ''}" data-dsort="new">⬇ Newest first</button><button class="chip tapchip ${asc ? 'on' : ''}" data-dsort="old">⬆ Oldest first</button></div>`);
     if (!days.length) parts.push(`<div class="card empty">History starts with the next analysis.</div>`);
     const rate = (o, hitKey) => { if (!o || !o.n) return '–'; const settled = o.n - (o.pending || 0); return settled ? `${o[hitKey]}/${settled}${o.pending ? ' · ' + o.pending + ' open' : ''}` : `${o.n} open`; };
-    parts.push(`<div class="card compact">${days.map((x) => `<div class="list-item tap day" data-day="${esc(x.date)}"><div class="main"><div class="match">${esc(dayName(x.date))}</div>
+    parts.push(`<div class="card compact">${ordered.map((x) => `<div class="list-item tap day" data-day="${esc(x.date)}"><div class="main"><div class="match">${esc(dayName(x.date))}</div>
       <div class="meta">${x.n} matches${x.finished ? ` · ${x.finished} finished` : ''}${x.goals_avg != null ? ` · ${f1(x.goals_avg)} goals/match · O2.5 ${pct(x.o25_rate)} · BTTS ${pct(x.btts_rate)}` : ''}</div>
       <div class="chips">${x.botd && x.botd.n ? `<span class="chip ${chipCls(x.botd, 'hit')}">⭐ day card ${rate(x.botd, 'hit')}</span>` : ''}${x.safes && x.safes.n ? `<span class="chip ${chipCls(x.safes, 'hit')}">${icon('trend')} high-prob. ${rate(x.safes, 'hit')}</span>` : ''}${x.picks && x.picks.n ? `<span class="chip ${chipCls(x.picks, 'hit')}">${icon('star')} shortlist ${rate(x.picks, 'hit')}</span>` : ''}</div></div><div class="chev">${icon('next')}</div></div>`).join('')}</div>`);
     view().innerHTML = parts.join('');
     $$('[data-day]').forEach((b) => { b.onclick = () => { state.dayView = 'results'; PR.push({ type: 'day', date: b.dataset.day }); }; });
+    $$('[data-dsort]').forEach((b) => { b.onclick = () => { state.daysOld = b.dataset.dsort === 'old'; PR.render(); }; });
   };
   function chipCls(o, k) { const settled = o.n - (o.pending || 0); if (!settled) return ''; const r = o[k] / settled; return r >= 0.6 ? 'good' : r <= 0.35 ? 'bad' : 'warn'; }
   PR.chipCls = chipCls;
@@ -557,11 +570,12 @@
     const parts = [];
     const row = (icn, title, sub, attrs, right) => `<button class="more-row" ${attrs}><span class="tile">${icon(icn)}</span><span class="grow"><span class="b">${title}</span><span class="s">${sub}</span></span>${right || `<span class="chev">${icon('next')}</span>`}</button>`;
     parts.push(`<div class="more-list">
-      ${row('calendar', 'Days', 'Daily analysis &amp; overview', 'data-tab-go="days"')}
+      ${row('calendar', 'Days', 'Analysed fixtures · day by day', 'data-tab-go="days"')}
       ${row('trophy', 'Leagues', 'Worldwide competitions', 'data-tab-go="leagues"')}
       ${row('users', 'Teams', 'Stats, form &amp; trends', 'data-page-go="teams"')}
       ${row('chart', 'Performance', 'Your results &amp; calibration', 'data-page-go="performance"')}
       ${row('ticket', 'Tickets', pendingTickets ? `${pendingTickets} awaiting result` : 'My selections &amp; history', 'data-page-go="tickets"', pendingTickets ? `<span class="cnt">${pendingTickets}</span>` : undefined)}
+      ${row('shield', 'Bet advisor', 'Today\u2019s advised picks &amp; staking', 'data-page-go="advisor"')}
       ${row('sparkle', 'Best of the day', 'Grounded daily shortlist', 'data-page-go="best"')}
       ${row('info', 'Guide to the markets', 'FAQ &amp; how the model works', 'data-page-go="guide"')}
       ${row('doc', 'Full analysis', 'The complete daily report', 'data-page-go="analysis"')}

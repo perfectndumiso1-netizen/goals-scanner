@@ -68,6 +68,9 @@ def team_headlines(team: str, country: str = "", days: int = 7, limit: int = 4, 
             continue
         src = it.find("source")
         source = (src.text if src is not None else "") or ""
+        src_url = (src.get("url") if src is not None else "") or ""
+        if not reputable(source, src_url):
+            continue                      # reputable outlets and club sites only
         if source and title.endswith(" - " + source):
             title = title[: -len(source) - 3].strip()
         mentions = name.lower() in title.lower() or team.lower() in title.lower()
@@ -81,10 +84,87 @@ def team_headlines(team: str, country: str = "", days: int = 7, limit: int = 4, 
         if key in seen:
             continue
         seen.add(key)
+        x["link"] = resolve_link(x.get("link") or "")
         out.append(x)
         if len(out) >= limit:
             break
     return out
+
+
+
+# ----------------------------------------------------------------------------- reputable sources only
+# The app only shows headlines from official/club sites and established outlets (user requirement);
+# blogs, aggregators and betting tipster sites are dropped at capture time.
+REPUTABLE_DOMAINS = {
+    # UK
+    "bbc.co.uk", "bbc.com", "theguardian.com", "guardian.co.uk", "telegraph.co.uk", "independent.co.uk",
+    "standard.co.uk", "mirror.co.uk", "dailymail.co.uk", "mailonline.co.uk", "skysports.com", "talksport.com",
+    "theathletic.com", "goal.com", "espn.co.uk", "espn.com", "reuters.com", "apnews.com",
+    # major competitions
+    "fifa.com", "uefa.com", "premierleague.com", "laliga.com", "bundesliga.com", "ligue1.com",
+    # Europe
+    "kicker.de", "sportschau.de", "sport1.de", "transfermarkt.de",
+    "lequipe.fr", "leparisien.fr",
+    "marca.com", "as.com", "sport.es", "mundodeportivo.com", "elpais.com",
+    "gazzetta.it", "corrieredellosport.it", "tuttosport.it", "football-italia.com",
+    # Americas
+    "cbssports.com", "foxsports.com", "nbcsports.com", "si.com", "sportingnews.com",
+    # South Africa
+    "supersport.com", "kickoff.co.za", "sport24.co.za", "news24.com", "timeslive.co.za", "iol.co.za",
+}
+REPUTABLE_NAMES = {
+    "bbc sport", "bbc news", "the guardian", "guardian sport", "sky sports", "talksport", "the athletic",
+    "goal", "espn", "reuters", "associated press", "marca", "as", "gazzetta dello sport",
+    "la gazzetta dello sport", "kicker", "sportschau", "supersport", "kick off", "sport24", "news24",
+    "football italia", "transfermarkt", "telegraph", "the telegraph", "daily mail", "daily mail sport",
+    "mirror football", "daily mirror", "the independent", "l'equipe", "lequipe", "tuttosport",
+    "corriere dello sport", "cbs sports", "fox sports", "nbc sports", "sports illustrated", "sporting news",
+    "premier league", "laliga", "bundesliga",
+}
+
+
+def _host(url: str) -> str:
+    try:
+        h = urllib.parse.urlparse(url).netloc.lower()
+        return h[4:] if h.startswith("www.") else h
+    except Exception:
+        return ""
+
+
+def reputable(source: str, source_url: str = "") -> bool:
+    """True when the headline comes from an allow-listed outlet or an official/club site."""
+    if source_url:
+        h = _host(source_url)
+        if h and any(h == d or h.endswith("." + d) for d in REPUTABLE_DOMAINS):
+            return True
+    if source:
+        s0 = source.strip().lower()
+        if s0 in REPUTABLE_NAMES:
+            return True
+        for name in REPUTABLE_NAMES:      # common suffixed forms: "ESPN FC", "Goal Nigeria" …
+            if s0.startswith(name + " ") or s0.startswith(name + " -"):
+                return True
+    return False
+
+
+def resolve_link(url: str) -> str:
+    """Follow the Google News redirect wrapper to the real article URL so the app can fetch and show it
+    in-app. Best effort — returns the original URL when the wrapper cannot be resolved."""
+    if not url or "news.google.com" not in url:
+        return url
+    try:
+        r = SESSION.get(url, timeout=10, allow_redirects=True)
+        final = r.url or ""
+        if final.startswith("http") and "news.google.com" not in final:
+            return final
+        m = re.search(r'data-n-au="([^"]+)"', r.text or "")
+        if m:
+            cand = html.unescape(m.group(1))
+            if cand.startswith("http") and "news.google.com" not in cand:
+                return cand
+    except requests.RequestException:
+        pass
+    return url
 
 
 def headlines_for_matches(pairs: list[tuple], limit: int = 4) -> dict[str, list[dict]]:
@@ -132,6 +212,9 @@ def _parse_items(root, days: int, limit: int, names: tuple[str, ...]) -> list[di
             continue
         src = it.find("source")
         source = (src.text if src is not None else "") or ""
+        src_url = (src.get("url") if src is not None else "") or ""
+        if not reputable(source, src_url):
+            continue                      # reputable outlets and club sites only
         if source and title.endswith(" - " + source):
             title = title[: -len(source) - 3].strip()
         mentions = any(n.lower() in title.lower() for n in names if n)
@@ -145,6 +228,7 @@ def _parse_items(root, days: int, limit: int, names: tuple[str, ...]) -> list[di
         if key in seen:
             continue
         seen.add(key)
+        x["link"] = resolve_link(x.get("link") or "")
         out.append(x)
         if len(out) >= limit:
             break

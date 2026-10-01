@@ -20,7 +20,7 @@ import safe
 
 log = logging.getLogger("history")
 
-KEEP_DAYS = 60
+KEEP_DAYS = 365000          # ~1000 years: once a day file is captured it is kept permanently (user requirement)
 LIVESCORE_BACK_DAYS = 3
 
 
@@ -46,8 +46,7 @@ class Days:
         root.mkdir(parents=True, exist_ok=True)
         cutoff = (now - timedelta(days=KEEP_DAYS)).strftime("%Y-%m-%d")
         for p in sorted(root.glob("20??-??-??.json")):
-            if p.stem < cutoff:
-                p.unlink(missing_ok=True)
+            if p.stem < cutoff:      # retention guard — effectively never reached; day files are permanent
                 continue
             try:
                 self.days[p.stem] = json.loads(p.read_text(encoding="utf-8"))

@@ -57,7 +57,7 @@ BOTD_GROUPS = [
     ("o15", "Goals · Over 1.5 & team goals", lambda sel: sel in ("O15", "HO05", "AO05", "HO15", "AO15"), 0.70, 7),
     ("o25", "Over 2.5 goals", lambda sel: sel in ("O25", "O35"), 0.70, 7),
     ("btts", "Both teams to score", lambda sel: sel == "BTTS", 0.70, 7),
-    ("result", "1X2", lambda sel: sel in ("H", "A"), 0.70, 7),
+    ("result", "1X2", lambda sel: sel in ("H", "A"), 0.70, 5),   # five 1X2 picks a day (user request)
     ("corners", "Corners", lambda sel: sel.startswith("CO"), 0.65, 7),
     ("cards", "Bookings", lambda sel: sel.startswith("KO"), 0.65, 7),
 ]
@@ -453,7 +453,12 @@ def pick_bets_of_the_day(df: pd.DataFrame, now: datetime, n: int = BOTD_PER_GROU
     df_today = df[df["match_date"] == today]
     # one market per match across the whole card
     used = set(zip(df_today.loc[df_today["botd"].astype(str) != "", "home"], df_today.loc[df_today["botd"].astype(str) != "", "away"]))
-    for gkey, _title, match, _thr, cap in BOTD_GROUPS:
+    # fill priority: 1X2 and Over 2.5 claim their matches first (Goals has the deepest candidate pool and would
+    # otherwise consume every match before the signal-gated sections get a chance); display order is unchanged
+    groups_by_key = {g[0]: g for g in BOTD_GROUPS}
+    for gkey in ("result", "o25", "o15", "btts", "corners", "cards"):
+        g = groups_by_key[gkey]
+        match, thr, cap = g[2], g[3], g[4]
         have = int((df_today["botd"] == gkey).sum())
         if have >= cap:
             continue

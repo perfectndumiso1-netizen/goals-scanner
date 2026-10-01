@@ -22,7 +22,7 @@ import pandas as pd
 log = logging.getLogger("scanner")
 
 VERSION = 3
-KEEP_DETAIL_DAYS = 14
+KEEP_DETAIL_DAYS = 365000   # ~1000 years: analysed-fixture detail files are kept permanently (user requirement)
 
 
 def _f(x, nd=3):
@@ -255,6 +255,7 @@ def export(path: Path, *, ctx: dict, rows: list, all_rows: list | None = None, p
     # model beats that price). Presentation only — probabilities are the unchanged model probabilities.
     strong_picks: list[dict] = []
     value_picks: list[dict] = []
+    _today = now.strftime("%Y-%m-%d")     # the Today boards only ever show this day's matches
     for r in rows:
         fx = r.fx
         date = fx["date"].strftime("%Y-%m-%d")
@@ -284,9 +285,12 @@ def export(path: Path, *, ctx: dict, rows: list, all_rows: list | None = None, p
             base = {"id": fid, "sel": d.get("sel"), "p": round(p, 3),
                     "odds": d.get("odds"), "g": d.get("group"), "q": _qo}
             # strong: model probability ≥ 0.70, market not contradicting, decent data — odds irrelevant
+            # value: Sportybet prices it, the model beats that price by ≥ 8 points of expected value at p ≥ 0.60
+            # both boards are titled "Today", so only this day's matches qualify
+            if date != _today:
+                continue
             if p >= 0.70 and not d.get("diff") and _qo != "Low":
                 strong_picks.append(base)
-            # value: Sportybet prices it, the model beats that price by ≥ 8 points of expected value at p ≥ 0.60
             _ev = d.get("ev")
             if d.get("odds") and _ev is not None and _ev >= 0.08 and p >= 0.60 and _qo != "Low":
                 value_picks.append({**base, "ev": round(float(_ev), 3)})
@@ -364,8 +368,8 @@ def export(path: Path, *, ctx: dict, rows: list, all_rows: list | None = None, p
             "generated": now.strftime("%Y-%m-%d %H:%M"),
         })
         _write(fx_dir / f"{key}.json", detail)
-    # prune detail files of fixtures older than a few days (day pages keep their own summary)
-    # (old detail files are pruned by scanner.promote_publication using the match date inside each file)
+    # detail files are NEVER pruned — every analysed fixture stays available permanently
+    # (scanner.promote_publication uses KEEP_DETAIL_DAYS as a guard that never triggers)
     # shortlists
     picks_out = {}
     for mkt, lst in picks.items():
@@ -408,7 +412,7 @@ def export(path: Path, *, ctx: dict, rows: list, all_rows: list | None = None, p
 
     tracker_out = {m: {k: (_f(v) if isinstance(v, float) else v) for k, v in info.items()}
                    for m, info in (tracker_summary or {}).items()}
-    reports = sorted({p.stem for p in reports_dir.glob("20??-??-??.md")}, reverse=True)[:60]
+    reports = sorted({p.stem for p in reports_dir.glob("20??-??-??.md")}, reverse=True)   # permanent archive
     meta = {
         "generated": now.strftime("%Y-%m-%d %H:%M"), "tz": tz_label, "run": ctx["run"], "report_run": bool(report_run),
         "window_start": (ctx.get("app_start") or ctx["start"]).strftime("%Y-%m-%d %H:%M"),

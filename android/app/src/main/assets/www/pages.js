@@ -109,8 +109,11 @@
         <div class="tri"><span class="h" style="width:${Math.round((x12(f, 'H') || 0) * 100)}%"></span><span class="d" style="width:${Math.round((x12(f, 'D') || 0) * 100)}%"></span><span class="a" style="width:${Math.round((x12(f, 'A') || 0) * 100)}%"></span></div></div>
       <div class="chips small-chips" style="margin-top:6px;justify-content:center">${qualityChip(f)}${f.data_ok ? '' : '<span class="chip warn">⚠️ low data — never shortlisted</span>'}</div>
       ${PR.sbEventUrl(f.sportybet_event) ? `<a class="sb-open" href="${esc(PR.sbEventUrl(f.sportybet_event))}" style="display:flex;align-items:center;justify-content:center;gap:6px;margin-top:8px;padding:8px;border-radius:10px;background:var(--chip);font-size:13px;font-weight:600;color:var(--text)">${icon('target', 'sm')} Open in Sportybet — their live odds &amp; slip</a>` : ''}</div>`);
-    parts.push(`<div class="card compact">${segmented([['overview', 'Overview'], ['form', 'Form'], ['markets', 'Markets'], ['trends', 'Trends'], ['stats', 'Stats'], ['table', 'Table'], ['h2h', 'H2H'], ['news', 'News'], ['data', 'Data'], ['lineups', 'Line-ups']], v, 'mv')}</div>`);
+    const segTabs = [['overview', 'Overview'], ['form', 'Form'], ['markets', 'Markets'], ['trends', 'Trends'], ['stats', 'Stats'],
+      ...(fin ? [['report', 'Report']] : []), ['table', 'Table'], ['h2h', 'H2H'], ['news', 'News'], ['data', 'Data'], ['lineups', 'Line-ups']];
+    parts.push(`<div class="card compact">${segmented(segTabs, v, 'mv')}</div>`);
     if (v === 'lineups') parts.push(lineupsBlock(f, s));
+    else if (v === 'report') matchReport(parts, f, fin, betsOn(f.id));
     else if (!x) parts.push(skeleton(5));
     else if (v === 'overview') matchOverview(parts, x, s);
     else if (v === 'form') matchForm(parts, f);
@@ -128,6 +131,48 @@
     const dl = $('#dl-csv'); if (dl) dl.onclick = () => PR.downloadMatchCsv(x, s, state.lastStats);
     $$('[data-mv]').forEach((b) => { b.onclick = () => { state.matchView = b.dataset.mv; PR.render(); }; });
   };
+  /** Full-time report tab: a readable narrative of the finished match — result, how it went, and every
+   *  model check against the real outcome. Presentation only; probabilities are the same numbers as always. */
+  function matchReport(parts, f, fin, bets) {
+    const card = matchReportCard(f, fin, bets || []);
+    parts.push(card || `<div class="card empty small">Waiting for the final result \u2014 the report appears once the match ends and the statistics are captured (usually within a couple of hours of full time).</div>`);
+  }
+  function matchReportCard(f, sc, bets) {
+    if (!sc || sc.hg == null) return '';
+    const hg = sc.hg, ag = sc.ag, tot = hg + ag;
+    const H = f.home_long || f.home, A = f.away_long || f.away;
+    const bits = [];
+    if (sc.hth != null) bits.push(`Half-time ${sc.hth}\u2013${sc.hta}.`);
+    if (sc.hs != null && sc.as != null) bits.push(`Shots ${sc.hs}\u2013${sc.as}${sc.hst != null ? ` (${sc.hst}\u2013${sc.ast} on target)` : ''}.`);
+    if (sc.hposs != null && sc.aposs != null) bits.push(`Possession ${sc.hposs}%\u2013${sc.aposs}%.`);
+    if (sc.hc != null && sc.ac != null) bits.push(`Corners ${sc.hc}\u2013${sc.ac}${sc.hy != null ? ` \u00b7 bookings ${sc.hy}\u2013${sc.ay}${sc.hr != null || sc.ar != null ? ` \u00b7 reds ${sc.hr || 0}\u2013${sc.ar || 0}` : ''}` : ''}.`);
+    let scorers = '';
+    try {
+      const inc = (PR.storedIncidents(sc) || []).filter((it) => ['goal', 'own goal', 'penalty'].includes(it.type));
+      if (inc.length) scorers = inc.map((it) => `${it.min != null ? it.min + "'" : ''} ${it.player || (it.team === 'H' ? f.home : f.away)}`).join(' \u00b7 ');
+    } catch (e) { scorers = ''; }
+    const p = f.p || {};
+    const checks = [];
+    const add = (label, prob, ok) => { if (prob != null) checks.push({ label, prob, ok }); };
+    add('Over 1.5 goals', p.O15, tot >= 2);
+    add('Over 2.5 goals', p.O25, tot >= 3);
+    add('Both teams to score', p.BTTS, hg > 0 && ag > 0);
+    const x = f.x12;
+    if (Array.isArray(x) && x[0] != null && x[1] != null && x[2] != null) {
+      let pi = 0; if (x[1] > x[pi]) pi = 1; if (x[2] > x[pi]) pi = 2;
+      const ai = hg > ag ? 0 : hg < ag ? 2 : 1;
+      add(`${['Home win', 'Draw', 'Away win'][pi]} (1X2)`, x[pi], pi === ai);
+    }
+    const rows = checks.map((c) => `<tr><td>${esc(c.label)}</td><td class="right"><b>${pct(c.prob)}</b></td><td class="right">${c.ok ? '<span class="good">\u2713 landed</span>' : '<span class="muted">\u2717 missed</span>'}</td></tr>`).join('');
+    const betChips = (bets || []).length ? `<div class="chips" style="margin-top:8px">${bets.map((b) => `<span class="chip ${b.status === 'hit' || b.status === 'won' ? 'good' : b.status === 'miss' || b.status === 'lost' ? 'bad' : ''}">${b.botd ? '\u2b50 ' : ''}${esc(b.label || '')} ${statusIcon(b.status)}</span>`).join('')}</div>` : '';
+    return `<div class="card"><div class="row"><div class="grow b">\u270d\ufe0f Match report</div><span class="chip">full time</span></div>
+      <div class="b" style="font-size:16px;margin-top:6px">${esc(H)} <b>${hg}\u2013${ag}</b> ${esc(A)}</div>
+      <div class="tiny muted" style="margin-top:4px">${bits.join(' ') || 'No match statistics were published for this competition \u2014 the final score is kept.'}</div>
+      ${scorers ? `<div class="tiny muted" style="margin-top:4px">Goals: ${esc(scorers)}</div>` : ''}
+      ${checks.length ? `<div class="b" style="margin-top:10px">How the model saw it</div><table class="tbl head" style="margin-top:4px"><tr><th>Market</th><th class="right">Model</th><th class="right">Outcome</th></tr>${rows}</table>
+      <div class="tiny muted" style="margin-top:4px">A probability is not a result \u2014 each check above is graded automatically in Days.</div>` : ''}
+      ${betChips}</div>`;
+  }
   /** Goals / red cards: live incidents while the match is on, the stored ones from the archive afterwards. */
   function eventsCard(f, fin) {
     const live = f.livescore_id && state.incidents[f.livescore_id];
@@ -149,6 +194,8 @@
       <div class="mid">${s && s.hg != null ? `<div class="score big">${s.hg} – ${s.ag}</div><div class="minute ft">FT</div>${s.ht && s.ht[0] != null ? `<div class="tiny muted">HT ${s.ht[0]}–${s.ht[1]}</div>` : ''}` : `<div class="score big muted">${esc(koTime(f.kickoff))}</div><div class="tiny muted">${esc(s && s.status ? s.status : 'no result recorded')}</div>`}</div>
       <div class="t">${fxBadge(f, 'away').replace('s24', 's56')}<div class="nm b">${esc(f.away_long || f.away)}</div><div class="tiny muted">Away</div></div></div>
       ${Array.isArray(f.x12) && f.x12[0] != null ? `<div class="x12"><div class="lbl"><span>${esc(f.home)} ${pct(f.x12[0])}</span><span>Draw ${pct(f.x12[1])}</span><span>${esc(f.away)} ${pct(f.x12[2])}</span></div><div class="tri"><span class="h" style="width:${Math.round(f.x12[0] * 100)}%"></span><span class="d" style="width:${Math.round(f.x12[1] * 100)}%"></span><span class="a" style="width:${Math.round(f.x12[2] * 100)}%"></span></div></div>` : ''}</div>`);
+    const rep = matchReportCard(f, sc, r.bets || []);
+    if (rep) parts.push(rep);
     const st = statsCard(f, s, fin); if (st) parts.push(st);
     else if (fin) parts.push(`<div class="card tiny muted">No match statistics were published for this competition. The final score${fin.inc ? ' and goals are' : ' is'} kept.</div>`);
     const evs = eventsCard(f, fin); if (evs) parts.push(evs);
@@ -162,9 +209,9 @@
       const dr = ah2h.filter((m) => m.hg === m.ag).length;
       parts.push(`<div class="card compact"><div class="row"><div class="grow b">Head to head · last ${ah2h.length}</div><span class="chip">previous meetings</span></div>
         <div class="h2h-bar"><span class="h" style="flex:${wins(f.home) || 0.001}">${wins(f.home)}</span><span class="d" style="flex:${dr || 0.001}">${dr}</span><span class="a" style="flex:${wins(f.away) || 0.001}">${wins(f.away)}</span></div><div class="lbl tiny muted row"><span class="grow">${esc(f.home)} wins</span><span>draws</span><span class="grow right">${esc(f.away)} wins</span></div>
-        <table class="tbl" style="margin-top:6px">${ah2h.map((m) => `<tr><td class="tiny muted nowrap">${esc(m.date || '')}</td><td class="${m.hg > m.ag ? 'b' : ''}"><div class="row" style="gap:6px">${esc(m.home)}</div></td><td class="right nowrap"><b>${m.hg} – ${m.ag}</b></td><td class="${m.ag > m.hg ? 'b' : ''}">${esc(m.away)}</td><td class="tiny muted">${esc(m.league || '')}</td></tr>`).join('')}</table></div>`);
+        <table class="tbl" style="margin-top:6px">${ah2h.map((m) => `<tr class="tap" data-fx="${esc(histId(m.date, m.country || f.country, m.home, m.away))}"><td class="tiny muted nowrap">${esc(m.date || '')}</td><td class="${m.hg > m.ag ? 'b' : ''}"><div class="row" style="gap:6px">${esc(m.home)}</div></td><td class="right nowrap"><b>${m.hg} – ${m.ag}</b></td><td class="${m.ag > m.hg ? 'b' : ''}">${esc(m.away)}</td><td class="tiny muted">${esc(m.league || '')}</td></tr>`).join('')}</table></div>`);
     }
-    parts.push(`<div class="card tiny muted">The full pre-match analysis (trends, markets, data audit) is kept for 14 days; the result, statistics and goals stay in the day archive for 60 days.</div>`);
+    parts.push(`<div class="card tiny muted">The full pre-match analysis (trends, markets, data audit) is kept permanently — once PlayReport analyses a fixture, that analysis, its result, statistics and goals stay on record.</div>`);
     view().innerHTML = parts.join('');
     wireBack();
   }
@@ -346,8 +393,9 @@
     } else if (t && t.missing) parts.push(`<div class="card tiny muted">Season table not available for this competition yet.</div>`);
     else parts.push(`<div class="card tiny muted">Loading season stats…</div>`);
   }
+  const histId = (date, country, home, away) => `${date || ''}|${country || ''}|${home || ''}|${away || ''}`;
   function h2hTable(rows, f) {
-    return `<table class="tbl" style="margin-top:6px">${rows.map((m) => `<tr><td class="tiny muted nowrap">${esc(m.date)}</td><td class="${m.hg > m.ag ? 'b' : ''}"><div class="row" style="gap:6px">${badge(m.home, m.home === f.home ? (f.badges || {}).home : m.home === f.away ? (f.badges || {}).away : null, 22)}<span>${esc(m.home)}</span></div></td><td class="right nowrap"><b>${m.hg} – ${m.ag}</b></td><td class="${m.ag > m.hg ? 'b' : ''}"><div class="row" style="gap:6px;justify-content:flex-end"><span>${esc(m.away)}</span>${badge(m.away, m.away === f.home ? (f.badges || {}).home : m.away === f.away ? (f.badges || {}).away : null, 22)}</div></td><td class="tiny muted">${esc(m.league || '')}</td></tr>`).join('')}</table>`;
+    return `<table class="tbl" style="margin-top:6px">${rows.map((m) => `<tr class="tap" data-fx="${esc(histId(m.date, m.country || f.country, m.home, m.away))}"><td class="tiny muted nowrap">${esc(m.date)}</td><td class="${m.hg > m.ag ? 'b' : ''}"><div class="row" style="gap:6px">${badge(m.home, m.home === f.home ? (f.badges || {}).home : m.home === f.away ? (f.badges || {}).away : null, 22)}<span>${esc(m.home)}</span></div></td><td class="right nowrap"><b>${m.hg} – ${m.ag}</b></td><td class="${m.ag > m.hg ? 'b' : ''}"><div class="row" style="gap:6px;justify-content:flex-end"><span>${esc(m.away)}</span>${badge(m.away, m.away === f.home ? (f.badges || {}).home : m.away === f.away ? (f.badges || {}).away : null, 22)}</div></td><td class="tiny muted">${esc(m.league || '')}</td></tr>`).join('')}</table>`;
   }
   function matchH2H(parts, f) {
     const h2h = f.h2h || [];
@@ -369,7 +417,7 @@
       const venue = h2h.filter((m) => m.home === f.home);
       if (venue.length) parts.push(`<div class="card compact"><div class="row"><div class="grow b">At ${esc(f.home)} · last ${Math.min(5, venue.length)}</div><span class="chip">O2.5 ${venue.slice(0, 5).filter((m) => m.hg + m.ag >= 3).length}/${Math.min(5, venue.length)}</span><span class="chip">BTTS ${venue.slice(0, 5).filter((m) => m.hg > 0 && m.ag > 0).length}/${Math.min(5, venue.length)}</span></div>${h2hTable(venue.slice(0, 5), f)}</div>`);
     } else parts.push(`<div class="card tiny muted">No previous meeting on record between these two teams.</div>`);
-    const recent = (p, name, side, list, title) => `<div class="card compact"><div class="b row" style="gap:6px">${fxBadge(f, side)}${esc(name)} <span class="muted" style="font-weight:500">— ${title}</span></div><table class="tbl" style="margin-top:4px">${(list || []).map((m) => `<tr><td class="tiny muted nowrap">${esc(m.date)}</td><td><div class="row" style="gap:6px"><i class="f ${wdl(m.gf, m.ga)}">${wdl(m.gf, m.ga)}</i>${badge(m.opp, null, 22)}<span class="nowrap">${m.venue === 'H' ? 'v' : '@'} ${esc(m.opp)}</span></div></td><td class="right nowrap"><b>${m.gf} – ${m.ga}</b></td><td class="tiny muted">${esc(m.league || '')}</td></tr>`).join('') || '<tr><td class="muted">no matches</td></tr>'}</table></div>`;
+    const recent = (p, name, side, list, title) => `<div class="card compact"><div class="b row" style="gap:6px">${fxBadge(f, side)}${esc(name)} <span class="muted" style="font-weight:500">— ${title}</span></div><table class="tbl" style="margin-top:4px">${(list || []).map((m) => `<tr class="tap" data-fx="${esc(histId(m.date, f.country, m.venue === 'H' ? name : m.opp, m.venue === 'H' ? m.opp : name))}"><td class="tiny muted nowrap">${esc(m.date)}</td><td><div class="row" style="gap:6px"><i class="f ${wdl(m.gf, m.ga)}">${wdl(m.gf, m.ga)}</i>${badge(m.opp, null, 22)}<span class="nowrap">${m.venue === 'H' ? 'v' : '@'} ${esc(m.opp)}</span></div></td><td class="right nowrap"><b>${m.gf} – ${m.ga}</b></td><td class="tiny muted">${esc(m.league || '')}</td></tr>`).join('') || '<tr><td class="muted">no matches</td></tr>'}</table></div>`;
     const H = f.teams.home || {}, A = f.teams.away || {};
     parts.push(recent(H, f.home_long || f.home, 'home', H.last5, 'last 5'));
     parts.push(recent(H, f.home_long || f.home, 'home', H.venue_last5, 'last 5 at home'));
@@ -430,23 +478,41 @@
   // ------------------------------------------------------------------ NEWS TAB
   PR.wireNewsLinks = function () {
     setTimeout(() => {
-      $$('[data-newslink]').forEach((el) => { if (el.dataset.wired) return; el.dataset.wired = '1'; el.onclick = () => { const u = el.dataset.newslink; if (!u) return; if (PR.native && PR.native.openUrl) PR.native.openUrl(u); else window.open(u, '_blank'); }; });
+      $$('[data-newslink]').forEach((el) => { if (el.dataset.wired) return; el.dataset.wired = '1'; el.onclick = () => {
+        const u = el.dataset.newslink; if (!u) return;
+        // in-app reader first (the article is downloaded and saved on the phone); original site stays one tap away
+        PR.push({ type: 'reader', link: u, title: el.dataset.nt || '', source: el.dataset.ns || '', when: el.dataset.nw || '' });
+      }; });
     }, 0);
   };
+  // reputable outlets only (mirrors the capture-time allow-list in news.py)
+  const NEWS_OK = ['bbc', 'guardian', 'sky sports', 'espn', 'goal', 'the athletic', 'reuters', 'associated press',
+    'telegraph', 'daily mail', 'mirror', 'independent', 'talksport', 'marca', 'kicker', 'sportschau',
+    'gazzetta', 'tuttosport', 'corriere dello sport', 'football italia', 'transfermarkt',
+    'supersport', 'kick off', 'sport24', 'news24', 'timeslive', 'iol', 'cbs sports', 'fox sports',
+    'nbc sports', 'sporting news', 'premier league', 'laliga', 'bundesliga', 'léquipe', 'lequipe'];
+  function newsOk(it) {
+    const src = String((it && it.source) || '').trim().toLowerCase();
+    if (!src) return false;
+    return NEWS_OK.some((n) => src === n || src.startsWith(n + ' ') || src.startsWith(n + '-') || src.startsWith(n + ':'));
+  }
+  PR.newsOk = newsOk;
   function newsItem(it) {
+    if (!newsOk(it)) return '';                 // reputable sources only
     const when = it.when ? esc(String(it.when).replace('T', ' ').slice(0, 16)) : '';
     const b = { '24h': 'chip good', '3d': 'chip', '7d': 'chip warn' }[it.bucket] || 'chip';
-    return `<div class="news-item tap" data-newslink="${esc(it.link || '')}"><div class="row" style="gap:6px;align-items:flex-start"><div class="grow"><div class="b" style="font-size:13px">${esc(it.title || '(untitled)')}</div><div class="tiny muted" style="margin-top:2px">${esc(it.source || 'Google News')}${when ? ' · ' + when : ''} ${b ? `<span class="${b}" style="margin-left:4px">${it.bucket === '24h' ? '24 h' : it.bucket === '3d' ? '3 d' : '7 d'}</span>` : ''}</div></div></div></div>`;
+    return `<div class="news-item tap" data-newslink="${esc(it.link || '')}" data-nt="${esc(it.title || '')}" data-ns="${esc(it.source || '')}" data-nw="${when}"><div class="row" style="gap:6px;align-items:flex-start"><div class="grow"><div class="b" style="font-size:13px">${esc(it.title || '(untitled)')}</div><div class="tiny muted" style="margin-top:2px">${esc(it.source || '')}${when ? ' · ' + when : ''} ${b ? `<span class="${b}" style="margin-left:4px">${it.bucket === '24h' ? '24 h' : it.bucket === '3d' ? '3 d' : '7 d'}</span>` : ''}</div></div></div></div>`;
   }
   PR.newsItem = newsItem;
   function matchNews(parts, f, x) {
-    const news = x.news || {};
+    const raw = x.news || {};
+    const news = { match: (raw.match || []).filter(newsOk), home: (raw.home || []).filter(newsOk), away: (raw.away || []).filter(newsOk) };
     const sec = (title, items) => (items && items.length ? `<div class="card compact"><div class="b" style="margin-bottom:4px">${title}</div>${items.map(newsItem).join('')}</div>` : '');
-    const total = (news.match || []).length + (news.home || []).length + (news.away || []).length;
+    const total = news.match.length + news.home.length + news.away.length;
     if (!total) {
-      parts.push(`<div class="card empty">No recent headlines found for this match or either club. News refreshes at most every 6 hours with each scan.</div>`);
+      parts.push(`<div class="card empty">No recent headlines from reputable outlets for this match or either club yet. Only established sources (BBC, Sky Sports, official sites …) are shown; news refreshes at most every 6 hours with each scan.</div>`);
     } else {
-      parts.push(`<div class="card tiny muted">Recent reporting from Google News — headlines only, for your reference. Clicking an item opens the original source. News is never used by the prediction model.</div>`);
+      parts.push(`<div class="card tiny muted">Reputable outlets only — tap a headline to read the article inside PlayReport (downloaded and saved on your phone; “Open original” is one tap away). News is never used by the prediction model.</div>`);
       parts.push(sec(`${icon('sparkle', 'sm')} This match`, news.match));
       parts.push(sec(`${icon('ball', 'sm')} ${esc(f.home)}`, news.home));
       parts.push(sec(`${icon('ball', 'sm')} ${esc(f.away)}`, news.away));
@@ -530,7 +596,7 @@
       const upcoming = state.data.fixtures.filter((f) => f.country === page.country && (f.home === page.name || f.away === page.name));
       if (upcoming.length) parts.push(`<div class="card compact"><div class="b">In this analysis</div>${upcoming.map((f) => PR.matchLine(f, `<div class="nums"><span class="pill ${f.p.O25 >= 0.6 ? 'hi' : ''}">O2.5 ${pct(f.p.O25)}</span></div>`)).join('')}</div>`);
     } else if (v === 'matches') {
-      parts.push(`<div class="card compact"><div class="b">Last ${r.last.length} matches</div><table class="tbl" style="margin-top:4px">${r.last.map((m) => `<tr><td class="tiny muted nowrap">${esc(m.date)}</td><td><div class="row" style="gap:6px"><i class="f ${m.r}">${m.r}</i>${badge(m.opp, null, 22)}<a href="#" class="team" data-team="${esc(m.opp)}" data-country="${esc(page.country)}" data-div="${esc(page.div)}">${m.venue === 'H' ? 'v' : '@'} ${esc(m.opp)}</a></div></td><td class="right nowrap"><b>${m.gf} – ${m.ga}</b></td><td class="tiny muted">${esc(m.league || '')}</td></tr>`).join('')}</table></div>`);
+      parts.push(`<div class="card compact"><div class="b">Last ${r.last.length} matches</div><table class="tbl" style="margin-top:4px">${r.last.map((m) => `<tr class="tap" data-fx="${esc(histId(m.date, page.country, m.venue === 'H' ? page.name : m.opp, m.venue === 'H' ? m.opp : page.name))}"><td class="tiny muted nowrap">${esc(m.date)}</td><td><div class="row" style="gap:6px"><i class="f ${m.r}">${m.r}</i>${badge(m.opp, null, 22)}<a href="#" class="team" data-team="${esc(m.opp)}" data-country="${esc(page.country)}" data-div="${esc(page.div)}">${m.venue === 'H' ? 'v' : '@'} ${esc(m.opp)}</a></div></td><td class="right nowrap"><b>${m.gf} – ${m.ga}</b></td><td class="tiny muted">${esc(m.league || '')}</td></tr>`).join('')}</table></div>`);
     } else {
       parts.push(`<div class="card compact"><div class="b">${esc(t.league)} table</div><div class="tiny muted">${t.matches} matches since ${esc(t.season_from)}</div><div class="tbl-wrap"><table class="tbl head table" style="margin-top:4px;min-width:560px"><tr><th>#</th><th>Team</th><th class="right">P</th><th class="right">W</th><th class="right">D</th><th class="right">L</th><th class="right">GF</th><th class="right">GA</th><th class="right">GD</th><th class="right">Pts</th></tr>
         ${t.table.map((x) => `<tr class="${x.team === page.name ? 'hl' : ''}"><td class="muted">${x.pos}</td><td><div class="tname">${badge(x.team, null, 22)}<a href="#" class="team" data-team="${esc(x.team)}" data-country="${esc(page.country)}" data-div="${esc(page.div)}">${esc(x.team)}</a></div></td><td class="right">${x.p}</td><td class="right">${x.w}</td><td class="right">${x.d}</td><td class="right">${x.l}</td><td class="right">${x.gf}</td><td class="right">${x.ga}</td><td class="right">${x.gd > 0 ? '+' : ''}${x.gd}</td><td class="right b">${x.pts}</td></tr>`).join('')}</table></div></div>`);
@@ -877,7 +943,7 @@
     parts.push(sec('trend', 'How the probabilities are made (data-first)', `<p>Every probability comes from <b>football data only</b>. Each team gets a time-weighted attack and defence rating from its last 40 competitive matches (recent games weighted most, league-normalised, home and away blended, shrunk towards the league average when the sample is small). League baseline × attack × opponent's defence gives the <b>Model xG</b> of each team, and a Dixon-Coles Poisson score matrix turns that into a probability for every line.</p><p>Bookmaker prices are a <b>separate comparison layer</b>: the margin is removed and the implied probability is shown next to the model with the difference in points and the EV. The market never changes a model probability, and the model is not tuned to agree with the bookmaker. <b>Market xG</b> (from the prices) is shown next to Model xG, never blended.</p><p>Every statistic carries its sample size — Very small 1–4, Small 5–9, Moderate 10–19, Strong 20–39, Very strong 40+ — and each match has a <b>data quality</b> assessment (completeness, sample, recency, consistency, competition, home/away relevance, source) under the <b>Data</b> tab, with the raw matches used, the extreme results flagged and the model's own numbers. Data quality drives the confidence wording, never the probability. Missing data is shown as N/A, never as 0.</p><p><b>High-probability selection</b> = model probability ≥ 70% with the de-margined price not contradicting it (no more than 12 points apart), price ≥ 1.30, goals/BTTS/team goals/corners/cards only. <b>⭐ Bets of the day</b> = the best of those at 07:00, one market per match. <b>Low data</b> = fewer than four useful matches for a team; those games are shown but never selected. No selection is ever certain — a 75% probability loses one time in four.</p>`));
     parts.push(sec('ticket', 'Bet slip & tickets', `<p>Tap <b>+</b> next to any priced selection (match page › Markets, high-probability selections, bets of the day) to put it on your slip — one selection per match, like a real multiple. Press <b>Done</b> to lock the ticket: PlayReport multiplies the prices, records an optional stake, and then follows the scores. Goals markets settle from the final score; corners and cards settle from the match statistics a few hours after full time. You get a notification when the ticket is won or lost, and ☰ › <b>My tickets</b> keeps your record.</p><p>This is a private record on your phone — nothing is placed with a bookmaker.</p>`));
     parts.push(sec('info', 'Reading the numbers honestly', `<p>A 75% bet loses one time in four. A card of five 75% singles has all five winning only about 24% of the time — that is why PlayReport shows singles and grades every one of them, and does not build accumulators. Compare the <b>Hit</b> and <b>Exp.</b> columns under Performance: they should be close over a few weeks.</p><p>Coverage: every competition on the live feed, worldwide, including women's and youth leagues, priced by Sportybet South Africa. Prices move; check the price before you bet. Statistical information, not betting advice. 18+, bet responsibly.</p>`));
-    parts.push(sec('star', 'Bets of the day, favourites & alerts', `<p><b>⭐ Bets of the day</b> is strong on Over 1.5 & team goals (up to five picks); 1X2, Both teams to score and Over 2.5 only appear with strong supporting signals (model ≥70%, market not below it, recent form backing them, up to two each); Bookings and Corners follow. Overs only, one market per match, picked by the first analysis of the day and graded separately — so the performance page can compare the markets fairly. Every match page has <b>Download stats (CSV)</b> and the ☰ menu downloads the whole day's analysis as a spreadsheet file. <b>Top leagues</b> ranks the major leagues by home wins, away wins, overs, corners and bookings.</p><p>Tap <b>☆</b> in a match header to make it a favourite: you get goal, half-time, full-time and kick-off alerts for it, it appears under Your matches on Home, and in the ★ filter of Matches.</p>`));
+    parts.push(sec('star', 'Bets of the day, favourites & alerts', `<p><b>⭐ Bets of the day</b> is strong on Over 1.5 & team goals (up to seven picks); <b>1X2 claims its matches first — up to five picks a day</b> — then <b>Over 2.5</b> gets its place, then the rest: 1X2, BTTS and Over 2.5 need ≥70% on both the model and the market view with recent form backing them; Corners and Bookings need ≥65%. Overs only, one market per match, picked by the first analysis of the day and graded separately — so the performance page can compare the markets fairly. Every match page has <b>Download stats (CSV)</b> and the ☰ menu downloads the whole day's analysis as a spreadsheet file. <b>Top leagues</b> ranks the major leagues by home wins, away wins, overs, corners and bookings.</p><p>Tap <b>☆</b> in a match header to make it a favourite: you get goal, half-time, full-time and kick-off alerts for it, it appears under Your matches on Home, and in the ★ filter of Matches.</p>`));
     parts.push(PR.editorCard(false));
     parts.push(contactCard(false));
     view().innerHTML = parts.join('');
@@ -940,5 +1006,99 @@
     const i = $('#s-install'); if (i) i.onclick = () => PR.startUpdate();
     $$('[data-play]').forEach((b) => { b.onclick = () => { try { const a = new Audio(`sounds/pr_${b.dataset.play}.ogg`); a.volume = 0.9; a.play().catch(() => toast('Preview not available here')); } catch (e) { toast('Preview not available here'); } }; });
     $$('[data-chan]').forEach((b) => { b.onclick = () => { try { PR.native.openChannelSettings(b.dataset.chan); } catch (e) { toast('Open Android Settings → Apps → PlayReport → Notifications'); } }; });
+  };
+
+  // ------------------------------------------------------------------ IN-APP NEWS READER
+  // Headline tap → the article is downloaded once and saved on the phone, then read inside PlayReport
+  // (no redirect to an external browser). "Open original" stays available on every screen of the reader.
+  const artHash = (str) => { let x = 5381; for (let i = 0; i < String(str).length; i++) x = ((x << 5) + x + String(str).charCodeAt(i)) | 0; return (x >>> 0).toString(36); };
+  function extractArticle(html) {
+    if (typeof DOMParser === 'undefined') return null;
+    try {
+      const doc = new DOMParser().parseFromString(html, 'text/html');
+      ['script', 'style', 'nav', 'header', 'footer', 'aside', 'noscript', 'form', 'iframe', 'button'].forEach((t) => doc.querySelectorAll(t).forEach((n) => n.remove()));
+      const root = doc.querySelector('article') || doc.querySelector('main') || doc.querySelector('[role=main]') || doc.body;
+      if (!root) return null;
+      let ps = Array.from(root.querySelectorAll('p')).map((n) => (n.textContent || '').trim()).filter((t) => t.length > 60);
+      if (ps.length < 3) ps = Array.from(root.querySelectorAll('p, h2, h3, li')).map((n) => (n.textContent || '').trim()).filter((t) => t.length > 60);
+      ps = ps.slice(0, 60);
+      if (ps.join('').length < 300) return null;
+      return ps;
+    } catch (e) { return null; }
+  }
+  PR.pages.reader = function (page) {
+    const link = page.link || '';
+    const ck = 'pr_art_' + artHash(link);
+    const shell = (body) => {
+      view().innerHTML = head(esc(page.source || 'News'), esc((page.title || '').slice(0, 90))) + body;
+      wireBack();
+      const ob = $('#rd-open');
+      if (ob) ob.onclick = () => { if (PR.native && PR.native.openUrl) PR.native.openUrl(link); else window.open(link, '_blank'); };
+    };
+    const renderText = (paras, saved) => shell(`
+      <div class="card">
+        <div class="b" style="font-size:15.5px;line-height:1.35">${esc(page.title || '')}</div>
+        <div class="tiny muted" style="margin-top:4px">${esc(page.source || '')}${page.when ? ' · ' + esc(page.when) : ''}${saved ? ' · <span class="good">saved on this phone</span>' : ''}</div>
+        <div style="margin-top:10px">${paras.map((t) => `<p style="font-size:14.5px;line-height:1.6;margin:0 0 10px">${esc(t)}</p>`).join('')}</div>
+      </div>
+      <button class="btn wide" id="rd-open">${icon('next', 'sm')} Open the original article</button>
+      <div class="note">Downloaded for reading inside PlayReport and kept on this phone. The source owns the full article — open it for images, video and comments.</div>`);
+    const fail = () => {
+      const top = state.stack[state.stack.length - 1];
+      if (!top || top.type !== 'reader') return;   // never overwrite a page the user has moved on to
+      shell(`<div class="card empty">The article could not be downloaded (offline, or the source blocks downloads).<div style="margin-top:10px"><button class="btn" id="rd-open">Open the original site</button></div></div>`);
+    };
+    let cached = null;
+    try { cached = JSON.parse(PR.stored(ck) || 'null'); } catch (e) { cached = null; }
+    if (cached && Array.isArray(cached.paras) && cached.paras.length) { renderText(cached.paras, true); return; }
+    shell(`<div class="card">${skeleton(4)}<div class="tiny muted" style="margin-top:6px">Downloading the article…</div></div>`);
+    if (!link) { fail(); return; }
+    PR.nfetch(link).then((r) => {
+      const paras = r && r.code === 200 && r.body ? extractArticle(r.body) : null;
+      if (!paras) { fail(); return; }
+      try { PR.persist(ck, JSON.stringify({ t: Date.now(), paras })); } catch (e) { /* quota */ }
+      if (state.stack[state.stack.length - 1] && state.stack[state.stack.length - 1].type === 'reader') renderText(paras, false);
+    }).catch(() => fail());
+  };
+
+  // ------------------------------------------------------------------ BET ADVISOR OF THE DAY
+  // A daily advisory built only from what the model already publishes: the day's card, the strongest
+  // signals, the biggest edges and the high-confidence list — plus staking discipline. No new maths.
+  PR.pages.advisor = function () {
+    const d = state.data || {}; const sf = d.safe || {}; const today = ymd(tzNow());
+    const parts = [head(`Bet advisor · ${esc(dayName(today))}`, 'Statistical information from the model — not betting advice')];
+    const row = (b) => `<tr class="tap" data-fx="${esc(b.fixture || b.id)}"><td><div class="b">${esc(b.label || selLabel(b.sel, (fx(b.fixture || b.id) || {}).home, (fx(b.fixture || b.id) || {}).away))}</div><div class="tiny muted">${esc(b.home || ((fx(b.fixture || b.id) || {}).home) || '')} v ${esc(b.away || ((fx(b.fixture || b.id) || {}).away) || '')}${b.q ? ' · data ' + esc(b.q) : ''}</div></td><td class="right nowrap"><b>${b.odds ? f2(b.odds) : '–'}</b></td><td class="right">${pill(b.p, 0.8, 0.7)}</td></tr>`;
+    const groups = (sf.today && sf.today.groups) || [];
+    const dayBets = (sf.today && sf.today.bets) || [];
+    if (dayBets.length) {
+      const shown = groups.filter((g) => (g.bets || []).length);
+      (shown.length ? shown : [{ title: 'Recommendations', bets: dayBets }]).forEach((g) => {
+        parts.push(`<div class="card compact"><div class="row"><div class="grow b">${icon('shield', 'sm')} ${esc(g.title)}</div><span class="tiny muted">${g.bets.length} pick${g.bets.length === 1 ? '' : 's'}</span></div>
+          <table class="tbl">${g.bets.slice(0, 6).map(row).join('')}</table></div>`);
+      });
+      parts.push(`<div class="card small"><b>How the advisor picks</b><div class="muted" style="margin-top:4px">Every line above is a model selection that cleared its bar on <b>today's matches only</b>: ≥70% model probability (corners/bookings ≥65%), the market view not contradicting it, price ≥ 1.30, one market per match. Nothing is chosen by hand.</div></div>`);
+    } else {
+      parts.push(`<div class="card empty">The advisor's card appears with the first analysis of the day (about 07:00) and fills section by section as probabilities firm up.</div>`);
+    }
+    const val = ((d.groups || {}).value || []).slice(0, 5);
+    if (val.length) parts.push(`<div class="card compact"><div class="row"><div class="grow b">${icon('trend', 'sm')} Biggest model-vs-market edges</div><span class="tiny muted">value</span></div>
+      <table class="tbl">${val.map((v) => { const f = fx(v.id) || {}; return `<tr class="tap" data-fx="${esc(v.id)}"><td><div class="b">${esc(selLabel(v.sel, f.home, f.away))}</div><div class="tiny muted">${esc(f.home || '')} v ${esc(f.away || '')}</div></td><td class="right nowrap"><b>${v.odds ? f2(v.odds) : '–'}</b></td><td class="right good">+${Math.round((v.ev || 0) * 100)} pp</td></tr>`; }).join('')}</table></div>`);
+    const strong = ((d.groups || {}).strong || []).slice(0, 5);
+    if (strong.length) parts.push(`<div class="card compact"><div class="row"><div class="grow b">${icon('star', 'sm')} Strongest signals</div><span class="tiny muted">≥ 70%</span></div>
+      <table class="tbl">${strong.map((v) => { const f = fx(v.id) || {}; return `<tr class="tap" data-fx="${esc(v.id)}"><td><div class="b">${esc(selLabel(v.sel, f.home, f.away))}</div><div class="tiny muted">${esc(f.home || '')} v ${esc(f.away || '')}${v.q ? ' · data ' + esc(v.q) : ''}</div></td><td class="right">${pill(v.p, 0.8, 0.7)}</td></tr>`; }).join('')}</table></div>`);
+    const conf = (sf.bets || []).filter((b) => String(b.kickoff || '').slice(0, 10) === today).slice(0, 5);
+    if (conf.length) parts.push(`<div class="card compact"><div class="row"><div class="grow b">${icon('check', 'sm')} High-confidence list</div><span class="tiny muted">today</span></div>
+      <table class="tbl">${conf.map(row).join('')}</table></div>`);
+    parts.push(`<div class="card"><div class="b">Staking discipline</div><div class="small" style="margin-top:4px">
+      <div>• Flat stakes — the same unit on every pick; never chase a loss with a bigger stake.</div>
+      <div>• A 70% probability still loses about three times in ten — expect run-downs and stay with the plan.</div>
+      <div>• Only prices ≥ 1.30 make the card; skip anything the market has already moved away from.</div>
+      <div>• Check <b>Performance</b> weekly: if the real hit rate sits below the model's predicted rate for weeks, bet smaller.</div>
+      </div><div class="row" style="margin-top:8px;gap:8px"><button class="btn grow" id="adv-perf">Performance &amp; calibration</button><button class="btn grow" id="adv-best">Best of the day</button></div></div>`);
+    parts.push(`<div class="note">Statistical information, not betting advice. Never stake money you cannot afford to lose.</div>`);
+    view().innerHTML = parts.join('');
+    wireBack();
+    const bp = $('#adv-perf'); if (bp) bp.onclick = () => PR.push({ type: 'performance' });
+    const bb = $('#adv-best'); if (bb) bb.onclick = () => PR.push({ type: 'best' });
   };
 })(window.PR);
