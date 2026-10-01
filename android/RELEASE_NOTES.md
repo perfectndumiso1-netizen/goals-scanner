@@ -1,3 +1,10 @@
+## What's new in PlayReport 1.6.31 — 💪 Form-strip context · ⏪ H2H trend · 🔎 Teams fixed
+- 💪 **Opponent-strength chips on the form strip** — every W/D/L badge in Recent form now carries a micro-marker: **▲ strong opponent · – average · ▼ weak** — the opponent's level relative to its own league (league-normalised attack/defence), so a run of wins against weak sides no longer looks like a run against strong ones. Tap a badge for the opponent and score.
+- ⏪ **Head-to-head trend line** — the H2H card now opens with **"Last 5 meetings: Team A 3W · Draw 1 · Team B 1W · O2.5 4/5 · BTTS 3/5"** (up to the five most recent meetings) — the recent trend at a glance, on both live and archived matches.
+- 🔎 **Teams page fixed** — tapping a club was opening an empty profile: the list passed a league name where the division id was required, so the data file never loaded. Rows now carry the correct division, missing files resolve through the global club index, and the page never sticks on the loading skeleton.
+- 👤 **Founder profile** — the in-app profile now reads **Founder & Football Analyst** with a refreshed professional bio (age removed).
+- 🧊 **Model untouched** — probabilities, calibration and grading exactly as before; presentation and context only.
+
 ## What's new in PlayReport 1.6.30 — ⚖️ Odds never filter
 - 🚫 **No more "preferable odds"** — every minimum-price rule is gone: odds ≥1.30 / ≥1.25 / ≥1.15 floors removed from High-probability selections, ⭐ Bets of the day, Today's strong markets, Best of the day, the Bet advisor, the match page's top selections and Tennis selections of the day (tennis also drops its market-implied ≥45%/50% floors). A match is in or out on **model probability, data quality and form — never on its price**.
 - 📉 **Market disagreements no longer hold a pick back** — a selection the bookmaker's price strongly disagrees with (model 72%, the price implies 45%) now appears on every board. The ⚠ marker and the Diff / EV columns still show the disagreement — they just don't hide the match anymore. Strong stats at high odds gets its place.

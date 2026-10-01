@@ -9,7 +9,7 @@
   const MK = { O15: 'Over 1.5 goals', O25: 'Over 2.5 goals', BTTS: 'Both teams to score' };
   const head = (title, sub, right) => `<div class="detail-head"><button class="back" id="back" aria-label="Back">${icon('back')}</button><div class="grow"><div class="b">${title}</div>${sub ? `<div class="tiny muted">${sub}</div>` : ''}</div>${right || ''}</div>`;
   function wireBack() { const b = $('#back'); if (b) b.onclick = () => PR.back(); }
-  function ensureTeams(div) { if (!PR.teamsCached(div)) PR.loadTeams(div).then(() => PR.render()).catch(() => { state.teams[PR.slug(div)] = { missing: true }; }); }
+  function ensureTeams(div) { if (!PR.teamsCached(div)) PR.loadTeams(div).then(() => PR.render()).catch(() => { state.teams[PR.slug(div)] = { missing: true }; PR.render(); }); }
   const rec = (div, name) => { const t = PR.teamsCached(div); return t && t.teams ? t.teams[name] : null; };
   const ord = (n) => { const s = ['th', 'st', 'nd', 'rd'], v = n % 100; return s[(v - 20) % 10] || s[v] || s[0]; };
   // index rows keep xg/x12 as arrays, detail files as objects — read both
@@ -208,6 +208,7 @@
       const wins = (name) => ah2h.filter((m) => (m.home === name && m.hg > m.ag) || (m.away === name && m.ag > m.hg)).length;
       const dr = ah2h.filter((m) => m.hg === m.ag).length;
       parts.push(`<div class="card compact"><div class="row"><div class="grow b">Head to head · last ${ah2h.length}</div><span class="chip">previous meetings</span></div>
+        ${h2hTrend(ah2h, f.home, f.away)}
         <div class="h2h-bar"><span class="h" style="flex:${wins(f.home) || 0.001}">${wins(f.home)}</span><span class="d" style="flex:${dr || 0.001}">${dr}</span><span class="a" style="flex:${wins(f.away) || 0.001}">${wins(f.away)}</span></div><div class="lbl tiny muted row"><span class="grow">${esc(f.home)} wins</span><span>draws</span><span class="grow right">${esc(f.away)} wins</span></div>
         <table class="tbl" style="margin-top:6px">${ah2h.map((m) => `<tr class="tap" data-fx="${esc(histId(m.date, m.country || f.country, m.home, m.away))}"><td class="tiny muted nowrap">${esc(m.date || '')}</td><td class="${m.hg > m.ag ? 'b' : ''}"><div class="row" style="gap:6px">${esc(m.home)}</div></td><td class="right nowrap"><b>${m.hg} – ${m.ag}</b></td><td class="${m.ag > m.hg ? 'b' : ''}">${esc(m.away)}</td><td class="tiny muted">${esc(m.league || '')}</td></tr>`).join('')}</table></div>`);
     }
@@ -394,6 +395,16 @@
     else parts.push(`<div class="card tiny muted">Loading season stats…</div>`);
   }
   const histId = (date, country, home, away) => `${date || ''}|${country || ''}|${home || ''}|${away || ''}`;
+  /** Most-recent-meetings trend line: W/D/W + goal-market hits over the last 5 head-to-heads (newest first). */
+  function h2hTrend(h2h, home, away) {
+    const last = (h2h || []).slice(0, 5);
+    if (!last.length) return '';
+    const w = (name) => last.filter((m) => (m.home === name && m.hg > m.ag) || (m.away === name && m.ag > m.hg)).length;
+    const d = last.filter((m) => m.hg === m.ag).length;
+    const o25 = last.filter((m) => m.hg + m.ag >= 3).length;
+    const btts = last.filter((m) => m.hg > 0 && m.ag > 0).length;
+    return `<div class="tiny" style="margin-top:6px"><b>Last ${last.length} meeting${last.length === 1 ? '' : 's'}:</b> ${esc(home)} ${w(home)}W · Draw ${d} · ${esc(away)} ${w(away)}W · O2.5 ${o25}/${last.length} · BTTS ${btts}/${last.length}</div>`;
+  }
   function h2hTable(rows, f) {
     return `<table class="tbl" style="margin-top:6px">${rows.map((m) => `<tr class="tap" data-fx="${esc(histId(m.date, m.country || f.country, m.home, m.away))}"><td class="tiny muted nowrap">${esc(m.date)}</td><td class="${m.hg > m.ag ? 'b' : ''}"><div class="row" style="gap:6px">${badge(m.home, m.home === f.home ? (f.badges || {}).home : m.home === f.away ? (f.badges || {}).away : null, 22)}<span>${esc(m.home)}</span></div></td><td class="right nowrap"><b>${m.hg} – ${m.ag}</b></td><td class="${m.ag > m.hg ? 'b' : ''}"><div class="row" style="gap:6px;justify-content:flex-end"><span>${esc(m.away)}</span>${badge(m.away, m.away === f.home ? (f.badges || {}).home : m.away === f.away ? (f.badges || {}).away : null, 22)}</div></td><td class="tiny muted">${esc(m.league || '')}</td></tr>`).join('')}</table>`;
   }
@@ -402,9 +413,10 @@
     const hm = f.h2h_meta;
     // AiScore-style form strips first: last five results of each team (W/D/L, tap-free, colour-coded)
     const th = f.teams.home || {}, ta = f.teams.away || {};
-    const strip = (name, list) => `<div class="row" style="gap:4px;align-items:center;margin-top:4px"><span class="grow tiny" style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(name)}</span>${(list || []).slice(0, 5).map((m) => `<span class="chip ${m.gf > m.ga ? 'good' : m.gf < m.ga ? 'bad' : ''}" title="${esc((m.venue === 'H' ? 'v ' : '@ ') + m.opp + ' ' + m.gf + '–' + m.ga)}">${wdl(m.gf, m.ga)}</span>`).join('') || '<span class="tiny muted">no recent matches</span>'}</div>`;
+    const strip = (name, list) => `<div class="row" style="gap:4px;align-items:center;margin-top:4px"><span class="grow tiny" style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(name)}</span>${(list || []).slice(0, 5).map((m) => `<span class="fcol"><span class="chip ${m.gf > m.ga ? 'good' : m.gf < m.ga ? 'bad' : ''}" title="${esc((m.venue === 'H' ? 'v ' : '@ ') + m.opp + ' ' + m.gf + '–' + m.ga + (m.opp_s ? ' · ' + m.opp_s + ' opponent' : ''))}">${wdl(m.gf, m.ga)}</span>${m.opp_s ? `<span class="fstr ${m.opp_s}" title="${m.opp_s === 'strong' ? 'Strong opponent' : m.opp_s === 'weak' ? 'Weak opponent' : 'Average opponent'}">${m.opp_s === 'strong' ? '▲' : m.opp_s === 'weak' ? '▼' : '–'}</span>` : ''}</span>`).join('') || '<span class="tiny muted">no recent matches</span>'}</div>`;
     if ((th.last5 || []).length || (ta.last5 || []).length) {
-      parts.push(`<div class="card compact"><div class="b">Recent form</div>${strip(f.home_long || f.home, th.last5)}${strip(f.away_long || f.away, ta.last5)}</div>`);
+      const anyS = (th.last5 || []).concat(ta.last5 || []).some((m) => m.opp_s);
+      parts.push(`<div class="card compact"><div class="b">Recent form</div>${strip(f.home_long || f.home, th.last5)}${strip(f.away_long || f.away, ta.last5)}${anyS ? `<div class="tiny muted" style="margin-top:6px">▲ strong opponent · – average · ▼ weak opponent — the opponent's level relative to its own league</div>` : ''}</div>`);
     }
     if (hm && hm.n) parts.push(`<div class="card compact"><div class="row" style="gap:6px;flex-wrap:wrap"><span class="b">H2H sample</span>${evChip(hm.n)}<span class="chip ${hm.used_by_model ? '' : 'warn'}">${hm.used_by_model ? 'used by the model' : 'context only — not a model input'}</span></div><div class="tiny muted" style="margin-top:4px">${esc(hm.note || '')}${hm.first_date ? ` Meetings ${esc(hm.first_date)} → ${esc(hm.last_date)}` : ''}${(hm.competitions || []).length ? ` · ${esc(hm.competitions.join(', '))}` : ''}. Figures below are historical frequencies of ${hm.n} match${hm.n === 1 ? '' : 'es'}.</div></div>`);
     if (h2h.length) {
@@ -412,6 +424,7 @@
       const wins = (name) => h2h.filter((m) => (m.home === name && m.hg > m.ag) || (m.away === name && m.ag > m.hg)).length;
       const draws = h2h.filter((m) => m.hg === m.ag).length;
       parts.push(`<div class="card compact"><div class="row"><div class="grow b">Head to head · last ${h2h.length}</div><span class="chip">${f1(tot.reduce((a, b) => a + b, 0) / tot.length)} goals avg</span><span class="chip">O2.5 ${tot.filter((t) => t >= 3).length}/${tot.length}</span><span class="chip">BTTS ${h2h.filter((m) => m.hg > 0 && m.ag > 0).length}/${tot.length}</span></div>
+        ${h2hTrend(h2h, f.home, f.away)}
         <div class="h2h-bar"><span class="h" style="flex:${wins(f.home) || 0.001}">${wins(f.home)}</span><span class="d" style="flex:${draws || 0.001}">${draws}</span><span class="a" style="flex:${wins(f.away) || 0.001}">${wins(f.away)}</span></div><div class="lbl tiny muted row"><span class="grow">${esc(f.home)} wins</span><span>draws</span><span class="grow right">${esc(f.away)} wins</span></div>
         ${h2hTable(h2h.slice(0, 5), f)}${h2h.length > 5 ? `<details><summary class="tiny muted">Earlier meetings (${h2h.length - 5})</summary>${h2hTable(h2h.slice(5), f)}</details>` : ''}</div>`);
       const venue = h2h.filter((m) => m.home === f.home);
@@ -554,9 +567,9 @@
   // ------------------------------------------------------------------ TEAM PAGE
   PR.pages.team = function (page) {
     ensureTeams(page.div);
-    // a league without a published team index (knockout cups etc.): resolve the team's division from the
-    // global team search index so the profile still opens
-    if (!page.div) {
+    // a league without a published team index (knockout cups etc.) — or a missing / wrong division file:
+    // resolve the team's division from the global team search index so the profile still opens
+    if (!page.div || (PR.teamsCached(page.div) || {}).missing) {
       const cur = PR.teamsCached(page.div);
       if (!cur || cur.missing) {
         const idx = state.teamIdx;
@@ -721,7 +734,7 @@
       [[f.home, f.league || f.competition], [f.away, f.league || f.competition]].forEach(([n, l]) => {
         if (!n) return;
         const k = String(n).toLowerCase();
-        if (!seen.has(k)) seen.set(k, { n, c: f.country || '', l: l || '', d: f.league || '' });
+        if (!seen.has(k)) seen.set(k, { n, c: f.country || '', l: l || '', d: f.div || '' });
       });
     });
     const all = [...seen.values()].sort((a, b) => a.n.localeCompare(b.n));
@@ -731,7 +744,7 @@
     const show = list.slice(0, 80);
     if (!show.length) parts.push(`<div class="card empty small">No team matches \u201c${esc(state.tmQ)}\u201d.</div>`);
     else parts.push(`<div class="card compact">${show.map((t) => `<div class="lg-row tap" data-tmq="${esc(t.n)}|${esc(t.c)}|${esc(t.d)}"><div class="lg-ic">${badge(t.n, null, 24)}</div><div class="grow"><div class="b">${esc(t.n)}</div><div class="tiny muted">${flag(t.c)} ${esc(t.c)}${t.l ? ' · ' + esc(t.l) : ''}</div></div></div>`).join('')}</div>`);
-    if (list.length > show.length) parts.push(`<div class="tiny muted" style="margin-top:8px">Showing first ${show.length} of ${list.length} matches \u2014 keep typing to narrow it down.</div>`);
+    if (list.length > show.length) parts.push(`<div class="tiny muted" style="margin-top:8px">Showing first ${show.length} of ${list.length} clubs \u2014 keep typing to narrow it down.</div>`);
     parts.push(`<div class="tiny muted" style="margin:10px 4px 18px">Team pages combine recent form, home/away splits, head-to-head and upcoming fixtures from the same analysis files.</div>`);
     view().innerHTML = parts.join('');
     wireBack();

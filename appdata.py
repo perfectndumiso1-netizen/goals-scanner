@@ -83,7 +83,7 @@ def _date(d) -> str:
 
 def _matches(lst) -> list[dict]:
     return [{"date": _date(m["date"]), "venue": m["venue"], "opp": m["opp"], "gf": m["gf"], "ga": m["ga"],
-             "league": m.get("league")} for m in (lst or [])]
+             "league": m.get("league"), "opp_s": m.get("opp_s")} for m in (lst or [])]
 
 
 def _profile(t) -> dict:

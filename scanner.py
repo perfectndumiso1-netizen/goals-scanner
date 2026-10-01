@@ -723,6 +723,18 @@ SEASON_STARTS: dict = {}       # div -> inferred start of the current season (qu
 RAW_RATINGS: dict = {}         # rating_key -> (raw attack, raw defence), all venues, shrunk with SHRINK_K; opponent context only
 
 
+def opp_strength(country: str, opp: str, opp_id=None) -> str | None:
+    """Display-only opponent-strength bucket for the form-strip chips: the opponent's raw attack/defence
+    (league-normalised, shrunk) vs its own league average. Presentation only — never a model input."""
+    if not RAW_RATINGS or not opp:
+        return None
+    r = RAW_RATINGS.get(rating_key(country, opp, opp_id))
+    if not r or r[0] != r[0] or r[1] != r[1]:        # missing or NaN
+        return None
+    idx = (float(r[0]) - float(r[1])) / 2.0
+    return "strong" if idx >= 0.20 else "weak" if idx <= -0.20 else "mid"
+
+
 def compute_raw_ratings(long: pd.DataFrame, now: datetime) -> dict:
     """First-pass raw rating of every team in the pool (time-weighted league-normalised goals, shrunk with SHRINK_K).
     Used only to describe the strength of the opponents a team has faced — it is not an input of the match model."""
@@ -797,7 +809,7 @@ def build_profile(long: pd.DataFrame, country: str, team: str, venue: str, now: 
         p.venue_rate_o25 = wmean(vrows["o25"], wv)
         p.venue_rate_btts = wmean(vrows["btts"], wv)
         p.venue_last5 = [{"date": r.date, "venue": r.venue, "opp": r.opp, "gf": int(r.gf), "ga": int(r.ga),
-                          "league": r.league} for r in vrows.head(5).itertuples()]
+                          "league": r.league, "opp_s": opp_strength(r.country, r.opp, r.opp_id)} for r in vrows.head(5).itertuples()]
     else:
         att, dfc = att_all, def_all
 
@@ -822,7 +834,7 @@ def build_profile(long: pd.DataFrame, country: str, team: str, venue: str, now: 
     p.sot_for = float(last10["sot_for"].mean()) if last10["sot_for"].notna().any() else float("nan")
     p.sot_against = float(last10["sot_against"].mean()) if last10["sot_against"].notna().any() else float("nan")
     p.last5 = [{"date": r.date, "venue": r.venue, "opp": r.opp, "gf": int(r.gf), "ga": int(r.ga),
-                "league": r.league} for r in rows.head(5).itertuples()]
+                "league": r.league, "opp_s": opp_strength(r.country, r.opp, r.opp_id)} for r in rows.head(5).itertuples()]
     PROFILE_CACHE[key] = p
     return p
 
