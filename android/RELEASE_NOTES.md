@@ -1,3 +1,10 @@
+## What's new in PlayReport 1.6.32 — ✅ Team stats you can trust
+- 📊 **"Averages per game" now really shows averages** — every team profile's box always carries **Goals for / game** and **Goals against / game** tiles next to the scoring counts, so the card says what the recent matches say instead of leaving you guessing.
+- 🔢 **Real denominators, never a misleading "/10"** — "Scored in / Conceded in" now use the actual sample: **3/4 · last 4 matches** when a team has only played 4 this season (it used to claim 3/10). The same fix lands on the match Stats tab's scored row, where each side shows its own sample.
+- 🚫 **No more fake zeros** — competitions that don't publish xG, shots on target, corners or cards now read **"not published for this competition"** instead of printing "xG in 0, shots on target in 0, corners in 0, cards in 0".
+- 🏷️ **Honest labels** — xG and shots-on-target rows are marked "(last ≤10)" to match exactly how they're computed, and head-to-head form chips show the real window ("last 4: 7 pts" when only 4 matches exist).
+- 🧊 **Model untouched** — scanner, probabilities, calibration and data pipeline exactly as before; display accuracy only.
+
 ## What's new in PlayReport 1.6.31 — 💪 Form-strip context · ⏪ H2H trend · 🔎 Teams fixed
 - 💪 **Opponent-strength chips on the form strip** — every W/D/L badge in Recent form now carries a micro-marker: **▲ strong opponent · – average · ▼ weak** — the opponent's level relative to its own league (league-normalised attack/defence), so a run of wins against weak sides no longer looks like a run against strong ones. Tap a badge for the opponent and score.
 - ⏪ **Head-to-head trend line** — the H2H card now opens with **"Last 5 meetings: Team A 3W · Draw 1 · Team B 1W · O2.5 4/5 · BTTS 3/5"** (up to the five most recent meetings) — the recent trend at a glance, on both live and archived matches.

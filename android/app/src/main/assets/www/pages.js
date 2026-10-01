@@ -365,6 +365,17 @@
     const cls = (x, y) => (x == null || y == null || x === y) ? '' : ((x > y) === !!higherBetter ? 'lead' : '');
     return `<tr><td class="right ${cls(av, bv)}">${fmt(av)}</td><td class="mid"><div class="k">${label}</div><div class="duo"><span class="l" style="width:${Math.round(wa * 100)}%"></span><span class="r" style="width:${Math.round((1 - wa) * 100)}%"></span></div></td><td class="${cls(bv, av)}">${fmt(bv)}</td></tr>`;
   }
+  // "scored in recent matches" row: each side shows its own denominator (season last ≤10) — never a hardcoded /10
+  function scRow(label, z1, z2) {
+    const den = (z) => Math.min(10, (z.all && z.all.p) || 0);
+    const val = (z) => { const d = den(z); return (z.scored_in_last == null || !d) ? null : z.scored_in_last; };
+    const av = val(z1), bv = val(z2);
+    if (av == null && bv == null) return '';
+    const txt = (v, z) => (v == null ? '–' : `${v}/${den(z)}`);
+    const tot = (av || 0) + (bv || 0); const wa = tot ? (av || 0) / tot : 0.5;
+    const cls = (x, y) => (x == null || y == null || x === y) ? '' : (x > y ? 'lead' : '');
+    return `<tr><td class="right ${cls(av, bv)}">${txt(av, z1)}</td><td class="mid"><div class="k">${label}</div><div class="duo"><span class="l" style="width:${Math.round(wa * 100)}%"></span><span class="r" style="width:${Math.round((1 - wa) * 100)}%"></span></div></td><td class="${cls(bv, av)}">${txt(bv, z2)}</td></tr>`;
+  }
   function matchStats(parts, f, th, ta) {
     const H = f.teams.home || {}, A = f.teams.away || {};
     const outOf = (n) => (x) => x == null ? '–' : `${x}/${n}`;
@@ -374,8 +385,8 @@
       <table class="cmp">${sq.home || sq.away ? cmpRow('Squad value (Transfermarkt)', sq.home && sq.home.value, sq.away && sq.away.value, fmtValue, true) + cmpRow('Average age', sq.home && sq.home.avg_age, sq.away && sq.away.avg_age, f1, false) : ''}${cmpRow('Goals scored / game', H.gf, A.gf, f2, true)}${cmpRow('Goals conceded / game', H.ga, A.ga, f2, false)}
       ${cmpRow('Home / away goals for', H.venue_gf, A.venue_gf, f2, true)}${cmpRow('Home / away goals against', H.venue_ga, A.venue_ga, f2, false)}
       ${cmpRow('Attack strength', H.att, A.att, f2, true)}${cmpRow('Defence (lower = better)', H.def, A.def, f2, false)}
-      ${cmpRow('xG for (last 10)', H.xg_for, A.xg_for, f2, true)}${cmpRow('xG against (last 10)', H.xg_against, A.xg_against, f2, false)}
-      ${cmpRow('Shots on target for', H.sot_for, A.sot_for, f1, true)}${cmpRow('Shots on target against', H.sot_against, A.sot_against, f1, false)}
+      ${cmpRow('xG for (last ≤10)', H.xg_for, A.xg_for, f2, true)}${cmpRow('xG against (last ≤10)', H.xg_against, A.xg_against, f2, false)}
+      ${cmpRow('Shots on target for (last ≤10)', H.sot_for, A.sot_for, f1, true)}${cmpRow('Shots on target against (last ≤10)', H.sot_against, A.sot_against, f1, false)}
       ${cmpRow('Over 1.5 rate', H.o15, A.o15, pct, true)}${cmpRow('Over 2.5 rate', H.o25, A.o25, pct, true)}${cmpRow('Over 3.5 rate', H.o35, A.o35, pct, true)}
       ${cmpRow('Over 2.5 at home / away', H.venue_o25, A.venue_o25, pct, true)}${cmpRow('BTTS at home / away', H.venue_btts, A.venue_btts, pct, true)}
       ${cmpRow('BTTS rate', H.btts, A.btts, pct, true)}${cmpRow('Clean sheets', H.cs, A.cs, pct, true)}${cmpRow('Failed to score', H.fts, A.fts, pct, false)}
@@ -389,7 +400,7 @@
         ${cmpRow('Points per game', sp(th).ppg, sp(ta).ppg, f2, true)}${cmpRow('Won', sp(th).w, sp(ta).w, (x) => x, true)}${cmpRow('Drawn', sp(th).d, sp(ta).d, (x) => x, true)}${cmpRow('Lost', sp(th).l, sp(ta).l, (x) => x, false)}
         ${cmpRow('Goals for / game', sp(th).gf_avg, sp(ta).gf_avg, f2, true)}${cmpRow('Goals against / game', sp(th).ga_avg, sp(ta).ga_avg, f2, false)}
         ${cmpRow('Corners for / game', th.avg.corners_for, ta.avg.corners_for, f1, true)}${cmpRow('Corners against / game', th.avg.corners_against, ta.avg.corners_against, f1, false)}
-        ${cmpRow('Cards / game', th.avg.cards_for, ta.avg.cards_for, f1, false)}${cmpRow('Scored in last 10', th.scored_in_last, ta.scored_in_last, (x) => x == null ? '–' : x + '/10', true)}</table>
+        ${cmpRow('Cards / game', th.avg.cards_for, ta.avg.cards_for, f1, false)}${scRow('Scored in recent matches', th, ta)}</table>
         <div class="tiny muted">Home record ${esc(f.home)}: ${th.home.w}W ${th.home.d}D ${th.home.l}L · away record ${esc(f.away)}: ${ta.away.w}W ${ta.away.d}D ${ta.away.l}L. Tap a team name for the full page.</div></div>`);
     } else if (t && t.missing) parts.push(`<div class="card tiny muted">Season table not available for this competition yet.</div>`);
     else parts.push(`<div class="card tiny muted">Loading season stats…</div>`);
@@ -451,9 +462,9 @@
       const t10 = (r && r.trends && r.trends.last10) || null;
       const t5 = (r && r.trends && r.trends.last5) || null;
       const chips = [];
-      if (t10) chips.push(`<span class="chip">last 10: ${t10.pts} pts · ${t10.gf_avg} gf / ${t10.ga_avg} ga</span>`);
+      if (t10) chips.push(`<span class="chip">last ${t10.n}: ${t10.pts} pts · ${t10.gf_avg} gf / ${t10.ga_avg} ga</span>`);
       if (t10) chips.push(`<span class="chip">O1.5 ${pct(t10.o15)} · O2.5 ${pct(t10.o25)}</span>`);
-      if (t5) chips.push(`<span class="chip">last 5: ${t5.pts} pts</span>`);
+      if (t5) chips.push(`<span class="chip">last ${t5.n}: ${t5.pts} pts</span>`);
       return `<div class="card compact"><div class="row" style="gap:6px;flex-wrap:wrap"><div class="grow b row" style="gap:6px">${fxBadge(f, side)}${esc(name)}</div>${chips.join('')}</div>
         ${last.length ? `<table class="tbl" style="margin-top:4px"><tr><th>Date</th><th>Match (all comps.)</th><th class="right">Score</th><th>Competition</th></tr>${rowsOf(last)}</table>` : `<div class="tiny muted" style="margin-top:6px">N/A — not enough recent matches to show form.</div>`}
         ${ven.length ? `<div class="b tiny" style="margin-top:8px">Last ${ven.length} ${side === 'home' ? 'at home' : 'away'}</div><table class="tbl" style="margin-top:2px">${rowsOf(ven)}</table>` : ''}</div>`;
@@ -599,13 +610,25 @@
         ${row('Points / game', 'ppg', f2)}${row('Goals for / game', 'gf_avg', f2)}${row('Goals against / game', 'ga_avg', f2)}${row('Win rate', 'win')}
         ${row('Over 1.5 goals', 'o15')}${row('Over 2.5 goals', 'o25')}${row('Over 3.5 goals', 'o35')}${row('Both teams scored', 'btts')}${row('Clean sheets', 'cs')}${row('Failed to score', 'fts')}</table></div>`);
       const av = r.avg;
+      const scN = Math.min(10, a.p || 0); // scored/conceded_in_last count the season's last ≤10 matches
+      const sFmt = (v) => (scN && v != null) ? `${v}/${scN}` : 'N/A';
+      const sSub = scN ? `last ${scN} match${scN === 1 ? '' : 'es'}` : 'no matches yet';
+      const advBits = [];
+      if (r.avg_n) {
+        if (r.avg_n.xg) advBits.push(`xG in ${r.avg_n.xg}`);
+        if (r.avg_n.sot) advBits.push(`shots on target in ${r.avg_n.sot}`);
+        if (r.avg_n.corners) advBits.push(`corners in ${r.avg_n.corners}`);
+        if (r.avg_n.cards) advBits.push(`cards in ${r.avg_n.cards}`);
+      }
+      const advNote = advBits.length ? ` · ${advBits.join(', ')} of them (missing = N/A)` : (r.avg_n ? ' · xG, shots on target, corners and cards are not published for this competition' : '');
       parts.push(`<div class="card compact"><div class="b">Averages per game</div><div class="grid4" style="margin-top:6px">
         ${av.xg_for != null ? `<div class="cell"><div class="k">xG for / against</div><div class="v">${f2(av.xg_for)} / ${f2(av.xg_against)}</div></div>` : ''}
         ${av.sot_for != null ? `<div class="cell"><div class="k">Shots on target</div><div class="v">${f1(av.sot_for)} / ${f1(av.sot_against)}</div><div class="tiny muted">for / against</div></div>` : ''}
         ${av.corners_for != null ? `<div class="cell"><div class="k">Corners</div><div class="v">${f1(av.corners_for)} / ${f1(av.corners_against)}</div><div class="tiny muted">for / against</div></div>` : ''}
         ${av.cards_for != null ? `<div class="cell"><div class="k">Cards</div><div class="v">${f1(av.cards_for)} / ${f1(av.cards_against)}</div><div class="tiny muted">for / against</div></div>` : ''}
-        <div class="cell"><div class="k">Scored in</div><div class="v">${r.scored_in_last}/10</div><div class="tiny muted">last 10 matches</div></div><div class="cell"><div class="k">Conceded in</div><div class="v">${r.conceded_in_last}/10</div><div class="tiny muted">last 10 matches</div></div></div>
-        <div class="tiny muted" style="margin-top:4px">Season since ${esc(r.season_from)} · sample ${a.p || 0} match${a.p === 1 ? '' : 'es'} (${a.evidence || evidenceLabel(a.p)}; home ${r.home.p || 0}, away ${r.away.p || 0}) · historical frequencies, not model probabilities${r.avg_n ? ` · xG in ${r.avg_n.xg}, shots on target in ${r.avg_n.sot}, corners in ${r.avg_n.corners}, cards in ${r.avg_n.cards} of them (missing = N/A)` : ''} · league average ${f2(t.avg_goals)} goals, O2.5 ${pct(t.o25_rate)}, BTTS ${pct(t.btts_rate)}.</div></div>`);
+        <div class="cell"><div class="k">Goals for / game</div><div class="v">${f2(a.gf_avg)}</div><div class="tiny muted">${a.gf} in ${a.p} games</div></div><div class="cell"><div class="k">Goals against / game</div><div class="v">${f2(a.ga_avg)}</div><div class="tiny muted">${a.ga} in ${a.p} games</div></div>
+        <div class="cell"><div class="k">Scored in</div><div class="v">${sFmt(r.scored_in_last)}</div><div class="tiny muted">${sSub}</div></div><div class="cell"><div class="k">Conceded in</div><div class="v">${sFmt(r.conceded_in_last)}</div><div class="tiny muted">${sSub}</div></div></div>
+        <div class="tiny muted" style="margin-top:4px">Season since ${esc(r.season_from)} · sample ${a.p || 0} match${a.p === 1 ? '' : 'es'} (${a.evidence || evidenceLabel(a.p)}; home ${r.home.p || 0}, away ${r.away.p || 0}) · historical frequencies, not model probabilities${advNote} · league average ${f2(t.avg_goals)} goals, O2.5 ${pct(t.o25_rate)}, BTTS ${pct(t.btts_rate)}.</div></div>`);
       const upcoming = state.data.fixtures.filter((f) => f.country === page.country && (f.home === page.name || f.away === page.name));
       if (upcoming.length) parts.push(`<div class="card compact"><div class="b">In this analysis</div>${upcoming.map((f) => PR.matchLine(f, `<div class="nums"><span class="pill ${f.p.O25 >= 0.6 ? 'hi' : ''}">O2.5 ${pct(f.p.O25)}</span></div>`)).join('')}</div>`);
     } else if (v === 'matches') {
