@@ -206,7 +206,7 @@
     const headHtml = `<div class="section-head tn-fb" id="tn-fb-head"><h2><span class="ico">🎾</span>Tennis · selections of the day</h2><button class="link" data-sport-go="tennis">Open tennis ${icon('next')}</button></div>`;
     let body;
     if (!d) body = `<div class="card empty small" id="tn-fb-card">${T.error ? 'Tennis analysis could not be loaded — pull down to refresh.' : 'Loading the tennis analysis…'}</div>`;
-    else if (!sels.length) body = `<div class="card empty small" id="tn-fb-card">No tennis match clears the selection rules right now (model ≥ 60%, market not contradicting, data quality ≥ 60%). ${(d.matches || []).length} matches analysed — open the tennis section for every market.</div>`;
+    else if (!sels.length) body = `<div class="card empty small" id="tn-fb-card">No tennis match clears the selection rules right now (model ≥ 60%, data quality ≥ 60%). ${(d.matches || []).length} matches analysed — open the tennis section for every market.</div>`;
     else {
       let left = 4;
       const rows = secs.map((g) => { if (left <= 0) return ''; const take = g.selections.slice(0, Math.min(2, left)); left -= take.length; return `<div class="botd-sec">${esc(g.title)} <span class="muted">· ${g.selections.length}</span></div><table class="tbl">${take.map((x) => selRow(x, { day: true })).join('')}</table>`; }).join('');
@@ -320,7 +320,7 @@
     // selections of the day (grouped by market, like the football card)
     parts.push(`<div class="section-head">${sh('star', 'Selections of the day', 'amber')}<button class="link" data-tn-bets="today">Details ${icon('next')}</button></div>`);
     const secs = d.sections || [];
-    if (!sels.length) parts.push(`<div class="card empty small">No match clears the selection rules right now (model ≥ 60%, Sportybet price ≥ 1.30 not contradicting the model, data quality ≥ 60%, both players with 30+ rated matches). The next scan may add some.</div>`);
+    if (!sels.length) parts.push(`<div class="card empty small">No match clears the selection rules right now (model ≥ 60%, data quality ≥ 60%, both players with 30+ rated matches). The next scan may add some.</div>`);
     else {
       const body = secs.map((g) => `<div class="botd-sec">${esc(g.title)} <span class="muted">· ${g.selections.length}</span></div><table class="tbl">${g.selections.slice(0, 4).map((x) => selRow(x, { day: true })).join('')}</table>`).join('');
       const settled = sels.filter((x) => x.won === '0' || x.won === '1');
@@ -513,7 +513,7 @@
     if (det.selection) parts.push(selCard(det.selection, 'Selection of the day · preferred market'));
     else parts.push(`<div class="card"><div class="tiny muted" style="text-transform:uppercase;letter-spacing:.4px;font-weight:700">Selection of the day</div><div class="b">None for this match</div><div class="tiny muted">${esc(det.selection_note || 'No market clears the selection rules.')}</div></div>`);
     const others = (det.strong || []).filter((x) => !det.selection || x.market !== det.selection.market || x.selection !== det.selection.selection || x.line !== det.selection.line);
-    if (others.length) parts.push(`<div class="card compact"><div class="b">Other strong markets <span class="tiny muted">· model ≥ 70%, market ≥ 50%</span></div>${others.map((x) => `<div class="tn-item"><div class="row"><div class="grow b">${esc(x.label)}</div>${ppill(x.model_p)}</div><div class="tn-grid">${cell('MODEL', pc(x.model_p))}${cell('FAIR', od(x.fair_odds))}${cell('SPORTYBET', od(x.book_odds))}${cell('IMPLIED', pc(x.implied_fair))}${cell('EDGE', pp(x.edge_pp), edgeCls(x.edge_pp))}</div></div>`).join('')}</div>`);
+    if (others.length) parts.push(`<div class="card compact"><div class="b">Other strong markets <span class="tiny muted">· model ≥ 70%</span></div>${others.map((x) => `<div class="tn-item"><div class="row"><div class="grow b">${esc(x.label)}</div>${ppill(x.model_p)}</div><div class="tn-grid">${cell('MODEL', pc(x.model_p))}${cell('FAIR', od(x.fair_odds))}${cell('SPORTYBET', od(x.book_odds))}${cell('IMPLIED', pc(x.implied_fair))}${cell('EDGE', pp(x.edge_pp), edgeCls(x.edge_pp))}</div></div>`).join('')}</div>`);
     if (det.highlights && det.highlights.length) parts.push(`<div class="card compact"><div class="b">Model above market <span class="tiny muted">· disagreement, not a recommendation</span></div>${det.highlights.map((x) => `<div class="tn-item"><div class="row"><div class="grow">${esc(x.label)} <span class="chip ok">${esc(x.flag || '')}</span></div><span class="${edgeCls(x.edge_pp)}"><b>${pp(x.edge_pp)}</b></span></div></div>`).join('')}</div>`);
     // model probability + set scores
     const ss = det.set_scores || {};
@@ -599,7 +599,7 @@
       <li><b>Set → match.</b> The rating gap gives a set probability; the match probability follows the explicit best-of-3 (2-0 / 2-1) or best-of-5 (3-0 / 3-1 / 3-2) formula, so Grand Slam men's matches are treated differently.</li>
       <li><b>Games.</b> A serve-point Markov chain (serve/return traits from the statistics archive, pinned to the match probability) gives total games, player games and handicap probabilities. Its average error is about 5 games, so game markets need a larger model/market gap to be flagged.</li>
       <li><b>Bookmaker.</b> Sportybet prices are shown next to the model — MODEL / FAIR / SPORTYBET / IMPLIED / EDGE — and are never an input.</li>
-      <li><b>Selections of the day.</b> One preferred market per match: the highest model probability (≥ 60%) among priced markets the bookmaker does not contradict (implied ≥ 45%), with data quality ≥ 60% and both players having 30+ rated matches. <b>STRONG</b> = model ≥ 70% and market ≥ 50%.</li>
+      <li><b>Selections of the day.</b> One preferred market per match: the highest model probability (≥ 60%) among priced markets — odds never filter — with data quality ≥ 60% and both players having 30+ rated matches. <b>STRONG</b> = model ≥ 70%.</li>
       <li><b>Data quality</b> is a completeness score (identity, surface, samples, freshness…), not a win probability.</li>
       <li><b>Validation.</b> Walk-forward backtest 2019–2026: accuracy 63.8% (ranking baseline 61.6%), Brier 0.221, calibration within 3 pp in every band. Every published selection is tracked and graded against results.</li>
       <li><b>Limits.</b> No injury or withdrawal news; serve statistics age after the archive snapshot; ITF, doubles and team events are outside coverage. Statistical information, not betting advice. 18+.</li></ul></div>`);

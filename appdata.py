@@ -159,13 +159,14 @@ def _board(sels: list[dict]) -> dict:
     return out
 
 
-def _best(sels: list[dict], groups: tuple | None, min_odds: float, min_p: float) -> list | None:
-    """[sel, p, odds] of the most probable priced selection (optionally restricted to groups / safety rules)."""
+def _best(sels: list[dict], groups: tuple | None, min_p: float) -> list | None:
+    """[sel, p, odds] of the most probable priced selection (optionally restricted to groups). Odds are
+    displayed, never filtered on: no floor, no market-contradiction hold-back (user decision 2026-10-01)."""
     best = None
     for d in sels:
         if not d.get("odds") or d["odds"] <= 1 or d.get("p") is None:
             continue
-        if d["odds"] < min_odds or d["p"] < min_p or d["diff"]:
+        if d["p"] < min_p:
             continue
         if groups is not None and d["group"] not in groups:
             continue
@@ -225,7 +226,7 @@ def export(path: Path, *, ctx: dict, rows: list, all_rows: list | None = None, p
     selections = helpers.get("selections") or (lambda r: [])
     now: datetime = ctx["now"]
     sf = ctx.get("safe") or {}
-    min_odds, min_p = float(sf.get("min_odds") or 1.3), float(sf.get("min_p") or 0.7)
+    min_p = float(sf.get("min_p") or 0.7)
     app_dir = path.parent                      # where this publication is written (may be a staging directory)
     live_dir = live_dir or app_dir             # where the app currently reads from (previous publication)
     fx_dir = app_dir / "fx"
@@ -269,10 +270,10 @@ def export(path: Path, *, ctx: dict, rows: list, all_rows: list | None = None, p
         ls = ls_map.get(fx.name)
         x12 = r.extra.x12 or {}
         sels = selections(r)
-        top = _best(sels, None, 1.25, 0.0)
+        top = _best(sels, None, 0.0)
         hi = sorted([[d["sel"], round(d["p"], 3), round(d["odds"], 2) if d.get("odds") else None] for d in sels
-                     if d.get("p") is not None and d["p"] >= 0.70 and not d["diff"] and d["group"] in ("goals", "btts", "team", "corners", "cards")
-                     and (not d.get("odds") or d["odds"] >= 1.15)], key=lambda x: -x[1])[:12]
+                     if d.get("p") is not None and d["p"] >= 0.70 and d["group"] in ("goals", "btts", "team", "corners", "cards")],
+                    key=lambda x: -x[1])[:12]
         _qo = _q.get("overall")
         for d in sels:
             # selections(r) yields plain dicts (safe.sel_dict): {sel, group, p, odds, diff, ev, ...}
@@ -284,17 +285,17 @@ def export(path: Path, *, ctx: dict, rows: list, all_rows: list | None = None, p
                 continue
             base = {"id": fid, "sel": d.get("sel"), "p": round(p, 3),
                     "odds": d.get("odds"), "g": d.get("group"), "q": _qo}
-            # strong: model probability ≥ 0.70, market not contradicting, decent data — odds irrelevant
+            # strong: model probability ≥ 0.70, decent data — odds never filter (user decision 2026-10-01)
             # value: Sportybet prices it, the model beats that price by ≥ 8 points of expected value at p ≥ 0.60
             # both boards are titled "Today", so only this day's matches qualify
             if date != _today:
                 continue
-            if p >= 0.70 and not d.get("diff") and _qo != "Low":
+            if p >= 0.70 and _qo != "Low":
                 strong_picks.append(base)
             _ev = d.get("ev")
             if d.get("odds") and _ev is not None and _ev >= 0.08 and p >= 0.60 and _qo != "Low":
                 value_picks.append({**base, "ev": round(float(_ev), 3)})
-        safe_best = _best(sels, safe_groups or None, min_odds, min_p) if r.data_ok else None
+        safe_best = _best(sels, safe_groups or None, min_p) if r.data_ok else None
         eid = (ls or {}).get("eid")
         slim = {
             "id": fid, "d": key, "date": date, "kickoff": fx["kickoff"].strftime("%Y-%m-%d %H:%M"),
@@ -382,7 +383,7 @@ def export(path: Path, *, ctx: dict, rows: list, all_rows: list | None = None, p
             picks_out[mkt].append({"fixture": fid, "p": _f(r.p_final[mkt]), "stars": stars(r.p_final[mkt], mkt),
                                    "sportybet": _f(helpers["sb_price"](r, mkt), 2)})
     # safest bets of this run + bets of the day
-    safe_out = {"min_odds": sf.get("min_odds"), "min_p": sf.get("min_p"), "groups": list(safe_groups),
+    safe_out = {"min_p": sf.get("min_p"), "groups": list(safe_groups),
                 "bets": [], "today": {"date": now.strftime("%Y-%m-%d"), "bets": []}, "summary": safe_summary or {}}
     for b in sf.get("bets") or []:
         fid = ids_by_key.get(b.key) or fixture_id(*b.key)

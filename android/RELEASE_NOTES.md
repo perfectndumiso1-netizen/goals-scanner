@@ -1,3 +1,9 @@
+## What's new in PlayReport 1.6.30 — ⚖️ Odds never filter
+- 🚫 **No more "preferable odds"** — every minimum-price rule is gone: odds ≥1.30 / ≥1.25 / ≥1.15 floors removed from High-probability selections, ⭐ Bets of the day, Today's strong markets, Best of the day, the Bet advisor, the match page's top selections and Tennis selections of the day (tennis also drops its market-implied ≥45%/50% floors). A match is in or out on **model probability, data quality and form — never on its price**.
+- 📉 **Market disagreements no longer hold a pick back** — a selection the bookmaker's price strongly disagrees with (model 72%, the price implies 45%) now appears on every board. The ⚠ marker and the Diff / EV columns still show the disagreement — they just don't hide the match anymore. Strong stats at high odds gets its place.
+- 💬 **Honest copy everywhere** — the guide, card explanations, advisor, staking card, reports and tennis rules now say the price is shown for comparison but never used to filter; a new what's-new card explains the change.
+- 🧊 **Model untouched** — probabilities, calibration, probability bars, form-backing rules and grading are exactly as before; this release only changes which priced selections are allowed onto the boards.
+
 ## What's new in PlayReport 1.6.29 — 🎯 Today's card, permanent archive, bet advisor
 - 📅 **Selections are today's matches — never future fixtures**. Home's Today's signals, the high-probability board (Today by default, with a tap to see the next 60 days) and Today's strong markets now only ever list matches kicking off on this day.
 - 🧭 **Bet advisor of the day** — new page (☰ menu and More): the day's card section by section, the biggest model-vs-market edges, the strongest signals and the high-confidence list, plus a staking-discipline card. Everything is model output — nothing is chosen by hand.

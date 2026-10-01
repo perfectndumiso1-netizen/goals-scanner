@@ -141,7 +141,7 @@
     const settled = bets.filter((b) => b.status && b.status !== 'pending'); const won = settled.filter((b) => b.status === 'hit' || b.status === 'won').length;
     const rec = (sf.summary && sf.summary.botd) || {};
     const head = `<div class="section-head">${sh('star', 'Bets of the day', 'amber')}${compact ? `<button class="link" data-bets="today">Details ${icon('next')}</button>` : `<span class="tiny muted">${esc(dayName(today.date || ''))}</span>`}</div>`;
-    if (!bets.length) return head + `<div class="card empty small">Today's card is built from the first analysis of the day (07:00) and topped up section by section during the day — only markets Sportybet actually prices, at 1.30 or more.</div>`;
+    if (!bets.length) return head + `<div class="card empty small">Today's card is built from the first analysis of the day (07:00) and topped up section by section during the day — every market Sportybet prices — odds never filter.</div>`;
     const sec = (g) => `<div class="botd-sec">${esc(g.title)} <span class="muted">· ${g.bets.length}</span></div><table class="tbl">${g.bets.slice(0, compact ? 2 : 7).map((b) => safeRow(b, { time: true })).join('')}</table>`;
     const body = groups.length ? groups.map(sec).join('') : `<table class="tbl">${bets.map((b) => safeRow(b, { time: true })).join('')}</table>`;
     return head + `<div class="card botd">${body}
@@ -211,7 +211,7 @@
         ${signalCard(safe[0], { bare: true })}
         <div class="sh-viewall"><button class="link" data-bets="safest">View all ${safe.length} ${icon('next', 'sm')}</button></div></div>`);
     } else {
-      parts.push(`<div class="signals-hero"><div class="sh-head"><span class="t">Today\u2019s signals</span></div><div class="empty small" style="border:0;background:transparent">Nothing priced at \u2265 ${f2(sf.min_odds || 1.3)} reached ${pct(sf.min_p || 0.7)} on both views${majorOnly() ? ' in the major leagues' : ''} for today's matches yet \u2014 the board fills as probabilities firm up.</div></div>`);
+      parts.push(`<div class="signals-hero"><div class="sh-head"><span class="t">Today\u2019s signals</span></div><div class="empty small" style="border:0;background:transparent">No model signal reached ${pct(sf.min_p || 0.7)}${majorOnly() ? ' in the major leagues' : ''} for today's matches yet \u2014 the board fills as probabilities firm up.</div></div>`);
     }
     // BEST OF TODAY — first pick of the graded card, straight into the Best page
     const botd = (sf.today && sf.today.bets) || [];
@@ -227,7 +227,7 @@
     }
     if (PR.APP_VERSION && settings.seenVersion !== PR.APP_VERSION) {
       parts.push(`<div class="card whatsnew"><div class="row"><div class="grow"><b>${icon('sparkle', 'sm')} New in PlayReport ${esc(PR.APP_VERSION)}</b></div><button class="link" id="wn-close">${icon('x')}</button></div>
-        <ul><li>📅 <b>60 days of fixtures, every league</b> — the scanner now analyses matches up to 60 days ahead worldwide, so form, statistics and context are gathered early and every match is analysed long before kick-off. League fixture lists span the whole window.</li><li>🎫 <b>Your tickets meet Sportybet</b> — the <b>SB</b> link on any priced match, slip leg or ticket leg opens that match in Sportybet (live odds &amp; slip), and tickets copy to the clipboard in one tap.</li><li>🧾 <b>Booking codes</b> — paste a Sportybet booking code on the slip screen and PlayReport loads it in Sportybet for you.</li><li>🎯 <b>Bets of the day are Sportybet markets</b> — only markets Sportybet actually prices (≥ 1.30), each labelled with its Sportybet price.</li><li>🧊 Model untouched — same input, same numbers.</li></ul></div>`);
+        <ul><li>📅 <b>60 days of fixtures, every league</b> — the scanner now analyses matches up to 60 days ahead worldwide, so form, statistics and context are gathered early and every match is analysed long before kick-off. League fixture lists span the whole window.</li><li>🎫 <b>Your tickets meet Sportybet</b> — the <b>SB</b> link on any priced match, slip leg or ticket leg opens that match in Sportybet (live odds &amp; slip), and tickets copy to the clipboard in one tap.</li><li>🧾 <b>Booking codes</b> — paste a Sportybet booking code on the slip screen and PlayReport loads it in Sportybet for you.</li><li>🎯 <b>Bets of the day are Sportybet markets</b> — every pick is a market Sportybet prices, labelled with its price.</li><li>⚖️ <b>Odds never filter</b> — minimum-odds floors and market-contradiction hold-backs are gone: model probability, data quality and form decide what appears; prices and EV stay on display.</li><li>🧊 Model untouched — same input, same numbers.</li></ul></div>`);
     }
     if (PR.ticketsCard && PR.tickets().some((t) => t.status === 'pending')) parts.push(PR.ticketsCard(true));
     const favs = (PR.favList ? PR.favList() : []).map((x) => fx(x.fixture)).filter(Boolean).sort((a, b) => a.kickoff.localeCompare(b.kickoff));
@@ -293,7 +293,7 @@
     if (!strong.length) parts.push(`<div class="card empty small">No strong market in this window yet — the list fills in as the probabilities firm up.</div>`);
     else {
       const max = state.expanded.grp_strong ? strong.length : 15;
-      parts.push(`<div class="card compact"><div class="tiny muted" style="margin-bottom:6px">Today's matches only — every market with a model probability of at least <b>70%</b> that the market view does not contradict, <b>any odds</b>, highest probability first.</div>
+      parts.push(`<div class="card compact"><div class="tiny muted" style="margin-bottom:6px">Today's matches only — every market with a model probability of at least <b>70%</b>, <b>any odds</b>, highest probability first.</div>
         <table class="tbl head"><tr><th></th><th>Match · selection</th><th class="right">Price</th><th class="right">Model</th></tr>${strong.slice(0, max).map(({ p, f }) => selRow(f, p)).join('')}</table>
         ${strong.length > max ? `<button class="btn wide" data-more="grp_strong">Show all ${strong.length}</button>` : ''}</div>`);
     }
@@ -311,7 +311,7 @@
     parts.push(botdCard(false));
     if (PR.ticketsCard) parts.push(PR.ticketsCard(false));
     const rec = ((state.data.safe || {}).summary || {}).botd || {};
-    parts.push(`<div class="card small"><b>How the card is picked</b><div class="muted" style="margin-top:4px">Six blocks: <b>Goals</b> (Over 1.5 & team goals), <b>Over 2.5</b>, <b>BTTS</b>, <b>1X2</b>, <b>Corners</b> and <b>Bookings</b> — filled in that order so <b>1X2 claims its matches first (up to five picks a day)</b>, then Over 2.5, then the rest. Each block shows at most 7 of the strongest qualifying bets — if only one or two meet the bar, only those are listed, and a block with none disappears. Goals needs ≥70%; Over 2.5, BTTS and 1X2 need ≥70% on both the model and the market view <i>and</i> recent form backing the pick; Corners and Bookings need ≥65%. Overs only, Sportybet price ≥ 1.30, one market per match across the whole card. Picks are made by the first analysis that sees them and kept for the day; every one is graded automatically.</div>
+    parts.push(`<div class="card small"><b>How the card is picked</b><div class="muted" style="margin-top:4px">Six blocks: <b>Goals</b> (Over 1.5 & team goals), <b>Over 2.5</b>, <b>BTTS</b>, <b>1X2</b>, <b>Corners</b> and <b>Bookings</b> — filled in that order so <b>1X2 claims its matches first (up to five picks a day)</b>, then Over 2.5, then the rest. Each block shows at most 7 of the strongest qualifying bets — if only one or two meet the bar, only those are listed, and a block with none disappears. Goals needs ≥70%; Over 2.5, BTTS and 1X2 need ≥70% <i>and</i> recent form backing the pick; Corners and Bookings need ≥65%. Overs only, one market per match across the whole card — odds appear on every pick but never filter. Picks are made by the first analysis that sees them and kept for the day; every one is graded automatically.</div>
       ${rec.all && rec.all.n ? `<table class="tbl head" style="margin-top:8px"><tr><th>Bets of the day</th><th class="right">Won</th><th class="right">Hit</th><th class="right">Exp.</th><th class="right">Return</th></tr>${[['All time', rec.all], ['Last 30 days', rec['30d']]].filter(([, s]) => s && s.n).map(([n, s]) => `<tr><td>${n}</td><td class="right">${s.won}/${s.n}</td><td class="right"><b>${pct(s.rate)}</b></td><td class="right muted">${pct(s.exp_rate)}</td><td class="right ${s.roi > 0 ? 'good' : s.roi < 0 ? 'bad' : ''}">${signed(s.roi)}</td></tr>`).join('')}</table>` : '<div class="tiny muted" style="margin-top:6px">The record starts with the first settled card.</div>'}</div>`);
   }
   function renderSafest(parts) {
@@ -324,7 +324,7 @@
       <button class="chip tapchip ${!winAll ? 'on' : ''}" data-scope="today">📅 Today (${nToday})</button>
       <button class="chip tapchip ${winAll ? 'on' : ''}" data-scope="all">🗓 Next 60 days (${all.length})</button></div>
       <div class="filters" style="margin-top:6px"><label>Market ${select('f-group', groupOptions, state.betGroup || 'all')}</label></div>
-      <div class="tiny muted">High-probability selection = <b>model probability</b> of at least ${pct(sf.min_p || 0.7)} (football data only) with the de-margined Sportybet price not contradicting it, price ≥ ${f2(sf.min_odds || 1.3)}, in the goals, corners and cards markets. <b>Today</b> shows matches kicking off this day; the 60-day view lists every upcoming analysed match. A high probability is not a certainty: expect roughly ${pct(sf.min_p || 0.7)}–85% of these to land. Each one shows its data quality and is graded in Days.</div></div>`);
+      <div class="tiny muted">High-probability selection = <b>model probability</b> of at least ${pct(sf.min_p || 0.7)} (football data only), in the goals, corners and cards markets — the price appears on every row but never filters. <b>Today</b> shows matches kicking off this day; the 60-day view lists every upcoming analysed match. A high probability is not a certainty: expect roughly ${pct(sf.min_p || 0.7)}–85% of these to land. Each one shows its data quality and is graded in Days.</div></div>`);
     if (!lst.length) parts.push(`<div class="card empty">${winAll ? 'No high-probability selection in this window' : 'No high-probability selection for today’s matches'}${majorOnly() ? ' for the major leagues' : ''}.</div>`);
     else {
       const max = state.expanded.safest ? lst.length : 30;
@@ -438,7 +438,7 @@
   // ------------------------------------------------------------------ MATCHES
   const PINNED = ['England', 'Spain', 'Italy', 'Germany', 'France', 'Netherlands', 'Portugal', 'Belgium', 'Turkiye', 'Scotland', 'South Africa', 'UEFA Champions League', 'UEFA Europa League'];
   function matchSub(f, withComp) {
-    const b = f.safe || (f.top && f.top[2] >= 1.3 ? f.top : null);
+    const b = f.safe || f.top || null;
     return `${withComp ? flag(f.country) + ' ' + esc(f.competition) + ' · ' : ''}xG ${f1(f.xg[0])}–${f1(f.xg[1])}${b ? ` · ${f.safe ? '📈 ' : ''}<b>${esc(selShort(b[0]))}</b> ${pct(b[1])} @ ${f2(b[2])}` : f.priced ? '' : ' · <span class="muted">no price</span>'}${f.data_ok ? '' : ' · <span class="warn">low data</span>'}${f.time_known === false ? ' · <span class="muted">time tbc</span>' : ''}`;
   }
   function matchRight(f, s) { return s && s.hg != null ? '' : `<span class="tiny muted">O2.5 ${pill(f.p.O25, 0.6, 0.5)}</span><span class="tiny muted">BTTS ${pill(f.p.BTTS, 0.6, 0.5)}</span>`; }
@@ -481,7 +481,7 @@
     else if (filt === 'ok') lst = lst.filter((f) => f.data_ok);
     else if (filt === 'live') lst = lst.filter((f) => isLive(live.for(f)));
     else if (filt === 'fav') lst = lst.filter((f) => PR.isFav(f.id));
-    const best = (f) => (f.top && f.top[2] >= 1.3 ? f.top[1] : 0);
+    const best = (f) => (f.top ? f.top[1] : 0);
     const parts = [`<div class="card compact"><div class="searchbar"><div class="field">${icon('search')}<input id="fx-search" placeholder="Search team, league or country" value="${esc(state.search || '')}">${q ? `<button class="link" id="fx-clear">${icon('x')}</button>` : ''}</div></div>
       <div style="margin-top:8px">${segmented([['time', `${icon('clock')} By time`], ['comp', `${icon('trend')} By country & competition`]], mode, 'mmode')}</div>
       <div class="chips small-chips" style="margin-top:6px">${[['all', `All ${d.fixtures.length}`], ['live', '🔴 Live'], ['fav', '★ Favourites'], ['major', '🏆 Major'], ['priced', 'Priced'], ['safe', '📈 High probability'], ['ok', 'Enough data']].map(([k, l]) => `<button class="chip tapchip ${filt === k ? 'on' : ''}" data-mf="${k}">${l}</button>`).join('')}

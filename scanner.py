@@ -1526,8 +1526,8 @@ def render_safest(ctx: dict) -> list[str]:
         return []
     L = [f"## 📈 High-probability selections — {run_desc(ctx['run'])}", ""]
     L.append(f"_Goals, corners and cards selections whose **football-data model** probability is at least {pct(sf['min_p'])} "
-             f"(the de-margined Sportybet price is shown for comparison and only excludes a selection when it contradicts the model by "
-             f"a wide margin) at a Sportybet price of {sf['min_odds']:.2f} or more, ranked by model probability. "
+             f"(the Sportybet price is shown for comparison but never used to filter — no minimum odds, disagreements "
+             f"included), ranked by model probability. "
              f"A 75% probability still loses about one time in four. Graded automatically (`data/safe_bets.csv`)._")
     L.append("")
     groups = ctx.get("botd_groups") or []
@@ -1535,8 +1535,8 @@ def render_safest(ctx: dict) -> list[str]:
         L.append(f"### ⭐ Bets of the day — {ctx['now']:%A %d %B}")
         L.append("")
         L.append("_Strong on Over 1.5 & team goals (up to five picks); 1X2, Both teams to score and Over 2.5 only with strong "
-                 "supporting form (model ≥70%, up to two each); Bookings and Corners ≥65%. Overs only, Sportybet price "
-                 "≥ 1.30, the de-margined price must not contradict the model, one market per match on the whole card. "
+                 "supporting form (model ≥70%, up to two each); Bookings and Corners ≥65%. Overs only, prices shown "
+                 "but never used to filter, one market per match on the whole card. "
                  "Probabilities are model probabilities (football data only); each pick shows its data quality._")
         L.append("")
         icon = {"hit": "✅ hit", "miss": "❌ miss", "pending": "⏳", "void": "void"}
@@ -1552,7 +1552,7 @@ def render_safest(ctx: dict) -> list[str]:
                          f"**{b['odds']:.2f}** | {pct(b['p'])} | {q} | {icon.get(b['status'], b['status'])} |")
             L.append("")
     bets = sf.get("bets") or []
-    L.append(f"### High-probability singles (model ≥70%, price ≥1.30) — top {min(len(bets), 25)} of {len(bets)}")
+    L.append(f"### High-probability singles (model ≥70%) — top {min(len(bets), 25)} of {len(bets)}")
     L.append("")
     if bets:
         L.append("| Kick-off | Match | Competition | Selection | Price | Model % | Market implied % | Diff (pp) | Data quality |")
@@ -1770,8 +1770,8 @@ def render_report(ctx: dict, rows: list[MatchRow], picks: dict, summary: dict, n
         "* **World coverage (v4):** every competition on Livescore.com that Sportybet prices is analysed with the same "
         "team-form model from Livescore's season results (goals markets only; corners and cards need the richer "
         "football-data feed of the 22 main European leagues). Sportybet's de-margined prices are the market view there.",
-        "* **High-probability selections** = goals, corners and cards selections with model probability ≥70% (and the de-margined "
-        "Sportybet price not contradicting it), priced 1.30 or better, **overs only** (no unders / no-BTTS); parlays and accumulators are no longer produced "
+        "* **High-probability selections** = goals, corners and cards selections with model probability ≥70% "
+        "(odds never filter — the price is shown for comparison), **overs only** (no unders / no-BTTS); parlays and accumulators are no longer produced "
         "(the backtest showed they lose money). **Bets of the day** = strong on Over 1.5 & team goals (≥70%, up to five); "
         "1X2, BTTS and Over 2.5 only with strong supporting form (model ≥70% plus recent-form backing, up to two each); "
         "bookings and corners ≥65% (up to two each); one market per match; graded separately. The tracked record keeps one "
@@ -2036,7 +2036,7 @@ def telegram_text(ctx: dict, rows: list[MatchRow], picks: dict, report_url: str 
     sf = ctx.get("safe") or {}
     bets = sf.get("bets") or []
     L.append("")
-    L.append(f"📈 <b>High-probability selections</b> (model ≥{pct(sf.get('min_p', 0.7))}, market not contradicting, price ≥ {sf.get('min_odds', 1.3):.2f}) — {len(bets)}")
+    L.append(f"📈 <b>High-probability selections</b> (model ≥{pct(sf.get('min_p', 0.7))}) — {len(bets)}")
     if not bets:
         L.append("nothing priced met the rules in this window")
     for b in bets[:12]:
@@ -2159,7 +2159,7 @@ def all_sels(r: MatchRow) -> list[dict]:
 
 def top_sels(r: MatchRow) -> list[dict]:
     """The three best priced selections (for the day history)."""
-    out = [d for d in all_sels(r) if d["odds"] and d["odds"] >= safe_mod.MIN_ODDS and not d["diff"]]
+    out = [d for d in all_sels(r) if d["odds"]]
     return [{"sel": d["sel"], "label": d["label"], "p": d["p"], "odds": d["odds"]} for d in out[:3]]
 
 
@@ -2408,7 +2408,7 @@ def main() -> None:
     pr = {"parlays": [], "legs": [], "source": "none", "extended": False}
     ctx.update({"parlays": pr, "parlay_ids": [], "parlay_summary": parlay_mod.summary(ledger, now), "parlay_recent": []})
 
-    # ---- high-probability selections (goals / corners / cards, model >= 70%, market not contradicting, price >= 1.30) + bets of the day
+    # ---- high-probability selections (goals / corners / cards, model >= 70%; odds never filter) + bets of the day
     safe_res = safe_mod.safest(rows, now, window_end, groups=safe_mod.SAFE_GROUPS, trebles=False)
     safe_res["quality"] = {(r.fx["date"].strftime("%Y-%m-%d"), r.fx["country"], r.fx["home"], r.fx["away"]):
                            ((r.audit or {}).get("quality") or {}).get("overall") for r in rows if r.data_ok}

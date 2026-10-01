@@ -96,7 +96,7 @@ def _median_hcp(pmf: dict[int, float]) -> float:
 def highlights(rows: list[dict], quality_score: int, min_matches: int = 10**9) -> list[dict]:
     """Rows where the model is clearly above the bookmaker's fair implied probability. This is a
     model/market disagreement flag with its evidence — not a 'safe bet' label.
-    Publication rules (conservative until the tracker has evidence): price ≥ MIN_ODDS, model ≥ 55%,
+    Publication rules (conservative until the tracker has evidence): priced (odds never filter), model ≥ 55%,
     edge ≥ EDGE_NOTE_PP for the winner market and ≥ GAME_EDGE_PP for game markets (the game model's
     expected total has a mean absolute error of ~5 games in the backtest, so small gaps there are noise),
     edge ≤ MAX_EDGE_PP (larger gaps usually mean information the model lacks — injuries, withdrawals,
@@ -105,7 +105,7 @@ def highlights(rows: list[dict], quality_score: int, min_matches: int = 10**9) -
     At most ONE highlight per match: the largest qualifying edge (no stacking of correlated lines)."""
     out = []
     for r in rows:
-        if r["book_odds"] is None or r["edge_pp"] is None or r["book_odds"] < C.MIN_ODDS:
+        if r["book_odds"] is None or r["edge_pp"] is None:
             continue
         need = C.EDGE_NOTE_PP if r["market"] == "winner" else C.GAME_EDGE_PP
         if r["model_p"] < 0.55 or r["edge_pp"] < need or r["edge_pp"] > C.MAX_EDGE_PP or quality_score < 60:
@@ -123,28 +123,28 @@ MARKET_FAMILY = {"winner": "Match winner", "total_games": "Total games", "p1_gam
 def select(rows: list[dict], quality_score: int, min_matches: int) -> dict:
     """Day selection for one match — the football-style 'one preferred market per match' plus the list of
     strong markets. Ranked by MODEL PROBABILITY (the football backtests showed that ranking by model-vs-market
-    value was anti-predictive), with the bookmaker used only as a sanity check that must not contradict the pick.
-    Eligibility: priced at ≥ MIN_ODDS, data quality ≥ 60, both players ≥ HIGHLIGHT_MIN_MATCHES rated matches, no
-    low-confidence game data, model − implied ≤ MAX_EDGE_PP (a bigger gap means the market knows something).
-    Preferred = highest model probability ≥ DAY_MIN_P whose margin-free implied probability is ≥ DAY_MIN_IMPLIED;
-    strong = every eligible row with model ≥ STRONG_MIN_P and implied ≥ STRONG_MIN_IMPLIED. Not a 'safe bet' label:
+    value was anti-predictive). Odds are shown for comparison only and never filter: no minimum price, no
+    implied-probability floor, no market-contradiction hold-back (user decision 2026-10-01).
+    Eligibility: priced, data quality ≥ 60, both players ≥ HIGHLIGHT_MIN_MATCHES rated matches, no
+    low-confidence game data. Preferred = highest model probability ≥ DAY_MIN_P; strong = every eligible row
+    with model ≥ STRONG_MIN_P. Not a 'safe bet' label:
     a 72 % selection loses more than one time in four."""
     elig = []
     for r in rows:
-        if r["book_odds"] is None or r["book_odds"] < C.MIN_ODDS or r["implied_fair"] is None or r["edge_pp"] is None:
+        if r["book_odds"] is None or r["implied_fair"] is None or r["edge_pp"] is None:
             continue
-        if quality_score < 60 or min_matches < C.HIGHLIGHT_MIN_MATCHES or r["low_confidence"] or r["edge_pp"] > C.MAX_EDGE_PP:
+        if quality_score < 60 or min_matches < C.HIGHLIGHT_MIN_MATCHES or r["low_confidence"]:
             continue
         elig.append(r)
     order = {"winner": 0, "total_games": 1, "p1_games": 2, "p2_games": 2, "game_handicap": 3}
     elig.sort(key=lambda r: (-r["model_p"], order.get(r["market"], 9)))
-    strong = [dict(r, kind="strong") for r in elig if r["model_p"] >= C.STRONG_MIN_P and r["implied_fair"] >= C.STRONG_MIN_IMPLIED]
-    pref = next((r for r in elig if r["model_p"] >= C.DAY_MIN_P and r["implied_fair"] >= C.DAY_MIN_IMPLIED), None)
+    strong = [dict(r, kind="strong") for r in elig if r["model_p"] >= C.STRONG_MIN_P]
+    pref = next((r for r in elig if r["model_p"] >= C.DAY_MIN_P), None)
     preferred = None
     if pref:
-        is_strong = bool(pref["model_p"] >= C.STRONG_MIN_P and pref["implied_fair"] >= C.STRONG_MIN_IMPLIED)   # plain bool: numpy bools are not JSON-serialisable
+        is_strong = bool(pref["model_p"] >= C.STRONG_MIN_P)   # plain bool: numpy bools are not JSON-serialisable
         preferred = dict(pref, kind="strong" if is_strong else "day", strong=is_strong, family=MARKET_FAMILY.get(pref["market"], pref["market"]),
-                         why=f"highest model probability of the priced markets ({pref['model_p']*100:.0f}%); market implied {pref['implied_fair']*100:.0f}% does not contradict it")
+                         why=f"highest model probability of the priced markets ({pref['model_p']*100:.0f}%); market implied {pref['implied_fair']*100:.0f}% shown for comparison")
     reasons = []
     if not rows or not any(r["book_odds"] for r in rows):
         reasons.append("no Sportybet prices")
@@ -153,7 +153,7 @@ def select(rows: list[dict], quality_score: int, min_matches: int) -> dict:
     elif min_matches < C.HIGHLIGHT_MIN_MATCHES:
         reasons.append(f"a player has only {min_matches} rated matches (< {C.HIGHLIGHT_MIN_MATCHES})")
     elif not elig:
-        reasons.append("every priced market fails a check (price < 1.30, low-confidence game data or model far above the market)")
+        reasons.append("every priced market fails a check (low-confidence game data or an unreadable price)")
     elif not pref:
-        reasons.append(f"no eligible market reaches {C.DAY_MIN_P*100:.0f}% with market implied ≥ {C.DAY_MIN_IMPLIED*100:.0f}%")
+        reasons.append(f"no eligible market reaches {C.DAY_MIN_P*100:.0f}%")
     return {"preferred": preferred, "strong": strong, "eligible": len(elig), "why_none": "; ".join(reasons) if not preferred else None}

@@ -3,13 +3,14 @@
 Every fixture gets a list of *selections* across all modelled markets (match result, double chance, goals lines,
 BTTS, team goals, corners, cards) with two separate views: the football-data MODEL probability and the probability
 IMPLIED by the Sportybet price (de-margined). Data-first engine (2026-09-28): the probability used for ranking and
-thresholds is the model probability alone (Sel.p == Sel.p_model). The market view is a comparison layer: a
-selection whose de-margined price disagrees with the model by more than DIFF_FLAG is not listed (it is shown as a
-model / market disagreement on the match page instead), and the day-card signal sections also require the market
-view not to sit below the threshold. The market never changes a model probability.
+thresholds is the model probability alone (Sel.p == Sel.p_model). The market view is a comparison layer only:
+a disagreement of more than DIFF_FLAG is shown on the match page but never excludes a selection — odds never
+filter which matches can be bet (user decision 2026-10-01). The market never changes a model probability.
 
-"High-probability selections" = priced selections with model probability >= MIN_P and price >= MIN_ODDS, ranked by
-model probability (ledger data/safe_bets.csv, auto-settled from results). Trebles are legacy code, no longer produced.
+"High-probability selections" = priced selections with model probability >= MIN_P, ranked by model probability
+(ledger data/safe_bets.csv, auto-settled from results). There is no minimum-odds floor and no market-contradiction
+hold-back: the price is displayed, never used to filter (user decision 2026-10-01). Trebles are legacy code, no
+longer produced.
 No selection is ever labelled safe, guaranteed or a banker in user-facing text.
 """
 from __future__ import annotations
@@ -25,8 +26,7 @@ import pandas as pd
 
 import markets
 
-MIN_ODDS = 1.30      # user decision: a "safe" price must be at least 1.30
-MIN_P = 0.70         # ... and the probability at least 70%
+MIN_P = 0.70         # probability at least 70% — the only bar (odds never filter, user decision 2026-10-01)
 TREBLES = 3
 LEGS = 3
 MAX_BETS = 40
@@ -292,7 +292,7 @@ class Bet:
         return group(self.sel)
 
 
-def safest(rows: list, now: datetime, window_end: datetime, min_odds: float = MIN_ODDS, min_p: float = MIN_P,
+def safest(rows: list, now: datetime, window_end: datetime, min_p: float = MIN_P,
            groups: tuple = SAFE_GROUPS, trebles: bool = False) -> dict:
     start = now + timedelta(minutes=10)
     bets: list[Bet] = []
@@ -302,7 +302,7 @@ def safest(rows: list, now: datetime, window_end: datetime, min_odds: float = MI
         fx = r.fx
         key = (fx["date"].strftime("%Y-%m-%d"), fx["country"], fx["home"], fx["away"])
         for s in selections(r):
-            if not s.priced or s.odds < min_odds or s.p < min_p or s.diff or s.group not in groups:
+            if not s.priced or s.p < min_p or s.group not in groups:
                 continue
             if OVERS_ONLY and is_under(s.sel):
                 continue
@@ -339,7 +339,7 @@ def safest(rows: list, now: datetime, window_end: datetime, min_odds: float = MI
             if len(chunk) < LEGS:
                 break
             out_trebles.append(sorted(chunk, key=lambda b: b.kickoff))
-    return {"bets": bets, "trebles": out_trebles, "extended": extended, "min_odds": min_odds, "min_p": min_p}
+    return {"bets": bets, "trebles": out_trebles, "extended": extended, "min_p": min_p}
 
 
 def acca_odds(legs: list[Bet]) -> float:
@@ -397,10 +397,10 @@ def bet_id(match_date: str, home: str, away: str, sel: str) -> str:
     return f"{match_date}|{home}|{away}|{sel}"
 
 
-def botd_candidates(rows: list, now: datetime, min_odds: float = MIN_ODDS, signal=None) -> list[Bet]:
-    """Selections eligible for the day card: priced, market not contradicting the model (|diff| <= DIFF_FLAG),
-    price >= 1.30, overs only, model probability at or above the section threshold; 1X2 / BTTS / Over 2.5
-    additionally need `signal(r, sel)` to be true (form backing) and the market view not below the threshold."""
+def botd_candidates(rows: list, now: datetime, signal=None) -> list[Bet]:
+    """Selections eligible for the day card: priced, overs only, model probability at or above the section
+    threshold — odds never filter (no minimum price, market disagreements included; user decision 2026-10-01).
+    1X2 / BTTS / Over 2.5 additionally need `signal(r, sel)` to be true (form backing)."""
     start = now + timedelta(minutes=10)
     out: list[Bet] = []
     for r in rows:
@@ -409,13 +409,13 @@ def botd_candidates(rows: list, now: datetime, min_odds: float = MIN_ODDS, signa
         fx = r.fx
         key = (fx["date"].strftime("%Y-%m-%d"), fx["country"], fx["home"], fx["away"])
         for s in selections(r):
-            if not s.priced or s.odds < min_odds or s.diff or is_under(s.sel):
+            if not s.priced or is_under(s.sel):
                 continue
             for gkey, _title, match, thr, _cap in BOTD_GROUPS:
                 if not match(s.sel) or s.p < thr:
                     continue
                 if gkey in SIGNAL_SECTIONS:
-                    if s.p_model < thr or (s.p_sb is not None and s.p_sb < thr):
+                    if s.p_model < thr:
                         break
                     if signal is not None and not signal(r, s.sel):
                         break

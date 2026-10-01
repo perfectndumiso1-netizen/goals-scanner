@@ -41,9 +41,9 @@ def markdown(day: str, matches: list[dict], highlights: list[dict], tracker: dic
     strong = strong or []
     L += ["## Selections of the day", ""]
     if selections:
-        L += [f"One preferred market per match ({len(selections)} matches), ranked by model probability within each market group. Rules: Sportybet price ≥ {C.MIN_ODDS:.2f}, "
-              f"model ≥ {C.DAY_MIN_P*100:.0f}%, market implied ≥ {C.DAY_MIN_IMPLIED*100:.0f}% (the bookmaker must not contradict the pick), data quality ≥ 60%, both players ≥ {C.HIGHLIGHT_MIN_MATCHES} rated matches, "
-              f"no low-confidence game data. **STRONG** = model ≥ {C.STRONG_MIN_P*100:.0f}% and market implied ≥ {C.STRONG_MIN_IMPLIED*100:.0f}%.", ""]
+        L += [f"One preferred market per match ({len(selections)} matches), ranked by model probability within each market group. Rules: priced (odds never filter), "
+              f"model ≥ {C.DAY_MIN_P*100:.0f}%, data quality ≥ 60%, both players ≥ {C.HIGHLIGHT_MIN_MATCHES} rated matches, "
+              f"no low-confidence game data. **STRONG** = model ≥ {C.STRONG_MIN_P*100:.0f}%.", ""]
         for sec in sections or []:
             L += [f"### {sec['title']} ({len(sec['selections'])})", "", "| Start (SAST) | Tournament | Match | Selection | Model | Fair | Sportybet | Implied | Edge | Data quality | |",
                   "|---|---|---|---|---|---|---|---|---|---|---|"]
@@ -52,10 +52,10 @@ def markdown(day: str, matches: list[dict], highlights: list[dict], tracker: dic
                          f"| {pct(x['implied_fair'])} | {x['edge_pp']:+.1f} pp | {x['quality']}% | {'STRONG' if x.get('strong') else ''} |")
             L.append("")
     else:
-        L += [f"No match clears the selection rules today (model ≥ {C.DAY_MIN_P*100:.0f}%, market implied ≥ {C.DAY_MIN_IMPLIED*100:.0f}%, data quality ≥ 60%, price ≥ {C.MIN_ODDS:.2f}).", ""]
+        L += [f"No match clears the selection rules today (model ≥ {C.DAY_MIN_P*100:.0f}%, data quality ≥ 60%).", ""]
     L += ["## Strong markets", ""]
     if strong:
-        L += [f"Every priced market with model ≥ {C.STRONG_MIN_P*100:.0f}% and market implied ≥ {C.STRONG_MIN_IMPLIED*100:.0f}% ({len(strong)} markets, {len({x['match_id'] for x in strong})} matches). "
+        L += [f"Every priced market with model ≥ {C.STRONG_MIN_P*100:.0f}% ({len(strong)} markets, {len({x['match_id'] for x in strong})} matches). "
               "Several rows of one match are correlated — they are the same match, not independent evidence.", "",
               "| Start (SAST) | Match | Market | Model | Fair | Sportybet | Implied | Edge | Data quality |", "|---|---|---|---|---|---|---|---|---|"]
         for x in strong:
@@ -81,7 +81,7 @@ def markdown(day: str, matches: list[dict], highlights: list[dict], tracker: dic
             L.append(f"| {sast(h['start'])} | {h['match']} | {h['label']} | {pct(h['model_p'])} | {odd(h['fair_odds'])} | {odd(h['book_odds'])} | {pct(h['implied_fair'])} | {h['edge_pp']:+.1f} pp | {h['quality']}% | {h['confidence']} |")
         L += ["", "A disagreement means the model and the bookmaker weigh the evidence differently. The tracker records every one of these so the claim can be checked against results.", ""]
     else:
-        L += ["## Model above market", "", "No selection clears the thresholds today (model ≥ 55%, edge ≥ 5 pp, price ≥ 1.30, data quality ≥ 60%, no low-confidence game data).", ""]
+        L += ["## Model above market", "", "No selection clears the thresholds today (model ≥ 55%, edge ≥ 5 pp, data quality ≥ 60%, no low-confidence game data).", ""]
     if tracker.get("settled"):
         L += ["## Tracker so far", "", f"{tracker['settled']} settled selections, {tracker['won']} won (void excluded). Hit rate is compared with the average model probability — "
               "if the model is calibrated the two should be close over a large sample; small samples prove nothing either way.", "",

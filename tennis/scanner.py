@@ -276,8 +276,8 @@ def main() -> int:
             sections.append({"title": fam, "selections": items})
     app_latest = {"meta": meta, "matches": slims, "selections": selections, "sections": sections, "strong": strong,
                   "highlights": highlights[:40], "tracker": tsum,
-                  "rules": {"day": f"preferred market per match: highest model probability ≥ {C.DAY_MIN_P*100:.0f}% among Sportybet-priced markets (price ≥ {C.MIN_ODDS:.2f}), market implied ≥ {C.DAY_MIN_IMPLIED*100:.0f}%, data quality ≥ 60, both players ≥ {C.HIGHLIGHT_MIN_MATCHES} rated matches",
-                            "strong": f"model ≥ {C.STRONG_MIN_P*100:.0f}% and market implied ≥ {C.STRONG_MIN_IMPLIED*100:.0f}% (same eligibility)",
+                  "rules": {"day": f"preferred market per match: highest model probability ≥ {C.DAY_MIN_P*100:.0f}% among Sportybet-priced markets (odds never filter), data quality ≥ 60, both players ≥ {C.HIGHLIGHT_MIN_MATCHES} rated matches",
+                            "strong": f"model ≥ {C.STRONG_MIN_P*100:.0f}% (same eligibility)",
                             "highlight": f"model − market implied between {C.EDGE_NOTE_PP:.0f} and {C.MAX_EDGE_PP:.0f} pp ({C.GAME_EDGE_PP:.0f} pp for game markets), one per match"}}
     (C.APP / "latest.json").write_text(json.dumps(app_latest, ensure_ascii=False))
     C.LATEST.write_text(json.dumps({"meta": meta, "matches": matches, "highlights": highlights, "tracker": tsum}, ensure_ascii=False))
@@ -337,7 +337,7 @@ def telegram_text(day: str, matches: list[dict], highlights: list[dict], meta: d
                          f"(implied {x['implied_fair']*100:.0f}%) · DQ {x['quality']}%{' · STRONG' if x.get('strong') else ''}")
         L.append("")
     else:
-        L += ["No match clears the selection rules today (model ≥ 60%, market not contradicting, data quality ≥ 60%).", ""]
+        L += ["No match clears the selection rules today (model ≥ 60%, data quality ≥ 60%).", ""]
     if strong:
         L.append(f"Strong markets (model ≥ 70% and market ≥ 50%): {len(strong)} across {len({x['match_id'] for x in strong})} matches — full list in the app.")
         L.append("")

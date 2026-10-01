@@ -127,7 +127,7 @@ def check_publication(staging: Path, live: Path, ledger: Path, now: datetime, ex
         errors.append(f"{n_blend} detail file(s) where a published probability / xG differs from the football-data model "
                       "(market contamination)")
     sf = d.get("safe") or {}
-    min_p, min_odds = float(sf.get("min_p") or 0.7), float(sf.get("min_odds") or 1.3)
+    min_p = float(sf.get("min_p") or 0.7)
     known = ids | _archive_ids(staging)
     for b in sf.get("bets") or []:
         if b.get("fixture") not in known:
@@ -135,8 +135,6 @@ def check_publication(staging: Path, live: Path, ledger: Path, now: datetime, ex
         if not b.get("live"):
             if not _num(b.get("p")) or b["p"] < min_p - 1e-6:
                 errors.append(f"safest bet below the probability rule: {b.get('label')} {b.get('p')}")
-            if not _num(b.get("odds")) or b["odds"] < min_odds - 1e-6:
-                errors.append(f"safest bet below the price rule: {b.get('label')} {b.get('odds')}")
         if safe.OVERS_ONLY and safe.is_under(str(b.get("sel", ""))):
             errors.append(f"under selection in safest bets: {b.get('sel')}")
     seen_match = set()
