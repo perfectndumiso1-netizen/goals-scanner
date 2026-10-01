@@ -143,11 +143,13 @@ class MainActivity : AppCompatActivity() {
 
     /**
      * Routes a notification "tab" extra. "install" (the update notification) starts the download and
-     * the system installer immediately — the user taps once and waits for nothing; anything else is
-     * a normal tab switch in the page.
+     * the system installer immediately — the user taps once and waits for nothing. "match|<key>" opens
+     * that exact match straight away (key = fixture id or livescore id); anything else is a normal
+     * tab switch in the page.
      */
     private fun handleTab(t: String) {
         if (t == "install") startUpdateInstall()
+        else if (t.startsWith("match|")) js("window.app && window.app.openNotifMatch && window.app.openNotifMatch(${JSONObject.quote(t)});")
         else js("window.app && window.app.setTab && window.app.setTab(${JSONObject.quote(t)});")
     }
 

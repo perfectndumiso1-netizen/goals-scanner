@@ -74,8 +74,12 @@ class CheckWorker(ctx: Context, params: WorkerParameters) : Worker(ctx, params) 
         val items = fresh.mapNotNull { byId[it] }
         if (items.isEmpty()) return
         if (items.size <= 4) {
-            for (a in items) Notifier.notify(ctx, Notifier.CH_BETS, 2000 + (a.optString("id").hashCode() and 0xffff),
-                a.optString("title", "New high-probability selection"), a.optString("text"), "bets")
+            for (a in items) {
+                val fxid = a.optString("fixture")
+                Notifier.notify(ctx, Notifier.CH_BETS, 2000 + (a.optString("id").hashCode() and 0xffff),
+                    a.optString("title", "New high-probability selection"), a.optString("text"),
+                    if (fxid.isNotEmpty()) "match|$fxid" else "bets")
+            }
         } else {
             val body = items.take(6).joinToString("\n") { "• " + it.optString("text") } + if (items.size > 6) "\n…and ${items.size - 6} more" else ""
             Notifier.notify(ctx, Notifier.CH_BETS, 2001, "${items.size} new high-probability selections", body, "bets")
@@ -124,7 +128,7 @@ class CheckWorker(ctx: Context, params: WorkerParameters) : Worker(ctx, params) 
                 if (mins in 0..20) {
                     prefs.edit().putBoolean("ko_$eid", true).apply()
                     Notifier.notify(ctx, Notifier.CH_KICKOFF, 7000 + (eid.hashCode() and 0xfff), "⏰ Kick-off in $mins min · ${m.optString("home")} v ${m.optString("away")}",
-                        (if (m.has("label")) m.optString("label") + " · " else "") + m.optString("competition", ""), "live")
+                        (if (m.has("label")) m.optString("label") + " · " else "") + m.optString("competition", ""), "match|$eid")
                 }
             }
         }
@@ -203,16 +207,16 @@ class CheckWorker(ctx: Context, params: WorkerParameters) : Worker(ctx, params) 
             if (changed && prev != null && ev.hg + ev.ag > 0 && !isFinished(ev.status) && wantGoals) {
                 val scorer = latestScorer(ev.eid)
                 Notifier.notify(ctx, Notifier.CH_GOALS, ev.eid.hashCode(), "⚽ GOAL  ${ev.home} ${ev.hg} – ${ev.ag} ${ev.away}",
-                    (if (scorer.isNotEmpty()) "$scorer · " else "") + "${ev.status} · ${ev.comp}", "live")
+                    (if (scorer.isNotEmpty()) "$scorer · " else "") + "${ev.status} · ${ev.comp}", "match|${ev.eid}")
             }
             if (ev.status == "HT" && wantHt && !prefs.getBoolean("ht_${ev.eid}", false)) {
                 prefs.edit().putBoolean("ht_${ev.eid}", true).apply()
-                Notifier.notify(ctx, Notifier.CH_MATCH, 5000 + (ev.eid.hashCode() and 0xfff), "⏸ Half-time  ${ev.home} ${ev.hg} – ${ev.ag} ${ev.away}", ev.comp, "live")
+                Notifier.notify(ctx, Notifier.CH_MATCH, 5000 + (ev.eid.hashCode() and 0xfff), "⏸ Half-time  ${ev.home} ${ev.hg} – ${ev.ag} ${ev.away}", ev.comp, "match|${ev.eid}")
             }
             if (isFinished(ev.status) && wantFt && !prefs.getBoolean("ft_${ev.eid}", false)) {
                 prefs.edit().putBoolean("ft_${ev.eid}", true).apply()
                 if (prev != null || prefs.getBoolean("ht_${ev.eid}", false))   // only for matches we were actually following
-                    Notifier.notify(ctx, Notifier.CH_MATCH, 6000 + (ev.eid.hashCode() and 0xfff), "🏁 Full-time  ${ev.home} ${ev.hg} – ${ev.ag} ${ev.away}", ev.comp, "live")
+                    Notifier.notify(ctx, Notifier.CH_MATCH, 6000 + (ev.eid.hashCode() and 0xfff), "🏁 Full-time  ${ev.home} ${ev.hg} – ${ev.ag} ${ev.away}", ev.comp, "match|${ev.eid}")
             }
         }
         // tickets (goals markets only here; corners / cards are graded in the app from the match statistics)

@@ -51,6 +51,42 @@
     refresh() { PR.loadData(true).then(() => { if (state.tab === 'live' || state.tab === 'home') PR.live.refresh(true); }); },
     back: () => PR.back(),
     setTab: (t) => PR.setTab(t),
+    /** A match notification was tapped: key is "match|<fixture id or livescore id>" — open that match directly. */
+    openNotifMatch(key) {
+      const k = String(key || '').replace(/^match\|/, '');
+      if (!k) return;
+      let tries = 0, dayTried = false;
+      const hit = (list) => (list || []).find((x) => x && (x.id === k || (x.livescore_id != null && String(x.livescore_id) === k)));
+      const open = (f) => { PR.openMatch(f.id); PR.render(); };
+      const tick = () => {
+        const d = PR.state.data;
+        const f = d && ((d._byId && d._byId[k]) || hit(d.fixtures));
+        if (f) { open(f); return; }
+        if (/^\d{4}-\d{2}-\d{2}/.test(k)) {           // fixture id of a future/past day -> its day file
+          if (!dayTried) {
+            dayTried = true;
+            PR.loadDay(k.slice(0, 10)).then((rec) => {
+              const g = hit(rec && rec.fixtures);
+              g ? open(g) : toast('Stats for this match are not available yet.');
+            }).catch(() => toast('Stats for this match are not available yet.'));
+          }
+          return;
+        }
+        if (d && !dayTried && tries >= 4) {              // livescore id: yesterday's games live in the day files
+          dayTried = true;
+          const y = PR.ymd(new Date(PR.tzNow().getTime() - 86400000));
+          Promise.all([PR.loadDay(PR.ymd(PR.tzNow())).catch(() => null), PR.loadDay(y).catch(() => null)])
+            .then((recs) => {
+              const g = recs.map((r) => r && hit(r.fixtures)).find(Boolean);
+              g ? open(g) : toast('Stats for this match are not available yet.');
+            });
+          return;
+        }
+        if (tries++ < 60) setTimeout(tick, 500);
+        else toast('Stats for this match are not available yet.');
+      };
+      tick();
+    },
     onResume() { if (state.data && Date.now() - (state.data._loadedAt || 0) > 5 * 60000) PR.loadData(false); if (state.tab === 'live' || state.tab === 'home') PR.live.refresh(false); updateCheck(); const top = state.stack[state.stack.length - 1]; if (top && top.type === 'settings') PR.render(); },
     onPermission(granted) { toast(granted ? 'Notifications on — new bets, analysis, goals and updates' : 'Notifications are off — you can enable them in Settings'); const top = state.stack[state.stack.length - 1]; if (top && top.type === 'settings') PR.render(); },
     state, settings, PR,

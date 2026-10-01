@@ -796,25 +796,24 @@
     const d = state.data || {};
     const today = ymd(tzNow());
     const all = (d.fixtures || []).filter((f) => f.date === today && f.p);
-    const parts = [head('All markets', "today's six markets · strongest first")];
-    let shown = 0;
-    const selsOf = (f) => f.sels || [];
+    const parts = [head('All markets', "today's six groups · strongest first")];
     // the only selection rule that involves odds: model AND market both under 1.15 = worthless (matches are never dropped)
     const worth = (s) => !(s.odds && s.odds < 1.15 && s.p_model != null && s.p_model > 0 && 1 / s.p_model < 1.15);
     const okP = (s) => s && s.p != null && s.p > 0 && s.p < 1 && worth(s);
     const meta = (f) => `<div class="tiny muted">${flag(f.country)} ${esc(f.league || f.competition || '')} · ${esc(f.home)} v ${esc(f.away)}</div>`;
     const selRow = (f, s) => `<tr><td class="tiny muted nowrap">${esc(koTime(f.kickoff))}</td><td><div class="b">${esc(s.label || selLabel(s.sel, f.home, f.away))}</div>${meta(f)}</td>
       <td class="right tiny">${s.p_sb != null ? pct(s.p_sb) : '<span class="muted">–</span>'}${s.diff_pp != null ? `<div class="${s.diff_pp > 0 ? 'good' : ''}">${s.diff_pp > 0 ? '+' : ''}${f1(s.diff_pp)} pp</div>` : ''}</td>
-      <td class="right nowrap"><b>${pct(s.p)}</b> ${s.odds ? `<span class="tiny muted">${f2(s.odds)}</span>` : ''} ${PR.addBtn ? PR.addBtn(f.id, s.sel, s.odds || null) : ''}</td></tr>`;
-    const section = (title, rows, sub) => {
-      if (!rows.length) return;
-      shown += rows.length;
-      parts.push(`<div class="card compact" style="margin-top:8px"><div class="row"><div class="grow b">${title}</div><span class="tiny muted">${rows.length} pick${rows.length === 1 ? '' : 's'} · high to low</span></div>
-        <table class="tbl head" style="margin-top:4px"><tr><th>Kick-off</th><th>Match · selection</th><th class="right">Market</th><th class="right">Model</th></tr>${rows.map((r2) => selRow(r2.f, r2.s)).join('')}</table>
-        ${sub ? `<div class="tiny muted" style="margin-top:4px">${sub}</div>` : ''}</div>`);
-    };
-    const gather = (test) => all.flatMap((f) => selsOf(f).filter((s) => okP(s) && test(s)).map((s) => ({ f, s })))
+      <td class="right nowrap">${pill(s.p, 0.8, 0.7)} ${s.odds ? `<span class="tiny muted">${f2(s.odds)}</span>` : ''} ${PR.addBtn ? PR.addBtn(f.id, s.sel, s.odds || null) : ''}</td></tr>`;
+    const tableOf = (rows) => `<table class="tbl head" style="margin-top:4px"><tr><th>Kick-off</th><th>Match · selection</th><th class="right">Market</th><th class="right">Model</th></tr>${rows.map((r) => selRow(r.f, r.s)).join('')}</table>`;
+    const gather = (test) => all.flatMap((f) => (f.sels || []).filter((s) => okP(s) && test(s)).map((s) => ({ f, s })))
       .sort((a, b) => b.s.p - a.s.p);
+    // every one of the six groups renders every single time — a group with nothing in it stays in
+    // place as an empty card (user rule, 2026-10-01), so the page never reshuffles around gaps
+    const shell = (title, ico, label, sub, body) =>
+      `<div class="card compact" style="margin-top:8px"><div class="row"><span class="ico">${ico}</span><div class="grow b">${title}</div>
+        <span class="tiny muted">${body ? label : 'empty · nothing qualifies'}</span></div>
+        ${body || `<div class="tiny muted" style="margin-top:6px">No ${title} selection meets the bar for today yet — the group stays in place.</div>`}
+        <div class="tiny muted" style="margin-top:4px">${sub}</div></div>`;
     // 1. 1X2 — strongest outcome per match first, all three probabilities in the line
     const x12rows = all.map((f) => {
       const x = f.x12 || [];
@@ -823,22 +822,35 @@
       const top = pr.slice().sort((a, b) => b[1] - a[1])[0];
       return { f, top, pr };
     }).filter(Boolean).sort((a, b) => b.top[1] - a.top[1]);
-    if (x12rows.length) {
-      shown += x12rows.length;
-      parts.push(`<div class="card compact" style="margin-top:8px"><div class="row"><div class="grow b">1X2</div><span class="tiny muted">${x12rows.length} match${x12rows.length === 1 ? '' : 'es'} · strongest outcome first</span></div>
-        <table class="tbl head" style="margin-top:4px"><tr><th>Kick-off</th><th>Match · strongest outcome</th><th class="right">Model</th></tr>
-        ${x12rows.map((r2) => `<tr class="tap" data-fx="${esc(r2.f.id)}"><td class="tiny muted nowrap">${esc(koTime(r2.f.kickoff))}</td>
-          <td><div class="b">${esc(r2.top[0])} <b>${pct(r2.top[1])}</b></div><div class="tiny muted">${flag(r2.f.country)} ${esc(r2.f.league || r2.f.competition || '')} · ${r2.pr.map((e) => `${esc(e[0].replace(/ \(\d\)$/, ''))} ${pct(e[1])}`).join(' · ')}</div></td>
-          <td class="right">${pill(r2.top[1], 0.8, 0.7)}</td></tr>`).join('')}</table>
-        <div class="tiny muted" style="margin-top:4px">Model 1X2 from the Dixon-Coles score matrix — football data only.</div></div>`);
+    const x12Body = x12rows.length ? `<table class="tbl head" style="margin-top:4px"><tr><th>Kick-off</th><th>Match · strongest outcome</th><th class="right">Model</th></tr>
+      ${x12rows.map((r) => `<tr class="tap" data-fx="${esc(r.f.id)}"><td class="tiny muted nowrap">${esc(koTime(r.f.kickoff))}</td>
+        <td><div class="b">${esc(r.top[0])} <b>${pct(r.top[1])}</b></div><div class="tiny muted">${flag(r.f.country)} ${esc(r.f.league || r.f.competition || '')} · ${r.pr.map((e) => `${esc(e[0].replace(/ \(\d\)$/, ''))} ${pct(e[1])}`).join(' · ')}</div></td>
+        <td class="right">${pill(r.top[1], 0.8, 0.7)}</td></tr>`).join('')}</table>` : '';
+    let total = x12rows.length;
+    parts.push(shell('1X2', '🏆', `${x12rows.length} match${x12rows.length === 1 ? '' : 'es'} · strongest first`,
+      'Model 1X2 from the Dixon-Coles score matrix — football data only.', x12Body));
+    const add = (title, ico, test, sub) => {
+      const rows = gather(test);
+      total += rows.length;
+      parts.push(shell(title, ico, `${rows.length} pick${rows.length === 1 ? '' : 's'} · high to low`, sub, rows.length ? tableOf(rows) : ''));
+    };
+    add('Bookings', '🟨', (s) => selGroup(s.sel) === 'cards', 'Total cards (yellow 1 · red 2 on Sportybet) — modelled where the league publishes card statistics.');
+    add('Corners', '🚩', (s) => selGroup(s.sel) === 'corners', 'Total corners — modelled for leagues with corner statistics.');
+    add('BTTS', '🔁', (s) => s.sel === 'BTTS' || s.sel === 'NBTTS', 'Both teams to score — yes and no.');
+    add('Over 2.5', '⚽', (s) => s.sel === 'O25' || s.sel === 'U25', 'Total goals 2.5 — over and under.');
+    add('Over 1.5', '⚽', (s) => s.sel === 'O15' || s.sel === 'U15', 'Total goals 1.5 — over and under.');
+    if (all.length) {
+      parts.splice(1, 0, `<div class="card tiny muted"><b>${all.length} analysed match${all.length === 1 ? '' : 'es'} today</b> · ${total} selections across the six groups · every group sorted by <b>model probability, high → low</b>. Prices are shown for comparison only — they never decide what appears (the one exception: model and price both under 1.15, dropped as worthless).</div>`);
+    } else {
+      parts.push(`<div class="card empty">No analysed matches for today yet — the six groups will fill in as the analysis publishes.</div>`);
     }
-    section('Bookings', gather((s) => selGroup(s.sel) === 'cards'), 'Total cards (yellow 1 · red 2 on Sportybet) — modelled where the league publishes card statistics.');
-    section('Corners', gather((s) => selGroup(s.sel) === 'corners'), 'Total corners — modelled for leagues with corner statistics.');
-    section('BTTS', gather((s) => s.sel === 'BTTS' || s.sel === 'NBTTS'), 'Both teams to score — yes and no.');
-    section('Over 2.5', gather((s) => s.sel === 'O25' || s.sel === 'U25'), 'Total goals 2.5 — over and under.');
-    section('Over 1.5', gather((s) => s.sel === 'O15' || s.sel === 'U15'), 'Total goals 1.5 — over and under.');
-    if (!shown) parts.push(`<div class="card empty">${all.length ? 'No qualifying selections for today.' : 'No analysed matches for today yet.'}</div>`);
     parts.push(`<div class="card tiny muted"><b>How to read this page</b> — each group lists today's selections sorted by <b>model probability (high to low)</b>. Model = football data only; Market = de-margined bookmaker implied, shown for comparison. Prices never decide what appears — the single exception: a selection where <b>both the model and the price say under 1.15 odds</b> is dropped as worthless; the match itself stays with its other markets. A high probability is not a certainty.</div>`);
+    // self-heal: a phone holding an outdated analysis copy would show only 1X2 (the index carries no
+    // selections yet) — fetch the latest analysis once and re-render; the flag stops any loop
+    if (!PR._mbRefreshed && (!all.length || !all.some((f) => (f.sels || []).length))) {
+      PR._mbRefreshed = true;
+      setTimeout(() => PR.loadData(false), 250);
+    }
     view().innerHTML = parts.join('');
     wireBack();
   };
