@@ -1,3 +1,11 @@
+## What's new in PlayReport 1.6.33 — 🎯 Smarter form window · scorelines · market truth
+- 🧠 **A form window tuned on 52,000 matches** — the model now weighs the last **150 days** of form (was 120), blends home/away form more calmly, and reads up to **60 matches per team** (was 40). Every candidate had to beat the current settings on a held-out test season with **zero markets regressing** before it shipped — the calibration you rely on (home win ≥60% → 67% actual) is unchanged.
+- ⚽ **Most likely scorelines** — every match's Overview shows the top three scorelines straight from the model's Dixon-Coles matrix (e.g. 1-1 13% · 1-0 11% · 2-1 9%) plus the probability they carry together.
+- 📊 **Model vs the bookmaker** — the Performance page now publishes the honest head-to-head on held-out seasons: the market leads on 1X2 (it knows line-ups, injuries and where the money is), while the model sits within 0.007 of it on Over 2.5 **without ever seeing a price**.
+- 💹 **Market bias, measured** — a 2023–26 study of 24,393 priced matches finds longshots priced 5–20% win *less* than the price implies (public money inflates them) and two Over-2.5 bands land *more* than implied. Shown as context on Performance — odds still never filter which matches you see.
+- 🔬 **xG ratings tested — not adopted yet** — blending current-season xG into the ratings showed no proven gain on the available sample (the data only exists from 26/27); xG stays display-only and the test re-runs as the sample grows.
+- 🧊 **Untouched:** selection thresholds, the odds-never-filter rule, shortlists, corners/cards models and every board definition — three proven parameters plus additive features only.
+
 ## What's new in PlayReport 1.6.32 — ✅ Team stats you can trust
 - 📊 **"Averages per game" now really shows averages** — every team profile's box always carries **Goals for / game** and **Goals against / game** tiles next to the scoring counts, so the card says what the recent matches say instead of leaving you guessing.
 - 🔢 **Real denominators, never a misleading "/10"** — "Scored in / Conceded in" now use the actual sample: **3/4 · last 4 matches** when a team has only played 4 this season (it used to claim 3/10). The same fix lands on the match Stats tab's scored row, where each side shows its own sample.

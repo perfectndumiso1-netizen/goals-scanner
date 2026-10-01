@@ -27,3 +27,4 @@ passwords.txt
 .env.*
 secrets/
 *.secret
+backtest/cache_boost/

@@ -219,6 +219,7 @@ def _write(path: Path, data) -> None:
 
 def export(path: Path, *, ctx: dict, rows: list, all_rows: list | None = None, picks: dict, tracker_summary: dict, notes: list[str], ls_map: dict,
            helpers: dict, reports_dir: Path, tz_label: str, thresholds: dict, backtest: dict, repo: str | None,
+           bench: dict | None = None, bias: dict | None = None,
            days_index: list | None = None, safe_summary: dict | None = None, botd: list | None = None, botd_groups: list | None = None,
            alerts: list | None = None, coverage: dict | None = None, safe_groups: tuple = (), extra_badges: dict | None = None,
            report_run: bool = True, live_dir: Path | None = None) -> Path:
@@ -304,6 +305,7 @@ def export(path: Path, *, ctx: dict, rows: list, all_rows: list | None = None, p
             "home": fx["home"], "away": fx["away"], "tier": fx.get("source") or "main",
             "data_ok": bool(r.data_ok), "basis": r.basis,
             "xg": [_f(r.mod_h, 2), _f(r.mod_a, 2)],
+            "scores": [[int(i), int(j), _f(p, 4)] for i, j, p in (r.scores or [])] or None,   # top scorelines
             "mxg": None if math.isnan(r.mkt_h) else [_f(r.mkt_h, 2), _f(r.mkt_a, 2)],
             "q": (((r.audit or {}).get("quality") or {}).get("overall")),
             "n": [int(r.home.n), int(r.away.n)],
@@ -421,6 +423,7 @@ def export(path: Path, *, ctx: dict, rows: list, all_rows: list | None = None, p
         "fixtures": len(rows), "notes": notes, "repo": repo,
         "report_md": f"reports/{now:%Y-%m-%d}.md", "csv": f"reports/{now:%Y-%m-%d}.csv",
         "thresholds": {m: t["p"] for m, t in thresholds.items()}, "backtest": backtest,
+        "bench": bench, "bias": bias,
         "next_run": ctx["window_end"].strftime("%Y-%m-%d %H:%M"), "refresh_minutes": 30,
         "coverage": coverage or {},
     }

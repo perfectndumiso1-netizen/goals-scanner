@@ -117,16 +117,17 @@ CONFIG = {
     # per-fixture news is only useful close to kick-off; far-future fixtures get no news fetch
     "NEWS_HOURS": _env_float("NEWS_HOURS", 72),
     # form weighting: a match HALF_LIFE_DAYS ago counts half as much as one played today
-    "HALF_LIFE_DAYS": 120,
+    "HALF_LIFE_DAYS": 150,   # boost-study 2026-10-01: 150 d beat 120/90/180 on train AND test (see backtest/BOOST_RESULTS.md)
     "MAX_HISTORY_DAYS": 400,
-    "MAX_MATCHES_PER_TEAM": 40,
+    "MAX_MATCHES_PER_TEAM": 60,   # boost-study 2026-10-01: 60 beats 40/30 — more evidence, same windows
     # minimum (time-weighted) matches per team before a match may be shortlisted
     "MIN_EFF_MATCHES": 4.0,
     # Bayesian shrinkage of team strengths towards league average (in matches).
     # Backtested 2023-26: K=40 is far better calibrated than small values (goal form is noisy).
     "SHRINK_K": 40.0,
-    # how quickly venue-specific (home/away) form takes over from overall form (backtest: matters little)
-    "VENUE_K": 20.0,
+    # how quickly venue-specific (home/away) form takes over from overall form
+    # boost-study 2026-10-01: 40 chosen on train, confirmed on test (20/10/30 all worse)
+    "VENUE_K": 40.0,
     # Dixon-Coles low-score correction (fitted on 2023-25 scores)
     "DC_RHO": -0.05,
     # weight of market-implied expected goals when odds exist. Backtest: the market beats the model
@@ -143,6 +144,26 @@ CONFIG = {
         "O15": "87% of shortlisted matches (⭐⭐ 88%, ⭐⭐⭐ 95%) over 900 picks",
         "O25": "67% of shortlisted matches (⭐⭐ 71%, ⭐⭐⭐ 77%) over 1,675 picks",
         "BTTS": "64% of shortlisted matches (⭐⭐ 65%, ⭐⭐⭐ 71%) over 1,800 picks",
+    },
+    # static backtest snapshots for the app's Performance page (refresh when backtest/ is re-run)
+    # model columns = adopted params (HL 150 / venue K 40 / 60 matches), test seasons 25/26-26/27
+    "BENCH": {
+        "as_of": "2026-10-01", "n": 14220, "window": "held-out 25/26-26/27",
+        "rows": [["Over 1.5", 0.5389, None], ["Over 2.5 (priced)", 0.6858, 0.6787],
+                 ["BTTS", 0.6841, None], ["Home win (priced)", 0.6476, 0.6231],
+                 ["Away win (priced)", 0.5852, 0.5640]],
+        "note": "Log-loss, lower is better; the bookmaker column only covers matches it priced (n=8,693). "
+                "The model never sees these prices: the market leads on 1X2 (line-ups, injuries and money move its lines), "
+                "while from football data alone the model sits within 0.007 of it on Over 2.5.",
+    },
+    # favorite-longshot / public-money bias, measured on our priced matches (display context only — odds never filter)
+    "BIAS": {
+        "as_of": "2026-10-01", "n": 24393,
+        "fl": [["5-10%", 8.0, 4.1, -3.8], ["10-15%", 12.8, 10.7, -2.1], ["15-20%", 17.8, 16.6, -1.2]],
+        "o25": [["35-40%", 37.9, 40.3, 2.3], ["60-65%", 62.1, 64.5, 2.4]],
+        "note": "Backtest of 24,393 priced matches (2023-26), stable across three-plus seasons: public money inflates "
+                "longshots — outcomes priced 5-20% win less than the price implies — while two Over-2.5 bands landed "
+                "above their implied rate. Context for the comparison layer only; odds never filter selections.",
     },
     "MAX_PICKS": int(_env_float("MAX_PICKS", 15)),
     # scheduled run hours (local time). Each run builds parlays for kick-offs before the next run.
@@ -338,6 +359,13 @@ def probs_from_matrix(M: np.ndarray) -> dict:
             "O05": float(M[tot >= 1].sum()), "O45": float(M[tot >= 5].sum()), "O55": float(M[tot >= 6].sum()),
             "BTTS": float(M[1:, 1:].sum()),
             "HW": float(M[g[:, None] > g[None, :]].sum()), "AW": float(M[g[:, None] < g[None, :]].sum())}
+
+
+def top_scorelines(M: np.ndarray, n: int = 3) -> list:
+    """The n most probable scorelines of the score matrix as [[home, away, p], ...], descending."""
+    flat = np.argsort(-M, axis=None)[:n]
+    idx = np.dstack(np.unravel_index(flat, M.shape))[0]
+    return [[int(i), int(j), round(float(M[i, j]), 4)] for i, j in idx]
 
 
 def market_lambdas(odds_h, odds_d, odds_a, odds_over, odds_under):
@@ -887,6 +915,7 @@ class MatchRow:
     mkt_source: str = ""          # where the market xG comes from ("reference odds" / "Sportybet")
     x12_market: dict | None = None  # de-margined bookmaker 1X2 (comparison only)
     audit: dict = field(default_factory=dict)  # evidence / quality / explanation / warnings (quality.py), filled in main()
+    scores: list = field(default_factory=list)  # top scorelines [[home, away, p], ...] from the Dixon-Coles matrix
 
     @property
     def basis(self) -> str:
@@ -938,6 +967,7 @@ def analyse(fx: pd.Series, long: pd.DataFrame, results: pd.DataFrame,
     row = MatchRow(fx, H, A, lam_h, lam_a, mod_h, mod_a, mkt_h, mkt_a, p_model, p_mkt, p_final, hist,
                    head_to_head(h2h_pool if h2h_pool is not None else results, fx["country"], fx["home"], fx["away"],
                                 home_id=hid, away_id=aid), da)
+    row.scores = top_scorelines(M)
     if mk is not None:
         row.mkt_source = "reference odds (football-data.co.uk)"
     # ---- extra markets (v3): 1X2 / DC and team goals from the same model score matrix; corners, cards own models
@@ -1758,7 +1788,7 @@ def render_report(ctx: dict, rows: list[MatchRow], picks: dict, summary: dict, n
     L.append("")
     L += [
         "* **Football-data model (data-first):** every probability comes from football statistics only — goals scored and "
-        "conceded over the last 40 matches (max 400 days, friendlies excluded when enough competitive matches exist), "
+        f"conceded over the last {CONFIG['MAX_MATCHES_PER_TEAM']} matches (max {CONFIG['MAX_HISTORY_DAYS']} days, friendlies excluded when enough competitive matches exist), "
         f"normalised by competition averages, time-weighted (half-life {CONFIG['HALF_LIFE_DAYS']} days), venue-blended and "
         f"shrunk towards the league average (team strength K={CONFIG['SHRINK_K_STRENGTH']:g}, goal tempo K={CONFIG['SHRINK_K']:g} "
         "weighted matches). Expected goals = league venue average × attack × opponent defence; probabilities for every market "
@@ -2544,7 +2574,8 @@ def main() -> None:
                        helpers={"render_details": render_details, "stars": stars, "comp": comp, "sb_price": sb_price,
                                 "selections": all_sels},
                        reports_dir=REPORTS_DIR, tz_label=TZL, thresholds=CONFIG["THRESHOLDS"],
-                       backtest=CONFIG["BACKTEST"], repo=os.getenv("GITHUB_REPOSITORY", "perfectndumiso1-netizen/goals-scanner"),
+                       backtest=CONFIG["BACKTEST"], bench=CONFIG["BENCH"], bias=CONFIG["BIAS"],
+                       repo=os.getenv("GITHUB_REPOSITORY", "perfectndumiso1-netizen/goals-scanner"),
                        days_index=days_index, safe_summary=ctx["safe_summary"], botd=ctx["botd"], botd_groups=ctx["botd_groups"], alerts=alerts,
                        coverage=coverage, safe_groups=safe_mod.SAFE_GROUPS,
                        extra_badges=archive.badge_map() if archive is not None else None, report_run=report_run,

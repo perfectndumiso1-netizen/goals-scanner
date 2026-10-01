@@ -1,5 +1,33 @@
 # Backtest results
 
+## 2026-10-01 — boost studies: form 150 d, venue K 40, 60 matches adopted; market-bias evidence; xG pending
+
+Review of Liam Hartley's football-betting-algorithm video surfaced three testable ideas; all were run through
+`backtest/boost_studies.py` (52,331 matches; strict gate: select on train ≤ Jun 2025 → confirm on test 25/26–26/27 →
+no market may regress by > 0.0005 log-loss). Full tables: [BOOST_RESULTS.md](BOOST_RESULTS.md).
+
+| variant | train mean LL | test mean LL | test O15 | test O25 | test BTTS | test HW | test AW |
+|:--|--:|--:|--:|--:|--:|--:|--:|
+| base (production until today) | 0.6299 | 0.6276 | 0.5392 | 0.6808 | 0.6841 | 0.6510 | 0.5829 |
+| **adopted: HL 150, venue K 40, 60 matches** | **0.6296** | **0.6272** | **0.5389** | **0.6806** | 0.6841 | **0.6503** | **0.5822** |
+
+Decisions:
+
+* **Adopted: form half-life 150 days (was 120), venue blend K 40 (was 20), 60 matches per team (was 40).** Selected on
+  train, confirmed on test: every market equal or better, four of five strictly better. Calibration holds — home win
+  ≥ 0.60: predicted 0.671 → actual 0.670; Over 1.5 ≥ 0.84: 0.853 → 0.856. Dixon-Coles ρ = −0.05 re-confirmed as the
+  train optimum. Evidence-first process: the video's "ML parameter optimization" future plan, executed properly.
+* **Market-bias study (display layer only):** on 24,393 priced matches (2023–26), 1X2 outcomes priced 5–20% win less
+  than implied (−3.8 / −2.1 / −1.2 pp, same sign in ≥3 seasons) — the classic favorite-longshot / public-money bias;
+  Over-2.5 bands 35–40% and 60–65% land more than implied (+2.3 / +2.4 pp). Published on the app's Performance page
+  as context; odds still never filter any selection.
+* **Model-vs-market snapshot** added to the Performance page (held-out seasons; market leads on 1X2, the model is
+  within 0.007 on O2.5 without ever seeing a price).
+* **xG ratings — not adopted (yet).** football-data.co.uk publishes HxG/AxG only from season 26/27 (Understat blocks
+  scraping), so the honest window is n = 2,408: blend weights 0.3/0.5/0.7/1.0 all land within noise of goals-only
+  (mean Δ −0.0002…−0.0003). Re-run `python3 backtest/boost_studies.py --skip-sweep --skip-bias` once 26/27 reaches
+  ≥ 3,000 evaluated matches.
+
 ## 2026-09-28 — data-first engine: model-only probabilities and two-strength shrinkage
 
 The production model no longer blends market-implied expected goals into its probabilities (data-first engine:

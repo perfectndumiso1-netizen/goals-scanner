@@ -73,6 +73,7 @@ def load_main() -> pd.DataFrame:
                 "home": df["HomeTeam"].astype(str).str.strip(), "away": df["AwayTeam"].astype(str).str.strip(),
                 "hg": num(df, "FTHG"), "ag": num(df, "FTAG"),
                 "oo": num(df, "Avg>2.5"), "ou": num(df, "Avg<2.5"),          # opening market average
+                "hxg": num(df, "HxG"), "axg": num(df, "AxG"),               # xG (published from season 26/27 only)
                 "coo": num(df, "AvgC>2.5"), "cou": num(df, "AvgC<2.5"),      # closing market average
                 "oh": num(df, "AvgH"), "od": num(df, "AvgD"), "oa": num(df, "AvgA"),
                 "source": "main",
