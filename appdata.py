@@ -311,6 +311,8 @@ def export(path: Path, *, ctx: dict, rows: list, all_rows: list | None = None, p
             "n": [int(r.home.n), int(r.away.n)],
             "p": {"O15": _f(r.p_final["O15"]), "O25": _f(r.p_final["O25"]), "BTTS": _f(r.p_final["BTTS"])},
             "x12": [_f(x12.get("H")), _f(x12.get("D")), _f(x12.get("A"))],
+            # sels: [sel, p (model), p_model, p_market (implied), odds, disagreement flag, diff pp, EV]
+            "sels": [[d["sel"], d["p"], d["p_model"], d["p_sb"], d["odds"], 1 if d.get("diff") else 0, d.get("diff_pp"), d.get("ev")] for d in sels],
             "priced": bool(r.sb), "top": top, "safe": safe_best, "hi": hi, "bo": _board(sels),
             "badges": {"home": badges.get(fx["home"]), "away": badges.get(fx["away"])},
             "livescore_id": eid,

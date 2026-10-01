@@ -197,9 +197,14 @@ def selections(r) -> list[Sel]:
     out: list[Sel] = []
 
     def add(code, p_model, p_sb=None, odds=None):
-        if _valid(p_model):
-            out.append(Sel(code, float(p_model), float(p_sb) if _valid(p_sb) else None,
-                           float(odds) if odds and odds > 1 else None))
+        if not _valid(p_model):
+            return
+        price = float(odds) if odds and odds > 1 else None
+        # user rule (2026-10-01): when BOTH the model and the market price this under 1.15 odds, the
+        # selection is worthless — drop it everywhere (the match stays; its other markets remain listed)
+        if price is not None and price < 1.15 and (1.0 / float(p_model)) < 1.15:
+            return
+        out.append(Sel(code, float(p_model), float(p_sb) if _valid(p_sb) else None, price))
 
     # match result / double chance
     x12 = r.extra.x12 or {}
@@ -302,6 +307,8 @@ def safest(rows: list, now: datetime, window_end: datetime, min_p: float = MIN_P
         fx = r.fx
         key = (fx["date"].strftime("%Y-%m-%d"), fx["country"], fx["home"], fx["away"])
         for s in selections(r):
+            if s.sel in ("O05", "U55"):
+                continue  # user decision 2026-10-01: Over 0.5 / Under 5.5 add no value on the safest board
             if not s.priced or s.p < min_p or s.group not in groups:
                 continue
             if OVERS_ONLY and is_under(s.sel):

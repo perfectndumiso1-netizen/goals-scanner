@@ -435,6 +435,32 @@
       const anyS = (th.last5 || []).concat(ta.last5 || []).some((m) => m.opp_s);
       parts.push(`<div class="card compact"><div class="b">Recent form</div>${strip(f.home_long || f.home, th.last5)}${strip(f.away_long || f.away, ta.last5)}${anyS ? `<div class="tiny muted" style="margin-top:6px">▲ strong opponent · – average · ▼ weak opponent — the opponent's level relative to its own league</div>` : ''}</div>`);
     }
+    // recent goals: average scored / conceded over the last 5 and 10, with the home/away split (user ask 2026-10-01)
+    const avgWin = (ms) => (ms && ms.length) ? { n: ms.length,
+      gf: ms.reduce((a, m) => a + (m.gf || 0), 0) / ms.length, ga: ms.reduce((a, m) => a + (m.ga || 0), 0) / ms.length } : null;
+    const recAvg = (name) => {
+      const rp = rec(f.div, name);
+      const ms = (rp && rp.last) || [];
+      if (!ms.length) return null;
+      const t10 = ms.slice(0, 10);
+      return { l5: avgWin(ms.slice(0, 5)), l10: avgWin(t10),
+               h: avgWin(t10.filter((m) => m.venue === 'H')), a: avgWin(t10.filter((m) => m.venue === 'A')) };
+    };
+    const chipsOf = (av) => {
+      const c = [];
+      if (av.l5) c.push(`<span class="chip">last ${av.l5.n} <b>${f2(av.l5.gf)}</b> / <b>${f2(av.l5.ga)}</b></span>`);
+      if (av.l10 && av.l10.n !== (av.l5 && av.l5.n)) c.push(`<span class="chip">last ${av.l10.n} <b>${f2(av.l10.gf)}</b> / <b>${f2(av.l10.ga)}</b></span>`);
+      if (av.h) c.push(`<span class="chip">home · ${av.h.n} <b>${f2(av.h.gf)}</b> / <b>${f2(av.h.ga)}</b></span>`);
+      if (av.a) c.push(`<span class="chip">away · ${av.a.n} <b>${f2(av.a.gf)}</b> / <b>${f2(av.a.ga)}</b></span>`);
+      return c.join('');
+    };
+    const avH = recAvg(f.home), avA = recAvg(f.away);
+    if (avH || avA) {
+      const line = (nm, side, av) => av ? `<div class="row" style="gap:6px;flex-wrap:wrap;margin-top:4px">${fxBadge(f, side)}<span class="b">${esc(nm)}</span>${chipsOf(av)}</div>` : '';
+      parts.push(`<div class="card compact"><div class="row"><div class="grow b">Recent goals — averages per match</div><span class="tiny muted">scored / conceded</span></div>
+        ${line(f.home_long || f.home, 'home', avH)}${line(f.away_long || f.away, 'away', avA)}
+        <div class="tiny muted" style="margin-top:6px">From each club's matches on record (up to 10, all competitions); the home/away split is over the last 10. Averages of what happened — not probabilities.</div></div>`);
+    }
     if (hm && hm.n) parts.push(`<div class="card compact"><div class="row" style="gap:6px;flex-wrap:wrap"><span class="b">H2H sample</span>${evChip(hm.n)}<span class="chip ${hm.used_by_model ? '' : 'warn'}">${hm.used_by_model ? 'used by the model' : 'context only — not a model input'}</span></div><div class="tiny muted" style="margin-top:4px">${esc(hm.note || '')}${hm.first_date ? ` Meetings ${esc(hm.first_date)} → ${esc(hm.last_date)}` : ''}${(hm.competitions || []).length ? ` · ${esc(hm.competitions.join(', '))}` : ''}. Figures below are historical frequencies of ${hm.n} match${hm.n === 1 ? '' : 'es'}.</div></div>`);
     if (h2h.length) {
       const tot = h2h.map((m) => m.hg + m.ag);
@@ -765,6 +791,58 @@
     $$('[data-mkt-go]').forEach((b) => { b.onclick = () => { state.betsView = b.dataset.mktGo; PR.setTab('bets'); }; });
   };
 
+  // ------------------------------------------------------------------ PAGE: all markets (today's six groups, strongest first)
+  PR.pages.marketsboard = function () {
+    const d = state.data || {};
+    const today = ymd(tzNow());
+    const all = (d.fixtures || []).filter((f) => f.date === today && f.p);
+    const parts = [head('All markets', "today's six markets · strongest first")];
+    let shown = 0;
+    const selsOf = (f) => f.sels || [];
+    // the only selection rule that involves odds: model AND market both under 1.15 = worthless (matches are never dropped)
+    const worth = (s) => !(s.odds && s.odds < 1.15 && s.p_model != null && s.p_model > 0 && 1 / s.p_model < 1.15);
+    const okP = (s) => s && s.p != null && s.p > 0 && s.p < 1 && worth(s);
+    const meta = (f) => `<div class="tiny muted">${flag(f.country)} ${esc(f.league || f.competition || '')} · ${esc(f.home)} v ${esc(f.away)}</div>`;
+    const selRow = (f, s) => `<tr><td class="tiny muted nowrap">${esc(koTime(f.kickoff))}</td><td><div class="b">${esc(s.label || selLabel(s.sel, f.home, f.away))}</div>${meta(f)}</td>
+      <td class="right tiny">${s.p_sb != null ? pct(s.p_sb) : '<span class="muted">–</span>'}${s.diff_pp != null ? `<div class="${s.diff_pp > 0 ? 'good' : ''}">${s.diff_pp > 0 ? '+' : ''}${f1(s.diff_pp)} pp</div>` : ''}</td>
+      <td class="right nowrap"><b>${pct(s.p)}</b> ${s.odds ? `<span class="tiny muted">${f2(s.odds)}</span>` : ''} ${PR.addBtn ? PR.addBtn(f.id, s.sel, s.odds || null) : ''}</td></tr>`;
+    const section = (title, rows, sub) => {
+      if (!rows.length) return;
+      shown += rows.length;
+      parts.push(`<div class="card compact" style="margin-top:8px"><div class="row"><div class="grow b">${title}</div><span class="tiny muted">${rows.length} pick${rows.length === 1 ? '' : 's'} · high to low</span></div>
+        <table class="tbl head" style="margin-top:4px"><tr><th>Kick-off</th><th>Match · selection</th><th class="right">Market</th><th class="right">Model</th></tr>${rows.map((r2) => selRow(r2.f, r2.s)).join('')}</table>
+        ${sub ? `<div class="tiny muted" style="margin-top:4px">${sub}</div>` : ''}</div>`);
+    };
+    const gather = (test) => all.flatMap((f) => selsOf(f).filter((s) => okP(s) && test(s)).map((s) => ({ f, s })))
+      .sort((a, b) => b.s.p - a.s.p);
+    // 1. 1X2 — strongest outcome per match first, all three probabilities in the line
+    const x12rows = all.map((f) => {
+      const x = f.x12 || [];
+      const pr = [[f.home + ' (1)', x[0]], ['Draw (X)', x[1]], [f.away + ' (2)', x[2]]].filter((e) => e[1] != null && e[1] > 0 && e[1] < 1);
+      if (!pr.length) return null;
+      const top = pr.slice().sort((a, b) => b[1] - a[1])[0];
+      return { f, top, pr };
+    }).filter(Boolean).sort((a, b) => b.top[1] - a.top[1]);
+    if (x12rows.length) {
+      shown += x12rows.length;
+      parts.push(`<div class="card compact" style="margin-top:8px"><div class="row"><div class="grow b">1X2</div><span class="tiny muted">${x12rows.length} match${x12rows.length === 1 ? '' : 'es'} · strongest outcome first</span></div>
+        <table class="tbl head" style="margin-top:4px"><tr><th>Kick-off</th><th>Match · strongest outcome</th><th class="right">Model</th></tr>
+        ${x12rows.map((r2) => `<tr class="tap" data-fx="${esc(r2.f.id)}"><td class="tiny muted nowrap">${esc(koTime(r2.f.kickoff))}</td>
+          <td><div class="b">${esc(r2.top[0])} <b>${pct(r2.top[1])}</b></div><div class="tiny muted">${flag(r2.f.country)} ${esc(r2.f.league || r2.f.competition || '')} · ${r2.pr.map((e) => `${esc(e[0].replace(/ \(\d\)$/, ''))} ${pct(e[1])}`).join(' · ')}</div></td>
+          <td class="right">${pill(r2.top[1], 0.8, 0.7)}</td></tr>`).join('')}</table>
+        <div class="tiny muted" style="margin-top:4px">Model 1X2 from the Dixon-Coles score matrix — football data only.</div></div>`);
+    }
+    section('Bookings', gather((s) => selGroup(s.sel) === 'cards'), 'Total cards (yellow 1 · red 2 on Sportybet) — modelled where the league publishes card statistics.');
+    section('Corners', gather((s) => selGroup(s.sel) === 'corners'), 'Total corners — modelled for leagues with corner statistics.');
+    section('BTTS', gather((s) => s.sel === 'BTTS' || s.sel === 'NBTTS'), 'Both teams to score — yes and no.');
+    section('Over 2.5', gather((s) => s.sel === 'O25' || s.sel === 'U25'), 'Total goals 2.5 — over and under.');
+    section('Over 1.5', gather((s) => s.sel === 'O15' || s.sel === 'U15'), 'Total goals 1.5 — over and under.');
+    if (!shown) parts.push(`<div class="card empty">${all.length ? 'No qualifying selections for today.' : 'No analysed matches for today yet.'}</div>`);
+    parts.push(`<div class="card tiny muted"><b>How to read this page</b> — each group lists today's selections sorted by <b>model probability (high to low)</b>. Model = football data only; Market = de-margined bookmaker implied, shown for comparison. Prices never decide what appears — the single exception: a selection where <b>both the model and the price say under 1.15 odds</b> is dropped as worthless; the match itself stays with its other markets. A high probability is not a certainty.</div>`);
+    view().innerHTML = parts.join('');
+    wireBack();
+  };
+
   // ------------------------------------------------------------------ PAGE: team search (V2 More hub → Teams)
   // Picks clubs straight out of the 60-day fixture window and hands each row to the
   // existing team page (form · venues · H2H · fixtures). No new data source.
@@ -944,7 +1022,7 @@
     Object.keys(shown).forEach((kk) => shown[kk].forEach((it) => { if (!seenK.has(it.f.id)) { seenK.add(it.f.id); kick(it.f); } }));
 
     // ---- render
-    parts.push(`<div class="card small"><b>How these picks are made</b><div class="muted" style="margin-top:4px">Each pick clears its model bar first — home/away wins <b>≥60%</b>, goals <b>≥70%</b>, corners &amp; bookings <b>≥65%</b>, with a Sportybet price on (odds shown, never used to filter). Home and away wins are then confirmed against the clubs' own runs: one side's <b>venue form</b> against the other's <b>road form</b> — the kind of streak you'd back yourself. Prices are Sportybet's; the model itself never changes.</div></div>`);
+    parts.push(`<div class="card small"><b>How these picks are made</b><div class="muted" style="margin-top:4px">Each pick clears its model bar first — home/away wins <b>≥60%</b>, goals <b>≥70%</b>, corners &amp; bookings <b>≥65%</b>, with a Sportybet price on (odds shown, never used to filter — except when model and price both say under 1.15). Home and away wins are then confirmed against the clubs' own runs: one side's <b>venue form</b> against the other's <b>road form</b> — the kind of streak you'd back yourself. Prices are Sportybet's; the model itself never changes.</div></div>`);
     const secHead = (ico, title, n) => `<div class="section-head"><h2><span class="ico">${icon(ico)}</span>${title}</h2>${n ? `<span class="tiny muted">${n} pick${n === 1 ? '' : 's'}</span>` : ''}</div>`;
     const pickRow = (it) => {
       const f = it.f;
@@ -995,7 +1073,7 @@
     parts.push(sec('corner', 'Corners', `<p><b>Over 9.5 corners</b> wins with 10 or more corners in the match (both teams together). Corners awarded but not taken before the final whistle still count. Modelled for the 22 main European leagues, from each team's corners for and against; average is about 10 per match.</p>`));
     parts.push(sec('card', 'Cards / bookings', `<p><b>Over 3.5 cards</b> wins with 4 or more cards. On Sportybet a yellow counts 1 and a straight red 2 (a second yellow = yellow + red = 3 for that player); some books use "booking points" (10/25) instead — check the market name. Cards to the bench or after the whistle usually do not count. Modelled from team and referee averages in the main European leagues.</p>`));
     parts.push(sec('shield', 'Match result & double chance', `<p><b>1X2</b>: home win, draw or away win after 90 minutes. <b>Double chance 1X</b> wins if the home team wins or draws — two of the three outcomes covered, at a shorter price. Shown on every match page for context; PlayReport's high-probability selections stay in the goals, corners and cards markets.</p>`));
-    parts.push(sec('trend', 'How the probabilities are made (data-first)', `<p>Every probability comes from <b>football data only</b>. Each team gets a time-weighted attack and defence rating from its last 60 competitive matches (recent games weighted most, league-normalised, home and away blended, shrunk towards the league average when the sample is small). League baseline × attack × opponent's defence gives the <b>Model xG</b> of each team, and a Dixon-Coles Poisson score matrix turns that into a probability for every line.</p><p>Bookmaker prices are a <b>separate comparison layer</b>: the margin is removed and the implied probability is shown next to the model with the difference in points and the EV. The market never changes a model probability, and the model is not tuned to agree with the bookmaker. <b>Market xG</b> (from the prices) is shown next to Model xG, never blended.</p><p>Every statistic carries its sample size — Very small 1–4, Small 5–9, Moderate 10–19, Strong 20–39, Very strong 40+ — and each match has a <b>data quality</b> assessment (completeness, sample, recency, consistency, competition, home/away relevance, source) under the <b>Data</b> tab, with the raw matches used, the extreme results flagged and the model's own numbers. Data quality drives the confidence wording, never the probability. Missing data is shown as N/A, never as 0.</p><p><b>High-probability selection</b> = model probability ≥ 70%, goals/BTTS/team goals/corners/cards only — bookmaker prices and the model/market difference are shown for comparison but never used to filter. <b>⭐ Bets of the day</b> = the best of those at 07:00, one market per match. <b>Low data</b> = fewer than four useful matches for a team; those games are shown but never selected. No selection is ever certain — a 75% probability loses one time in four.</p>`));
+    parts.push(sec('trend', 'How the probabilities are made (data-first)', `<p>Every probability comes from <b>football data only</b>. Each team gets a time-weighted attack and defence rating from its last 60 competitive matches (recent games weighted most, league-normalised, home and away blended, shrunk towards the league average when the sample is small). League baseline × attack × opponent's defence gives the <b>Model xG</b> of each team, and a Dixon-Coles Poisson score matrix turns that into a probability for every line.</p><p>Bookmaker prices are a <b>separate comparison layer</b>: the margin is removed and the implied probability is shown next to the model with the difference in points and the EV. The market never changes a model probability, and the model is not tuned to agree with the bookmaker. <b>Market xG</b> (from the prices) is shown next to Model xG, never blended.</p><p>Every statistic carries its sample size — Very small 1–4, Small 5–9, Moderate 10–19, Strong 20–39, Very strong 40+ — and each match has a <b>data quality</b> assessment (completeness, sample, recency, consistency, competition, home/away relevance, source) under the <b>Data</b> tab, with the raw matches used, the extreme results flagged and the model's own numbers. Data quality drives the confidence wording, never the probability. Missing data is shown as N/A, never as 0.</p><p><b>High-probability selection</b> = model probability ≥ 70%, goals/BTTS/team goals/corners/cards only — bookmaker prices and the model/market difference are shown for comparison but never used to filter — the single exception: a selection whose model odds and market price are both under 1.15 is dropped as worthless. <b>⭐ Bets of the day</b> = the best of those at 07:00, one market per match. <b>Low data</b> = fewer than four useful matches for a team; those games are shown but never selected. No selection is ever certain — a 75% probability loses one time in four.</p>`));
     parts.push(sec('ticket', 'Bet slip & tickets', `<p>Tap <b>+</b> next to any priced selection (match page › Markets, high-probability selections, bets of the day) to put it on your slip — one selection per match, like a real multiple. Press <b>Done</b> to lock the ticket: PlayReport multiplies the prices, records an optional stake, and then follows the scores. Goals markets settle from the final score; corners and cards settle from the match statistics a few hours after full time. You get a notification when the ticket is won or lost, and ☰ › <b>My tickets</b> keeps your record.</p><p>This is a private record on your phone — nothing is placed with a bookmaker.</p>`));
     parts.push(sec('info', 'Reading the numbers honestly', `<p>A 75% bet loses one time in four. A card of five 75% singles has all five winning only about 24% of the time — that is why PlayReport shows singles and grades every one of them, and does not build accumulators. Compare the <b>Hit</b> and <b>Exp.</b> columns under Performance: they should be close over a few weeks.</p><p>Coverage: every competition on the live feed, worldwide, including women's and youth leagues, priced by Sportybet South Africa. Prices move; check the price before you bet. Statistical information, not betting advice. 18+, bet responsibly.</p>`));
     parts.push(sec('star', 'Bets of the day, favourites & alerts', `<p><b>⭐ Bets of the day</b> is strong on Over 1.5 & team goals (up to seven picks); <b>1X2 claims its matches first — up to five picks a day</b> — then <b>Over 2.5</b> gets its place, then the rest: 1X2, BTTS and Over 2.5 need ≥70% with recent form backing them; Corners and Bookings need ≥65%. Overs only, one market per match, picked by the first analysis of the day and graded separately — so the performance page can compare the markets fairly. Every match page has <b>Download stats (CSV)</b> and the ☰ menu downloads the whole day's analysis as a spreadsheet file. <b>Top leagues</b> ranks the major leagues by home wins, away wins, overs, corners and bookings.</p><p>Tap <b>☆</b> in a match header to make it a favourite: you get goal, half-time, full-time and kick-off alerts for it, it appears under Your matches on Home, and in the ★ filter of Matches.</p>`));
@@ -1131,7 +1209,7 @@
         parts.push(`<div class="card compact"><div class="row"><div class="grow b">${icon('shield', 'sm')} ${esc(g.title)}</div><span class="tiny muted">${g.bets.length} pick${g.bets.length === 1 ? '' : 's'}</span></div>
           <table class="tbl">${g.bets.slice(0, 6).map(row).join('')}</table></div>`);
       });
-      parts.push(`<div class="card small"><b>How the advisor picks</b><div class="muted" style="margin-top:4px">Every line above is a model selection that cleared its bar on <b>today's matches only</b>: ≥70% model probability (corners/bookings ≥65%), one market per match — odds are shown, never filtered on. Nothing is chosen by hand.</div></div>`);
+      parts.push(`<div class="card small"><b>How the advisor picks</b><div class="muted" style="margin-top:4px">Every line above is a model selection that cleared its bar on <b>today's matches only</b>: ≥70% model probability (corners/bookings ≥65%), one market per match — odds are shown, never filtered on (except model and price both under 1.15, dropped as worthless). Nothing is chosen by hand.</div></div>`);
     } else {
       parts.push(`<div class="card empty">The advisor's card appears with the first analysis of the day (about 07:00) and fills section by section as probabilities firm up.</div>`);
     }
