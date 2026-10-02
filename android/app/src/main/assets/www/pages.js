@@ -407,7 +407,7 @@
         ${cmpRow('Goals for / game', sp(th).gf_avg, sp(ta).gf_avg, f2, true)}${cmpRow('Goals against / game', sp(th).ga_avg, sp(ta).ga_avg, f2, false)}
         ${cmpRow('Corners for / game', th.avg.corners_for, ta.avg.corners_for, f1, true)}${cmpRow('Corners against / game', th.avg.corners_against, ta.avg.corners_against, f1, false)}
         ${cmpRow('Cards / game', th.avg.cards_for, ta.avg.cards_for, f1, false)}${scRow('Scored in recent matches', th, ta)}</table>
-        <div class="tiny muted">Home record ${esc(f.home)}: ${th.home.w}W ${th.home.d}D ${th.home.l}L · away record ${esc(f.away)}: ${ta.away.w}W ${ta.away.d}D ${ta.away.l}L. Tap a team name for the full page.</div></div>`);
+        <div class="tiny muted">Home record ${teamSpan(f.home, f.country, f.div)}: ${th.home.w}W ${th.home.d}D ${th.home.l}L · away record ${teamSpan(f.away, f.country, f.div)}: ${ta.away.w}W ${ta.away.d}D ${ta.away.l}L. Tap a team name for the full page.</div></div>`);
     } else if (t && t.missing) parts.push(`<div class="card tiny muted">Season table not available for this competition yet.</div>`);
     else parts.push(`<div class="card tiny muted">Loading season stats…</div>`);
   }
@@ -423,7 +423,7 @@
     return `<div class="tiny" style="margin-top:6px"><b>Last ${last.length} meeting${last.length === 1 ? '' : 's'}:</b> ${esc(home)} ${w(home)}W · Draw ${d} · ${esc(away)} ${w(away)}W · O2.5 ${o25}/${last.length} · BTTS ${btts}/${last.length}</div>`;
   }
   function h2hTable(rows, f) {
-    return `<table class="tbl" style="margin-top:6px">${rows.map((m) => `<tr class="tap" data-fx="${esc(histId(m.date, m.country || f.country, m.home, m.away))}"><td class="tiny muted nowrap">${esc(m.date)}</td><td class="${m.hg > m.ag ? 'b' : ''}"><div class="row" style="gap:6px">${badge(m.home, m.home === f.home ? (f.badges || {}).home : m.home === f.away ? (f.badges || {}).away : null, 22)}<span>${esc(m.home)}</span></div></td><td class="right nowrap"><b>${m.hg} – ${m.ag}</b></td><td class="${m.ag > m.hg ? 'b' : ''}"><div class="row" style="gap:6px;justify-content:flex-end"><span>${esc(m.away)}</span>${badge(m.away, m.away === f.home ? (f.badges || {}).home : m.away === f.away ? (f.badges || {}).away : null, 22)}</div></td><td class="tiny muted">${esc(m.league || '')}</td></tr>`).join('')}</table>`;
+    return `<table class="tbl" style="margin-top:6px">${rows.map((m) => `<tr class="tap" data-fx="${esc(histId(m.date, m.country || f.country, m.home, m.away))}"><td class="tiny muted nowrap">${esc(m.date)}</td><td class="${m.hg > m.ag ? 'b' : ''}"><div class="row" style="gap:6px">${badge(m.home, m.home === f.home ? (f.badges || {}).home : m.home === f.away ? (f.badges || {}).away : null, 22)}<span data-team="${esc(m.home)}" data-country="${esc(m.country || f.country)}" data-div="${esc(f.div)}">${esc(m.home)}</span></div></td><td class="right nowrap"><b>${m.hg} – ${m.ag}</b></td><td class="${m.ag > m.hg ? 'b' : ''}"><div class="row" style="gap:6px;justify-content:flex-end"><span data-team="${esc(m.away)}" data-country="${esc(m.country || f.country)}" data-div="${esc(f.div)}">${esc(m.away)}</span>${badge(m.away, m.away === f.home ? (f.badges || {}).home : m.away === f.away ? (f.badges || {}).away : null, 22)}</div></td><td class="tiny muted">${esc(m.league || '')}</td></tr>`).join('')}</table>`;
   }
   function matchH2H(parts, f) {
     const h2h = f.h2h || [];
@@ -517,7 +517,7 @@
     const hl = (name) => name === f.home || name === f.away;
     parts.push(`<div class="card compact"><div class="row" style="gap:6px;flex-wrap:wrap"><div class="grow b">${icon('chart', 'sm')} ${esc(f.competition || f.league || 'Standings')}</div><span class="tiny muted">${tp.season_from ? 'season from ' + esc(tp.season_from) : ''} · ${tbl.length} teams</span></div>
       <div class="tbl-wrap"><table class="tbl table head" style="margin-top:4px;min-width:540px"><tr><th>#</th><th>Team</th><th class="right">P</th><th class="right">W-D-L</th><th class="right">GF</th><th class="right">GA</th><th class="right">GD</th><th class="right">Pts</th><th class="right">Form</th></tr>
-      ${tbl.map((r) => `<tr class="${hl(r.team) ? 'hl' : ''}"><td class="muted">${r.pos}</td><td><div class="tname">${badge(r.team, null, 20)}<span class="nm">${esc(r.team)}${r.team === f.home ? ' <span class="tiny">H</span>' : r.team === f.away ? ' <span class="tiny">A</span>' : ''}</span></div></td><td class="right">${r.p}</td><td class="right">${r.w}-${r.d}-${r.l}</td><td class="right">${r.gf}</td><td class="right">${r.ga}</td><td class="right">${r.gd > 0 ? '+' : ''}${r.gd}</td><td class="right b">${r.pts}</td><td class="right">${r.form ? formBadges(r.form.split('')) : '<span class="tiny muted">–</span>'}</td></tr>`).join('')}</table></div></div>`);
+      ${tbl.map((r) => `<tr class="${hl(r.team) ? 'hl' : ''}"><td class="muted">${r.pos}</td><td><div class="tname">${badge(r.team, null, 20)}<span class="nm" data-team="${esc(r.team)}" data-country="${esc(f.country)}" data-div="${esc(f.div)}">${esc(r.team)}${r.team === f.home ? ' <span class="tiny">H</span>' : r.team === f.away ? ' <span class="tiny">A</span>' : ''}</span></div></td><td class="right">${r.p}</td><td class="right">${r.w}-${r.d}-${r.l}</td><td class="right">${r.gf}</td><td class="right">${r.ga}</td><td class="right">${r.gd > 0 ? '+' : ''}${r.gd}</td><td class="right b">${r.pts}</td><td class="right">${r.form ? formBadges(r.form.split('')) : '<span class="tiny muted">–</span>'}</td></tr>`).join('')}</table></div></div>`);
     // home / away record of the two clubs
     const rec = (side) => ((tp.teams || {})[side === 'home' ? f.home : f.away]) || null;
     const half = (side, name, r) => {
@@ -1039,7 +1039,7 @@
     const pickRow = (it) => {
       const f = it.f;
       return `<tr class="tap" data-fx="${esc(f.id)}"><td class="tiny muted nowrap">${esc(koShort(f.kickoff))}</td>
-        <td><div class="row" style="gap:6px">${fxBadge(f, 'home').replace('s24', 's20')}${fxBadge(f, 'away').replace('s24', 's20')}<div class="b grow">${esc(f.home)} <span class="muted">v</span> ${esc(f.away)}</div></div>
+        <td><div class="row" style="gap:6px">${fxBadge(f, 'home').replace('s24', 's20')}${fxBadge(f, 'away').replace('s24', 's20')}<div class="b grow">${teamSpan(f.home, f.country, f.div)} <span class="muted">v</span> ${teamSpan(f.away, f.country, f.div)}</div></div>
           <div class="sel"><b>${esc(selLabel(it.sel, f.home, f.away))}</b></div>
           <div class="tiny muted">${flag(f.country)} ${esc(f.competition)}</div>${it.why || ''}</td>
         <td class="right nowrap"><b>${f2(it.odds)}</b></td>
@@ -1212,7 +1212,7 @@
   PR.pages.advisor = function () {
     const d = state.data || {}; const sf = d.safe || {}; const today = ymd(tzNow());
     const parts = [head(`Bet advisor · ${esc(dayName(today))}`, 'Statistical information from the model — not betting advice')];
-    const row = (b) => `<tr class="tap" data-fx="${esc(b.fixture || b.id)}"><td><div class="b">${esc(b.label || selLabel(b.sel, (fx(b.fixture || b.id) || {}).home, (fx(b.fixture || b.id) || {}).away))}</div><div class="tiny muted">${esc(b.home || ((fx(b.fixture || b.id) || {}).home) || '')} v ${esc(b.away || ((fx(b.fixture || b.id) || {}).away) || '')}${b.q ? ' · data ' + esc(b.q) : ''}</div></td><td class="right nowrap"><b>${b.odds ? f2(b.odds) : '–'}</b></td><td class="right">${pill(b.p, 0.8, 0.7)}</td></tr>`;
+    const row = (b) => `<tr class="tap" data-fx="${esc(b.fixture || b.id)}"><td><div class="b">${esc(b.label || selLabel(b.sel, (fx(b.fixture || b.id) || {}).home, (fx(b.fixture || b.id) || {}).away))}</div><div class="tiny muted">${teamSpan(b.home || ((fx(b.fixture || b.id) || {}).home) || '', b.country, (fx(b.fixture || b.id) || {}).div)} v ${teamSpan(b.away || ((fx(b.fixture || b.id) || {}).away) || '', b.country, (fx(b.fixture || b.id) || {}).div)}${b.q ? ' · data ' + esc(b.q) : ''}</div></td><td class="right nowrap"><b>${b.odds ? f2(b.odds) : '–'}</b></td><td class="right">${pill(b.p, 0.8, 0.7)}</td></tr>`;
     const groups = (sf.today && sf.today.groups) || [];
     const dayBets = (sf.today && sf.today.bets) || [];
     if (dayBets.length) {

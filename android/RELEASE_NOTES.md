@@ -1,3 +1,8 @@
+## What's new in PlayReport 1.6.37 — 🔎 No dead tap left behind
+- 👆 **The tappability sweep is complete** — team names now open the team page in the last remaining spots: **Best of today** rows, **Bet advisor** lines, the Scan **top-priced & shortlist** tables, **live match cards**, the **head-to-head meetings table**, the **match-page standings table**, and the stats-tab record line (the one that says "Tap a team name for the full page" — now it really works).
+- ✅ Everything from 1.6.36 stands: market rows open their fixture, signal notifications land on the signals, football first on Home, match alerts jump straight to the match.
+- 🧊 **Model untouched** — navigation only.
+
 ## What's new in PlayReport 1.6.36 — 👆 Everything taps · signals land on signals · football first
 - 👆 **Nothing is unclickable anymore** — every match and every team, wherever it appears, now opens:
   - **All-markets rows**: tap any selection (Over 1.5, corners, bookings, BTTS…) → that fixture's Match Center, exactly like AiScore.
