@@ -150,6 +150,7 @@ class MainActivity : AppCompatActivity() {
     private fun handleTab(t: String) {
         if (t == "install") startUpdateInstall()
         else if (t.startsWith("match|")) js("window.app && window.app.openNotifMatch && window.app.openNotifMatch(${JSONObject.quote(t)});")
+        else if (t.startsWith("tennis|")) js("window.app && window.app.openNotifTennis && window.app.openNotifTennis(${JSONObject.quote(t)});")
         else js("window.app && window.app.setTab && window.app.setTab(${JSONObject.quote(t)});")
     }
 

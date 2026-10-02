@@ -11,7 +11,7 @@
   if (!tickets) { try { tickets = JSON.parse(localStorage.getItem('pr_tickets')) || []; } catch (e) { tickets = []; } }   // pre-1.4 key
   const saveSlip = () => PR.persist('pr_slip', JSON.stringify(slip));
   function saveTickets() {
-    localStorage.setItem('pr_tickets', JSON.stringify(tickets));
+    try { localStorage.setItem('pr_tickets', JSON.stringify(tickets)); } catch (e) { /* quota: the full copy below is the durable one */ }
     PR.persist('pr_tickets_full', JSON.stringify(tickets));
     if (PR.native && PR.native.setString) { try { PR.native.setString('tickets', JSON.stringify(tickets.filter((t) => t.status === 'pending').map((t) => ({ id: t.id, odds: t.odds, stake: t.stake, legs: t.legs.map((l) => ({ eid: l.eid, sel: l.sel, sport: l.sport || 'football', market: l.market || '', selection: l.selection || '', line: l.line == null ? null : l.line, home: l.home, away: l.away, kickoff: l.kickoff, label: l.label })) })))); } catch (e) { /* ignore */ } }
   }

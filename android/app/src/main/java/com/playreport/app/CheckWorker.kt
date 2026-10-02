@@ -75,11 +75,22 @@ class CheckWorker(ctx: Context, params: WorkerParameters) : Worker(ctx, params) 
         if (items.isEmpty()) return
         if (items.size <= 4) {
             for (a in items) Notifier.notify(ctx, Notifier.CH_BETS, 2000 + (a.optString("id").hashCode() and 0xffff),
-                a.optString("title", "New high-probability selection"), a.optString("text"), "safest")
+                a.optString("title", "New high-probability selection"), a.optString("text"), selectionLink(a))
         } else {
             val body = items.take(6).joinToString("\n") { "• " + it.optString("text") } + if (items.size > 6) "\n…and ${items.size - 6} more" else ""
             Notifier.notify(ctx, Notifier.CH_BETS, 2001, "${items.size} new high-probability selections", body, "safest")
         }
+    }
+
+    /**
+     * Where a "new high-probability selection" notification should land. The alert names the match it is
+     * about (`fixture` = the fixture id, e.g. "2026-10-15|Europa League|Union St.Gilloise|Real Sociedad"),
+     * so the tap opens that exact match — not just the signals list. Alerts without a fixture fall back to
+     * the signals list (the old behaviour).
+     */
+    private fun selectionLink(a: JSONObject): String {
+        val fixture = a.optString("fixture")
+        return if (fixture.isNotEmpty() && fixture != "null") "match|$fixture" else "safest"
     }
 
     private data class Ev(val eid: String, val status: String, val hg: Int?, val ag: Int?, val home: String, val away: String, val comp: String)
@@ -123,8 +134,12 @@ class CheckWorker(ctx: Context, params: WorkerParameters) : Worker(ctx, params) 
                 val mins = java.time.Duration.between(now, ko).toMinutes()
                 if (mins in 0..20) {
                     prefs.edit().putBoolean("ko_$eid", true).apply()
+                    // tennis entries (favourites are mirrored with label "Tennis", ticket legs carry sport)
+                    // must open the tennis section — a football match lookup would never find them
+                    val tennis = m.optString("sport", "football") == "tennis" || m.optString("label") == "Tennis"
                     Notifier.notify(ctx, Notifier.CH_KICKOFF, 7000 + (eid.hashCode() and 0xfff), "⏰ Kick-off in $mins min · ${m.optString("home")} v ${m.optString("away")}",
-                        (if (m.has("label")) m.optString("label") + " · " else "") + m.optString("competition", ""), "match|$eid")
+                        (if (m.has("label")) m.optString("label") + " · " else "") + m.optString("competition", ""),
+                        if (tennis) "tennis|$eid" else "match|$eid")
                 }
             }
         }
@@ -190,7 +205,7 @@ class CheckWorker(ctx: Context, params: WorkerParameters) : Worker(ctx, params) 
                     val win = if (ev.winner == 1) ev.p1 else ev.p2
                     val note = if (ev.status.startsWith("ret", true) || ev.status.startsWith("w.", true)) " · retirement — game markets void" else ""
                     Notifier.notify(ctx, Notifier.CH_TENNIS, 8000 + (ev.eid.hashCode() and 0xfff),
-                        "🎾 Match finished · ${win} wins", "${ev.p1}  $setsTxt  ${ev.p2}$note", "live")
+                        "🎾 Match finished · ${win} wins", "${ev.p1}  $setsTxt  ${ev.p2}$note", "tennis|${ev.eid}")
                 }
             }
         }

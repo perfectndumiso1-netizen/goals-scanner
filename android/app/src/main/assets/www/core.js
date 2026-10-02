@@ -21,6 +21,16 @@ window.PR = (function () {
     try { localStorage.setItem(key, value); } catch (e) { /* quota */ }
     if (native && native.setString) { try { native.setString(key.replace(/^pr_/, ''), value); } catch (e) { /* ignore */ } }
   }
+  /** Secondary caches (badges, tennis) are big enough to hit the phone's 5 MB web-storage quota on their own.
+   *  A full phone must never look like a network failure, and a cache that cannot be written must not throw:
+   *  write, and if the phone is full first free the day/team cache and retry, then hand the bytes to the
+   *  native store (`str_<key>`), which lives outside the WebView's quota. Returns true when it was kept. */
+  function saveAux(key, value) {
+    try { localStorage.setItem(key, value); return true; } catch (e) { /* full */ }
+    try { cache.prune(true); localStorage.setItem(key, value); return true; } catch (e) { /* still full */ }
+    if (native && native.setString) { try { native.setString(key.replace(/^pr_/, ''), value); return true; } catch (e) { /* ignore */ } }
+    return false;   // nothing was lost: the data is already live in memory for this session
+  }
   let savedSettings = {};
   try { savedSettings = JSON.parse(stored('pr_settings') || '{}'); } catch (e) { savedSettings = {}; }
   const settings = Object.assign({ liveEvery: 60, tzOffset: 2, goalAlerts: true, htAlerts: false, ftAlerts: true, betAlerts: true, reportAlerts: true, minP: 0.70, hiP: 0.70, theme: 'dark', seenVersion: '', leagues: 'all' },
@@ -231,21 +241,45 @@ window.PR = (function () {
   const fx = (id) => state.data && state.data._byId[id];
   /** on-phone cache of the small data files (per-match analysis, day history, team pages): pages open instantly
    *  from the cache and are refreshed in the background when the publication is newer than the cached copy */
-  const CACHE_MAX = 400;
+  const CACHE_MAX = 400;      // entries …
+  const CACHE_KB = 600;       // … and the whole cache stays under this (JSON characters) — WebView localStorage is small
   const cache = {
     key: (k) => 'pr_c:' + k,
     get(k) { try { const v = localStorage.getItem(this.key(k)); return v ? JSON.parse(v) : null; } catch (e) { return null; } },
     put(k, data, stamp) {
-      const rec = { t: Date.now(), s: stamp || '', d: data };
-      try { localStorage.setItem(this.key(k), JSON.stringify(rec)); } catch (e) { this.prune(true); try { localStorage.setItem(this.key(k), JSON.stringify(rec)); } catch (e2) { /* give up */ } }
-      this.count = (this.count || 0) + 1; if (this.count % 25 === 0) this.prune(false);
+      const body = JSON.stringify({ t: Date.now(), s: stamp || '', d: data });
+      let prev = 0; try { const old = localStorage.getItem(this.key(k)); prev = old ? old.length : 0; } catch (e) { prev = 0; }
+      try { localStorage.setItem(this.key(k), body); this.bytes = (this.bytes || 0) - prev + body.length; }
+      catch (e) { this.prune(true); try { localStorage.setItem(this.key(k), body); this.bytes = null; } catch (e2) { /* give up */ } }
+      this.count = (this.count || 0) + 1;
+      if (this.bytes == null || this.count % 10 === 0 || this.bytes > CACHE_KB * 1024) this.prune(false);
     },
+    /** Oldest-first eviction. `hard` (a write just hit the quota) drops at least half the cache;
+     *  otherwise the cache is trimmed when it grows past CACHE_MAX entries or CACHE_KB kilobytes. */
     prune(hard) {
-      const keys = []; for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); if (k && k.startsWith('pr_c:')) keys.push(k); }
-      if (!hard && keys.length <= CACHE_MAX) return;
-      const items = keys.map((k) => { let t = 0; try { t = (JSON.parse(localStorage.getItem(k)) || {}).t || 0; } catch (e) { t = 0; } return { k, t }; }).sort((a, b) => a.t - b.t);
-      const drop = hard ? Math.max(Math.ceil(items.length / 2), 1) : items.length - CACHE_MAX;
-      items.slice(0, drop).forEach((x) => localStorage.removeItem(x.k));
+      const items = [];
+      for (let i = 0; i < localStorage.length; i++) {
+        const k = localStorage.key(i);
+        if (!k || !k.startsWith('pr_c:')) continue;
+        const v = localStorage.getItem(k) || '';
+        let t = 0; try { t = (JSON.parse(v) || {}).t || 0; } catch (e) { t = 0; }
+        items.push({ k, t, b: v.length });
+      }
+      if (!items.length) return;
+      items.sort((a, b) => a.t - b.t);
+      let total = items.reduce((a, x) => a + x.b, 0), n = items.length;
+      const over = () => n > CACHE_MAX || total > CACHE_KB * 1024;
+      if (!hard && !over()) return;
+      if (hard) {
+        const d = Math.max(Math.ceil(n / 2), 1);
+        items.slice(0, d).forEach((x) => { localStorage.removeItem(x.k); total -= x.b; }); n -= d;
+      }
+      for (let i = 0; over() && i < items.length; i++) {
+        const x = items[i];
+        if (!localStorage.getItem(x.k)) continue;
+        localStorage.removeItem(x.k); total -= x.b; n -= 1;
+      }
+      this.bytes = total;   // running size used by put() to keep the cache inside its budget
     },
     size() { let n = 0, b = 0; for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); if (k && k.startsWith('pr_c:')) { n++; b += (localStorage.getItem(k) || '').length; } } return { n, kb: Math.round(b / 1024) }; },
     clear() { const keys = []; for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); if (k && k.startsWith('pr_c:')) keys.push(k); } keys.forEach((k) => localStorage.removeItem(k)); },
@@ -321,15 +355,36 @@ window.PR = (function () {
     };
     next(); if (keys.length > 1) setTimeout(next, 300);
   }
+  /** Keep the published index on the phone for the next cold start. A full analysis is large and the
+   *  WebView's localStorage is small (and shared with the on-phone cache), so a write that does not fit
+   *  must never look like a network failure: the derived lookup map is dropped (it is rebuilt on load),
+   *  the cache is trimmed and the write is retried once — if it still does not fit, the analysis simply
+   *  stays in memory for this session. Returns whether a saved copy exists. */
+  function saveLatest(d) {
+    const strip = (o) => JSON.stringify(o, (k, v) => (k === '_byId' ? undefined : v));   // _byId is derived: rebuilt by indexData()
+    const tryWrite = (body) => { try { localStorage.setItem('pr_latest', body); return true; } catch (e) { return false; } };
+    let body = strip(d);
+    if (tryWrite(body)) return true;
+    cache.prune(true);                                     // the cache is expendable, the analysis is not
+    if (tryWrite(body)) return true;
+    // still bigger than this phone's storage allows: the market rows of unpriced matches carry no
+    // prices and only duplicate the shortlists — drop them and keep a usable offline copy
+    const light = Object.assign({}, d, { _light: true, fixtures: (d.fixtures || []).map((f) => (f.priced ? f : Object.assign({}, f, { sels: [] }))) });
+    body = strip(light);
+    if (tryWrite(body)) return true;
+    return false;
+  }
   async function loadData(force) {
     if (state.loading) return; state.loading = true; $('#btn-refresh').classList.add('spin');
     try {
       const d = indexData(await getJson(DATA_URL + '?t=' + Date.now()));
-      state.data = d; d._loadedAt = Date.now(); localStorage.setItem('pr_latest', JSON.stringify(d));
+      state.data = d; d._loadedAt = Date.now(); d._cached = saveLatest(d);
       statusLine(); render(); if (force) toast('Updated');
     } catch (e) {
-      if (!state.data) { const c = localStorage.getItem('pr_latest'); if (c) { try { state.data = indexData(JSON.parse(c)); statusLine(); render(); } catch (e2) { /* ignore */ } } }
-      toast('Could not reach the PlayReport server (' + e.message + ')' + (state.data ? ' — showing saved data' : ''));
+      if (!state.data) { let c = null; try { c = localStorage.getItem('pr_latest'); } catch (e0) { c = null; } if (c) { try { state.data = indexData(JSON.parse(c)); statusLine(); render(); } catch (e2) { /* ignore */ } } }
+      // a storage problem is not a network problem — say which one it is
+      const why = /quota|setItem|storage/i.test(String(e && e.message)) ? 'Could not save the analysis on this phone (' + e.message + ')' : 'Could not reach the PlayReport server (' + e.message + ')';
+      toast(why + (state.data ? ' — showing saved data' : ''));
       if (!state.data) $('#view').innerHTML = `<div class="empty">No data yet.<br>Check your connection and pull to refresh.</div>`;
     } finally { state.loading = false; $('#btn-refresh').classList.remove('spin'); if (native && native.refreshDone) native.refreshDone(); }
   }
@@ -350,6 +405,17 @@ window.PR = (function () {
       return c.d;
     }
     return fetchIt();
+  }
+  /** A published league table is only trusted when it can be one. The server now publishes a table for
+   *  league-format competitions only (teamstats.league_like: teams must face several different opponents);
+   *  this shape check is the second line of defence, so a phone still holding an older publication — or a
+   *  competition whose pool is not a round-robin — never shows a pool of clubs as "standings". Real tables
+   *  hold at most 36-40 teams (the group stages of the big competitions); anything larger is a cup, a
+   *  qualifying round or a friendly list. Returns the table, or null when it cannot be one. */
+  const TABLE_MAX_TEAMS = 48;      // the biggest real tables are 36-40 rows; a "table" of hundreds is a pool
+  function realTable(table) {
+    if (!Array.isArray(table) || !table.length || table.length > TABLE_MAX_TEAMS) return null;
+    return table.some((r) => r && typeof r.p === 'number' && r.p > 0) ? table : null;
   }
   const slug = (div) => String(div || '').replace(/[^A-Za-z0-9]+/g, '_').replace(/^_+|_+$/g, '');
   async function loadTeams(div) {
@@ -403,13 +469,13 @@ window.PR = (function () {
     return state.teamIdx;
   }
   async function loadBadges() {
-    try { const c = localStorage.getItem('pr_badges'); if (c) state.badges = JSON.parse(c); } catch (e) { /* ignore */ }
-    try { const j = await getJson(rawUrl('data/app/badges.json') + '?t=' + Math.floor(Date.now() / 86400000)); if (j && typeof j === 'object') { state.badges = j; localStorage.setItem('pr_badges', JSON.stringify(j)); } } catch (e) { /* offline: keep cache */ }
+    try { const c = stored('pr_badges'); if (c) state.badges = JSON.parse(c); } catch (e) { /* ignore */ }
+    try { const j = await getJson(rawUrl('data/app/badges.json') + '?t=' + Math.floor(Date.now() / 86400000)); if (j && typeof j === 'object') { state.badges = j; saveAux('pr_badges', JSON.stringify(j)); } } catch (e) { /* offline: keep cache */ }
   }
 
-  // ------------------------------------------------------------------ navigation (V2 shell: Home / Scan / Live / Matches / More —
+  // ------------------------------------------------------------------ navigation (shell: Home / Scan / Live / Matches / Low odds / More —
   // Days and Leagues stay valid tabs, reached from the More page)
-  const TABS = ['home', 'bets', 'live', 'matches', 'days', 'leagues', 'more'];
+  const TABS = ['home', 'bets', 'live', 'matches', 'lowodds', 'days', 'leagues', 'more'];
   function render() {
     if (!state.data && !(state.stack.length && state.stack[state.stack.length - 1].type === 'settings')) return;
     closeMenu();
@@ -423,7 +489,7 @@ window.PR = (function () {
     if (top) return PR.pages[top.type](top);
     PR.views[state.tab]();
   }
-  const TAB_TITLE = { home: 'PlayReport', bets: 'Scan', live: 'Live', matches: 'Matches', more: 'More', days: 'Days', leagues: 'Leagues' };
+  const TAB_TITLE = { home: 'PlayReport', bets: 'Scan', live: 'Live', matches: 'Matches', lowodds: 'Low odds 1.19 – 1.45', more: 'More', days: 'Days', leagues: 'Leagues' };
   function setTab(tab) {
     if (tab === 'today') tab = 'home';
     if (!TABS.includes(tab)) tab = 'home';
@@ -529,7 +595,7 @@ window.PR = (function () {
 
   return { native, settings, state, $, $$, saveSettings, nfetch, getJson, rawUrl, esc, pct, f1, f2, signed, DAYS, MONTHS, parseLocal, tzNow, ymd, stored, persist, cache, prefetchDetails, pubStamp,
     dayName, niceDate, koTime, koShort, toast, pill, bar, wdl, formBadges, md, GROUPS, GROUP_ICON, selGroup, selLabel, selShort, settleSel,
-    liveVerdict, isLive, isFT, indexData, fx, loadDetail, detailCached, detailKey, loadData, statusLine, loadDay, dayRecord, finalFor, storedIncidents, loadTeams, teamsCached, loadTeamIndex, slug, TABS, render, setTab, push, replace,
+    liveVerdict, isLive, isFT, indexData, fx, loadDetail, detailCached, detailKey, loadData, saveLatest, saveAux, statusLine, loadDay, dayRecord, finalFor, storedIncidents, loadTeams, teamsCached, loadTeamIndex, realTable, slug, TABS, render, setTab, push, replace,
     sbEventUrl, sbShareUrl, openSportybet, openBookingCode, openExternal, copyText,
     back, openMatch, openTeam, toggleMenu, closeMenu, contactCard, editorCard, teamLink, teamSpan, matchLine, matchRow, segmented, select, scoreBox, statusIcon, CONTACT, APP_VERSION,
     confirmBox, isFav, toggleFav, favList: () => favs, saveFavs,

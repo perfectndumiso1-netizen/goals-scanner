@@ -76,10 +76,10 @@
     if (T.loading) return;
     if (!force && T.data && Date.now() - T.loadedAt < 5 * 60000) return;
     T.loading = true; T.error = null;
-    if (!T.data) { try { const c = localStorage.getItem('pr_tennis_latest'); if (c) T.data = JSON.parse(c); } catch (e) { /* ignore */ } }
+    if (!T.data) { try { const c = PR.stored ? PR.stored('pr_tennis_latest') : localStorage.getItem('pr_tennis_latest'); if (c) T.data = JSON.parse(c); } catch (e) { /* ignore */ } }
     try {
       const j = await PR.getJson(TENNIS_BASE + 'data/app/tennis/latest.json?t=' + Math.floor(Date.now() / 60000));
-      if (j && j.meta && j.meta.sport === 'tennis') { T.data = j; T.loadedAt = Date.now(); try { localStorage.setItem('pr_tennis_latest', JSON.stringify(j)); } catch (e) { /* quota */ } }
+      if (j && j.meta && j.meta.sport === 'tennis') { T.data = j; T.loadedAt = Date.now(); (PR.saveAux || (() => false))('pr_tennis_latest', JSON.stringify(j)); }
     } catch (e) { T.error = String(e.message || e); }
     T.loading = false;
     if (isTennis()) { PR.render(); T.statusLine(); }
@@ -113,8 +113,13 @@
   const SKIP = /doubles|davis cup|billie jean|laver cup|united cup|team tournaments|hopman|exhibition|itf|juniors|wheelchair|legends/i;
   /** Livescore tennis day feed (ATP/WTA/Challengers singles), in the user's timezone; refreshed at most once a minute */
   T.liveRefresh = async function (manual) {
-    if (T.liveLoading) return; if (!manual && T.live && Date.now() - T.liveAt < 55000) return;
+    // the rate limit counts attempts, not successes: a feed that is down must not be re-requested on every
+    // render (the view below calls this on each render, so a failed try that left the limit untouched turned
+    // into render → refresh → render, which starves the event loop on a phone with no connection)
+    if (T.liveLoading) return; if (!manual && T.live && Date.now() - Math.max(T.liveAt || 0, T.liveTry || 0) < 55000) return;
     T.liveLoading = true;
+    const hadErr = T.liveErr || null;
+    let ok = false;
     try {
       const day = todaySast().replace(/-/g, '');
       const j = await PR.getJson(`${LS}/date/tennis/${day}/${PR.settings.tzOffset || 0}?MD=1`);
@@ -132,10 +137,12 @@
             start: ev.Esd ? String(ev.Esd) : '', winner: ev.Ewt || (finished && ev.Tr1 != null && ev.Tr2 != null ? (+ev.Tr1 > +ev.Tr2 ? 1 : +ev.Tr2 > +ev.Tr1 ? 2 : null) : null), pts: ev.Tr1G != null ? [ev.Tr1G, ev.Tr2G] : null });
         });
       });
-      T.live = events; T.liveAt = Date.now();
+      T.live = events; T.liveAt = Date.now(); T.liveErr = null; ok = true;
     } catch (e) { if (!T.live) T.live = []; T.liveErr = String(e.message || e); }
     T.liveLoading = false;
-    if (isTennis() && !state.stack.length && (state.tab === 'live' || state.tab === 'home')) PR.render();
+    T.liveTry = Date.now();
+    // re-render only when something changed — a repeat failure is already on screen
+    if (isTennis() && !state.stack.length && (state.tab === 'live' || state.tab === 'home') && (ok || T.liveErr !== hadErr)) PR.render();
   };
   T.liveFor = (id) => (T.live || []).find((e) => e.id === String(id)) || null;
 

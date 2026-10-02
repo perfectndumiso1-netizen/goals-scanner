@@ -542,6 +542,74 @@
     const all = $('#acc-all'); if (all) all.onclick = () => { const cs = Object.keys(d.fixtures.reduce((a, f) => { a[f.country] = 1; return a; }, {})); if (state.openCountries.size >= cs.length) state.openCountries = new Set(); else state.openCountries = new Set(cs); PR.render(); };
   };
 
+  // ------------------------------------------------------------------ LOW ODDS (all markets priced 1.19 – 1.45)
+  // Every market the bookmaker prices between 1.19 and 1.45 for one day, in one list. The analysis index is
+  // the only feed that carries prices, and it is published as a rolling window (today → this time tomorrow),
+  // so the day chips are exactly the days inside that window. A row is a normal match row: tap it and the
+  // match page opens with that fixture (the selection is the line the price belongs to).
+  const LO_ODDS = 1.19, HI_ODDS = 1.45;
+  const loInBand = (s) => !!s && s.odds != null && s.odds >= LO_ODDS && s.odds <= HI_ODDS && s.p != null && s.p > 0 && s.p < 1;
+  const LO_SORTS = [['odds', 'Odds · low → high'], ['oddsdesc', 'Odds · high → low'], ['p', 'Model probability'], ['ko', 'Kick-off'], ['league', 'League']];
+  function loDays(d) {
+    const map = new Map();
+    (d.fixtures || []).forEach((f) => {
+      const sels = (f.sels || []).filter(loInBand);
+      if (!sels.length) return;
+      const day = String(f.date || (f.kickoff || '').slice(0, 10));
+      if (!map.has(day)) map.set(day, { day, rows: [], matches: 0, from: null, to: null });
+      const e = map.get(day);
+      e.rows.push(...sels.map((s) => ({ f, s })));
+      e.matches++;
+      const ko = (f.kickoff || '').slice(11, 16);
+      if (ko) { if (!e.from || ko < e.from) e.from = ko; if (!e.to || ko > e.to) e.to = ko; }
+    });
+    return [...map.values()].sort((a, b) => a.day.localeCompare(b.day));
+  }
+  PR.views.lowodds = function () {
+    const d = state.data || {};
+    const days = loDays(d);
+    const parts = [];
+    const priced = (d.fixtures || []).filter((f) => (f.sels || []).length).length;
+    if (!days.length) {
+      parts.push(`<div class="hero-row"><div><div class="kicker">Low odds</div><h1>1.19 – 1.45</h1></div></div>`);
+      parts.push(`<div class="card empty">No market is priced between ${f2(LO_ODDS)} and ${f2(HI_ODDS)} in the current publication${priced ? '' : ' — the prices have not arrived with this analysis yet'}.<br><span class="tiny muted">The list fills in with each analysis run; pull down on Home to refresh.</span></div>`);
+      // a phone holding an outdated copy would show an empty page — fetch once (flag stops any loop)
+      if (!priced && !PR._loRefreshed) { PR._loRefreshed = true; setTimeout(() => PR.loadData(false), 250); }
+      view().innerHTML = parts.join('');
+      return;
+    }
+    const today = ymd(tzNow());
+    const pick = days.some((x) => x.day === state.loDay) ? state.loDay : (days.find((x) => x.day >= today) || days[days.length - 1]).day;
+    state.loDay = pick;
+    const cur = days.find((x) => x.day === pick);
+    const sort = state.loSort || 'odds';
+    const byKo = (a, b) => String(a.f.kickoff).localeCompare(String(b.f.kickoff));
+    const cmp = {
+      odds: (a, b) => a.s.odds - b.s.odds || byKo(a, b),
+      oddsdesc: (a, b) => b.s.odds - a.s.odds || byKo(a, b),
+      p: (a, b) => b.s.p - a.s.p || a.s.odds - b.s.odds,
+      ko: (a, b) => byKo(a, b) || a.s.odds - b.s.odds,
+      league: (a, b) => String(a.f.country || '').localeCompare(String(b.f.country || '')) ||
+        String(a.f.league || a.f.competition || '').localeCompare(String(b.f.league || b.f.competition || '')) || byKo(a, b),
+    }[sort] || ((a, b) => a.s.odds - b.s.odds || byKo(a, b));
+    const rows = cur.rows.slice().sort(cmp);
+    parts.push(`<div class="hero-row"><div><div class="kicker">Low odds</div><h1>1.19 – 1.45</h1></div><span class="quality">${rows.length} market${rows.length === 1 ? '' : 's'}</span></div>`);
+    parts.push(`<div class="card compact"><div class="row"><div class="grow small"><b>${rows.length} market${rows.length === 1 ? '' : 's'} in the window</b> · ${cur.matches} match${cur.matches === 1 ? '' : 'es'}${cur.from ? ` · kick-off ${esc(cur.from)}–${esc(cur.to)}` : ''}</div></div>
+      ${days.length > 1 ? `<div class="chips small-chips" style="margin-top:6px">${days.map((x) => `<button class="chip tapchip ${x.day === pick ? 'on' : ''}" data-lo-day="${esc(x.day)}">${esc(dayName(x.day))} <b>${x.rows.length}</b></button>`).join('')}</div>` : ''}
+      <div class="row" style="margin-top:8px"><div class="grow tiny muted">Sort</div>${select('lo-sort', LO_SORTS, sort)}</div></div>`);
+    parts.push(`<div class="card compact" style="margin-top:8px"><table class="tbl head" style="margin-top:4px"><tr><th>Kick-off</th><th>Match · market</th><th class="right">Price</th><th class="right">Model</th></tr>
+      ${rows.map(({ f, s }) => `<tr class="tap" data-fx="${esc(f.id)}">
+        <td class="tiny muted nowrap">${esc(koTime(f.kickoff))}</td>
+        <td><div class="b">${esc(s.label || selLabel(s.sel, f.home, f.away))}</div>
+          <div class="tiny muted">${flag(f.country)} ${esc(f.league || f.competition || '')} · ${teamSpan(f.home, f.country, f.div)} v ${teamSpan(f.away, f.country, f.div)}</div></td>
+        <td class="right nowrap"><b>${f2(s.odds)}</b>${s.p_sb != null ? `<div class="tiny muted">${pct(s.p_sb)} implied</div>` : ''}</td>
+        <td class="right nowrap">${pill(s.p, 0.8, 0.7)} ${s.diff_pp != null ? `<div class="tiny ${s.diff_pp > 0 ? 'good' : 'muted'}">${s.diff_pp > 0 ? '+' : ''}${f1(s.diff_pp)} pp</div>` : ''} ${PR.addBtn ? PR.addBtn(f.id, s.sel, s.odds) : ''}</td></tr>`).join('')}</table></div>`);
+    parts.push(`<div class="card tiny muted"><b>What this page is</b> — every selection the bookmaker prices from <b>${f2(LO_ODDS)} to ${f2(HI_ODDS)}</b>, all markets, one day: the short-priced end of the board where a single goal usually decides it. Price = Sportybet's decimal odds; Model = this app's probability; implied = what the price itself says. A price in this band is not a safe bet — it is the market saying "likely", and the model is often less sure than that. Tap any row for the full match page.</div>`);
+    view().innerHTML = parts.join('');
+    $$('[data-lo-day]').forEach((b) => { b.onclick = () => { state.loDay = b.dataset.loDay; PR.render(); }; });
+    const so = $('#lo-sort'); if (so) so.onchange = (e) => { state.loSort = e.target.value; PR.render(); };
+  };
+
   // ------------------------------------------------------------------ DAYS
   PR.views.days = function () {
     const d = state.data; const days = (d.history && d.history.days) || []; const parts = [];

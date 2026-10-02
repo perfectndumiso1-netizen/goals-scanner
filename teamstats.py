@@ -1,5 +1,12 @@
 """Team pages for the app: data/app/teams/<div>.json — league table, per-team season stats, home/away splits,
-goal-market rates and the last 10 results. Built from the same results pool the model uses (football-data.co.uk)."""
+goal-market rates and the last 10 results. Built from the same results pool the model uses (football-data.co.uk).
+
+Data-first rule (same test as `leagues.py::league_like`): a table is only published for competitions that are
+played as a league — teams must face several different opponents. Knockout rounds, two-legged ties, cups and
+friendlies fail that test (in a cup pool a club appears with one or two opponents, and pre-season friendlies
+pool hundreds of clubs from different countries into one "table"), so for them the file still carries the
+per-team season numbers, results and trends, but no `table` — and no `pos` / `teams_in_league`, because a
+rank that does not exist must not be shown. A bracket is not a table."""
 from __future__ import annotations
 
 import json
@@ -25,6 +32,32 @@ def season_start(country: str, now: datetime) -> pd.Timestamp:
         return pd.Timestamp(year=now.year, month=1, day=1)
     year = now.year if now.month >= 7 else now.year - 1
     return pd.Timestamp(year=year, month=7, day=1)
+
+
+_MIN_TEAMS = 4          # a table needs at least this many teams
+_MIN_OPPONENTS = 3      # …and teams must have faced at least this many different opponents
+_LEAGUE_SHARE = 0.5     # …for at least this share of them (the leagues.py rule)
+
+
+def league_like(df: pd.DataFrame, min_teams: int = _MIN_TEAMS, min_opponents: int = _MIN_OPPONENTS,
+                share: float = _LEAGUE_SHARE) -> bool:
+    """True when a results pool is played as a league: teams face several different opponents.
+
+    Knockout rounds, cups, play-offs and friendlies fail it — with one or two opponents per team there is
+    no round-robin to rank, so no table is published for them (the rule `leagues.py` already applies to the
+    Leagues tab, applied here to the team pages so the app never shows a fake "1st of 650").
+    """
+    if df is None or df.empty:
+        return False
+    opp: dict[str, set[str]] = {}
+    for home, away in zip(df["home"], df["away"]):
+        if home == away:                     # defensive: a malformed row is never an opponent
+            continue
+        opp.setdefault(home, set()).add(away)
+        opp.setdefault(away, set()).add(home)
+    if len(opp) < min_teams:
+        return False
+    return sum(1 for o in opp.values() if len(o) >= min_opponents) / len(opp) >= share
 
 
 def _f(x, nd=2):
@@ -175,11 +208,16 @@ def export(results: pd.DataFrame, now: datetime, out_dir: Path, squad_lookup=Non
             a = rec["all"]
             table.append({"team": t, "p": a["p"], "w": a["w"], "d": a["d"], "l": a["l"], "gf": a["gf"], "ga": a["ga"],
                           "gd": a["gf"] - a["ga"], "pts": a["pts"], "form": rec["form"]})
-        table.sort(key=lambda r: (-r["pts"], -r["gd"], -r["gf"], r["team"]))
-        for i, r in enumerate(table, 1):
-            r["pos"] = i
-            records[r["team"]]["pos"] = i
-            records[r["team"]]["teams_in_league"] = len(table)
+        # a table only exists for a league-format competition (cups, play-offs and friendlies keep the
+        # team numbers, results and trends — but no rank): see league_like() above
+        if league_like(season_df):
+            table.sort(key=lambda r: (-r["pts"], -r["gd"], -r["gf"], r["team"]))
+            for i, r in enumerate(table, 1):
+                r["pos"] = i
+                records[r["team"]]["pos"] = i
+                records[r["team"]]["teams_in_league"] = len(table)
+        else:
+            table = []
         data = {"div": div, "country": country, "league": league, "season_from": since.strftime("%Y-%m-%d"),
                 "updated": now.strftime("%Y-%m-%d"), "matches": int(len(season_df)),
                 "avg_goals": _mean(season_df["hg"] + season_df["ag"]),

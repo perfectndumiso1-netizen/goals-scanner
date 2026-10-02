@@ -11,6 +11,8 @@
   function wireBack() { const b = $('#back'); if (b) b.onclick = () => PR.back(); }
   function ensureTeams(div) { if (!PR.teamsCached(div)) PR.loadTeams(div).then(() => PR.render()).catch(() => { state.teams[PR.slug(div)] = { missing: true }; PR.render(); }); }
   const rec = (div, name) => { const t = PR.teamsCached(div); return t && t.teams ? t.teams[name] : null; };
+  /** League position of a team — shown only when the competition actually has a table (see PR.realTable). */
+  const posOf = (div, r) => { if (!r || !r.pos) return null; const t = PR.teamsCached(div); return PR.realTable(t && t.table) ? r.pos : null; };
   const ord = (n) => { const s = ['th', 'st', 'nd', 'rd'], v = n % 100; return s[(v - 20) % 10] || s[v] || s[0]; };
   // index rows keep xg/x12 as arrays, detail files as objects — read both
   const xgH = (f) => Array.isArray(f.xg) ? f.xg[0] : (f.xg || {}).home;
@@ -102,9 +104,9 @@
     const teams = (x && x.teams) || { home: {}, away: {} };
     const sq = (x && x.squad) || {}; const val = (side) => sq[side] && sq[side].value ? `<div class="value-tag">💶 ${fmtValue(sq[side].value)}</div>` : '';
     parts.push(`<div class="card mhead"><div class="teams">
-      <div class="t">${fxBadge(f, 'home').replace('s24', 's56')}${teamLink(f, 'home')}<div class="tiny muted">${th && th.pos ? `${th.pos}${ord(th.pos)} · ${th.all.pts} pts` : 'Home'}</div>${form(teams.home)}${val('home')}</div>
+      <div class="t">${fxBadge(f, 'home').replace('s24', 's56')}${teamLink(f, 'home')}<div class="tiny muted">${posOf(f.div, th) ? `${posOf(f.div, th)}${ord(posOf(f.div, th))} · ${th.all.pts} pts` : 'Home'}</div>${form(teams.home)}${val('home')}</div>
       <div class="mid">${s && s.hg != null ? `<div class="score big">${s.hg} – ${s.ag}</div><div class="minute ${isLive(s) ? 'on' : 'ft'}">${esc(isFT(s) ? 'FT' : s.status)}</div>${s.ht && s.ht[0] != null && s.ht[0] !== '' ? `<div class="tiny muted">HT ${esc(s.ht[0])}–${esc(s.ht[1])}</div>` : ''}` : `<div class="score big muted">${esc(koTime(f.kickoff))}</div><div class="tiny muted">${esc(koShort(f.kickoff).split(' ')[0])} · ${esc(d.meta.tz)}</div>`}</div>
-      <div class="t">${fxBadge(f, 'away').replace('s24', 's56')}${teamLink(f, 'away')}<div class="tiny muted">${ta && ta.pos ? `${ta.pos}${ord(ta.pos)} · ${ta.all.pts} pts` : 'Away'}</div>${form(teams.away)}${val('away')}</div></div>
+      <div class="t">${fxBadge(f, 'away').replace('s24', 's56')}${teamLink(f, 'away')}<div class="tiny muted">${posOf(f.div, ta) ? `${posOf(f.div, ta)}${ord(posOf(f.div, ta))} · ${ta.all.pts} pts` : 'Away'}</div>${form(teams.away)}${val('away')}</div></div>
       <div class="x12"><div class="lbl"><span>${esc(f.home)} ${pct(x12(f, 'H'))}</span><span>Draw ${pct(x12(f, 'D'))}</span><span>${esc(f.away)} ${pct(x12(f, 'A'))}</span></div>
         <div class="tri"><span class="h" style="width:${Math.round((x12(f, 'H') || 0) * 100)}%"></span><span class="d" style="width:${Math.round((x12(f, 'D') || 0) * 100)}%"></span><span class="a" style="width:${Math.round((x12(f, 'A') || 0) * 100)}%"></span></div></div>
       <div class="chips small-chips" style="margin-top:6px;justify-content:center">${qualityChip(f)}${f.data_ok ? '' : '<span class="chip warn">⚠️ low data — never shortlisted</span>'}</div>
@@ -402,7 +404,7 @@
     if (th && ta) {
       const sp = (r) => r.all;
       parts.push(`<div class="card compact"><div class="row"><div class="grow b">This season</div><div class="tiny muted">since ${esc(th.season_from)} · ${sp(th).p || 0} / ${sp(ta).p || 0} matches (${sp(th).evidence || evidenceLabel(sp(th).p)} / ${sp(ta).evidence || evidenceLabel(sp(ta).p)})</div></div>
-        <table class="cmp">${cmpRow('League position', th.pos, ta.pos, (x) => x == null ? '–' : x + ord(x), false)}${cmpRow('Points (played)', sp(th).pts, sp(ta).pts, (x) => x == null ? '–' : x, true)}
+        <table class="cmp">${cmpRow('League position', posOf(f.div, th), posOf(f.div, ta), (x) => x == null ? '–' : x + ord(x), false)}${cmpRow('Points (played)', sp(th).pts, sp(ta).pts, (x) => x == null ? '–' : x, true)}
         ${cmpRow('Points per game', sp(th).ppg, sp(ta).ppg, f2, true)}${cmpRow('Won', sp(th).w, sp(ta).w, (x) => x, true)}${cmpRow('Drawn', sp(th).d, sp(ta).d, (x) => x, true)}${cmpRow('Lost', sp(th).l, sp(ta).l, (x) => x, false)}
         ${cmpRow('Goals for / game', sp(th).gf_avg, sp(ta).gf_avg, f2, true)}${cmpRow('Goals against / game', sp(th).ga_avg, sp(ta).ga_avg, f2, false)}
         ${cmpRow('Corners for / game', th.avg.corners_for, ta.avg.corners_for, f1, true)}${cmpRow('Corners against / game', th.avg.corners_against, ta.avg.corners_against, f1, false)}
@@ -509,7 +511,7 @@
   // ------------------------------------------------------------------ TABLE TAB
   function matchTable(parts, f, th, ta) {
     const tp = teamsCached(f.div);
-    const tbl = tp && tp.table;
+    const tbl = PR.realTable(tp && tp.table);
     if (!tbl || !tbl.length) {
       parts.push(`<div class="card empty">No standings for this competition${(f.competition || '').toLowerCase().includes('cup') || (f.league || '').toLowerCase().includes('cup') ? ' (knockout format — a bracket is not a table)' : ''}.</div>`);
       return;
@@ -630,11 +632,13 @@
     const r = t.teams && t.teams[page.name];
     if (!r) { parts.push(`<div class="card empty">No season data for ${esc(page.name)} yet.</div>`); view().innerHTML = parts.join(''); wireBack(); return; }
     const a = r.all;
-    parts.push(`<div class="card"><div class="thead">${badge(page.name, null, 56)}<div class="grow"><div class="h1">${esc(page.name)}</div><div class="small muted">${flag(page.country)} ${esc(t.league)} · ${r.pos ? `${r.pos}${ord(r.pos)} of ${r.teams_in_league}` : ''} · ${a.pts} pts from ${a.p}</div>${r.squad && r.squad.value ? `<div class="value-tag">💶 Squad value ${fmtValue(r.squad.value)} · avg age ${f1(r.squad.avg_age)} · ${r.squad.size} players</div>` : ''}<div style="margin-top:4px">${formBadges(r.form.split(''))}</div></div></div>
+    parts.push(`<div class="card"><div class="thead">${badge(page.name, null, 56)}<div class="grow"><div class="h1">${esc(page.name)}</div><div class="small muted">${flag(page.country)} ${esc(t.league)} · ${posOf(page.div, r) ? `${posOf(page.div, r)}${ord(posOf(page.div, r))} of ${r.teams_in_league}` : ''} · ${a.pts} pts from ${a.p}</div>${r.squad && r.squad.value ? `<div class="value-tag">💶 Squad value ${fmtValue(r.squad.value)} · avg age ${f1(r.squad.avg_age)} · ${r.squad.size} players</div>` : ''}<div style="margin-top:4px">${formBadges(r.form.split(''))}</div></div></div>
       <div class="grid4" style="margin-top:8px"><div class="cell"><div class="k">Record</div><div class="v">${a.w}-${a.d}-${a.l}</div><div class="tiny muted">W-D-L</div></div><div class="cell"><div class="k">Goals</div><div class="v">${a.gf} : ${a.ga}</div><div class="tiny muted">${f2(a.gf_avg)} / ${f2(a.ga_avg)} per game</div></div><div class="cell"><div class="k">Points / game</div><div class="v">${f2(a.ppg)}</div><div class="tiny muted">streak ${esc(r.streak || '–')}</div></div><div class="cell"><div class="k">Over 2.5</div><div class="v">${pct(a.o25)}</div><div class="tiny muted">BTTS ${pct(a.btts)}</div></div></div></div>`);
-    parts.push(`<div class="card compact">${segmented([['overview', 'Overview'], ['trends', 'Trends'], ['matches', 'Matches'], ['table', 'Table']], v, 'tv')}</div>`);
-    if (v === 'trends') teamTrends(parts, r);
-    else if (v === 'overview') {
+    const tbl = PR.realTable(t.table);      // a cup / friendly pool publishes no table (a bracket is not a table)
+    const tv = (v === 'table' && !tbl) ? 'overview' : v;
+    parts.push(`<div class="card compact">${segmented([['overview', 'Overview'], ['trends', 'Trends'], ['matches', 'Matches'], ...(tbl ? [['table', 'Table']] : [])], tv, 'tv')}</div>`);
+    if (tv === 'trends') teamTrends(parts, r);
+    else if (tv === 'overview') {
       const row = (label, k, fmt) => `<tr><td>${label}</td><td class="right">${(fmt || pct)(r.all[k])}</td><td class="right">${(fmt || pct)(r.home[k])}</td><td class="right">${(fmt || pct)(r.away[k])}</td></tr>`;
       parts.push(`<div class="card compact"><div class="b">Season splits</div><table class="tbl head" style="margin-top:4px"><tr><th></th><th class="right">All</th><th class="right">Home</th><th class="right">Away</th></tr>
         <tr><td>Played</td><td class="right">${r.all.p}</td><td class="right">${r.home.p}</td><td class="right">${r.away.p}</td></tr>
@@ -663,11 +667,13 @@
         <div class="tiny muted" style="margin-top:4px">Season since ${esc(r.season_from)} · sample ${a.p || 0} match${a.p === 1 ? '' : 'es'} (${a.evidence || evidenceLabel(a.p)}; home ${r.home.p || 0}, away ${r.away.p || 0}) · historical frequencies, not model probabilities${advNote} · league average ${f2(t.avg_goals)} goals, O2.5 ${pct(t.o25_rate)}, BTTS ${pct(t.btts_rate)}.</div></div>`);
       const upcoming = state.data.fixtures.filter((f) => f.country === page.country && (f.home === page.name || f.away === page.name));
       if (upcoming.length) parts.push(`<div class="card compact"><div class="b">In this analysis</div>${upcoming.map((f) => PR.matchLine(f, `<div class="nums"><span class="pill ${f.p.O25 >= 0.6 ? 'hi' : ''}">O2.5 ${pct(f.p.O25)}</span></div>`)).join('')}</div>`);
-    } else if (v === 'matches') {
+    } else if (tv === 'matches') {
       parts.push(`<div class="card compact"><div class="b">Last ${r.last.length} matches</div><table class="tbl" style="margin-top:4px">${r.last.map((m) => `<tr class="tap" data-fx="${esc(histId(m.date, page.country, m.venue === 'H' ? page.name : m.opp, m.venue === 'H' ? m.opp : page.name))}"><td class="tiny muted nowrap">${esc(m.date)}</td><td><div class="row" style="gap:6px"><i class="f ${m.r}">${m.r}</i>${badge(m.opp, null, 22)}<a href="#" class="team" data-team="${esc(m.opp)}" data-country="${esc(page.country)}" data-div="${esc(page.div)}">${m.venue === 'H' ? 'v' : '@'} ${esc(m.opp)}</a></div></td><td class="right nowrap"><b>${m.gf} – ${m.ga}</b></td><td class="tiny muted">${esc(m.league || '')}</td></tr>`).join('')}</table></div>`);
+    } else if (!tbl) {
+      parts.push(`<div class="card empty">No standings for this competition.</div>`);
     } else {
       parts.push(`<div class="card compact"><div class="b">${esc(t.league)} table</div><div class="tiny muted">${t.matches} matches since ${esc(t.season_from)}</div><div class="tbl-wrap"><table class="tbl head table" style="margin-top:4px;min-width:560px"><tr><th>#</th><th>Team</th><th class="right">P</th><th class="right">W</th><th class="right">D</th><th class="right">L</th><th class="right">GF</th><th class="right">GA</th><th class="right">GD</th><th class="right">Pts</th></tr>
-        ${t.table.map((x) => `<tr class="${x.team === page.name ? 'hl' : ''}"><td class="muted">${x.pos}</td><td><div class="tname">${badge(x.team, null, 22)}<a href="#" class="team" data-team="${esc(x.team)}" data-country="${esc(page.country)}" data-div="${esc(page.div)}">${esc(x.team)}</a></div></td><td class="right">${x.p}</td><td class="right">${x.w}</td><td class="right">${x.d}</td><td class="right">${x.l}</td><td class="right">${x.gf}</td><td class="right">${x.ga}</td><td class="right">${x.gd > 0 ? '+' : ''}${x.gd}</td><td class="right b">${x.pts}</td></tr>`).join('')}</table></div></div>`);
+        ${tbl.map((x) => `<tr class="${x.team === page.name ? 'hl' : ''}"><td class="muted">${x.pos}</td><td><div class="tname">${badge(x.team, null, 22)}<a href="#" class="team" data-team="${esc(x.team)}" data-country="${esc(page.country)}" data-div="${esc(page.div)}">${esc(x.team)}</a></div></td><td class="right">${x.p}</td><td class="right">${x.w}</td><td class="right">${x.d}</td><td class="right">${x.l}</td><td class="right">${x.gf}</td><td class="right">${x.ga}</td><td class="right">${x.gd > 0 ? '+' : ''}${x.gd}</td><td class="right b">${x.pts}</td></tr>`).join('')}</table></div></div>`);
     }
     view().innerHTML = parts.join('');
     wireBack();

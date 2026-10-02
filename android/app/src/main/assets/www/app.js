@@ -66,10 +66,14 @@
         if (/^\d{4}-\d{2}-\d{2}/.test(k)) {           // fixture id of a future/past day -> its day file
           if (!dayTried) {
             dayTried = true;
-            PR.loadDay(k.slice(0, 10)).then((rec) => {
+            // the tap can arrive while the phone is still connecting: give the day file a few tries
+            const dayFile = (left) => PR.loadDay(k.slice(0, 10)).then((rec) => {
               const g = hit(rec && rec.fixtures);
-              g ? open(g) : toast('Stats for this match are not available yet.');
-            }).catch(() => toast('Stats for this match are not available yet.'));
+              if (g) open(g);
+              else if (left > 1) setTimeout(() => dayFile(left - 1), 1200);
+              else toast('Stats for this match are not available yet.');
+            }).catch(() => { if (left > 1) setTimeout(() => dayFile(left - 1), 1200); else toast('Stats for this match are not available yet.'); });
+            dayFile(3);
           }
           return;
         }
@@ -87,6 +91,17 @@
         else toast('Stats for this match are not available yet.');
       };
       tick();
+    },
+    /** A tennis notification was tapped: key is "tennis|<livescore id>" — switch to the tennis section
+     *  and open that exact match (the match page loads its own detail file, newest first). */
+    openNotifTennis(key) {
+      const k = String(key || '').replace(/^tennis\|/, '');
+      if (!k) return;
+      const go = () => PR.push({ type: 'tennisMatch', id: k });
+      if (PR.tennis && PR.tennis.setSport && settings.sport !== 'tennis') {
+        PR.tennis.setSport('tennis');
+        setTimeout(go, 80);                       // let the sport switch finish before stacking the page
+      } else go();
     },
     onResume() { if (state.data && Date.now() - (state.data._loadedAt || 0) > 5 * 60000) PR.loadData(false); if (state.tab === 'live' || state.tab === 'home') PR.live.refresh(false); updateCheck(); const top = state.stack[state.stack.length - 1]; if (top && top.type === 'settings') PR.render(); },
     onPermission(granted) { toast(granted ? 'Notifications on — new bets, analysis, goals and updates' : 'Notifications are off — you can enable them in Settings'); const top = state.stack[state.stack.length - 1]; if (top && top.type === 'settings') PR.render(); },
