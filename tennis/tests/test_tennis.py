@@ -263,7 +263,8 @@ def test_highlights_respect_thresholds_and_language():
     assert MK.highlights(rows, 85, 12) == []                                      # thin history → no highlight
     assert MK.highlights([dict(rows[0], edge_pp=28.0)], 85, 60) == []             # implausibly large gap → warning, not highlight
     assert MK.highlights([dict(rows[0], low_confidence=True)], 85, 60) == []
-    assert MK.highlights([dict(rows[0], book_odds=1.20)], 85, 60) == []
+    # odds never filter (user decision 2026-10-01): a short price is no reason to hide a disagreement
+    assert MK.highlights([dict(rows[0], book_odds=1.20)], 85, 60)[0]["flag"] == "Model above market"
     game = dict(rows[0], market="total_games", selection="under", line=22.5, edge_pp=7.0, label="Under 22.5 games")
     assert MK.highlights([game], 85, 60) == []                                    # game markets need the larger gap
     assert MK.highlights([dict(game, edge_pp=11.0)], 85, 60)[0]["market"] == "total_games"
@@ -326,11 +327,13 @@ def test_selection_rules_rank_by_probability_not_edge():
     assert sel["preferred"]["market"] == "p1_games" and sel["preferred"]["strong"] is True and sel["preferred"]["kind"] == "strong"
     assert [x["market"] for x in sel["strong"]] == ["p1_games"]                    # 66 % winner is below the 70 % strong bar
     assert isinstance(sel["preferred"]["strong"], bool)
-    # guards: quality, thin history, price, market contradiction, low-confidence game data, implausible gap
+    # guards: quality, thin history, low-confidence game data (price and edge magnitude are not guards)
     assert MK.select(rows, 55, 60)["preferred"] is None and "quality" in MK.select(rows, 55, 60)["why_none"]
     assert MK.select(rows, 90, 20)["preferred"] is None
-    assert MK.select([dict(rows[2], book_odds=1.25)] + rows[:2], 90, 60)["preferred"]["market"] == "winner"
-    assert MK.select([dict(rows[2], implied_fair=0.40, edge_pp=37.0)] + rows[:2], 90, 60)["preferred"]["market"] == "winner"
+    # odds never filter (user decision 2026-10-01): a short price and a wide market gap are both
+    # shown for comparison only — neither can displace the highest-probability pick
+    assert MK.select([dict(rows[2], book_odds=1.25)] + rows[:2], 90, 60)["preferred"]["market"] == "p1_games"
+    assert MK.select([dict(rows[2], implied_fair=0.40, edge_pp=37.0)] + rows[:2], 90, 60)["preferred"]["market"] == "p1_games"
     assert MK.select([dict(rows[2], low_confidence=True)] + rows[:2], 90, 60)["preferred"]["market"] == "winner"
     weak = [_row("winner", "player_a", None, 0.58, 1.70, 0.57, "A to win"), _row("winner", "player_b", None, 0.42, 2.10, 0.43, "B to win")]
     s2 = MK.select(weak, 90, 60)
