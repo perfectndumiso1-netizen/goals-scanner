@@ -192,7 +192,7 @@
         const resRow = (r) => {
           const day = r.ko.slice(0, 10);
           const tap = availDays.has(day) ? ` class="tap" data-lgday="${day}" data-lghome="${esc(r.home)}" data-lgaway="${esc(r.away)}"` : '';
-          return `<tr${tap}><td class="tiny muted nowrap">${esc(koTime(r.ko))}</td><td><div class="res-line">${badge(r.home, null, 20)}<span class="tm ${r.hg > r.ag ? 'won' : ''}">${esc(r.home)}</span><span class="sc">${r.hg} – ${r.ag}</span><span class="tm ${r.ag > r.hg ? 'won' : ''}">${esc(r.away)}</span>${badge(r.away, null, 20)}</div>${r.hth != null ? `<div class="tiny muted">HT ${r.hth}–${r.hta}</div>` : ''}</td></tr>`;
+          return `<tr${tap}><td class="tiny muted nowrap">${esc(koTime(r.ko))}</td><td><div class="res-line">${badge(r.home, null, 20)}<span class="tm ${r.hg > r.ag ? 'won' : ''} tap" data-lgteam="${esc(r.home)}" data-country="${esc(d.country || '')}" data-div="${esc(d.teams_div || '')}">${esc(r.home)}</span><span class="sc">${r.hg} – ${r.ag}</span><span class="tm ${r.ag > r.hg ? 'won' : ''} tap" data-lgteam="${esc(r.away)}" data-country="${esc(d.country || '')}" data-div="${esc(d.teams_div || '')}">${esc(r.away)}</span>${badge(r.away, null, 20)}</div>${r.hth != null ? `<div class="tiny muted">HT ${r.hth}–${r.hta}</div>` : ''}</td></tr>`;
         };
         const days = Object.keys(byDay).sort((a, b) => b.localeCompare(a));
         parts.push(`<div class="card tiny muted" style="margin-top:-6px">Tap a match for the Match Center or that day's full archive${oldest ? ` (day archive from ${esc(dayName(oldest))})` : ''} — earlier results show the score here.</div>`);
@@ -205,7 +205,7 @@
         d.fixtures.forEach((f, i) => { const day = f.ko.slice(0, 10); (byDay[day] = byDay[day] || []).push([f, i]); });
         const days = Object.keys(byDay).sort((a, b) => a.localeCompare(b));
         parts.push(`<div class="card tiny muted" style="margin-top:-6px">Tap a fixture to open its Match Center once it enters the 24-hour analysis window.</div>`);
-        parts.push(`<div class="card compact">${days.map((day) => `<div class="comp-head">${esc(dayName(day))}</div><table class="tbl" style="margin-top:2px">${byDay[day].map(([f, i]) => `<tr class="tap" data-lgfx="${i}"><td class="tiny muted nowrap">${esc(koTime(f.ko))}</td><td><div class="res-line">${badge(f.home, null, 20)}<span class="tm">${esc(f.home)}</span><span class="sc muted">v</span><span class="tm">${esc(f.away)}</span>${badge(f.away, null, 20)}</div></td></tr>`).join('')}</table>`).join('')}</div>`);
+        parts.push(`<div class="card compact">${days.map((day) => `<div class="comp-head">${esc(dayName(day))}</div><table class="tbl" style="margin-top:2px">${byDay[day].map(([f, i]) => `<tr class="tap" data-lgfx="${i}"><td class="tiny muted nowrap">${esc(koTime(f.ko))}</td><td><div class="res-line">${badge(f.home, null, 20)}<span class="tm tap" data-lgteam="${esc(f.home)}" data-country="${esc(d.country || '')}" data-div="${esc(d.teams_div || '')}">${esc(f.home)}</span><span class="sc muted">v</span><span class="tm tap" data-lgteam="${esc(f.away)}" data-country="${esc(d.country || '')}" data-div="${esc(d.teams_div || '')}">${esc(f.away)}</span>${badge(f.away, null, 20)}</div></td></tr>`).join('')}</table>`).join('')}</div>`);
       }
     }
     parts.push(`<div class="tiny muted" style="margin:10px 4px 18px">Source: public live-score archive (all competitions it publishes). ${d.played} matches on record${d.table && d.table.length ? ' · knockout rounds have no table' : ''}.</div>`);
@@ -215,7 +215,7 @@
     const r = $('#lg-retry'); if (r) r.onclick = () => { delete LG.det[page.slug]; ensureDetail(page.slug); };
     if (seg === 'news' && PR.wireNewsLinks) PR.wireNewsLinks();
     const tsel = $('#lg-tsort'); if (tsel) tsel.onchange = (e) => { state.lgTableSort = e.target.value; PR.render(); };
-    $$('[data-lgteam]').forEach((el) => { el.onclick = () => PR.openTeam(el.dataset.lgteam, el.dataset.country, el.dataset.div); });
+    $$('[data-lgteam]').forEach((el) => { el.onclick = (e) => { e.stopPropagation(); PR.openTeam(el.dataset.lgteam, el.dataset.country, el.dataset.div); }; });
     $$('[data-lgday]').forEach((el) => {
       el.onclick = () => {
         const day = el.dataset.lgday;

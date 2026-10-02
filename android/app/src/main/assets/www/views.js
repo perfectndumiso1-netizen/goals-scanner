@@ -2,7 +2,7 @@
 (function (PR) {
   'use strict';
   const { $, $$, esc, pct, f1, f2, signed, state, settings, fx, pill, koShort, koTime, dayName, toast, selLabel, selShort, selGroup,
-    GROUPS, GROUP_ICON, liveVerdict, isLive, isFT, segmented, select, contactCard, matchRow, tzNow, parseLocal, ymd, icon, flag, badge, fxBadge } = PR;
+    GROUPS, GROUP_ICON, liveVerdict, isLive, isFT, segmented, select, contactCard, matchRow, tzNow, parseLocal, ymd, icon, flag, badge, fxBadge, teamSpan } = PR;
   const sh = (ico, title, cls) => `<h2><span class="ico ${cls || ''}">${icon(ico)}</span>${title}</h2>`;
   const view = () => $('#view');
   const MK = { O15: 'Over 1.5 goals', O25: 'Over 2.5 goals', BTTS: 'Both teams to score' };
@@ -127,13 +127,13 @@
     opts = opts || {}; const f = fx(b.fixture); const st = betStatus(b);
     const tap = `class="tap" data-fx="${esc(b.fixture)}"`;
     return `<tr ${tap}><td class="tiny muted nowrap">${esc(opts.time ? koTime(b.kickoff) : koShort(b.kickoff))}</td>
-      <td><div class="row" style="gap:6px">${badge(b.home, b.badges && b.badges.home, 20)}${badge(b.away, b.badges && b.badges.away, 20)}<div class="b grow">${esc(b.home)} <span class="muted">v</span> ${esc(b.away)}</div></div>
+      <td><div class="row" style="gap:6px">${badge(b.home, b.badges && b.badges.home, 20)}${badge(b.away, b.badges && b.badges.away, 20)}<div class="b grow">${teamSpan(b.home, b.country, (f && f.div) || '')} <span class="muted">v</span> ${teamSpan(b.away, b.country, (f && f.div) || '')}</div></div>
       <div class="sel"><b>${esc(b.label)}</b></div><div class="tiny muted">${flag(b.country)} ${esc(b.league)}${b.q ? ` · <span class="${b.q === 'High' ? 'pos' : b.q === 'Low' ? 'warn' : ''}">data ${esc(b.q)}</span>` : ''}${b.p_sb != null ? ` · market ${pct(b.p_sb)}` : ''}${st.text !== 'not started' ? ` · <span class="${st.cls}">${esc(st.text)}</span>` : ''}</div></td>
       <td class="right nowrap"><b>${f2(b.odds)}</b>${b.odds ? '<div class="tiny muted">Sportybet</div>' : ''}</td><td class="right"><div class="row" style="gap:0;justify-content:flex-end">${pill(b.p, 0.8, 0.7)}${PR.addBtn ? PR.addBtn(b.fixture, b.sel, b.odds) : ''}</div></td></tr>`;
   }
   function selRow(f, s) {
     return `<tr class="tap" data-fx="${esc(f.id)}"><td class="tiny muted nowrap">${esc(koShort(f.kickoff))}</td>
-      <td><div class="match">${esc(f.home)} <span class="muted">v</span> ${esc(f.away)}</div><div class="sel"><b>${esc(selLabel(s.sel, f.home, f.away))}</b></div><div class="tiny muted">${flag(f.country)} ${esc(f.competition)}${s.diff ? ' · <span class="warn">views differ</span>' : ''}</div></td>
+      <td><div class="match">${teamSpan(f.home, f.country, f.div)} <span class="muted">v</span> ${teamSpan(f.away, f.country, f.div)}</div><div class="sel"><b>${esc(selLabel(s.sel, f.home, f.away))}</b></div><div class="tiny muted">${flag(f.country)} ${esc(f.competition)}${s.diff ? ' · <span class="warn">views differ</span>' : ''}</div></td>
       <td class="right nowrap">${s.odds ? `<b>${f2(s.odds)}</b>` : '<span class="muted">–</span>'}</td><td class="right"><div class="row" style="gap:0;justify-content:flex-end">${pill(s.p, 0.8, 0.7)}${PR.addBtn ? PR.addBtn(f.id, s.sel, s.odds) : ''}</div>${s.ev != null ? `<div class="tiny good" style="text-align:right">edge +${Math.round(s.ev * 100)}%</div>` : ''}</td></tr>`;
   }
   function botdCard(compact) {
@@ -161,9 +161,9 @@
     return `<article class="signal tap${opts.bare ? ' bare' : ''}" data-fx="${esc(b.fixture)}">
       ${top}
       <div class="teams">
-        <div class="team">${badge(b.home, f && f.badges && f.badges.home, 40)}<div class="team-name">${esc(b.home)}</div></div>
+        <div class="team">${badge(b.home, f && f.badges && f.badges.home, 40)}<div class="team-name">${teamSpan(b.home, b.country, (f && f.div) || '')}</div></div>
         <div class="vs">${mid}</div>
-        <div class="team">${badge(b.away, f && f.badges && f.badges.away, 40)}<div class="team-name">${esc(b.away)}</div></div>
+        <div class="team">${badge(b.away, f && f.badges && f.badges.away, 40)}<div class="team-name">${teamSpan(b.away, b.country, (f && f.div) || '')}</div></div>
       </div>
       <div class="model-grid">
         <div class="model-box"><label>Home</label><strong>${pct(p.H || 0)}</strong><div class="progress"><i style="width:${Math.round((p.H || 0) * 100)}%"></i></div></div>
@@ -229,7 +229,6 @@
       parts.push(`<div class="card whatsnew"><div class="row"><div class="grow"><b>${icon('sparkle', 'sm')} New in PlayReport ${esc(PR.APP_VERSION)}</b></div><button class="link" id="wn-close">${icon('x')}</button></div>
         <ul><li>📅 <b>60 days of fixtures, every league</b> — the scanner now analyses matches up to 60 days ahead worldwide, so form, statistics and context are gathered early and every match is analysed long before kick-off. League fixture lists span the whole window.</li><li>🎫 <b>Your tickets meet Sportybet</b> — the <b>SB</b> link on any priced match, slip leg or ticket leg opens that match in Sportybet (live odds &amp; slip), and tickets copy to the clipboard in one tap.</li><li>🧾 <b>Booking codes</b> — paste a Sportybet booking code on the slip screen and PlayReport loads it in Sportybet for you.</li><li>🎯 <b>Bets of the day are Sportybet markets</b> — every pick is a market Sportybet prices, labelled with its price.</li><li>⚖️ <b>Odds never filter</b> — minimum-odds floors and market-contradiction hold-backs are gone: model probability, data quality and form decide what appears; prices and EV stay on display.</li><li>🧊 Model untouched — same input, same numbers.</li></ul></div>`);
     }
-    if (PR.ticketsCard && PR.tickets().some((t) => t.status === 'pending')) parts.push(PR.ticketsCard(true));
     const favs = (PR.favList ? PR.favList() : []).map((x) => fx(x.fixture)).filter(Boolean).sort((a, b) => a.kickoff.localeCompare(b.kickoff));
     if (favs.length) parts.push(`<div class="section-head"><h2><span class="ico amber">${icon('star')}</span>Your matches</h2><button class="link" data-tab-go="matches" data-mf-go="fav">All ${favs.length} ${icon('next')}</button></div><div class="card compact">${favs.slice(0, 5).map((f) => { const s = live.for(f); return matchRow(f, { live: s, sub: `${flag(f.country)} ${esc(f.competition)}${f.safe ? ` · 📈 <b>${esc(selShort(f.safe[0]))}</b> ${pct(f.safe[1])}` : ''}`, right: s && s.hg != null ? '' : `<span class="pill ${f.p.O25 >= 0.6 ? 'hi' : ''}">O2.5 ${pct(f.p.O25)}</span>` }); }).join('')}</div>`);
     const pk = d.picks || {};
@@ -238,6 +237,7 @@
     const now = tzNow(); const upcoming = d.fixtures.filter((f) => inScope(f) && f.data_ok && f.priced && parseLocal(f.kickoff) > now - 2 * 3600000).sort((a, b) => a.kickoff.localeCompare(b.kickoff)).slice(0, 6);
     parts.push(`<div class="section-head">${sh('calendar', 'Next kick-offs')}<button class="link" data-tab-go="matches">All matches ${icon('next')}</button></div><div class="card compact">${upcoming.map((f) => { const s = live.for(f); const best = f.top;
       return matchRow(f, { live: s, sub: `${flag(f.country)} ${esc(f.competition)}${best ? ` · <b>${esc(selShort(best[0]))}</b> ${pct(best[1])} @ ${f2(best[2])}` : ''}`, right: s && s.hg != null ? '' : `<span class="pill ${f.p.O25 >= 0.6 ? 'hi' : ''}">O2.5 ${pct(f.p.O25)}</span><span class="tiny muted">BTTS ${pct(f.p.BTTS)}</span>` }); }).join('') || '<div class="empty small">No upcoming matches in the window.</div>'}</div>`);
+    if (PR.ticketsCard && PR.tickets().some((t) => t.status === 'pending')) parts.push(PR.ticketsCard(true));
     parts.push(PR.editorCard(true));
     parts.push(contactCard(true));
     view().innerHTML = parts.join('');

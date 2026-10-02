@@ -117,12 +117,16 @@ window.PR = (function () {
   }
   const fxBadge = (f, side) => badge(f[side], f.badges && f.badges[side]);
   /** Sofascore-style match row: kick-off / status column, two team lines with badges and score, optional right block */
+  /** team name wrapped in a tappable link to that team's stats page (AiScore-style) */
+  function teamSpan(name, country, div) {
+    return `<span class="tmn" data-team="${esc(name)}" data-country="${esc(country || '')}" data-div="${esc(div || '')}">${esc(name)}</span>`;
+  }
   function matchRow(m, opts) {
     opts = opts || {}; const s = opts.live; const sc = s && s.hg != null ? s : (m.score && m.score.hg != null ? m.score : null);
     const status = sc ? (sc.status || '') : ''; const liveNow = sc && isLive(sc); const ft = sc && isFT(sc);
     const left = sc ? `<div class="minute ${liveNow ? 'on' : 'ft'}">${esc(liveNow ? status : ft ? 'FT' : status)}</div>${ft || liveNow ? '' : ''}` : `<div class="ko">${esc(opts.short ? koTime(m.kickoff) : koShort(m.kickoff)).replace(' ', '<br>')}</div>`;
     const hw = sc && sc.hg > sc.ag, aw = sc && sc.ag > sc.hg;
-    const tm = (side, won) => `<div class="tm ${won ? 'won' : ''}">${badge(m[side], m.badges && m.badges[side], 22)}<span class="nm">${esc(opts.long ? (m[side + '_long'] || m[side]) : m[side])}</span>${sc ? `<span class="sc">${side === 'home' ? sc.hg : sc.ag}</span>` : ''}</div>`;
+    const tm = (side, won) => `<div class="tm ${won ? 'won' : ''}">${badge(m[side], m.badges && m.badges[side], 22)}<span class="nm" data-team="${esc(m[side])}" data-country="${esc(m.country || '')}" data-div="${esc(m.div || '')}">${esc(opts.long ? (m[side + '_long'] || m[side]) : m[side])}</span>${sc ? `<span class="sc">${side === 'home' ? sc.hg : sc.ag}</span>` : ''}</div>`;
     return `<div class="mrow ${opts.tap === false ? '' : 'tap'} ${liveNow ? 'is-live' : ''}" data-fx="${esc(m.id)}"><div class="mrow-l">${left}</div>
       <div class="mrow-m">${tm('home', hw)}${tm('away', aw)}${opts.sub != null ? `<div class="sub">${opts.sub}</div>` : `<div class="sub">${flag(m.country)} ${esc(m.competition || m.league || '')}</div>`}</div>
       ${opts.right ? `<div class="mrow-r">${opts.right}</div>` : ''}</div>`;
@@ -527,7 +531,7 @@ window.PR = (function () {
     dayName, niceDate, koTime, koShort, toast, pill, bar, wdl, formBadges, md, GROUPS, GROUP_ICON, selGroup, selLabel, selShort, settleSel,
     liveVerdict, isLive, isFT, indexData, fx, loadDetail, detailCached, detailKey, loadData, statusLine, loadDay, dayRecord, finalFor, storedIncidents, loadTeams, teamsCached, loadTeamIndex, slug, TABS, render, setTab, push, replace,
     sbEventUrl, sbShareUrl, openSportybet, openBookingCode, openExternal, copyText,
-    back, openMatch, openTeam, toggleMenu, closeMenu, contactCard, editorCard, teamLink, matchLine, matchRow, segmented, select, scoreBox, statusIcon, CONTACT, APP_VERSION,
+    back, openMatch, openTeam, toggleMenu, closeMenu, contactCard, editorCard, teamLink, teamSpan, matchLine, matchRow, segmented, select, scoreBox, statusIcon, CONTACT, APP_VERSION,
     confirmBox, isFav, toggleFav, favList: () => favs, saveFavs,
     icon, flag, badge, fxBadge, skeleton, ring, applyTheme, loadBadges, BADGE_BASE,
     views: {}, pages: {}, live: {} };

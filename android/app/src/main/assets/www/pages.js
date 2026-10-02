@@ -2,7 +2,7 @@
 (function (PR) {
   'use strict';
   const { $, $$, esc, pct, f1, f2, signed, state, settings, fx, pill, koShort, koTime, dayName, niceDate, toast, selLabel, selGroup,
-    GROUPS, liveVerdict, isLive, isFT, segmented, select, contactCard, teamLink, statusIcon, formBadges, wdl, md, icon, flag, badge, fxBadge, matchRow, ring, skeleton, parseLocal, tzNow, ymd, teamsCached } = PR;
+    GROUPS, liveVerdict, isLive, isFT, segmented, select, contactCard, teamLink, teamSpan, statusIcon, formBadges, wdl, md, icon, flag, badge, fxBadge, matchRow, ring, skeleton, parseLocal, tzNow, ymd, teamsCached } = PR;
   const GICON = { result: 'shield', dc: 'swap', goals: 'ball', btts: 'swap', team: 'target', corners: 'corner', cards: 'card' };
   const view = () => $('#view');
   const live = PR.live;
@@ -56,7 +56,7 @@
     const lu = (j.Lu || []); if (!lu.length) return `<div class="card empty">Line-ups not published yet — check back closer to kick-off.</div>`;
     const team = (t, name, side) => { const ps = (t.Ps || []); const xi = ps.filter((p) => p.Pos >= 1 && p.Pos <= 4).sort((a, b) => a.Pos - b.Pos || (a.Fp || '').localeCompare(b.Fp || '')); const subs = ps.filter((p) => p.Pos === 5); const coach = ps.find((p) => p.Pos === 10);
       const pl = (p) => `<div class="pl"><span class="no">${p.Snu != null ? p.Snu : ''}</span><span class="grow">${esc(p.Snm || [p.Fn, p.Ln].filter(Boolean).join(' '))}</span>${p.Mo != null ? `<span class="pos">${p.Pos === 5 ? '▲' : '▼'} ${p.Mo}'</span>` : `<span class="pos">${esc((p.Pon || '').slice(0, 3).toUpperCase())}</span>`}</div>`;
-      return `<div><div class="b row" style="gap:6px">${fxBadge(f, side).replace('s24', 's20')}${esc(name)}</div>${t.Fo ? `<div class="tiny muted">${t.Fo.join('-')}</div>` : ''}<h4>Starting XI</h4>${xi.map(pl).join('')}${subs.length ? `<h4>Substitutes</h4>${subs.map(pl).join('')}` : ''}${coach ? `<h4>Coach</h4><div class="pl"><span class="no"></span><span>${esc(coach.Snm || [coach.Fn, coach.Ln].filter(Boolean).join(' '))}</span></div>` : ''}</div>`; };
+      return `<div><div class="b row" style="gap:6px">${fxBadge(f, side).replace('s24', 's20')}${teamSpan(name, f.country, f.div)}</div>${t.Fo ? `<div class="tiny muted">${t.Fo.join('-')}</div>` : ''}<h4>Starting XI</h4>${xi.map(pl).join('')}${subs.length ? `<h4>Substitutes</h4>${subs.map(pl).join('')}` : ''}${coach ? `<h4>Coach</h4><div class="pl"><span class="no"></span><span>${esc(coach.Snm || [coach.Fn, coach.Ln].filter(Boolean).join(' '))}</span></div>` : ''}</div>`; };
     const h = lu.find((t) => t.Tnb === 1) || lu[0], a = lu.find((t) => t.Tnb === 2) || lu[1];
     return `<div class="card"><div class="lineup">${h ? team(h, f.home, 'home') : ''}${a ? team(a, f.away, 'away') : ''}</div><div class="tiny muted" style="margin-top:8px">Source: public live feed. ▼ substituted off · ▲ came on.</div></div>`;
   }
@@ -341,7 +341,7 @@
       const comps = Object.entries(c.competitions || {}).map(([k, v]) => `${esc(k)} ${v}`).join(', ');
       const srow = (name, st) => st ? `<tr><td class="nowrap">${name}<div class="tiny muted">${st.n} · ${esc(st.label)}</div></td><td class="right">${f2(st.gf)} / ${f2(st.ga)}</td><td class="right">${st.o15}/${st.n}</td><td class="right">${st.o25}/${st.n}</td><td class="right">${st.btts}/${st.n}</td><td class="right">${st.cs}/${st.n}</td><td class="right tiny">${st.sot_for == null ? '<span class="muted">N/A</span>' : `${f1(st.sot_for)} / ${f1(st.sot_against)}`}</td><td class="right tiny">${st.corners_for == null ? '<span class="muted">N/A</span>' : `${f1(st.corners_for)} / ${f1(st.corners_against)}`}</td></tr>` : `<tr><td class="nowrap">${name}<div class="tiny muted">0 · No data</div></td><td colspan="7" class="muted tiny">N/A</td></tr>`;
       const ms = expandMatches(e.matches);
-      parts.push(`<div class="card compact"><div class="row"><div class="grow b row" style="gap:6px">${fxBadge(f, side)}${esc(f[side])}</div>${evChip(c.n)}</div>
+      parts.push(`<div class="card compact"><div class="row"><div class="grow b row" style="gap:6px">${fxBadge(f, side)}${teamSpan(f[side], f.country, f.div)}</div>${evChip(c.n)}</div>
         <div class="tiny muted" style="margin-top:4px">Sample: ${esc(c.first_date || '')} → ${esc(c.last_date || '')}, last match ${na(c.days_since_last)} days ago · current season ${c.current_season || 0}, previous ${c.previous_season || 0} · home ${c.home || 0}, away ${c.away || 0} · ${comps}${c.mixed_competitions ? ' · <b>mixed competitions</b>' : ''}${c.friendlies_included ? ` · <b>${c.friendlies_included} friendlies included</b>` : ''}${c.friendlies_excluded ? ` · ${c.friendlies_excluded} friendlies excluded` : ''}<br>Fields present: xG ${c.with_xg || 0}, shots on target ${c.with_shots || 0}, corners ${c.with_corners || 0}, cards ${c.with_cards || 0} of ${c.n || 0} matches</div>
         <div class="small" style="margin-top:6px"><b>Recent form v baseline</b> (historical, informational): last 5 ${rc.last5 ? `${f2(rc.last5.gf)} scored / ${f2(rc.last5.ga)} conceded` : 'N/A'} · last 10 ${rc.last10 ? `${f2(rc.last10.gf)} / ${f2(rc.last10.ga)}` : 'N/A'} · weighted baseline ${na(rc.baseline_gf, f2)} / ${na(rc.baseline_ga, f2)}<br>Recent attack: <b>${esc(rc.attack || 'N/A (fewer than 5 matches)')}</b> · recent defence: <b>${esc(rc.defence || 'N/A')}</b></div>
         <div style="overflow-x:auto;margin-top:6px"><table class="tbl head" style="min-width:100%"><tr><th>Split</th><th class="right">GF / GA</th><th class="right">O1.5</th><th class="right">O2.5</th><th class="right">BTTS</th><th class="right">CS</th><th class="right">SOT f/a</th><th class="right">Corn f/a</th></tr>
@@ -430,10 +430,10 @@
     const hm = f.h2h_meta;
     // AiScore-style form strips first: last five results of each team (W/D/L, tap-free, colour-coded)
     const th = f.teams.home || {}, ta = f.teams.away || {};
-    const strip = (name, list) => `<div class="row" style="gap:4px;align-items:center;margin-top:4px"><span class="grow tiny" style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(name)}</span>${(list || []).slice(0, 5).map((m) => `<span class="fcol"><span class="chip ${m.gf > m.ga ? 'good' : m.gf < m.ga ? 'bad' : ''}" title="${esc((m.venue === 'H' ? 'v ' : '@ ') + m.opp + ' ' + m.gf + '–' + m.ga + (m.opp_s ? ' · ' + m.opp_s + ' opponent' : ''))}">${wdl(m.gf, m.ga)}</span>${m.opp_s ? `<span class="fstr ${m.opp_s}" title="${m.opp_s === 'strong' ? 'Strong opponent' : m.opp_s === 'weak' ? 'Weak opponent' : 'Average opponent'}">${m.opp_s === 'strong' ? '▲' : m.opp_s === 'weak' ? '▼' : '–'}</span>` : ''}</span>`).join('') || '<span class="tiny muted">no recent matches</span>'}</div>`;
+    const strip = (name, list, side) => `<div class="row" style="gap:4px;align-items:center;margin-top:4px"><span class="grow tiny" style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" data-team="${esc(f[side] || name)}" data-country="${esc(f.country)}" data-div="${esc(f.div)}">${esc(name)}</span>${(list || []).slice(0, 5).map((m) => `<span class="fcol"><span class="chip ${m.gf > m.ga ? 'good' : m.gf < m.ga ? 'bad' : ''}" title="${esc((m.venue === 'H' ? 'v ' : '@ ') + m.opp + ' ' + m.gf + '–' + m.ga + (m.opp_s ? ' · ' + m.opp_s + ' opponent' : ''))}">${wdl(m.gf, m.ga)}</span>${m.opp_s ? `<span class="fstr ${m.opp_s}" title="${m.opp_s === 'strong' ? 'Strong opponent' : m.opp_s === 'weak' ? 'Weak opponent' : 'Average opponent'}">${m.opp_s === 'strong' ? '▲' : m.opp_s === 'weak' ? '▼' : '–'}</span>` : ''}</span>`).join('') || '<span class="tiny muted">no recent matches</span>'}</div>`;
     if ((th.last5 || []).length || (ta.last5 || []).length) {
       const anyS = (th.last5 || []).concat(ta.last5 || []).some((m) => m.opp_s);
-      parts.push(`<div class="card compact"><div class="b">Recent form</div>${strip(f.home_long || f.home, th.last5)}${strip(f.away_long || f.away, ta.last5)}${anyS ? `<div class="tiny muted" style="margin-top:6px">▲ strong opponent · – average · ▼ weak opponent — the opponent's level relative to its own league</div>` : ''}</div>`);
+      parts.push(`<div class="card compact"><div class="b">Recent form</div>${strip(f.home_long || f.home, th.last5, 'home')}${strip(f.away_long || f.away, ta.last5, 'away')}${anyS ? `<div class="tiny muted" style="margin-top:6px">▲ strong opponent · – average · ▼ weak opponent — the opponent's level relative to its own league</div>` : ''}</div>`);
     }
     // recent goals: average scored / conceded over the last 5 and 10, with the home/away split (user ask 2026-10-01)
     const avgWin = (ms) => (ms && ms.length) ? { n: ms.length,
@@ -456,7 +456,7 @@
     };
     const avH = recAvg(f.home), avA = recAvg(f.away);
     if (avH || avA) {
-      const line = (nm, side, av) => av ? `<div class="row" style="gap:6px;flex-wrap:wrap;margin-top:4px">${fxBadge(f, side)}<span class="b">${esc(nm)}</span>${chipsOf(av)}</div>` : '';
+      const line = (nm, side, av) => av ? `<div class="row" style="gap:6px;flex-wrap:wrap;margin-top:4px">${fxBadge(f, side)}<span class="b" data-team="${esc(f[side] || nm)}" data-country="${esc(f.country)}" data-div="${esc(f.div)}">${esc(nm)}</span>${chipsOf(av)}</div>` : '';
       parts.push(`<div class="card compact"><div class="row"><div class="grow b">Recent goals — averages per match</div><span class="tiny muted">scored / conceded</span></div>
         ${line(f.home_long || f.home, 'home', avH)}${line(f.away_long || f.away, 'away', avA)}
         <div class="tiny muted" style="margin-top:6px">From each club's matches on record (up to 10, all competitions); the home/away split is over the last 10. Averages of what happened — not probabilities.</div></div>`);
@@ -800,8 +800,8 @@
     // the only selection rule that involves odds: model AND market both under 1.15 = worthless (matches are never dropped)
     const worth = (s) => !(s.odds && s.odds < 1.15 && s.p_model != null && s.p_model > 0 && 1 / s.p_model < 1.15);
     const okP = (s) => s && s.p != null && s.p > 0 && s.p < 1 && worth(s);
-    const meta = (f) => `<div class="tiny muted">${flag(f.country)} ${esc(f.league || f.competition || '')} · ${esc(f.home)} v ${esc(f.away)}</div>`;
-    const selRow = (f, s) => `<tr><td class="tiny muted nowrap">${esc(koTime(f.kickoff))}</td><td><div class="b">${esc(s.label || selLabel(s.sel, f.home, f.away))}</div>${meta(f)}</td>
+    const meta = (f) => `<div class="tiny muted">${flag(f.country)} ${esc(f.league || f.competition || '')} · ${teamSpan(f.home, f.country, f.div)} v ${teamSpan(f.away, f.country, f.div)}</div>`;
+    const selRow = (f, s) => `<tr class="tap" data-fx="${esc(f.id)}"><td class="tiny muted nowrap">${esc(koTime(f.kickoff))}</td><td><div class="b">${esc(s.label || selLabel(s.sel, f.home, f.away))}</div>${meta(f)}</td>
       <td class="right tiny">${s.p_sb != null ? pct(s.p_sb) : '<span class="muted">–</span>'}${s.diff_pp != null ? `<div class="${s.diff_pp > 0 ? 'good' : ''}">${s.diff_pp > 0 ? '+' : ''}${f1(s.diff_pp)} pp</div>` : ''}</td>
       <td class="right nowrap">${pill(s.p, 0.8, 0.7)} ${s.odds ? `<span class="tiny muted">${f2(s.odds)}</span>` : ''} ${PR.addBtn ? PR.addBtn(f.id, s.sel, s.odds || null) : ''}</td></tr>`;
     const tableOf = (rows) => `<table class="tbl head" style="margin-top:4px"><tr><th>Kick-off</th><th>Match · selection</th><th class="right">Market</th><th class="right">Model</th></tr>${rows.map((r) => selRow(r.f, r.s)).join('')}</table>`;

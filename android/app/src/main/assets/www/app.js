@@ -50,7 +50,8 @@
   window.app = {
     refresh() { PR.loadData(true).then(() => { if (state.tab === 'live' || state.tab === 'home') PR.live.refresh(true); }); },
     back: () => PR.back(),
-    setTab: (t) => PR.setTab(t),
+    // "safest" is the signals destination (Scan → High prob.) — used by signal notifications
+    setTab: (t) => { if (t === 'safest') { state.betsView = 'safest'; PR.setTab('bets'); } else PR.setTab(t); },
     /** A match notification was tapped: key is "match|<fixture id or livescore id>" — open that match directly. */
     openNotifMatch(key) {
       const k = String(key || '').replace(/^match\|/, '');

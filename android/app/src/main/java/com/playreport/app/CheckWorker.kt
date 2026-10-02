@@ -74,15 +74,11 @@ class CheckWorker(ctx: Context, params: WorkerParameters) : Worker(ctx, params) 
         val items = fresh.mapNotNull { byId[it] }
         if (items.isEmpty()) return
         if (items.size <= 4) {
-            for (a in items) {
-                val fxid = a.optString("fixture")
-                Notifier.notify(ctx, Notifier.CH_BETS, 2000 + (a.optString("id").hashCode() and 0xffff),
-                    a.optString("title", "New high-probability selection"), a.optString("text"),
-                    if (fxid.isNotEmpty()) "match|$fxid" else "bets")
-            }
+            for (a in items) Notifier.notify(ctx, Notifier.CH_BETS, 2000 + (a.optString("id").hashCode() and 0xffff),
+                a.optString("title", "New high-probability selection"), a.optString("text"), "safest")
         } else {
             val body = items.take(6).joinToString("\n") { "• " + it.optString("text") } + if (items.size > 6) "\n…and ${items.size - 6} more" else ""
-            Notifier.notify(ctx, Notifier.CH_BETS, 2001, "${items.size} new high-probability selections", body, "bets")
+            Notifier.notify(ctx, Notifier.CH_BETS, 2001, "${items.size} new high-probability selections", body, "safest")
         }
     }
 

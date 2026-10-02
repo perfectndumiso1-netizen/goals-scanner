@@ -1,3 +1,12 @@
+## What's new in PlayReport 1.6.36 — 👆 Everything taps · signals land on signals · football first
+- 👆 **Nothing is unclickable anymore** — every match and every team, wherever it appears, now opens:
+  - **All-markets rows**: tap any selection (Over 1.5, corners, bookings, BTTS…) → that fixture's Match Center, exactly like AiScore.
+  - **Team names everywhere** → the club's stats page: match lists, Today's signals, High-probability boards, Bets of the day, ticket legs, league fixtures & results tables, head-to-head averages, form strips, line-ups and evidence cards. Tap the team name for the team page; tap anywhere else on the row for the match.
+- 🔔 **Signal notifications land on the signals** — a "new high-probability selection" notification now opens the signals list itself (Scan → High probability) instead of a random tab. Kick-off, goal, half-time and full-time alerts still jump straight into that match.
+- ⚽ **Football first on Home** — the Home page is football end to end (signals, best of today, your matches, next kick-offs); the tickets card, which can carry tennis legs, now sits below the football sections instead of above them.
+- 🎨 **Feel** — tappable team names carry the pointer cursor; tap targets behave like the big score apps: row → match, name → team.
+- 🧊 **Model untouched** — probabilities, thresholds, selections and grading exactly as before; navigation and presentation only.
+
 ## What's new in PlayReport 1.6.35 — 🗂️ All markets done right · 🔔 straight to the match
 - 🗂️ **All six groups, always** — the All-markets page renders every group every time, in your order: **1X2 · Bookings · Corners · BTTS · Over 2.5 · Over 1.5**. A group where nothing qualifies now shows as its own **empty group card** ("…the group stays in place") instead of disappearing, so the page never reshuffles around gaps. Each header carries a live count ("12 picks · high to low" / "52 matches · strongest first"), and a summary line up top states how many matches were analysed today and how many selections made the six groups.
 - 🔄 **The page heals stale data itself** — if the phone is holding an outdated analysis copy (exactly what left only the 1X2 block showing), opening the page fetches the latest analysis once and refills the groups automatically.

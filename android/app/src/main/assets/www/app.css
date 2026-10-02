@@ -718,3 +718,6 @@ h2.section { margin: 16px 6px 6px; }
 .fstr.strong { color: var(--good); }
 .fstr.mid { color: var(--muted); }
 .fstr.weak { color: var(--bad); }
+
+/* tappable team names (AiScore-style navigation) */
+span[data-team], .tmn { cursor: pointer; }
