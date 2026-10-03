@@ -797,6 +797,47 @@
     $$('[data-mkt-go]').forEach((b) => { b.onclick = () => { state.betsView = b.dataset.mktGo; PR.setTab('bets'); }; });
   };
 
+  // ------------------------------------------------------------------ PAGE: the daily accas (three builds at ~3.00)
+  // Built server-side from the GATED pool (see accas.py): only legs where the model beats the de-vigged
+  // market by a believable margin, one leg per match, at most three legs — and never a short-priced leg
+  // used to "fill up" to the price. Both numbers are shown for every acca, because the whole bet is the gap
+  // between them: what the model thinks, and what the market thinks.
+  const dec1 = (x) => (x == null ? '–' : `${(x * 100).toFixed(1)}%`);
+  const signed1 = (x) => (x == null ? '–' : `${x >= 0 ? '+' : ''}${(x * 100).toFixed(0)}%`);
+  PR.pages.accas = function () {
+    const d = state.data || {};
+    const a = d.accas || {};
+    const parts = [head('Today\u2019s accas', `${a.bets && a.bets.length ? a.bets.length : 0} build${(a.bets || []).length === 1 ? '' : 's'} at ~${f2(a.target || 3)} · ${a.pool || 0} eligible legs on the board`)];
+    const stat = ((a.summary || {}).all) || null;
+    if (stat && stat.n) {
+      parts.push(`<div class="card compact"><div class="row"><div class="grow small"><b>The record</b> · ${stat.n} settled · ${stat.won} won · expected ${dec1(stat.exp_rate)} · actual ${dec1(stat.rate)}</div><span class="chip ${stat.roi >= 0 ? 'good' : 'bad'}">ROI ${signed1(stat.roi)}</span></div>
+        <div class="tiny muted" style="margin-top:6px">${a.summary.pending ? `${a.summary.pending} still to settle · ` : ''}Every build in this app is settled against the final scores, so this is the only number that answers whether the plan works.</div></div>`);
+    } else {
+      parts.push(`<div class="card tiny muted">Nothing has settled yet — the record starts here. Every build is written down with its model and market probabilities, and settled against the final scores.</div>`);
+    }
+    const legRow = (l) => `<tr class="tap" data-fx="${esc(l.fixture)}"><td class="tiny muted nowrap">${esc(koTime(l.kickoff))}</td>
+      <td><div class="b">${esc(l.label || l.sel)}</div><div class="tiny muted">${flag(l.country)} ${esc(l.league || '')} · ${teamSpan(l.home, l.country, l.div)} v ${teamSpan(l.away, l.country, l.div)}</div></td>
+      <td class="right nowrap">${f2(l.odds)}</td>
+      <td class="right nowrap tiny">${pct(l.p_model)}<div class="${(l.edge_pp || 0) > 0 ? 'good' : 'muted'}">${l.edge_pp == null ? '' : `${l.edge_pp > 0 ? '+' : ''}${f1(l.edge_pp)} pp`}</div></td></tr>`;
+    const card = (b, i) => `<div class="card compact" style="margin-top:8px">
+      <div class="row"><div class="grow"><div class="b">Acca ${i + 1} · ${b.n_legs} legs <span class="chip ${b.status === 'won' ? 'good' : b.status === 'lost' ? 'bad' : ''}">${esc(b.status || 'pending')}</span></div>
+      <div class="tiny muted">price ${f2(b.odds)} · model ${dec1(b.p)} vs market ${dec1(b.p_market)}</div></div>
+      ${PR.slipFromAcca ? PR.slipFromAcca(b) : ''}</div>
+      <table class="tbl head" style="margin-top:4px"><tr><th>Kick-off</th><th>Selection</th><th class="right">Price</th><th class="right">Model · edge</th></tr>${(b.legs || []).map(legRow).join('')}</table>
+      <div class="tiny muted" style="margin-top:6px">If the model is right <b class="${(b.if_model_right || 0) > 0 ? 'good' : ''}">${signed1(b.if_model_right)}</b> · if the market is right <b class="${(b.if_no_edge || 0) < 0 ? 'bad' : ''}">${signed1(b.if_no_edge)}</b>. Both are honest: the second is what happens if the model has no edge over the price.</div></div>`;
+    if ((a.bets || []).length) (a.bets || []).forEach((b, i) => parts.push(card(b, i)));
+    else parts.push(`<div class="card empty">No acca is buildable right now.<br><span class="tiny muted">A build needs at least ${a.legs ? a.legs[0] : 2} legs that pass every gate: a match the pipeline trusts, a real Sportybet price, and a model probability that beats the de-vigged market by ${f1((a.edge_pp || [2, 12])[0])}\u2013${f1((a.edge_pp || [2, 12])[1])} pp. When the board is thin, the honest answer is no acca — not a worse one.</span></div>`);
+    parts.push(`<div class="card tiny muted"><b>How these are built</b> — the three builds never share a match, so one shock cannot take all of them, and each uses the fewest legs that reach ~${f2(a.target || 3)} (2 legs cost about 15% in vig where 6 cost about 40% for the same payout). <b>Why not the strongest-looking legs on the board?</b> Because the biggest model numbers are the model's biggest errors — the board is full of friendlies and cup qualifiers where the model rates a team 60% and the market rates it 17%. Those are rejected by the edge gate, not sold as value. The gap between "model" and "market" on each card is the entire bet: this app does not yet have proof the model beats the close, and the record above will show it either way.</div>`);
+    const rec = (a.recent || []).filter((r) => r.status !== 'pending');
+    if (rec.length) {
+      parts.push(`<div class="section-head"><h2><span class="ico">${icon('history')}</span>Settled builds</h2></div>`);
+      parts.push(`<div class="card compact"><table class="tbl">${rec.slice(0, 10).map((r) => `<tr><td class="tiny muted nowrap">${esc((r.created || '').slice(5, 16))}</td><td><b>${f2(r.odds)}</b> <span class="tiny muted">${r.n_legs} legs</span></td><td class="right tiny">${dec1(r.p)} <span class="muted">vs</span> ${dec1(r.p_market)}</td><td class="right"><span class="chip ${r.status === 'won' ? 'good' : 'bad'}">${esc(r.status)}</span></td></tr>`).join('')}</table></div>`);
+    }
+    view().innerHTML = parts.join('');
+    wireBack();
+    if (PR.wireAccaSlip) PR.wireAccaSlip();
+  };
+
   // ------------------------------------------------------------------ PAGE: all markets (today's six groups, strongest first)
   PR.pages.marketsboard = function () {
     const d = state.data || {};
@@ -805,7 +846,7 @@
     const parts = [head('All markets', "today's six groups · strongest first")];
     // the only selection rule that involves odds: model AND market both under 1.15 = worthless (matches are never dropped)
     const worth = (s) => !(s.odds && s.odds < 1.15 && s.p_model != null && s.p_model > 0 && 1 / s.p_model < 1.15);
-    const okP = (s) => s && s.p != null && s.p > 0 && s.p < 1 && worth(s);
+    const okP = (s) => s && s.p != null && s.p > 0 && s.p < 1 && worth(s) && !PR.isOutlier(s);   // fantasy gaps are quarantined
     const meta = (f) => `<div class="tiny muted">${flag(f.country)} ${esc(f.league || f.competition || '')} · ${teamSpan(f.home, f.country, f.div)} v ${teamSpan(f.away, f.country, f.div)}</div>`;
     const selRow = (f, s) => `<tr class="tap" data-fx="${esc(f.id)}"><td class="tiny muted nowrap">${esc(koTime(f.kickoff))}</td><td><div class="b">${esc(s.label || selLabel(s.sel, f.home, f.away))}</div>${meta(f)}</td>
       <td class="right tiny">${s.p_sb != null ? pct(s.p_sb) : '<span class="muted">–</span>'}${s.diff_pp != null ? `<div class="${s.diff_pp > 0 ? 'good' : ''}">${s.diff_pp > 0 ? '+' : ''}${f1(s.diff_pp)} pp</div>` : ''}</td>
@@ -850,6 +891,8 @@
     } else {
       parts.push(`<div class="card empty">No analysed matches for today yet — the six groups will fill in as the analysis publishes.</div>`);
     }
+    const hidden = all.reduce((n, f) => n + (f.sels || []).filter((s) => PR.isOutlier(s)).length, 0);
+    if (hidden) parts.push(`<div class="card tiny muted"><b>${hidden}</b> selection${hidden === 1 ? '' : 's'} on this board ${hidden === 1 ? 'is' : 'are'} <b>quarantined</b>: the model rates ${hidden === 1 ? 'it' : 'them'} 15+ points above the price, and a gap that wide is a data fault (a friendly or a cup qualifier the model cannot rate), not value. They are not shown as picks anywhere.</div>`);
     parts.push(`<div class="card tiny muted"><b>How to read this page</b> — each group lists today's selections sorted by <b>model probability (high to low)</b>. Model = football data only; Market = de-margined bookmaker implied, shown for comparison. Prices never decide what appears — the single exception: a selection where <b>both the model and the price say under 1.15 odds</b> is dropped as worthless; the match itself stays with its other markets. A high probability is not a certainty.</div>`);
     // self-heal: a phone holding an outdated analysis copy would show only 1X2 (the index carries no
     // selections yet) — fetch the latest analysis once and re-render; the flag stops any loop

@@ -61,6 +61,7 @@ import worldfeed
 import appdata
 import verify
 import safe as safe_mod
+import accas as acca_mod
 import history as history_mod
 import teamstats
 
@@ -86,6 +87,7 @@ DAYS_DIR = DATA_DIR / "app" / "days"
 TEAMS_DIR = DATA_DIR / "app" / "teams"
 SAFE_BETS_FILE = DATA_DIR / "safe_bets.csv"
 SAFE_ACCAS_FILE = DATA_DIR / "safe_accas.csv"
+ACCAS_FILE = DATA_DIR / "accas.csv"          # the daily 3.00 builds: gated legs, tracked and settled
 PDF_DIR = REPORTS_DIR / "pdf"
 README_FILE = ROOT / "README.md"
 
@@ -1593,6 +1595,43 @@ def render_safest(ctx: dict) -> list[str]:
                 L.append(f"| {b['kickoff'][11:]} | **{b['home']} v {b['away']}** | {b['league']} | **{b['label']}** | "
                          f"**{b['odds']:.2f}** | {pct(b['p'])} | {q} | {icon.get(b['status'], b['status'])} |")
             L.append("")
+    # ---- the daily accas: three builds at the target price, built only from legs that pass every gate
+    ac = ctx.get("accas") or {}
+    if ac:
+        L.append(f"### 🎯 The daily accas — {ac['target']:.2f} target")
+        L.append("")
+        L.append("_Built from the gated pool: a match the pipeline trusts, a real price, and a model probability that beats "
+                 "the de-vigged market by "
+                 f"{ac['edge_range'][0] * 100:.0f}–{ac['edge_range'][1] * 100:.0f} pp. Fewest legs to the price (2 legs cost about "
+                 "15% in vig where 3 cost about 22%), one leg per match, and the builds never share a match. Nothing is padded "
+                 f"to reach the price. Pool this run: {ac['pool']} eligible legs._")
+        L.append("")
+        if ac["plans"]:
+            for i, legs in enumerate(ac["plans"], 1):
+                price = acca_mod.acca_odds(legs)
+                pm = acca_mod.acca_p(legs)
+                pk = acca_mod.acca_p_market(legs)
+                aid = ac["ids"][i - 1] if i - 1 < len(ac["ids"]) else ""
+                L.append(f"**Acca {i}** — {len(legs)} legs @ **{price:.2f}** · model {pct(pm)} vs market {pct(pk)} "
+                         f"· if the model is right **{pm * price - 1:+.0%}**, if the market is right **{pk * price - 1:+.0%}**"
+                         f"{f' · `{aid}`' if aid else ''}")
+                L.append("")
+                L.append("| Kick-off | Match | Competition | Selection | Price | Model % | Market % | Edge (pp) |")
+                L.append("|---|---|---|---|---|---|---|---|")
+                for b in legs:
+                    L.append(f"| {b.kickoff[11:]} | **{b.home} v {b.away}** | {b.league} | **{b.label}** | **{b.odds:.2f}** | "
+                             f"{pct(b.p_model)} | {pct(b.p_sb)} | {100 * (b.p_model - b.p_sb):+.1f} |")
+                L.append("")
+        else:
+            L.append(f"_No build was possible this run: {ac['pool']} eligible legs, none of them priced to reach "
+                     f"{ac['target']:.2f} with {ac['legs_min']}–{ac['legs_max']} legs. The honest answer is no acca — not a worse one._")
+            L.append("")
+        ssum = (ac.get("summary") or {}).get("all") or {}
+        if ssum.get("n"):
+            L.append(f"_Acca record: {ssum.get('won', 0)}/{ssum.get('n', 0)} won ({pct(ssum.get('rate'))}, "
+                     f"expected {pct(ssum.get('exp_rate'))}) · ROI {ssum.get('roi', 0):+.1%} on "
+                     f"{ssum.get('n', 0)} settled build(s), graded in `data/accas.csv`._")
+            L.append("")
     bets = sf.get("bets") or []
     L.append(f"### High-probability singles (model ≥70%) — top {min(len(bets), 25)} of {len(bets)}")
     L.append("")
@@ -2470,6 +2509,23 @@ def main() -> None:
     botd_card = safe_mod.bets_of_the_day(bets_df, now)
     ctx["botd"], ctx["botd_groups"] = botd_card["bets"], botd_card["groups"]
     log.info("Safest: %d bets (%d new), bets of the day: %d", len(safe_res["bets"]), len(new_bets), len(ctx["botd"]))
+
+    # ---- the daily accas: three builds at ~3.00 from the gated pool, written to their own record and settled there
+    accas_book = acca_mod.load(ACCAS_FILE)
+    if not accas_book.empty and (accas_book["status"] == "pending").any():
+        accas_book = acca_mod.settle(accas_book, results_s, now)
+        accas_book.to_csv(ACCAS_FILE, index=False)
+    acca_pool = acca_mod.pool_from_rows(rows, now, ctx["app_end"])   # the window the user sees, not the next report hour
+    acca_plans = acca_mod.plan(acca_pool, acca_mod.TARGET, acca_mod.N_ACCAS)
+    accas_book, acca_ids = acca_mod.add(accas_book, acca_plans, now, run_label, ctx["app_end"])
+    if acca_ids:
+        accas_book.to_csv(ACCAS_FILE, index=False)
+    ctx["accas"] = {"target": acca_mod.TARGET, "pool": len(acca_pool), "plans": acca_plans, "ids": acca_ids,
+                    "summary": acca_mod.summary(accas_book, now), "recent": acca_mod.recent(accas_book),
+                    "legs_min": acca_mod.MIN_LEGS, "legs_max": acca_mod.MAX_LEGS,
+                    "edge_range": (acca_mod.MIN_EDGE, acca_mod.MAX_EDGE), "vig": acca_mod.VIG}
+    log.info("Accas: %d legs eligible, %d build(s) at %.2f, %d settled so far",
+             len(acca_pool), len(acca_ids), acca_mod.TARGET, ctx["accas"]["summary"]["all"].get("n", 0))
 
     # ---- alerts for the app (new safest bets), kept in state
     alerts_file = DATA_DIR / "app" / "alerts.json"

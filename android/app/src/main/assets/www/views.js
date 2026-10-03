@@ -219,6 +219,7 @@
       const b0 = botd[0];
       const grp = ((sf.today && sf.today.groups) || []).find((g) => (g.bets || []).indexOf(b0) >= 0);
       const glabel = (grp && grp.title) || (GROUPS[selGroup(b0.sel)] || 'Best bet');
+      if (((d.accas || {}).bets || []).length) parts.push(`<div class="card compact tap" data-page-go="accas"><div class="row"><span class="ico">${icon('ticket')}</span><div class="grow"><div class="b">Today\u2019s accas · ${(d.accas.bets || []).length} build${(d.accas.bets || []).length === 1 ? '' : 's'} at ~${f2(d.accas.target || 3)}</div><div class="tiny muted">Gated legs, fewest legs per build, tracked to settlement → tap to open</div></div>${icon('next')}</div></div>`);
       parts.push(`<div class="card botd-hero tap" data-page-go="best"><div class="bh-head"><span class="t">Best of today</span>${icon('next', 'sm')}</div>
         <div class="bh-label">${esc(glabel)}</div>
         <div class="bh-main"><div><div class="bh-sel">${esc(b0.label)}</div><div class="bh-match">${esc(b0.home)} v ${esc(b0.away)}</div></div>
@@ -646,6 +647,7 @@
       ${row('shield', 'Bet advisor', 'Today\u2019s advised picks &amp; staking', 'data-page-go="advisor"')}
       ${row('sparkle', 'Best of the day', 'Grounded daily shortlist', 'data-page-go="best"')}
       ${row('tag', 'All markets', 'Today · six groups · high to low', 'data-page-go="marketsboard"')}
+      ${row('ticket', 'Today\u2019s accas', `${((d.accas || {}).bets || []).length} build${((d.accas || {}).bets || []).length === 1 ? '' : 's'} at ~3.00 · tracked &amp; settled`, 'data-page-go="accas"')}
       ${row('info', 'Guide to the markets', 'FAQ &amp; how the model works', 'data-page-go="guide"')}
       ${row('doc', 'Full analysis', 'The complete daily report', 'data-page-go="analysis"')}
       ${row('ball', 'Tennis', 'Separate section with live scores', 'data-page-go="tennis"')}

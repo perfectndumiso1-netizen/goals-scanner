@@ -210,6 +210,43 @@ def carry_over(prev: dict | None, index: list, bets: list, tracked: set, now: da
     return len(frozen_ids)
 
 
+def accas_payload(ctx: dict, ids_by_key: dict, tracked: set, badges: dict, fixture_id) -> dict:
+    """The daily acca builds in publication shape: this run's three (with their fixture ids) plus the
+    settled record. Kept out of export() so the shape can be tested without the whole pipeline."""
+    ac = ctx.get("accas") or {}
+    accas_out = {"target": _f(ac.get("target")), "pool": ac.get("pool", 0), "bets": [], "recent": ac.get("recent") or [],
+                 "summary": ac.get("summary") or {}, "legs": [ac.get("legs_min"), ac.get("legs_max")],
+                 "edge_pp": [_f(100 * (ac.get("edge_range") or (0, 0))[0]), _f(100 * (ac.get("edge_range") or (0, 0))[1])],
+                 "vig": _f(ac.get("vig")), "ids": ac.get("ids") or []}
+    for i, a in enumerate(ac.get("plans") or []):
+        legs_out = []
+        for b in a:
+            fid = ids_by_key.get(b.key) or fixture_id(*b.key)
+            tracked.add(fid)
+            legs_out.append({"fixture": fid, "home": b.home, "away": b.away, "country": b.key[1], "div": b.div,
+                             "league": b.league, "kickoff": b.kickoff, "sel": b.sel, "label": b.label,
+                             "p": _f(b.p), "p_model": _f(b.p_model), "p_sb": _f(b.p_sb),
+                             "edge_pp": _f(100 * (b.p_model - b.p_sb)) if b.p_sb is not None else None,
+                             "odds": _f(b.odds, 2), "fair": _f(1 / b.p, 2) if b.p else None,
+                             "badges": {"home": badges.get(b.home), "away": badges.get(b.away)}})
+        p_model = math.prod(b.p for b in a)
+        p_market = math.prod((b.p_sb if b.p_sb is not None else 1 / b.odds) for b in a)
+        price = acca_odds_of(a)
+        accas_out["bets"].append({"id": accas_out["ids"][i] if i < len(accas_out["ids"]) else None,
+                                  "odds": _f(price, 2), "p": _f(p_model), "p_market": _f(p_market),
+                                  "n_legs": len(a), "status": "pending", "legs": legs_out,
+                                  "if_model_right": _f(p_model * price - 1, 3),
+                                  "if_no_edge": _f(p_market * price - 1, 3)})
+    return accas_out
+
+
+def acca_odds_of(legs) -> float:
+    o = 1.0
+    for b in legs:
+        o *= b.odds
+    return o
+
+
 def _write(path: Path, data) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     body = json.dumps(data, ensure_ascii=False, separators=(",", ":"), default=str)
@@ -405,6 +442,7 @@ def export(path: Path, *, ctx: dict, rows: list, all_rows: list | None = None, p
         bkey = (b["kickoff"][:10], b["country"], b["home"], b["away"])
         safe_out["today"]["bets"].append({**b, "fixture": fid, "q": quality_by_key.get(bkey), "conf": conf_by_key.get(bkey),
                                           "badges": {"home": badges.get(b["home"]), "away": badges.get(b["away"])}})
+    accas_out = accas_payload(ctx, ids_by_key, tracked, badges, fixture_id)
     frozen = carry_over(prev, index, safe_out["bets"], tracked, now)
     if frozen:
         log.info("App data: %d started fixture(s) carried over from the previous publication", frozen)
@@ -433,7 +471,7 @@ def export(path: Path, *, ctx: dict, rows: list, all_rows: list | None = None, p
     value_picks.sort(key=lambda x: -x["ev"])
     data = {
         "version": VERSION, "meta": meta,
-        "fixtures": index, "picks": picks_out, "safe": safe_out, "tracker": tracker_out,
+        "fixtures": index, "picks": picks_out, "safe": safe_out, "tracker": tracker_out, "accas": accas_out,
         "groups": {"strong": strong_picks[:60], "value": value_picks[:40]},
         "tracked": sorted(tracked), "history": {"reports": reports, "days": days_index or []},
     }

@@ -157,6 +157,41 @@ def check_publication(staging: Path, live: Path, ledger: Path, now: datetime, ex
         if m in card_matches and card_matches[m] != b.get("sel"):
             warns.append(f"two markets on {m[0]} v {m[1]} in the day card")
         card_matches[m] = b.get("sel")
+    # the daily acca builds: the contract is what makes them honest, so it is enforced on every publication
+    ac = d.get("accas") or {}
+    tried = set()
+    for i, b in enumerate(ac.get("bets") or []):
+        legs = b.get("legs") or []
+        n = b.get("n_legs") or len(legs)
+        if not legs:
+            errors.append(f"acca {b.get('id')} published with no legs")
+            continue
+        if n < 2 or n > 3:
+            errors.append(f"acca {b.get('id')} has {n} legs (the plan is 2-3: fewer legs is the cheapest way to the price)")
+        if not _num(b.get("odds")) or abs(float(b["odds"]) - float(ac.get("target") or 3)) > 0.06:
+            errors.append(f"acca {b.get('id')} priced {b.get('odds')} against a {ac.get('target')} target")
+        if not _num(b.get("p")) or not _num(b.get("p_market")):
+            errors.append(f"acca {b.get('id')} is missing its model or market probability")
+        elif float(b["p"]) > 1 or float(b["p_market"]) > 1:
+            errors.append(f"acca {b.get('id')} has a probability above 1")
+        matches = set()
+        for leg in legs:
+            if leg.get("fixture") not in known:
+                errors.append(f"acca {b.get('id')} leg on unknown fixture {leg.get('fixture')}")
+            m = (leg.get("country"), leg.get("home"), leg.get("away"))
+            if m in matches:
+                errors.append(f"acca {b.get('id')} takes two markets from one match ({m[1]} v {m[2]})")
+            matches.add(m)
+            if m in tried:
+                errors.append(f"acca {b.get('id')} shares a match with an earlier build ({m[1]} v {m[2]})")
+            tried.add(m)
+            e = leg.get("edge_pp")
+            lo, hi = (ac.get("edge_pp") or [2.0, 12.0])
+            if not _num(e) or float(e) < float(lo) - 0.05 or float(e) > float(hi) + 0.05:
+                errors.append(f"acca {b.get('id')} leg {leg.get('label')} carries a {e} pp edge, outside the "
+                              f"{lo}-{hi} pp gate (below it is paying the vig, above it is a data fault)")
+    if ac.get("bets") and not ac.get("ids"):
+        errors.append("acca builds published without their ledger ids (settlement would lose them)")
     for mkt, lst in (d.get("picks") or {}).items():
         for pk in lst:
             if pk.get("fixture") not in known:

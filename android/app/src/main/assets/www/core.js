@@ -417,6 +417,18 @@ window.PR = (function () {
     if (!Array.isArray(table) || !table.length || table.length > TABLE_MAX_TEAMS) return null;
     return table.some((r) => r && typeof r.p === 'number' && r.p > 0) ? table : null;
   }
+  /** A model probability that towers over the price is not value — it is a data fault. The live feed has
+   *  friendlies priced 0.6% for a team the model rates 29%, and cup qualifiers priced 17% for a team the
+   *  model rates 64%. Sorted by probability those legs lead the board, which is exactly how a punter picks
+   *  them. Anything at or above this gap is quarantined from the raw board (the edge gate in accas.py
+   *  rejects the same legs server-side). Returns true when the leg should be hidden. */
+  const OUTLIER_PP = 0.15;        // against the de-vigged market view (the same yardstick accas.py gates on)
+  const OUTLIER_RAW_PP = 0.25;    // …and a looser one against the raw price, used only when there is no
+  const isOutlier = (s) => {      //    de-vigged view (the price alone still contains the bookmaker's margin)
+    if (!s || !(s.odds > 1) || s.p_model == null || s.p_model <= 0) return false;
+    if (s.p_sb != null && s.p_sb > 0) return (s.p_model - s.p_sb) >= OUTLIER_PP;
+    return (s.p_model - 1 / s.odds) >= OUTLIER_RAW_PP;
+  };
   const slug = (div) => String(div || '').replace(/[^A-Za-z0-9]+/g, '_').replace(/^_+|_+$/g, '');
   async function loadTeams(div) {
     const k = slug(div); if (state.teams[k]) return state.teams[k];
@@ -595,7 +607,7 @@ window.PR = (function () {
 
   return { native, settings, state, $, $$, saveSettings, nfetch, getJson, rawUrl, esc, pct, f1, f2, signed, DAYS, MONTHS, parseLocal, tzNow, ymd, stored, persist, cache, prefetchDetails, pubStamp,
     dayName, niceDate, koTime, koShort, toast, pill, bar, wdl, formBadges, md, GROUPS, GROUP_ICON, selGroup, selLabel, selShort, settleSel,
-    liveVerdict, isLive, isFT, indexData, fx, loadDetail, detailCached, detailKey, loadData, saveLatest, saveAux, statusLine, loadDay, dayRecord, finalFor, storedIncidents, loadTeams, teamsCached, loadTeamIndex, realTable, slug, TABS, render, setTab, push, replace,
+    liveVerdict, isLive, isFT, indexData, fx, loadDetail, detailCached, detailKey, loadData, saveLatest, saveAux, statusLine, isOutlier, loadDay, dayRecord, finalFor, storedIncidents, loadTeams, teamsCached, loadTeamIndex, realTable, slug, TABS, render, setTab, push, replace,
     sbEventUrl, sbShareUrl, openSportybet, openBookingCode, openExternal, copyText,
     back, openMatch, openTeam, toggleMenu, closeMenu, contactCard, editorCard, teamLink, teamSpan, matchLine, matchRow, segmented, select, scoreBox, statusIcon, CONTACT, APP_VERSION,
     confirmBox, isFav, toggleFav, favList: () => favs, saveFavs,

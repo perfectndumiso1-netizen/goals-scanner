@@ -160,6 +160,46 @@
   }
   PR.slipBar = bar;
 
+  /** Load a whole acca into the slip as one ticket-ready set. The legs carry their own price from the
+   *  analysis, so a leg is never silently dropped because a lookup could not resolve it. */
+  PR.slipLoadAcca = function (legs) {
+    if (!legs || !legs.length) return 0;
+    slip.items = [];                       // an acca replaces the slip: it is one ticket, not a pile
+    let added = 0;
+    legs.forEach((l) => {
+      const f = fx(l.fixture);
+      if (!f || !l.sel || !l.odds) return;
+      const ko = parseLocal(f.kickoff);
+      if (ko && ko < tzNow()) return;       // a leg that has started cannot be placed
+      const s = { sel: l.sel, odds: l.odds, p: l.p_model != null ? l.p_model : l.p };
+      const same = slip.items.findIndex((x) => x.fixture === f.id);
+      if (same >= 0) slip.items.splice(same, 1);
+      slip.items.push(leg(f, s));
+      added++;
+    });
+    saveSlip(); bar();
+    return added;
+  };
+  /** The button on an acca card (wired by PR.wireAccaSlip after the page renders). */
+  PR.slipFromAcca = function (b) {
+    const legs = (b && b.legs) || [];
+    return legs.length ? `<button class="btn" data-acca-slip="${esc(b.id || '')}">${icon('lock', 'sm')} Load ${legs.length} legs to slip</button>` : '';
+  };
+  PR.wireAccaSlip = function () {
+    const build = (state.data && state.data.accas && state.data.accas.bets) || [];
+    $$('[data-acca-slip]').forEach((btn) => {
+      btn.onclick = (e) => {
+        e.stopPropagation();
+        const b = build.find((x) => String(x.id) === String(btn.dataset.accaSlip)) || build[0];
+        if (!b) return;
+        const n = PR.slipLoadAcca(b.legs);
+        if (!n) { toast('These legs have started — this build is closed'); return; }
+        toast(`${n} leg${n === 1 ? '' : 's'} loaded at ~${f2(b.odds)} — check the prices before you bet`);
+        PR.push({ type: 'slip' });
+      };
+    });
+  };
+
   PR.pages.slip = function () {
     const tn = slip.items.filter((l) => l.sport === 'tennis').length;
     const parts = [head('Bet slip', slip.items.length ? `${slip.items.length} selection${slip.items.length > 1 ? 's' : ''}${tn ? ` · ${tn} tennis` : ''}` : 'empty')];
