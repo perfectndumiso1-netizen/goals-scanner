@@ -67,7 +67,7 @@ object Notifier {
         nm.createNotificationChannel(channel(ctx, CH_TICKETS, "Ticket results", NotificationManager.IMPORTANCE_HIGH,
             "One of your locked tickets was settled — won or lost", "pr_tickets"))
         nm.createNotificationChannel(channel(ctx, CH_UPDATES, "App updates", NotificationManager.IMPORTANCE_HIGH,
-            "A newer PlayReport version is available — tap to download and install", "pr_report"))
+            "A newer version is available — tap to download it, then Android asks you to install", "pr_report"))
     }
 
     /** Sound file (res/raw name) behind each channel — used by the Settings page previews. */
@@ -106,8 +106,8 @@ object Notifier {
 
     /**
      * Announce a newer release at most once per version, from any entry point (open app or background
-     * worker). The content intent carries tab="install", so tapping the notification starts the
-     * download and opens the installer straight away — no extra taps inside the app.
+     * worker). The content intent carries tab="install": tapping it downloads the verified APK and hands it
+     * to the SYSTEM installer, which is where the user confirms — the app never installs by itself.
      */
     fun notifyUpdateOnce(ctx: Context, version: String, notes: String) {
         val p = ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
@@ -115,8 +115,8 @@ object Notifier {
         p.edit().putString("update_notified", version).apply()
         val whatsNew = notes.lines().map { it.trim().trimStart('-', '*', '•', ' ') }
             .filter { it.isNotBlank() && !it.startsWith("#") && !it.startsWith("Download") }.take(3)
-        val text = if (whatsNew.isEmpty()) "Tap to download and install — tickets and favourites are kept."
-        else "New: " + whatsNew.joinToString(" · ") + " — tap to download and install."
+        val text = if (whatsNew.isEmpty()) "Tap to download it — tickets and favourites are kept."
+        else "New: " + whatsNew.joinToString(" · ") + " — tap to download it."
         notify(ctx, CH_UPDATES, 1002, "PlayReport $version is available", text, "install")
     }
 

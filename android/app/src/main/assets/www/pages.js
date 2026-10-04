@@ -1174,7 +1174,7 @@
     parts.push(`<div class="card settings"><h2>${icon('info')} App</h2><div class="row"><div class="grow small">PlayReport ${PR.APP_VERSION ? 'v' + PR.APP_VERSION : '(browser preview)'}${state.update ? ` · <b>v${esc(state.update.version)} available</b>` : ' · up to date'}</div>
       ${state.update ? `<button class="btn primary" id="s-install">Update</button>` : `<button class="btn" id="s-check">Check for update</button>`}</div>
       ${state.update && PR.notesList(state.update.notes).length ? `<div class="small" style="margin-top:8px"><b>What's new in ${esc(state.update.version)}</b><ul class="notes">${PR.notesList(state.update.notes).map((x) => `<li>${esc(x)}</li>`).join('')}</ul></div>` : ''}
-      <div class="tiny muted" style="margin-top:6px">PlayReport checks for updates automatically and downloads them for you; Android asks for one confirmation before installing. Your tickets, favourites and settings are kept.</div>
+      <div class="tiny muted" style="margin-top:6px">Updates are downloaded and checked against the release's own SHA-256 digest before anything happens; Android then asks you to install. The app never installs anything by itself and asks for no install permission. Your tickets, favourites and settings are kept.</div>
       <div style="margin-top:8px"><button class="btn" id="s-whatsnew">What's new in this version</button></div></div>`);
     parts.push(PR.editorCard(false));
     parts.push(contactCard(false));

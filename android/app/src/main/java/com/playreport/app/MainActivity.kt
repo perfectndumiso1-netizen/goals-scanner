@@ -85,8 +85,19 @@ class MainActivity : AppCompatActivity() {
             domStorageEnabled = true
             cacheMode = WebSettings.LOAD_DEFAULT
             textZoom = 100
+            // the page is bundled in the APK and fetches its data through the native bridge: it never needs
+            // a file:// or content:// origin, and never needs to open another window
             allowFileAccess = false
             allowContentAccess = false
+            allowFileAccessFromFileURLs = false
+            allowUniversalAccessFromFileURLs = false
+            javaScriptCanOpenWindowsAutomatically = false
+            setSupportMultipleWindows(false)
+            mediaPlaybackRequiresUserGesture = true
+            mixedContentMode = WebSettings.MIXED_CONTENT_NEVER_ALLOW
+            // nothing the page does should be readable from a browser outside the app
+            setGeolocationEnabled(false)
+            userAgentString = "$userAgentString PlayReport/" + BuildConfig.VERSION_NAME
         }
         web.overScrollMode = WebView.OVER_SCROLL_NEVER
 
@@ -164,7 +175,7 @@ class MainActivity : AppCompatActivity() {
             js("window.__updateInfo && window.__updateInfo($payload);")
             if (info == null) return@execute
             js("window.__updateProgress && window.__updateProgress('downloading');")
-            val f = Updater.download(this@MainActivity, info.url)
+            val f = Updater.download(this@MainActivity, info)     // verified against the published SHA-256
             if (f == null) {
                 js("window.__updateProgress && window.__updateProgress('failed');")
             } else {
@@ -208,7 +219,12 @@ class MainActivity : AppCompatActivity() {
         super.onDestroy()
     }
 
+    /**
+     * Open a link outside the app. Only https is handed to another app: the page can pass any URL through the
+     * bridge, and a custom scheme or a file:// URI is how a link turns into an unwanted action.
+     */
     private fun openExternal(uri: Uri) {
+        if (!uri.scheme.equals("https", ignoreCase = true)) return
         try {
             startActivity(Intent(Intent.ACTION_VIEW, uri))
         } catch (_: Exception) {
@@ -234,6 +250,12 @@ class MainActivity : AppCompatActivity() {
     inner class Bridge {
         @JavascriptInterface
         fun fetch(id: Int, url: String, userAgent: String?) {
+            // the page may only reach the hosts it actually needs; anything else comes straight back as an
+            // error, so a compromised data file cannot use the app as an open proxy
+            if (!Security.webAllowed(url)) {
+                js("window.__fetchDone && window.__fetchDone($id, 0, ${JSONObject.quote("blocked host")});")
+                return
+            }
             pool.execute {
                 val r = Net.get(url, userAgent ?: Net.UA)
                 js("window.__fetchDone && window.__fetchDone($id, ${r.code}, ${JSONObject.quote(r.body)});")
@@ -374,7 +396,10 @@ class MainActivity : AppCompatActivity() {
         fun installUpdate(url: String) {
             pool.execute {
                 js("window.__updateProgress && window.__updateProgress('downloading');")
-                val f = Updater.download(this@MainActivity, url)
+                // the URL comes from the page, so it is resolved against the release feed and allowlisted
+                // before a single byte is downloaded — the page cannot point the app at an arbitrary file
+                val info = Updater.check()?.takeIf { it.url == url }
+                val f = if (info == null) null else Updater.download(this@MainActivity, info)
                 if (f == null) {
                     js("window.__updateProgress && window.__updateProgress('failed');")
                 } else {

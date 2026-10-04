@@ -52,7 +52,24 @@ window.PR = (function () {
     if (native && native.fetch) return new Promise((resolve) => { const id = ++fid; pending[id] = resolve; native.fetch(id, url, ua || null); });
     return fetch(url).then(async (r) => ({ code: r.status, body: await r.text() })).catch((e) => ({ code: 0, body: String(e) }));
   }
-  async function getJson(url, ua) { const r = await nfetch(url, ua); if (r.code !== 200) throw new Error(`HTTP ${r.code}`); return JSON.parse(r.body); }
+  // The native shell only answers for the hosts this app actually uses (Security.kt holds the list), so the
+  // page refuses anything else itself: a bad link or a corrupted cache entry fails loudly here instead of
+  // turning the app into a fetcher for whatever URL it was handed.
+  const API_HOSTS = ['raw.githubusercontent.com', 'api.github.com', 'prod-public-api.livescore.com', 'lsm-static-prod.livescore.com'];
+  function hostAllowed(url) {
+    // absolute https URLs only: every call site builds one, and a relative or scheme-less URL fails closed
+    try {
+      const u = new URL(url);
+      return u.protocol === 'https:' && (u.port === '' || u.port === '443') && API_HOSTS.indexOf(u.hostname) >= 0;
+    }
+    catch (e) { return false; }
+  }
+  async function getJson(url, ua) {
+    if (!hostAllowed(url)) throw new Error(`blocked host: ${String(url).slice(0, 80)}`);
+    const r = await nfetch(url, ua);
+    if (r.code !== 200) throw new Error(`HTTP ${r.code}`);
+    return JSON.parse(r.body);
+  }
   const rawUrl = (path) => RAW_BASE + path;
 
   // ------------------------------------------------------------------ formatting helpers

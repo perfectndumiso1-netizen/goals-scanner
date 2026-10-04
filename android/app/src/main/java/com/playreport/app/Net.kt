@@ -20,6 +20,7 @@ object Net {
     data class Response(val code: Int, val body: String)
 
     fun get(url: String, userAgent: String = UA, accept: String = "application/json, text/plain, */*"): Response {
+        if (!Security.nativeAllowed(url)) return Response(0, "blocked host")
         return try {
             val conn = open(url, userAgent, accept)
             val code = conn.responseCode
@@ -33,13 +34,17 @@ object Net {
     }
 
     fun download(url: String, target: File): Boolean {
+        if (!Security.nativeAllowed(url)) return false
         return try {
             var conn = open(url, UA, "*/*")
-            // GitHub release assets redirect to a different host; HttpURLConnection does not follow cross-host redirects
+            // GitHub release assets redirect to a different host; HttpURLConnection does not follow cross-host
+            // redirects, so each hop is followed by hand — and each hop is allowlisted like the first, so a
+            // redirect cannot walk the app off to somewhere the allowlist does not cover.
             var hops = 0
             while (conn.responseCode in 300..399 && hops < 5) {
                 val loc = conn.getHeaderField("Location") ?: break
                 conn.disconnect()
+                if (!Security.nativeAllowed(loc)) return false
                 conn = open(loc, UA, "*/*")
                 hops++
             }

@@ -12,12 +12,14 @@ val keystorePath = System.getenv("KEYSTORE_PATH")
 
 android {
     namespace = "com.playreport.app"
-    compileSdk = 34
+    // API 36 (Android 16) — Play Protect warns when an app is built two or more SDK generations behind the
+    // device (Google's own guidance), and the Play deadline for API 36 has already passed (31 Aug 2026).
+    compileSdk = 36
 
     defaultConfig {
         applicationId = "com.playreport.app"
         minSdk = 26
-        targetSdk = 34
+        targetSdk = 36
         versionCode = appVersionCode
         versionName = appVersionName
         buildConfigField("String", "REPO", "\"${System.getenv("APP_REPO") ?: "perfectndumiso1-netizen/goals-scanner"}\"")
@@ -41,6 +43,14 @@ android {
         }
     }
 
+    lint {
+        // this app is distributed as a raw APK and inspected by Play Protect on every install, so a lint
+        // error blocks the release instead of being a note in the log
+        abortOnError = true
+        // version-nag checks are not code problems: everything else stays on
+        disable += setOf("GradleDependency", "OldTargetApi", "AndroidGradlePluginVersion", "NewerVersionAvailable")
+    }
+
     buildFeatures {
         buildConfig = true
     }
@@ -62,4 +72,5 @@ dependencies {
     implementation("com.google.android.material:material:1.12.0")
     implementation("androidx.core:core-ktx:1.13.1")
     implementation("androidx.work:work-runtime-ktx:2.9.1")
+    testImplementation("junit:junit:4.13.2")
 }

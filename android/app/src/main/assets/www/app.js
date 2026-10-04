@@ -42,6 +42,8 @@
     // automatic checks stay silent — the native notification is the single update surface
     const top = state.stack[state.stack.length - 1]; if (top && top.type === 'settings') PR.render();
   };
+  /** The download finished and Android is asking to install it — the app never installs by itself. */
+  window.__updateInstalling = function () { toast('Verified — Android will ask you to install it'); };
   /** CSV "save as" result from the native picker */
   window.__saveDone = function (ok) { toast(ok ? 'Saved — open it with Google Sheets or Excel' : 'Not saved'); };
   window.__updateProgress = function (stage) { state.updateStage = stage; if (stage === 'failed') toast('Update download failed'); };
