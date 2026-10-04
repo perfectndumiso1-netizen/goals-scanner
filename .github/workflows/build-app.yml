@@ -76,5 +76,5 @@ jobs:
         run: |
           TAG="app-v${APP_VERSION_NAME}"
           # release notes = android/RELEASE_NOTES.md (shown inside the app before and after updating)
-          { cat android/RELEASE_NOTES.md; printf '\n\nPlayReport for Android v%s (build %s). Download PlayReport.apk and install it. Installed apps update themselves automatically.\n' "$APP_VERSION_NAME" "$APP_VERSION_CODE"; } > "$RUNNER_TEMP/notes.md"
+          { sed "1s/^## What's new/## What's new in PlayReport ${APP_VERSION_NAME}/" android/RELEASE_NOTES.md; printf '\n\nPlayReport for Android v%s (build %s). Android verifies the signature and asks you to confirm the install.\n' "$APP_VERSION_NAME" "$APP_VERSION_CODE"; } > "$RUNNER_TEMP/notes.md"
           gh release create "$TAG" "$RUNNER_TEMP/PlayReport.apk" --repo "$GITHUB_REPOSITORY" --title "PlayReport v${APP_VERSION_NAME}" --notes-file "$RUNNER_TEMP/notes.md" --latest
