@@ -4,6 +4,7 @@
 - 🧱 **The app can only talk to the services it actually uses** — the published analysis, live scores and crest images. Anything else is refused by the shell and by the page itself, so a corrupted data file cannot turn the app into a fetcher for whatever URL it contains.
 - 🔒 **Installing is Android's job, not the app's.** The app never installs anything: it hands the verified file to the system installer with a read-only grant for that one file, and Android asks you. No install permission, no silent install.
 - 🧊 **Everything else untouched** — the model, the accas, the boards, your tickets and favourites. This release is the app shell and its security only; the analysis behaves exactly as before.
+- 📐 **The layout is right on modern Android** — targeting the current Android level means the system draws the app edge to edge and stops resizing the window for the keyboard, so the shell now reserves the status bar and navigation bar itself and lets the keyboard push the page up. On older phones nothing changes.
 - 🛠️ Behind the scenes: the release build now fails on a security-relevant lint error instead of logging it, the host allowlist is unit-tested (lookalike hosts, credentials in a URL, scheme and port tricks), and cloud backup is explicitly limited to your own app preferences.
 
 ## What's new in PlayReport 1.6.39 — 🎯 Three accas a day at ~3.00, and no more fake value legs

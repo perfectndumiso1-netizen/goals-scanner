@@ -13,6 +13,8 @@ import android.webkit.WebResourceResponse
 import android.webkit.WebSettings
 import android.webkit.WebView
 import android.graphics.Color
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import androidx.activity.OnBackPressedCallback
 import androidx.activity.result.contract.ActivityResultContracts
@@ -79,6 +81,16 @@ class MainActivity : AppCompatActivity() {
         web.layoutParams = ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
         swipe.addView(web)
         setContentView(swipe)
+        // Targeting API 36 means modern Android draws the app edge to edge whether it asks to or not, and the
+        // system no longer resizes the window for the keyboard. Both are handled here, in one place: the page
+        // gets the space between the status bar and the navigation bar, and the keyboard pushes it up rather
+        // than covering the search box. On older releases the same listener simply receives no insets.
+        ViewCompat.setOnApplyWindowInsetsListener(swipe) { v, insets ->
+            val bars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
+            val ime = insets.getInsets(WindowInsetsCompat.Type.ime())
+            v.setPadding(bars.left, bars.top, bars.right, maxOf(bars.bottom, ime.bottom))
+            insets
+        }
 
         with(web.settings) {
             javaScriptEnabled = true
@@ -238,8 +250,8 @@ class MainActivity : AppCompatActivity() {
         val bg = if (dark) Color.parseColor("#0B0F14") else Color.parseColor("#F2F4F8")
         val nav = if (dark) Color.parseColor("#0E131A") else Color.WHITE
         web.setBackgroundColor(bg)
-        swipe.setBackgroundColor(bg)
-        window.navigationBarColor = nav
+        swipe.setBackgroundColor(bg)          // also paints the strips the insets leave either side of the page
+        window.navigationBarColor = nav       // ignored from API 35 (edge to edge); the background above is what shows
         val ctl = WindowInsetsControllerCompat(window, web)
         ctl.isAppearanceLightNavigationBars = !dark
         ctl.isAppearanceLightStatusBars = false

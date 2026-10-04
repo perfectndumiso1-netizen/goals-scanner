@@ -90,6 +90,16 @@ def test_toolchain_supports_that_sdk_level():
     assert "testDebugUnitTest" in workflow, "the native security tests must run before the APK is published"
 
 
+def test_edge_to_edge_and_keyboard_are_handled():
+    """targetSdk 36 means modern Android draws the app edge to edge and stops resizing the window for the
+    keyboard. The shell therefore has to apply the system bar insets itself, or the header sits under the
+    status bar and the search box sits under the keyboard. Both come from one listener."""
+    activity = read(JAVA / "MainActivity.kt")
+    assert "ViewCompat.setOnApplyWindowInsetsListener" in activity, "the root view must handle insets"
+    assert "WindowInsetsCompat.Type.systemBars()" in activity, "status and navigation bar insets"
+    assert "WindowInsetsCompat.Type.ime()" in activity, "the keyboard must push the page up, not cover it"
+
+
 def test_lint_errors_block_a_release():
     gradle = read(ANDROID / "app" / "build.gradle.kts")
     assert "abortOnError = true" in gradle
