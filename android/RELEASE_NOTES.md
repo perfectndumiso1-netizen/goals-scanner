@@ -4,6 +4,7 @@
 - 🧱 **The app can only talk to the services it actually uses** — the published analysis, live scores and crest images. Anything else is refused by the shell and by the page itself, so a corrupted data file cannot turn the app into a fetcher for whatever URL it contains.
 - 🔒 **Installing is Android's job, not the app's.** The app never installs anything: it hands the verified file to the system installer with a read-only grant for that one file, and Android asks you. No install permission, no silent install.
 - 🧊 **Everything else untouched** — the model, the accas, the boards, your tickets and favourites. This release is the app shell and its security only; the analysis behaves exactly as before.
+- 🛠️ Behind the scenes: the release build now fails on a security-relevant lint error instead of logging it, the host allowlist is unit-tested (lookalike hosts, credentials in a URL, scheme and port tricks), and cloud backup is explicitly limited to your own app preferences.
 
 ## What's new in PlayReport 1.6.39 — 🎯 Three accas a day at ~3.00, and no more fake value legs
 - 🎯 **Today's accas** (More → Today's accas, or the card on Home): three builds at ~3.00, every day. Each one is built only from legs where the model beats the de-vigged market by a believable 2–12 points, uses the fewest legs that reach the price (2 legs cost about 15% in vig, 3 about 22%, six 1.20 legs about 40%), takes one market per match, and never shares a match with another build.

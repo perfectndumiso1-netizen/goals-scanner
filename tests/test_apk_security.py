@@ -50,10 +50,16 @@ def test_manifest_keeps_the_expected_surface():
 
 
 def test_backup_rules_cover_only_app_preferences():
+    """One include is the whole rule: naming what to back up excludes the rest. What matters is that the
+    scope never widens — an app that ships its cached data (and a downloaded APK) into a cloud backup is a
+    privacy problem, not a convenience."""
     for name in ("backup_rules.xml", "data_extraction_rules.xml"):
         body = read(MAIN / "res" / "xml" / name)
-        assert 'domain="sharedpref"' in body and "<include" in body, f"{name} must include the app's own preferences"
-        assert 'domain="file"' in body and "<exclude" in body, f"{name} must exclude the rest"
+        assert '<include domain="sharedpref" path="." />' in body, f"{name} must include the app's own preferences"
+        for wide in ('domain="file"', 'domain="database"', 'domain="external"', 'domain="root"'):
+            assert wide not in body, f"{name} must not widen the backup scope to {wide}"
+        # an exclude of a path that is not included is dead weight and a lint error
+        assert "<exclude" not in body, f"{name} should express its scope with includes only"
 
 
 # ------------------------------------------------------------------ the SDK level Play Protect judges

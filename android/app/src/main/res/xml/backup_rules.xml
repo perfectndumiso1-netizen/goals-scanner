@@ -1,10 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Android 11 and older: back up the user's own data (tickets, favourites, settings, notification
-     preferences) and nothing else. The app is a native shell, so there is nothing else to protect — but
-     being explicit means a future native file is excluded by default rather than backed up by accident. -->
+<!-- Android 11 and older.
+
+     A single include is all that is needed, and it is deliberate: as soon as a rules file names what to back
+     up, everything else stops being backed up. The app is a native shell whose user data is its own
+     preferences (tickets, favourites, notification settings); the analysis and the live feed are re-fetched,
+     and a downloaded update is never carried across. Lint's FullBackupContent check treats an exclude of a
+     path that is not included as an error for exactly this reason — the exclude can never apply. -->
 <full-backup-content>
     <include domain="sharedpref" path="." />
-    <exclude domain="file" path="." />
-    <exclude domain="database" path="." />
-    <exclude domain="external" path="." />
 </full-backup-content>
