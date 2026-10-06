@@ -313,6 +313,26 @@
     const q = f.quality, ev = f.evidence, ex = f.explain, mk = f.market, h2h = f.h2h_meta, conf = f.confidence || {};
     if (!q || !ev) { parts.push(`<div class="card empty">No data audit for this match yet — it was analysed before the data-first engine. The next scan adds it.</div>`); return; }
     parts.push(`<div class="card tiny muted"><b>Vocabulary.</b> Historical frequency = what happened in the sample ("scored in 9 of 10" = 90%). Model probability = the football-data model. Market implied = the bookmaker price with the margin removed (comparison only, never a model input). Missing data is shown as N/A, never as 0.</div>`);
+    // 0. live research / context (present only for fixtures the research layer has covered)
+    //    Base probability -> any bounded context adjustment -> final probability, with the facts and sources.
+    const cx = f.context;
+    if (cx) {
+      const cqc = cx.quality === 'HIGH' ? 'ok' : (cx.quality === 'LOW' || cx.quality === 'INSUFFICIENT') ? 'warn' : '';
+      const b25 = cx.base ? cx.base.O25 : null, f25 = cx.final ? cx.final.O25 : null;
+      const t = cx.totals || {};
+      const d25 = (b25 != null && f25 != null) ? (f25 - b25) * 100 : 0;
+      const ppTxt = t.applied && Math.abs(d25) > 0.05 ? `${d25 > 0 ? '+' : '−'}${f1(Math.abs(d25))} pp on O2.5` : 'no adjustment';
+      const adj = (cx.adjustments || []).filter((a) => a.lam_pct); 
+      const rows = (cx.adjustments || []).map((a) => `<tr><td class="nowrap" style="text-transform:capitalize">${esc(a.cat)}</td><td class="right"><b>${a.lam_pct ? (a.lam_pct > 0 ? '+' : '−') + f1(Math.abs(a.lam_pct)) + '%' : '0'}</b></td><td class="tiny muted">${esc(a.reason || '')}${a.sources && a.sources.length ? ` <i>(${esc(a.sources.join(', '))})</i>` : ''}</td></tr>`).join('');
+      const facts = (cx.facts || []).slice(0, 10).map((x) => `<div style="margin:3px 0">${x.stale ? '🕒' : (x.kind && x.kind.indexOf('_out') >= 0 ? '⚠️' : '•')} ${esc(x.text)}${x.source ? ` <span class="tiny muted">— ${esc(x.source)}${x.retrieved_at ? `, ${esc(x.retrieved_at.replace('T', ' ').replace('Z', ''))} UTC` : ''}${x.stale ? ' (stale)' : ''}</span>` : ''}</div>`).join('');
+      parts.push(`<div class="card compact"><div class="row"><div class="grow b">${icon('search', 'sm')} Live research &amp; context</div><span class="chip ${cqc}">research quality ${esc(cx.quality || 'N/A')}</span></div>
+        <div class="small" style="margin-top:6px"><b>Base probability</b> (statistical model) O2.5 ${pct(b25)} · BTTS ${pct(cx.base ? cx.base.BTTS : null)} → <b>live context: ${ppTxt}</b> → <b>final O2.5 ${pct(f25)}</b></div>
+        <table class="tbl" style="margin-top:6px">${rows}</table>
+        <div class="tiny muted" style="margin-top:6px">${esc((cx.quality_reasons || []).join(' · '))}${cx.updated ? ` · updated ${esc(cx.updated.replace('T', ' ').replace('Z', ''))} UTC` : ''} · ${cx.n_facts || 0} fact(s)${(cx.conflicts || []).length ? ` · ⚠️ ${(cx.conflicts || []).length} conflicting source(s), no adjustment` : ''}</div>
+        ${(cx.conflicts || []).length ? `<div class="tiny" style="margin-top:4px">${(cx.conflicts || []).map((c) => `⚠️ ${esc(c.subject)}: ${esc(c.source_a)} vs ${esc(c.source_b)} — ${esc(c.resolution)}; impact: ${esc(c.impact)}`).join('<br>')}</div>` : ''}
+        <div class="small" style="margin-top:6px"><b>Facts &amp; sources</b>${facts || '<div class="tiny muted">No facts recorded for this match.</div>'}</div>
+        <div class="tiny muted" style="margin-top:6px">Researched free sources only: the fixture feed (confirmed line-ups), reputable news (reported, never a first-party confirmation), Open-Meteo weather for severe conditions, and our own results archive for scheduling. Missing information is shown as N/A. Bookmaker odds are never an input here.</div></div>`);
+    }
     // 1. data quality
     const qcls = q.overall === 'High' ? 'ok' : q.overall === 'Low' ? 'warn' : '';
     parts.push(`<div class="card compact"><div class="row"><div class="grow b">${icon('shield', 'sm')} Data quality</div><span class="chip ${qcls}">${esc(q.overall)} · ${q.score}</span></div>

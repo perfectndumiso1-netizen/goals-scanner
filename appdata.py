@@ -399,6 +399,9 @@ def export(path: Path, *, ctx: dict, rows: list, all_rows: list | None = None, p
             # per-fixture news (home / away / the fixture itself). Context only — never a model input.
             "news": getattr(r, "news", None) or None,
             "squad": getattr(r, "squad", None) or None,
+            # ---- live research / context layer (docs/RESEARCH.md): base vs final, the facts behind them, the
+            # research grade and any conflict. Present only for researched fixtures; older app builds ignore it.
+            "context": (r.audit or {}).get("context"),
             # ---- data-first engine: evidence, quality, explanation, warnings (quality.py)
             "quality": (r.audit or {}).get("quality"),
             "confidence": (r.audit or {}).get("confidence"),
@@ -466,6 +469,9 @@ def export(path: Path, *, ctx: dict, rows: list, all_rows: list | None = None, p
         "bench": bench, "bias": bias,
         "next_run": ctx["window_end"].strftime("%Y-%m-%d %H:%M"), "refresh_minutes": 30,
         "coverage": coverage or {},
+        # research layer summary for this run: how many fixtures were researched, how many facts were stored,
+        # how many fixtures carried a (bounded) context adjustment and the research-quality mix
+        "research": ctx.get("research") or {},
     }
     strong_picks.sort(key=lambda x: -x["p"])
     value_picks.sort(key=lambda x: -x["ev"])

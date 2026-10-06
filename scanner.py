@@ -51,6 +51,7 @@ import requests
 
 import markets
 import quality
+import research as research_mod
 import news as news_mod
 import parlays as parlay_mod
 import sporty
@@ -196,6 +197,34 @@ CONFIG = {
     # distinct headline queries fetched per run (the rest is served from the 6 h TTL cache)
     "NEWS_BUDGET": int(_env_float("NEWS_BUDGET", 90)),
     "NEWS_TTL_H": _env_float("NEWS_TTL_H", 6),
+    # ---- live research / context layer (see docs/RESEARCH.md).
+    # RESEARCH=1 collects, stores and displays researched facts for the fixtures we publish or shortlist.
+    # RESEARCH_ADJUST stays 0: with it at 0 the published probability is provably identical to the statistical
+    # model, no matter what the facts say. Each category also starts with weight 0.0 (Phase-B gate), so
+    # setting RESEARCH_ADJUST=1 alone still cannot move a probability — a weight has to be raised as well,
+    # and only after the backtest in backtest/CONTEXT_RESULTS.md supports it.
+    "RESEARCH": os.getenv("RESEARCH", "1") != "0",
+    "RESEARCH_ADJUST": os.getenv("RESEARCH_ADJUST", "0") != "0",
+    "RES_MAX_ADJ_PP": _env_float("RES_MAX_ADJ_PP", 2.0),        # hard ceiling per published market (pp)
+    "RES_MAX_LAMBDA_PCT": _env_float("RES_MAX_LAMBDA_PCT", 6.0),  # hard ceiling on the combined lambda move (%)
+    "RES_WEIGHTS": {"lineup": _env_float("RES_W_LINEUP", 0.0), "fatigue": _env_float("RES_W_FATIGUE", 0.0),
+                    "motivation": _env_float("RES_W_MOTIVATION", 0.0), "weather": _env_float("RES_W_WEATHER", 0.0)},
+    # research window: the published window plus a few hours of margin. Deliberately NOT the 60-day coverage
+    # sweep — line-ups do not exist that far out, forecasts are noise, and the request volume would be 100x.
+    "RES_HORIZON_H": _env_float("RES_HORIZON_H", 30),
+    "RES_MAX_FIXTURES": int(_env_float("RES_MAX_FIXTURES", 400)),   # hard cap on fixtures researched per run
+    "RES_LINEUP_LEAD_MIN": _env_float("RES_LINEUP_LEAD_MIN", 120),  # when the feed starts having XIs
+    "RES_WEATHER_HORIZON_H": _env_float("RES_WEATHER_HORIZON_H", 48),
+    "RES_TTL_H": _env_float("RES_TTL_H", 6),
+    "RES_KEEP_DAYS": int(_env_float("RES_KEEP_DAYS", 7)),     # a week of research records is plenty (see store.py)
+    "RES_MAX_RECORDS": int(_env_float("RES_MAX_RECORDS", 2000)),
+    "RES_STORE_MB": _env_float("RES_STORE_MB", 8.0),   # hard ceiling on the research store's size
+    "RES_BUDGET_LINEUPS": int(_env_float("RES_BUDGET_LINEUPS", 60)),   # XI requests per run
+    "RES_BUDGET_GEOCODES": int(_env_float("RES_BUDGET_GEOCODES", 8)),  # new venues per run (1 req/s at most)
+    "RES_BUDGET_WEATHER": int(_env_float("RES_BUDGET_WEATHER", 60)),   # forecast calls per run (cached 6 h)
+    # share of the news request budget the research layer may spend (the app's News tab keeps the rest; both
+    # share one cache, so a lookup either side already made is free for the other)
+    "RES_NEWS_SHARE": _env_float("RES_NEWS_SHARE", 0.4),
     "H2H_SEASONS": int(_env_float("H2H_SEASONS", 5)),  # seasons of main-league history kept for head-to-head
     "REQUEST_TIMEOUT": 30,
     "USER_AGENT": "Mozilla/5.0 (compatible; GoalsScanner/1.0)",
@@ -1003,6 +1032,51 @@ def analyse(fx: pd.Series, long: pd.DataFrame, results: pd.DataFrame,
 MODELS: dict = {}   # corners / cards count models, built once per run in main()
 
 
+def research_support(row: "MatchRow") -> str:
+    """How much the feed actually publishes for this fixture — the honest ceiling on research quality.
+
+    Derived from the evidence `build_audits()` has already assembled: how many archived matches of each team
+    carry real match statistics (xG / corners). 'full' when both sides have enough, 'partial' when only one or
+    few, 'none' when the feed publishes nothing for this competition (the ~214 registry competitions).
+
+    It grades *information availability* and never a probability — a competition we cannot see into must report
+    LOW/INSUFFICIENT research quality instead of pretending to have researched it."""
+    try:
+        ev = (row.audit or {}).get("evidence") or {}
+
+        def n_stats(side: str) -> int:
+            ms = ((ev.get(side) or {}).get("matches") or [])
+            return sum(1 for m in ms if m.get("xg_for") is not None or m.get("corners_for") is not None)
+
+        h, a = n_stats("home"), n_stats("away")
+        if h >= 5 and a >= 5:
+            return "full"
+        return "partial" if (h + a) > 0 else "none"
+    except Exception:  # noqa: BLE001 - a grading helper must never break the run
+        return "partial"
+
+
+def research_prob_fn(lam_h: float, lam_a: float) -> dict:
+    """The *existing* model maths, exposed to the research layer so an adjustment re-runs exactly the code the
+    base probability came from (Dixon-Coles matrix -> market probabilities). Nothing new is computed here."""
+    return probs_from_matrix(score_matrix(lam_h, lam_a, CONFIG["DC_RHO"]))
+
+
+def research_apply(row: "MatchRow", lam_h: float, lam_a: float, probs: dict) -> None:
+    """Apply a bounded context adjustment to one fixture.
+
+    `p_model` (the base statistical probability) and `mod_h/mod_a` (the model's own expected goals) are left
+    exactly as the model produced them; only `p_final` and everything derived from the score matrix are updated,
+    so every published market stays internally consistent (P(O1.5) >= P(O2.5), 1X2 summing to 1, BTTS agreeing
+    with the goal markets)."""
+    M = score_matrix(lam_h, lam_a, CONFIG["DC_RHO"])
+    row.lam_h, row.lam_a = lam_h, lam_a
+    row.p_final = dict(probs)
+    row.scores = top_scorelines(M)
+    row.extra.x12 = markets.one_x_two(M)
+    row.extra.tg = markets.team_goals(M)
+
+
 def build_audits(rows: list[MatchRow], now: datetime) -> None:
     """Fill MatchRow.audit: sample evidence of both teams, head-to-head strength, data quality, the lambda
     explanation, the market comparison layer and the automatic model-v-raw-data warnings."""
@@ -1389,6 +1463,54 @@ def render_team_block(p: TeamProfile, venue_label: str) -> list[str]:
     return L
 
 
+def render_context(cx: dict) -> list[str]:
+    """One or two lines showing BASE probability, the context adjustment, the FINAL probability, the research
+    quality, the reasons and any conflict — the same separation the specification asks for, without bloat."""
+    base = cx.get("base") or {}
+    final = cx.get("final") or {}
+    if not base:
+        return []
+    adj = [a for a in (cx.get("adjustments") or []) if float(a.get("lam_pct") or 0.0) != 0.0]
+    reasons = [(a, (a.get("pp") or {})) for a in adj]
+    # When nothing adjusted, say *why* using the most informative rule that actually evaluated something —
+    # "rest is adequate" or "normal weather" beats the placeholder of a category that is not scored yet.
+    order = {"fatigue": 0, "weather": 1, "lineup": 2, "motivation": 3}
+    evaluated = [a for a in (cx.get("adjustments") or [])
+                 if not float(a.get("lam_pct") or 0.0)
+                 and "not enabled" not in str(a.get("reason")) and "not scored" not in str(a.get("reason"))
+                 and not str(a.get("reason")).startswith("no ")]
+    strongest = (min(evaluated, key=lambda a: order.get(str(a.get("cat")), 9)) if evaluated else
+                 max((a for a in (cx.get("adjustments") or []) if not float(a.get("lam_pct") or 0.0)),
+                     key=lambda a: len(a.get("reason") or ""), default=None))
+    d25 = 100.0 * (float(final.get("O25") or 0.0) - float(base.get("O25") or 0.0))
+    bits = [f"**BASE (statistical model)** O2.5 {pct(base.get('O25'))} · BTTS {pct(base.get('BTTS'))}"]
+    if adj and abs(d25) > 0.05:
+        bits.append(f"**LIVE CONTEXT** {d25:+.1f} pp on O2.5")
+        bits.append(f"**FINAL** O2.5 {pct(final.get('O25'))} · BTTS {pct(final.get('BTTS'))}")
+    else:
+        bits.append("**LIVE CONTEXT** no adjustment (no qualifying evidence)")
+        bits.append(f"**FINAL** = BASE (O2.5 {pct(final.get('O25', base.get('O25')))})")
+    bits.append(f"**RESEARCH QUALITY {cx.get('quality', 'N/A')}**")
+    L = ["* " + " · ".join(bits)]
+    for a, pp in reasons[:3]:
+        dpp = float(pp.get("O25") or 0.0) if pp else 0.0                # signed, on the headline market
+        L.append(f"  * context **{a.get('cat')}** · {dpp:+.1f} pp on O2.5 — {html.escape(str(a.get('reason') or ''))}"
+                 + (f" _({', '.join(a.get('sources') or [])[:90]})_" if a.get("sources") else ""))
+    if strongest is not None and not reasons:
+        L.append(f"  * context: no adjustment — {html.escape(str(strongest.get('reason') or ''))}")
+    for c in (cx.get("conflicts") or [])[:2]:
+        L.append(f"  * ⚠️ conflicting sources ({html.escape(str(c.get('source_a')))} vs {html.escape(str(c.get('source_b')))}"
+                 f") — resolution: {html.escape(str(c.get('resolution')))} · impact: {html.escape(str(c.get('impact')))}")
+    # prefer a genuine availability report over whatever headline happened to come first
+    press = [f for f in (cx.get("facts") or []) if f.get("confidence") == "press" and not f.get("stale")]
+    flagged = [f for f in press if str(f.get("kind") or "").endswith(("_out", "_in"))]
+    for f in (flagged or press)[:1]:
+        L.append(f"  * reported ({html.escape(str(f.get('source')))}): {html.escape(str(f.get('text'))[:150])}")
+    L.append(f"  * research quality: {'; '.join(cx.get('quality_reasons') or [])} · facts {cx.get('n_facts', 0)} · "
+             f"updated {cx.get('updated', '')}")
+    return L
+
+
 def render_details(r: MatchRow) -> list[str]:
     L = [f"<details><summary><b>{html.escape(r.label)}</b> — {html.escape(comp(r))}, {ko(r)} · "
          f"O2.5 {pct(r.p_final['O25'])} · BTTS {pct(r.p_final['BTTS'])}"
@@ -1417,6 +1539,9 @@ def render_details(r: MatchRow) -> list[str]:
         L.append(f"* Market 1X2: {f2(r.fx['odds_h'])} / {f2(r.fx['odds_d'])} / {f2(r.fx['odds_a'])} (no O/U odds published in feed)")
     L.append(f"* League context: avg {r.div_avg.mu_h:.2f} home + {r.div_avg.mu_a:.2f} away goals · "
              f"O2.5 in {pct(r.div_avg.o25_rate)} · BTTS in {pct(r.div_avg.btts_rate)} of matches")
+    cx = (r.audit or {}).get("context")
+    if cx:
+        L += render_context(cx)
     L += render_extra_lines(r)
     L.append("")
     L += render_team_block(r.home, "Home")
@@ -2468,6 +2593,63 @@ def main() -> None:
     # ---- evidence / data quality / explanation / warnings (quality.py) — descriptive, never changes a probability
     build_audits(rows, now)
 
+    # ---- live research / context layer (docs/RESEARCH.md).
+    # Staged by design: only fixtures inside RES_HORIZON_H are researched (the published window and the
+    # shortlist side of it) — never the whole ~60-day coverage sweep. Every source is cached and budgeted, and
+    # with RESEARCH_ADJUST=0 (the default) the published probability stays exactly the statistical model's.
+    res_stats = {"enabled": False}
+    # The news cache is created here and shared by the research layer and the app's News tab below, so a team's
+    # headlines are fetched once per run at most (same cache file, same TTL, one request budget).
+    ncache, news_budget, news_end = None, None, None
+    try:
+        ncache = news_mod.Cache(DATA_DIR / "news_cache.json", ttl_hours=CONFIG["NEWS_TTL_H"])
+        news_budget = [CONFIG["NEWS_BUDGET"]]
+        news_end = now + timedelta(hours=CONFIG["NEWS_HOURS"])
+    except Exception as exc:  # noqa: BLE001 - news is context only
+        log.warning("News cache unavailable (non-fatal): %s", exc)
+    if CONFIG["RESEARCH"]:
+        try:
+            res_engine = research_mod.Engine(
+                research_mod.Config(enabled=True, adjust=CONFIG["RESEARCH_ADJUST"],
+                                    max_adj_pp=CONFIG["RES_MAX_ADJ_PP"],
+                                    max_lambda_pct=CONFIG["RES_MAX_LAMBDA_PCT"], weights=CONFIG["RES_WEIGHTS"],
+                                    horizon_h=CONFIG["RES_HORIZON_H"],
+                                    lineup_lead_min=CONFIG["RES_LINEUP_LEAD_MIN"],
+                                    weather_horizon_h=CONFIG["RES_WEATHER_HORIZON_H"], ttl_h=CONFIG["RES_TTL_H"],
+                                    keep_days=CONFIG["RES_KEEP_DAYS"],
+                                    max_records=CONFIG["RES_MAX_RECORDS"], max_mb=CONFIG["RES_STORE_MB"],
+                                    budget_lineups=CONFIG["RES_BUDGET_LINEUPS"],
+                                    budget_geocodes=CONFIG["RES_BUDGET_GEOCODES"],
+                                    budget_weather=CONFIG["RES_BUDGET_WEATHER"]),
+                now, DATA_DIR / "research", research_prob_fn, research_apply,
+                news_fn=(lambda team, country: ncache.items(
+                    f"team:{team}", lambda t=team, c=country: news_mod.team_headlines(t, c, limit=4),
+                    res_news_budget)[0]) if ncache is not None else None,
+                news_horizon_h=CONFIG["NEWS_HOURS"])
+            # research spends at most RES_NEWS_SHARE of the news budget; the published matches keep the rest
+            res_news_budget = [max(0, int(CONFIG["NEWS_BUDGET"] * CONFIG["RES_NEWS_SHARE"]))]
+            res_engine.with_history(results)
+            n_res = 0
+            for r in sorted(rows, key=lambda x: x.fx["kickoff"]):
+                if n_res >= CONFIG["RES_MAX_FIXTURES"]:
+                    log.warning("Research: %d-fixture cap reached (%d more in the window were skipped)",
+                                CONFIG["RES_MAX_FIXTURES"], sum(1 for x in rows if res_engine.should_research(x)) - n_res)
+                    break
+                if not r.data_ok or not res_engine.should_research(r):
+                    continue
+                fid = appdata.fixture_id(r.fx["date"].strftime("%Y-%m-%d"), r.fx["country"], r.fx["home"], r.fx["away"])
+                stage = "prematch" if r.fx["kickoff"] <= now + timedelta(hours=2) else "collect"
+                res_engine.run(r, fid=fid, support=research_support(r), stage=stage)
+                n_res += 1
+            res_stats = res_engine.finish()
+            res_stats["enabled"] = True
+            if ncache is not None:
+                ncache.save()      # headlines fetched for the research facts are kept for the app's News tab
+            ctx["research"] = {k: res_stats.get(k) for k in
+                               ("researched", "facts", "adjusted", "quality", "store_records", "errors")}
+        except Exception as exc:  # noqa: BLE001 - the research layer must never break a scan
+            log.warning("Research layer failed (non-fatal): %s", exc)
+
     # ---- day history with late scores
     days = None
     results_s = results
@@ -2588,9 +2770,8 @@ def main() -> None:
     # ---- per-fixture news for the app's Match Center (context only — shown for the user's
     # reference, never used by the model). Budgeted + TTL-cached across the half-hourly runs.
     try:
-        ncache = news_mod.Cache(DATA_DIR / "news_cache.json", ttl_hours=CONFIG["NEWS_TTL_H"])
-        budget = [CONFIG["NEWS_BUDGET"]]
-        news_end = now + timedelta(hours=CONFIG["NEWS_HOURS"])
+        if ncache is None or news_budget is None or news_end is None:
+            raise RuntimeError("news cache unavailable this run")
         for r in rows:
             if r.fx["kickoff"] > news_end:
                 continue     # headlines for far-future fixtures are noise; keep the budget for near matches
@@ -2598,21 +2779,21 @@ def main() -> None:
             country = str(r.fx.get("country") or "")
             r.news = {
                 "home": ncache.items(f"team:{home}",
-                                     lambda h=home: news_mod.team_headlines(h, country, limit=4), budget)[0],
+                                     lambda h=home: news_mod.team_headlines(h, country, limit=4), news_budget)[0],
                 "away": ncache.items(f"team:{away}",
-                                     lambda a=away: news_mod.team_headlines(a, country, limit=4), budget)[0],
+                                     lambda a=away: news_mod.team_headlines(a, country, limit=4), news_budget)[0],
                 "match": ncache.items(f"match:{home}|{away}",
                                       lambda hh=home, aa=away: news_mod.fixture_headlines(hh, aa, country, limit=4),
-                                      budget)[0],
+                                      news_budget)[0],
             }
         # league-level news for the League Center's News tab (top-two teams + the competition name)
         try:
             import leagues as _lg
             _lg.add_news(DATA_DIR / "app" / "leagues",
                          league_fn=lambda league, country="": ncache.items(
-                             f"q:{league}", lambda lg=league, cc=country: news_mod.team_headlines(lg, cc, limit=4), budget)[0],
+                             f"q:{league}", lambda lg=league, cc=country: news_mod.team_headlines(lg, cc, limit=4), news_budget)[0],
                          team_fn=lambda name: ncache.items(
-                             f"team:{name}", lambda t=name: news_mod.team_headlines(t, "", limit=3), budget)[0])
+                             f"team:{name}", lambda t=name: news_mod.team_headlines(t, "", limit=3), news_budget)[0])
         except Exception as exc:  # noqa: BLE001
             log.warning("League news failed (non-fatal): %s", exc)
         ncache.save()

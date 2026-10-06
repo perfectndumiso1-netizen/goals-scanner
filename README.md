@@ -17,6 +17,14 @@ Android app and Telegram — no servers, no API keys, and it runs while your pho
 * **⭐ Bets of the day** — grouped card, strong on Over 1.5 & team goals; 1X2 / BTTS / Over 2.5 only with strong supporting form; one market per match; graded separately.
 * **Trends, head-to-head and home/away form** on every match page; live scores, line-ups and match statistics for
   every match in play; squad values (Transfermarkt) for the main leagues.
+* **Live research & context** (Phase A: collected and shown, **not yet weighted**) — for the fixtures inside the
+  published window the scanner also records attributed current information: confirmed line-ups from the live feed
+  when they are published, reported team news (outlet, link and publication time, availability signals flagged but
+  never "verified"), scheduling/fatigue from our own archive, the competition format, and Open-Meteo weather for
+  genuinely severe conditions only. Each match shows **base probability → context → final probability** with a
+  research-quality grade (HIGH/MEDIUM/LOW/INSUFFICIENT), the reasons, the sources and any unresolved conflict;
+  missing information is N/A and normal weather is no adjustment by rule. With the shipped configuration the
+  published probability is *identical* to the statistical model — see `docs/RESEARCH.md`.
 * **Bet slip & tickets** in the app — build a multiple from priced selections, lock it, and PlayReport grades it from
   the scores and match statistics (private record on the phone).
 * **Results archive** — every finished match on the live feed is kept with half-time score, corners, cards, shots and

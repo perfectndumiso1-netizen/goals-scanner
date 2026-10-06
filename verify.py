@@ -47,6 +47,41 @@ def _prob(x) -> bool:
     return _num(x) and -1e-9 <= x <= 1 + 1e-9
 
 
+def context_budget(det: dict) -> tuple[float, float, float, float, bool]:
+    """How far a detail file may depart from the statistical model, and how far it does.
+
+    Returns (allowed_pp, worst_pp, allowed_xg, worst_xg, declared):
+      * nothing is allowed unless the detail file carries a context block that declares the adjustment and its
+        size (`context.totals.adjust_enabled`, `max_pp`, `lam_pct_h/a`) — so a silent blend (bookmaker odds
+        creeping into a published probability) remains a hard error, which is what this check is for;
+      * when it is declared, the allowance is exactly the adjustment the record names, plus rounding tolerance,
+        never a blanket permission.
+    """
+    det = det or {}
+    ctx = det.get("context") or {}
+    tot = ctx.get("totals") or {}
+    declared = bool(tot.get("adjust_enabled"))
+    tol = 0.2
+    allowed_pp = float(tot.get("max_pp") or 0.0) + tol if declared else 0.0
+    worst_pp = 0.0
+    for s in det.get("sels") or []:
+        if len(s) >= 3 and _num(s[1]) and _num(s[2]):
+            worst_pp = max(worst_pp, abs(float(s[1]) - float(s[2])) * 100.0)
+    p = det.get("p") or {}
+    if _num(p.get("model_O25")) and _num(p.get("O25")):
+        worst_pp = max(worst_pp, abs(float(p["O25"]) - float(p["model_O25"])) * 100.0)
+    if _num(p.get("model_BTTS")) and _num(p.get("BTTS")):
+        worst_pp = max(worst_pp, abs(float(p["BTTS"]) - float(p["model_BTTS"])) * 100.0)
+    xg = det.get("xg") or {}
+    allowed_xg = worst_xg = 0.0
+    if _num(xg.get("home")) and _num(xg.get("model_home")):
+        worst_xg = abs(float(xg["home"]) - float(xg["model_home"]))
+        if declared:
+            lam = max(abs(float(tot.get("lam_pct_h") or 0.0)), abs(float(tot.get("lam_pct_a") or 0.0)))
+            allowed_xg = abs(float(xg["model_home"])) * lam / 100.0 + 0.02
+    return allowed_pp, worst_pp, allowed_xg, worst_xg, declared
+
+
 def check_publication(staging: Path, live: Path, ledger: Path, now: datetime, expect_fixtures: int) -> tuple[list[str], list[str]]:
     errors: list[str] = []
     warns: list[str] = []
@@ -101,6 +136,7 @@ def check_publication(staging: Path, live: Path, ledger: Path, now: datetime, ex
         (errors if n_detail_missing > 3 else warns).append(f"{n_detail_missing} fixture(s) without a detail file")
     # ---- data-first engine: the detail files must carry the evidence layer and no market-contaminated probability
     n_checked = n_noq = n_blend = 0
+    blend_examples: list[str] = []
     for f in fixtures:
         key = f.get("d")
         fp = staging / "fx" / f"{key}.json"
@@ -114,18 +150,22 @@ def check_publication(staging: Path, live: Path, ledger: Path, now: datetime, ex
         q = det.get("quality") or {}
         if q.get("overall") not in ("High", "Medium", "Low"):
             n_noq += 1
-        for s in det.get("sels") or []:
-            if len(s) >= 3 and _num(s[1]) and _num(s[2]) and abs(s[1] - s[2]) > 1e-6:
-                n_blend += 1
-                break
-        xg = det.get("xg") or {}
-        if _num(xg.get("home")) and _num(xg.get("model_home")) and abs(xg["home"] - xg["model_home"]) > 1e-6:
+        # The published probability may differ from the statistical model ONLY through a bounded, declared
+        # context adjustment (the research layer's record). Anything else — a delta with no record behind it,
+        # or a delta larger than the adjustment it declares — is the market-contamination error this check
+        # exists for, and it still blocks the publication.
+        allowed_pp, worst_pp, allowed_xg, worst_xg, declared = context_budget(det)
+        if worst_pp > allowed_pp + 1e-9 or worst_xg > allowed_xg + 1e-9:
             n_blend += 1
+            if len(blend_examples) < 5:
+                blend_examples.append(f"{key}: {worst_pp:.2f} pp / {worst_xg:.2f} xG off the model (allowed "
+                                      f"{allowed_pp:.2f} pp / {allowed_xg:.2f} xG; declared: {declared})")
     if n_checked and n_noq:
         (errors if n_noq > 3 else warns).append(f"{n_noq} of {n_checked} detail files without a data-quality assessment")
     if n_blend:
-        errors.append(f"{n_blend} detail file(s) where a published probability / xG differs from the football-data model "
-                      "(market contamination)")
+        errors.append(f"{n_blend} detail file(s) where a published probability / xG differs from the statistical model "
+                      "without a declared, bounded context adjustment (market contamination): "
+                      + "; ".join(blend_examples))
     sf = d.get("safe") or {}
     min_p = float(sf.get("min_p") or 0.7)
     known = ids | _archive_ids(staging)
