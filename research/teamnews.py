@@ -62,7 +62,7 @@ def _flag(title: str) -> tuple[str, str]:
 
 
 def facts_for(row, now: datetime, limit: int = MAX_PER_SIDE, fetched: dict | None = None,
-              looked_up: bool = True) -> list[Fact]:
+              looked_up: bool = True, statuses: dict | None = None) -> list[Fact]:
     """Facts for both teams.
 
     `fetched` (optional) is {'home': [...], 'away': [...]} straight from the shared news cache — the engine
@@ -77,11 +77,16 @@ def facts_for(row, now: datetime, limit: int = MAX_PER_SIDE, fetched: dict | Non
         team = str(row.fx[side])
         items = news.get(side) or []
         if not items:
-            text = ("N/A — no reputable recent headline found for this team" if looked_up else
-                    "N/A — not looked up this run (fixture outside the news window)")
+            status = str((statuses or {}).get(side) or "")
+            if not looked_up:
+                text = "N/A — not looked up this run (fixture outside the news window)"
+            elif status == "stale":
+                text = "N/A — request budget reached this run and nothing cached for this team"
+            else:
+                text = "N/A — no reputable recent headline found for this team"
             out.append(make_fact("team_news", team, text,
                                  "news cache (Google News, reputable outlets only)", now, confidence="provider",
-                                 kind="news_unavailable", value={"looked_up": bool(looked_up)}))
+                                 kind="news_unavailable", value={"looked_up": bool(looked_up), "status": status}))
             continue
         picked: list[tuple[dict, str, str]] = []
         for it in items:

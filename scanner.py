@@ -2624,7 +2624,7 @@ def main() -> None:
                 now, DATA_DIR / "research", research_prob_fn, research_apply,
                 news_fn=(lambda team, country: ncache.items(
                     f"team:{team}", lambda t=team, c=country: news_mod.team_headlines(t, c, limit=4),
-                    res_news_budget)[0]) if ncache is not None else None,
+                    res_news_budget)) if ncache is not None else None,
                 news_horizon_h=CONFIG["NEWS_HOURS"])
             # research spends at most RES_NEWS_SHARE of the news budget; the published matches keep the rest
             res_news_budget = [max(0, int(CONFIG["NEWS_BUDGET"] * CONFIG["RES_NEWS_SHARE"]))]

@@ -174,18 +174,22 @@ class Engine:
                                  eid=(fx.get("eid") or None),
                                  match_started=bool(F.as_aware(fx["kickoff"], now) <= now))
         in_news_window = (F.as_aware(fx["kickoff"], now) - now) <= timedelta(hours=self.news_horizon_h)
-        fetched = None
+        fetched, statuses = None, {}
         if self.news_fn is not None and in_news_window:
             country = str(fx.get("country") or "")
             fetched = {}
             for side in ("home", "away"):
                 team = str(fx[side])
                 try:
-                    fetched[side] = self.news_fn(team, country) or []
+                    res = self.news_fn(team, country)
+                    items, status = res if isinstance(res, tuple) else (res, "fetched")
+                    fetched[side] = items or []
+                    statuses[side] = status
                 except Exception as exc:  # noqa: BLE001 - news is context only
                     log.debug("news lookup failed for %s: %s", team, exc)
                     fetched[side] = []
-        out += teamnews.facts_for(row, now, fetched=fetched, looked_up=bool(self.news_fn is not None and in_news_window))
+        out += teamnews.facts_for(row, now, fetched=fetched, statuses=statuses,
+                                  looked_up=bool(self.news_fn is not None and in_news_window))
         out += weather.facts_for(fx, now, self.venues, self.weather_cache,
                                  horizon_h=self.cfg.weather_horizon_h)
         for f in out:

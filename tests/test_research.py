@@ -377,6 +377,12 @@ def test_engine_pulls_team_news_through_the_injected_shared_cache(tmp_path):
     beta = [f for f in news if f.subject == "Beta"][0]
     assert beta.kind == "news_unavailable" and "no reputable recent headline" in beta.text
 
+    # a budget-starved lookup is reported as such, never as "no news exists"
+    eng3 = make_engine(tmp_path / "budget").with_history(results_frame())
+    eng3.news_fn = lambda team, country: ([], "stale")
+    rec3 = eng3.run(Row(), fid="fid-budget")
+    assert any("request budget reached" in f.text for f in rec3.facts if f.category == "team_news")
+
     # outside the news window nothing is looked up, and the gap says exactly that
     eng2 = make_engine(tmp_path / "far").with_history(results_frame())
     eng2.news_fn = news_fn
