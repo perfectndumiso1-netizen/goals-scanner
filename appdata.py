@@ -210,6 +210,21 @@ def carry_over(prev: dict | None, index: list, bets: list, tracked: set, now: da
     return len(frozen_ids)
 
 
+def shortlist_payload(sl: dict, ids_by_key: dict, fixture_id) -> dict:
+    """High-conviction shortlist for the app: each entry gets its fixture id so a row opens the match."""
+    if not sl:
+        return {}
+    out = {k: v for k, v in sl.items() if k not in ("primary", "watchlist")}
+    for part in ("primary", "watchlist"):
+        items = []
+        for x in sl.get(part) or []:
+            key = tuple(x.get("key") or ())
+            fid = ids_by_key.get(key) or (fixture_id(*key) if len(key) == 4 else None)
+            items.append({k: v for k, v in x.items() if k != "key"} | {"fixture": fid})
+        out[part] = items
+    return out
+
+
 def accas_payload(ctx: dict, ids_by_key: dict, tracked: set, badges: dict, fixture_id) -> dict:
     """The daily acca builds in publication shape: this run's three (with their fixture ids) plus the
     settled record. Kept out of export() so the shape can be tested without the whole pipeline."""
@@ -478,6 +493,7 @@ def export(path: Path, *, ctx: dict, rows: list, all_rows: list | None = None, p
     data = {
         "version": VERSION, "meta": meta,
         "fixtures": index, "picks": picks_out, "safe": safe_out, "tracker": tracker_out, "accas": accas_out,
+        "shortlist": shortlist_payload(ctx.get("shortlist") or {}, ids_by_key, fixture_id),
         "groups": {"strong": strong_picks[:60], "value": value_picks[:40]},
         "tracked": sorted(tracked), "history": {"reports": reports, "days": days_index or []},
     }

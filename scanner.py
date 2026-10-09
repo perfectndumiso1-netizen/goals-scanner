@@ -63,6 +63,7 @@ import appdata
 import verify
 import safe as safe_mod
 import accas as acca_mod
+import shortlist as shortlist_mod
 import history as history_mod
 import teamstats
 
@@ -88,6 +89,7 @@ DAYS_DIR = DATA_DIR / "app" / "days"
 TEAMS_DIR = DATA_DIR / "app" / "teams"
 SAFE_BETS_FILE = DATA_DIR / "safe_bets.csv"
 SAFE_ACCAS_FILE = DATA_DIR / "safe_accas.csv"
+SHORTLIST_FILE = DATA_DIR / "shortlist.csv"   # high-conviction shortlist decisions (primary / watchlist / rejected), settled
 ACCAS_FILE = DATA_DIR / "accas.csv"          # the daily 3.00 builds: gated legs, tracked and settled
 PDF_DIR = REPORTS_DIR / "pdf"
 README_FILE = ROOT / "README.md"
@@ -1720,6 +1722,11 @@ def render_safest(ctx: dict) -> list[str]:
                 L.append(f"| {b['kickoff'][11:]} | **{b['home']} v {b['away']}** | {b['league']} | **{b['label']}** | "
                          f"**{b['odds']:.2f}** | {pct(b['p'])} | {q} | {icon.get(b['status'], b['status'])} |")
             L.append("")
+    if ctx.get("shortlist"):
+        try:
+            L += shortlist_mod.markdown(ctx["shortlist"])
+        except Exception:  # noqa: BLE001 - report section is optional
+            pass
     # ---- the daily accas: three builds at the target price, built only from legs that pass every gate
     ac = ctx.get("accas") or {}
     if ac:
@@ -2708,6 +2715,26 @@ def main() -> None:
                     "edge_range": (acca_mod.MIN_EDGE, acca_mod.MAX_EDGE), "vig": acca_mod.VIG}
     log.info("Accas: %d legs eligible, %d build(s) at %.2f, %d settled so far",
              len(acca_pool), len(acca_ids), acca_mod.TARGET, ctx["accas"]["summary"]["all"].get("n", 0))
+
+    # ---- high-conviction shortlist: a filter over everything above (reads only, changes nothing); a failure
+    #      here is logged and the run carries on exactly as before
+    try:
+        sl_book = shortlist_mod.load(SHORTLIST_FILE)
+        if not sl_book.empty and (sl_book["result"] == "pending").any():
+            sl_book = shortlist_mod.settle(sl_book, results_s, now)
+        sl_board = shortlist_mod.build(rows, now, ctx["app_end"])
+        sl_book, sl_new = shortlist_mod.record(sl_book, sl_board, now)
+        SHORTLIST_FILE.parent.mkdir(parents=True, exist_ok=True)
+        sl_book.to_csv(SHORTLIST_FILE, index=False)
+        sl_pub = shortlist_mod.public(sl_board)
+        sl_pub["track"] = shortlist_mod.track_record(sl_book)
+        ctx["shortlist"] = sl_pub
+        c = sl_board["counts"]
+        log.info("Shortlist: analysed %d, screened %d, primary %d, watchlist %d, rejected %d (%d decision(s) logged)",
+                 c["analysed"], c["screened"], c["primary"], c["watchlist"], c["rejected"], sl_new)
+    except Exception as exc:  # noqa: BLE001 - the shortlist is an add-on; it must never break the pipeline
+        log.warning("Shortlist skipped: %s", exc)
+        ctx["shortlist"] = {}
 
     # ---- alerts for the app (new safest bets), kept in state
     alerts_file = DATA_DIR / "app" / "alerts.json"

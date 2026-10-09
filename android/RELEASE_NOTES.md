@@ -1,4 +1,11 @@
-## What's new — 🔄 Updates work again · 💰 Positive EV tab · Home is football only
+## What's new — 🎯 High-conviction shortlist
+- 🎯 **New Shortlist tab on Home** — out of every analysed match, at most **7** that deserve your attention today (a maximum, not a target). If nothing is good enough it says **NO QUALIFYING SELECTIONS** instead of lowering the bar.
+- Every market goes through the same gates (1X2, double chance, goals, BTTS, team goals, corners, bookings). **Rejected:** odds 1.14 or below, no Sportybet price, probability under its market bar, negative EV, failed data checks, or a model/market gap too big to believe. **Watchlist:** no edge over the market, an edge that's just the model's usual gap on that market, weak data, low confidence, or a model-v-data warning, each with its exact reason.
+- Each shortlisted match shows the price, raw model probability, calibrated probability (N/A until validated), implied probability with the margin removed, edge, EV, data quality, the evidence, the main risk and **QUALIFIED FOR FURTHER REVIEW**. Ranked by data quality, edge and EV, not probability alone. One selection per match; other selections from the same match are marked as correlated.
+- A daily decision summary, plus a track record: every decision is logged before kick-off and settled, so you can see whether the shortlist actually beats the watchlist and the rejects.
+- Nothing else changed: Bets of the day, High probability, Positive EV, the accas and the model all work exactly as before.
+
+## Earlier — 🔄 Updates work again · 💰 Positive EV tab · Home is football only
 - 🔄 **In-app updates are fixed.** Since 1.6.39 Android was silently refusing to install updates started by the app (it no longer holds the "install other apps" permission — the permission that triggers Play Protect). Now tapping the update notification (or Settings → Check for updates) hands the new version to your browser: it downloads, you tap the file and choose **Install**. No more going to GitHub. Android only accepts it if it is signed with the same key as your installed app.
 - 💰 **Positive EV tab on Home** — bets the model supports (1X2 ≥60%, corners & bookings ≥65%, every other market ≥70%), with a Sportybet price of **1.13 or more**, where **model probability × odds − 1 > 0**. All markets, sorted by EV, with the EV shown on every row.
 - 🏠 **Tennis is off the football Home page.** The ⚽ / 🎾 switch at the top still opens tennis.

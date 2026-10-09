@@ -75,3 +75,6 @@ the football model code; the only shared piece is the generic Markdown → PDF h
   wrapped, not modified. Tennis Home / Bets / Live / Matches / Days and a match page with Overview / Markets /
   Stats / Data (sample labels, last 10 matches with raw scores, H2H context only, quality checks, identity, inputs).
   Smoke test: `android/tennis_ui_test.py`.
+
+### High-conviction shortlist (`shortlist.py`)
+A strict filter over the analysed board: hard gates (data checks, verified price, odds > 1.14, per-market probability bar, EV ≥ 0, believable model/market gap) and soft gates (edge ≥ 2 pp over the de-vigged market and beyond the model's usual gap on that market, data quality, confidence, warnings, research conflicts). At most 7 matches, one selection each; otherwise **NO QUALIFYING SELECTIONS**. Read-only: it never changes a probability. Every decision is logged to `data/shortlist.csv` before kick-off and settled for walk-forward evaluation. Levers: `SHORTLIST_MIN_ODDS`, `SHORTLIST_MAX`.

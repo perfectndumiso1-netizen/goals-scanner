@@ -218,10 +218,49 @@
         && s.p >= (HOME_BAR[selGroup(s.sel)] || 0.70) && evOf(s) > 0)
       .map((s) => ({ f, s, g: selGroup(s.sel) })));
   }
+  // ------------------------------------------------------------------ HOME: high-conviction shortlist (server-built, shortlist.py)
+  function shortlistBoard(d, nAll, nHigh, nEv) {
+    const sl = d.shortlist || {}; const c = sl.counts || {}; const R = sl.rules || {};
+    const tabs = segmented([['all', `${icon('star')} Bets of the day (${nAll})`], ['high', `${icon('trend')} High probability (${nHigh})`], ['ev', `${icon('tag')} Positive EV (${nEv})`], ['sl', `${icon('target')} Shortlist (${(sl.primary || []).length})`]], 'sl', 'ht');
+    const out = [`<div class="card compact sticky-ish">${tabs}</div>`];
+    if (!sl.counts) {
+      out.push(`<div class="card empty small">The high-conviction shortlist appears after the next analysis run.</div>`);
+      return out.join('');
+    }
+    const na = (v, f) => (v == null ? 'N/A' : f(v));
+    const card = (x) => `<div class="card compact tap" data-fx="${esc(x.fixture || '')}">
+      <div class="row"><span class="pill hi">#${x.rank}</span><div class="grow"><div class="b">${esc(x.home)} v ${esc(x.away)}</div><div class="tiny muted">${flag(x.country)} ${esc(x.league)} · ${esc(koShort(x.kickoff))}</div></div><span class="tiny good b">QUALIFIED FOR FURTHER REVIEW</span></div>
+      <div class="b" style="margin-top:6px">${GROUP_ICON[x.market] || ''} ${esc(x.label)} @ ${na(x.odds, f2)}</div>
+      <table class="tbl" style="margin-top:4px">
+        <tr><td>Model probability (raw)</td><td class="right b">${pct(x.p)}</td></tr>
+        <tr><td>Calibrated probability</td><td class="right">${na(x.p_cal, pct)}</td></tr>
+        <tr><td>Bookmaker implied (margin removed)</td><td class="right">${na(x.p_sb, pct)} <span class="tiny muted">raw ${na(x.implied_raw, pct)}</span></td></tr>
+        <tr><td>Estimated edge</td><td class="right ${x.edge_pp > 0 ? 'good' : ''}">${na(x.edge_pp, (v) => `${v > 0 ? '+' : ''}${f1(v)} pp`)}</td></tr>
+        <tr><td>Expected value</td><td class="right">${na(x.ev, (v) => `${v > 0 ? '+' : ''}${f1(100 * v)}%`)}</td></tr>
+        <tr><td>Data quality · confidence</td><td class="right">${esc(x.quality)} · ${esc(x.confidence)}</td></tr></table>
+      ${(x.support || []).length ? `<div class="tiny" style="margin-top:4px"><b>Evidence:</b> ${x.support.map(esc).join(' · ')}</div>` : ''}
+      <div class="tiny" style="margin-top:2px"><b>Main risk:</b> ${esc(x.risk || 'N/A')}</div>
+      ${(x.correlated || []).length ? `<div class="tiny muted" style="margin-top:2px">Same match, correlated (not separate bets): ${x.correlated.map(esc).join(', ')}</div>` : ''}
+      <div class="row" style="justify-content:flex-end;margin-top:6px">${PR.addBtn && x.odds ? PR.addBtn(x.fixture, x.sel, x.odds) : ''}</div></div>`;
+    out.push(`<div class="card compact"><div class="b">A · Primary shortlist</div><div class="tiny muted">Analysed ${c.analysed} · passed screening ${c.screened} · shortlisted ${c.primary} · watchlist ${c.watchlist} · rejected ${c.rejected}</div></div>`);
+    if ((sl.primary || []).length) out.push(sl.primary.map(card).join(''));
+    else out.push(`<div class="card empty small"><b>NO QUALIFYING SELECTIONS.</b> Nothing passed every gate — standards are not lowered to fill the list.</div>`);
+    if ((sl.watchlist || []).length) out.push(`<div class="card compact"><div class="b">B · Secondary watchlist</div><table class="tbl" style="margin-top:4px">${sl.watchlist.map((x) => `<tr class="tap" data-fx="${esc(x.fixture || '')}"><td><div class="b">${esc(x.home)} v ${esc(x.away)}</div><div class="tiny muted">${esc(x.label)} @ ${na(x.odds, f2)} · model ${pct(x.p)}</div><div class="tiny">Not yet qualified: ${esc((x.reasons || [])[0] || '')}</div></td></tr>`).join('')}</table></div>`);
+    if ((sl.rejected_patterns || []).length) out.push(`<div class="card compact"><div class="b">C · Rejected (${c.rejected})</div><div class="tiny muted" style="margin-top:4px">Main reasons: ${sl.rejected_patterns.map((r) => `${esc(r[0])} <b>${r[1]}</b>`).join(' · ')}</div></div>`);
+    const tr = sl.track || {}; const trow = (k, n) => { const t = tr[k] || {}; return t.n ? `<tr><td>${n}</td><td class="right">${t.n}</td><td class="right">${pct(t.hit_rate)}</td><td class="right">${pct(t.expected)}</td><td class="right">${t.roi == null ? 'N/A' : `${t.roi > 0 ? '+' : ''}${f1(100 * t.roi)}%`}</td></tr>` : ''; };
+    const trBody = trow('primary', 'Shortlist') + trow('watchlist', 'Watchlist') + trow('rejected', 'Rejected');
+    out.push(`<div class="card compact"><div class="b">Daily decision summary</div><div class="small" style="margin-top:4px">${esc(sl.verdict || '')}</div>
+      <div class="tiny muted" style="margin-top:4px">${(sl.markets || []).length ? `Markets on the shortlist: ${sl.markets.map((m) => `${esc(GROUPS[m[0]] || m[0])} ${m[1]}`).join(', ')}. ` : ''}${sl.value ? `Estimated value: ${sl.value.genuine} · high probability only: ${sl.value.high_prob_only}.` : ''}</div>
+      ${trBody ? `<table class="tbl head" style="margin-top:6px"><tr><th>Track record</th><th class="right">Settled</th><th class="right">Hit</th><th class="right">Expected</th><th class="right">Flat ROI</th></tr>${trBody}</table>` : '<div class="tiny muted" style="margin-top:4px">Track record: every decision is logged before kick-off and settled — the numbers appear once results come in.</div>'}</div>`);
+    out.push(`<div class="card tiny muted"><b>How the shortlist is built</b> — every priced selection of every analysed match goes through the same gates. <b>Rejected</b> if: the match failed data checks, no Sportybet price (N/A, never assumed), odds <b>${f2(R.min_odds || 1.14)} or below</b>, probability under its market bar (1X2 60%, corners &amp; bookings 65%, everything else 70%), negative EV, or a model/market gap over ${R.max_edge_pp || 12} pp (data fault). <b>Watchlist</b> if: no de-vigged market view, edge under ${R.min_edge_pp || 2} pp, data quality Low, Low confidence, a model-v-data warning, or a research conflict. One selection per match, at most ${R.max_primary || 7} — a maximum, not a target. Ranked by data quality, edge, EV and margin above the bar, not probability alone. Calibrated probability is N/A (no validated live calibration). A shortlist for your review — never an instruction to bet, never guaranteed.</div>`);
+    return out.join('');
+  }
+
   function homeBoard(d) {
     const all = homeBets(d);
     const high = all.filter((r) => r.s.p >= HOME_HIGH);
     const evAll = homeEvBets(d);
+    if (state.homeTab === 'sl') return shortlistBoard(d, all.length, high.length, evAll.length);
     const tab = state.homeTab === 'high' || state.homeTab === 'ev' ? state.homeTab : 'all';
     const mk = state.homeMk || 'any'; const sort = state.homeSort || (tab === 'ev' ? 'ev' : 'p');
     const base = tab === 'high' ? high : tab === 'ev' ? evAll : all;
@@ -238,7 +277,7 @@
         <td class="right nowrap"><b>${f2(s.odds)}</b>${s.p_sb != null ? `<div class="tiny muted">${pct(s.p_sb)} implied</div>` : ''}${evOf(s) > 0 ? `<div class="tiny good">EV +${f1(100 * evOf(s))}%</div>` : ''}</td>
         <td class="right nowrap">${pill(s.p, 0.8, 0.7)} ${PR.addBtn ? PR.addBtn(f.id, s.sel, s.odds) : ''}</td></tr>`; };
     const out = [];
-    out.push(`<div class="card compact sticky-ish">${segmented([['all', `${icon('star')} Bets of the day (${all.length})`], ['high', `${icon('trend')} High probability (${high.length})`], ['ev', `${icon('tag')} Positive EV (${evAll.length})`]], tab, 'ht')}
+    out.push(`<div class="card compact sticky-ish">${segmented([['all', `${icon('star')} Bets of the day (${all.length})`], ['high', `${icon('trend')} High probability (${high.length})`], ['ev', `${icon('tag')} Positive EV (${evAll.length})`], ['sl', `${icon('target')} Shortlist (${((d.shortlist || {}).primary || []).length})`]], tab, 'ht')}
       <div class="chips small-chips" style="margin-top:6px"><button class="chip tapchip ${mk === 'any' ? 'on' : ''}" data-hmk="any">All markets <b>${base.length}</b></button>${groups.map((g) => `<button class="chip tapchip ${mk === g ? 'on' : ''}" data-hmk="${g}">${GROUP_ICON[g]} ${esc(GROUPS[g])} <b>${base.filter((r) => r.g === g).length}</b></button>`).join('')}</div>
       <div class="row" style="margin-top:6px"><div class="grow tiny muted">${rows.length} bet${rows.length === 1 ? '' : 's'} · ${matches} match${matches === 1 ? '' : 'es'}</div><span class="tiny muted">Sort&nbsp;</span>${select('home-sort', HOME_SORTS, sort)}</div></div>`);
     const shown = Math.min(rows.length, state.homeShow || 100);
