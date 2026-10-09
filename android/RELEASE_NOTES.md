@@ -1,4 +1,11 @@
-## What's new — 🛡️ Play Protect clean · modern Android target · verified updates
+## What's new — 🏠 New Home: every bet of the day, with Sportybet odds
+- 🏠 **Home is now the day's betting board.** Every market (1X2, double chance, total goals, BTTS, team goals, corners, bookings) in one list — each bet clears its model bar (**1X2 ≥60%, corners & bookings ≥65%, every other market ≥70%**) **and** has a Sportybet price on it, shown next to the model probability.
+- 📈 **High probability tab** — bets the model rates **≥70%** get their own tab.
+- 🔎 Filter by market, sort by model probability, odds (high or low), kick-off or league, and tap any row for the full match page. Long days load 100 bets at a time.
+- The top of Home keeps a short summary: today's numbers, live matches and the accas card. Signals, best of today and the explore links are still on the Scan tab.
+- 🧊 Model untouched — prices are shown, never used to calculate a probability.
+
+## Earlier — 🛡️ Play Protect clean · modern Android target · verified updates
 - ✅ **The Play Protect warning is addressed at its source.** Two things caused it: the app was built for **Android 14 (API 34)** while the phone runs Android 17, which is exactly what triggers the "built for an older version of Android / unsafe app blocked" dialog — and it asked for the **install-other-apps permission**, which is what makes an app look like an installer. It now **targets Android 16 (API 36)** and no longer requests that permission at all.
 - 🔐 **Updates are verified before Android sees them.** Every release publishes a SHA-256 digest; the app now checks the downloaded APK against it and **deletes anything that does not match**. The download also has to come from GitHub's own release hosts — the app will not download an update from anywhere else.
 - 🧱 **The app can only talk to the services it actually uses** — the published analysis, live scores and crest images. Anything else is refused by the shell and by the page itself, so a corrupted data file cannot turn the app into a fetcher for whatever URL it contains.

@@ -194,6 +194,57 @@
       ${card('b', 'check', 'Strong data', `${strongN} matches`, 'View matches', 'data-tab-go="matches"')}`;
   }
 
+  // ------------------------------------------------------------------ HOME board: today's bets, every market
+  // A bet of the day = a selection that clears its model bar (1X2 ≥60%, corners & bookings ≥65%, every other
+  // market ≥70%) AND carries a Sportybet price. Prices never decide the probability; they are only required
+  // to be there. "High probability" = model ≥70% on any market, in its own tab.
+  const HOME_BAR = { result: 0.60, corners: 0.65, cards: 0.65 };
+  const HOME_HIGH = 0.70;
+  const HOME_SORTS = [['p', 'Model probability ↓'], ['odds_d', 'Odds ↓'], ['odds_a', 'Odds ↑'], ['ko', 'Kick-off'], ['league', 'League']];
+  function homeBets(d) {
+    const today = ymd(tzNow());
+    const worth = (s) => !(s.odds < 1.15 && s.p_model != null && s.p_model > 0 && 1 / s.p_model < 1.15);
+    return (d.fixtures || []).filter((f) => f.date === today && inScope(f)).flatMap((f) => (f.sels || [])
+      .filter((s) => s && s.p != null && s.p > 0 && s.p < 1 && s.odds && s.odds > 1 && worth(s) && !PR.isOutlier(s)
+        && s.p >= (HOME_BAR[selGroup(s.sel)] || 0.70))
+      .map((s) => ({ f, s, g: selGroup(s.sel) })));
+  }
+  function homeBoard(d) {
+    const all = homeBets(d);
+    const high = all.filter((r) => r.s.p >= HOME_HIGH);
+    const tab = state.homeTab === 'high' ? 'high' : 'all';
+    const mk = state.homeMk || 'any'; const sort = state.homeSort || 'p';
+    const base = tab === 'high' ? high : all;
+    const groups = Object.keys(GROUPS).filter((g) => base.some((r) => r.g === g));
+    const rows = base.filter((r) => mk === 'any' || r.g === mk);
+    const cmp = { p: (a, b) => b.s.p - a.s.p, odds_d: (a, b) => b.s.odds - a.s.odds, odds_a: (a, b) => a.s.odds - b.s.odds,
+      ko: (a, b) => String(a.f.kickoff).localeCompare(String(b.f.kickoff)) || b.s.p - a.s.p,
+      league: (a, b) => String(a.f.league || a.f.competition || '').localeCompare(String(b.f.league || b.f.competition || '')) || b.s.p - a.s.p }[sort] || ((a, b) => b.s.p - a.s.p);
+    rows.sort(cmp);
+    const matches = new Set(rows.map((r) => r.f.id)).size;
+    const row = ({ f, s, g }) => { const lv = live.for(f); const st = lv && lv.hg != null ? `<span class="live-txt">${esc(lv.status || 'LIVE')} ${lv.hg}–${lv.ag}</span>` : esc(koTime(f.kickoff));
+      return `<tr class="tap" data-fx="${esc(f.id)}"><td class="tiny muted nowrap">${st}</td>
+        <td><div class="b">${GROUP_ICON[g] || ''} ${esc(s.label || selLabel(s.sel, f.home, f.away))}</div><div class="tiny muted">${flag(f.country)} ${esc(f.league || f.competition || '')} · ${teamSpan(f.home, f.country, f.div)} v ${teamSpan(f.away, f.country, f.div)}</div></td>
+        <td class="right nowrap"><b>${f2(s.odds)}</b>${s.p_sb != null ? `<div class="tiny muted">${pct(s.p_sb)} implied</div>` : ''}</td>
+        <td class="right nowrap">${pill(s.p, 0.8, 0.7)} ${PR.addBtn ? PR.addBtn(f.id, s.sel, s.odds) : ''}</td></tr>`; };
+    const out = [];
+    out.push(`<div class="card compact sticky-ish">${segmented([['all', `${icon('star')} Bets of the day (${all.length})`], ['high', `${icon('trend')} High probability (${high.length})`]], tab, 'ht')}
+      <div class="chips small-chips" style="margin-top:6px"><button class="chip tapchip ${mk === 'any' ? 'on' : ''}" data-hmk="any">All markets <b>${base.length}</b></button>${groups.map((g) => `<button class="chip tapchip ${mk === g ? 'on' : ''}" data-hmk="${g}">${GROUP_ICON[g]} ${esc(GROUPS[g])} <b>${base.filter((r) => r.g === g).length}</b></button>`).join('')}</div>
+      <div class="row" style="margin-top:6px"><div class="grow tiny muted">${rows.length} bet${rows.length === 1 ? '' : 's'} · ${matches} match${matches === 1 ? '' : 'es'}</div><span class="tiny muted">Sort&nbsp;</span>${select('home-sort', HOME_SORTS, sort)}</div></div>`);
+    const shown = Math.min(rows.length, state.homeShow || 100);
+    if (rows.length) out.push(`<div class="card compact"><table class="tbl head" style="margin-top:4px"><tr><th>Time</th><th>Match · bet</th><th class="right">Sportybet</th><th class="right">Model</th></tr>${rows.slice(0, shown).map(row).join('')}</table>${shown < rows.length ? `<div class="row" style="justify-content:center;margin-top:8px"><button class="btn" id="home-more">Show ${Math.min(100, rows.length - shown)} more · ${rows.length - shown} left</button></div>` : ''}</div>`);
+    else out.push(`<div class="card empty small">${tab === 'high' ? `No priced bet reaches ${pct(HOME_HIGH)} today${mk !== 'any' ? ' in this market' : ''} yet.` : `No priced bet clears its model bar today${mk !== 'any' ? ' in this market' : ''} yet.`} The board fills as Sportybet prices and probabilities firm up.${majorOnly() ? ' (Major leagues only — change in Settings.)' : ''}</div>`);
+    out.push(`<div class="card tiny muted"><b>How this board is built</b> — today's matches, every market. A bet appears when the model clears its bar (<b>1X2 ≥60%</b>, <b>corners &amp; bookings ≥65%</b>, <b>every other market ≥70%</b>) <b>and</b> Sportybet prices it. <b>High probability</b> = model ≥70% on any market. The price is shown, never used to compute the probability; selections 15+ points above the price are quarantined as data faults. A high probability is not a certainty.</div>`);
+    if (!PR._homeRefreshed && (d.fixtures || []).length && !(d.fixtures || []).some((f) => (f.sels || []).length)) { PR._homeRefreshed = true; setTimeout(() => PR.loadData(false), 250); }
+    return out.join('');
+  }
+  function wireHomeBoard() {
+    $$('[data-ht]').forEach((b) => { b.onclick = () => { state.homeTab = b.dataset.ht; state.homeMk = 'any'; state.homeShow = 100; PR.render(); }; });
+    $$('[data-hmk]').forEach((b) => { b.onclick = () => { state.homeMk = b.dataset.hmk; state.homeShow = 100; PR.render(); }; });
+    const so = $('#home-sort'); if (so) so.onchange = (e) => { state.homeSort = e.target.value; state.homeShow = 100; PR.render(); };
+    const mo = $('#home-more'); if (mo) mo.onclick = () => { const y = window.scrollY; state.homeShow = (state.homeShow || 100) + 100; PR.render(); window.scrollTo(0, y); };
+  }
+
   // ------------------------------------------------------------------ HOME
   PR.views.home = function () {
     const d = state.data, m = d.meta, sf = d.safe || { bets: [] }; const parts = [];
@@ -205,44 +256,20 @@
       <div class="hero-nums"><div><b>${m.fixtures}</b><span>Matches</span></div><div><b>${d.fixtures.filter((f) => f.data_ok).length}</b><span>Analysed</span></div><div><b>${safe.length}</b><span>High confidence</span></div><div><b>${(state.liveAll || []).length || inPlay.length}</b><span>Live</span></div></div>
       <div class="tiny muted" style="margin-top:8px">Next update ${esc(koTime(m.next_run || ''))} · ${cov.competitions || '–'} competitions worldwide · ${cov.priced || 0} priced by Sportybet</div>
       ${inPlay.length ? `<div class="live-strip" data-tab-go="live"><span class="status-dot live"></span><div class="grow"><b>${inPlay.length} tracked in play</b> · ${inPlay.slice(0, 2).map((f) => { const s = live.for(f); return `${esc(f.home)} ${s.hg}–${s.ag} ${esc(f.away)}`; }).join(' · ')}${inPlay.length > 2 ? ' …' : ''}</div>${icon('next', 'sm')}</div>` : ''}</div>`);
-    // TODAY'S SIGNALS hero — the top signal, rest behind View all
-    if (safe.length) {
-      parts.push(`<div class="signals-hero"><div class="sh-head"><span class="t">Today\u2019s signals</span><span class="c">${safe.length} strong model signal${safe.length === 1 ? '' : 's'}</span></div>
-        ${signalCard(safe[0], { bare: true })}
-        <div class="sh-viewall"><button class="link" data-bets="safest">View all ${safe.length} ${icon('next', 'sm')}</button></div></div>`);
-    } else {
-      parts.push(`<div class="signals-hero"><div class="sh-head"><span class="t">Today\u2019s signals</span></div><div class="empty small" style="border:0;background:transparent">No model signal reached ${pct(sf.min_p || 0.7)}${majorOnly() ? ' in the major leagues' : ''} for today's matches yet \u2014 the board fills as probabilities firm up.</div></div>`);
-    }
-    // BEST OF TODAY — first pick of the graded card, straight into the Best page
-    const botd = (sf.today && sf.today.bets) || [];
-    if (botd.length) {
-      const b0 = botd[0];
-      const grp = ((sf.today && sf.today.groups) || []).find((g) => (g.bets || []).indexOf(b0) >= 0);
-      const glabel = (grp && grp.title) || (GROUPS[selGroup(b0.sel)] || 'Best bet');
-      if (((d.accas || {}).bets || []).length) parts.push(`<div class="card compact tap" data-page-go="accas"><div class="row"><span class="ico">${icon('ticket')}</span><div class="grow"><div class="b">Today\u2019s accas · ${(d.accas.bets || []).length} build${(d.accas.bets || []).length === 1 ? '' : 's'} at ~${f2(d.accas.target || 3)}</div><div class="tiny muted">Gated legs, fewest legs per build, tracked to settlement → tap to open</div></div>${icon('next')}</div></div>`);
-      parts.push(`<div class="card botd-hero tap" data-page-go="best"><div class="bh-head"><span class="t">Best of today</span>${icon('next', 'sm')}</div>
-        <div class="bh-label">${esc(glabel)}</div>
-        <div class="bh-main"><div><div class="bh-sel">${esc(b0.label)}</div><div class="bh-match">${esc(b0.home)} v ${esc(b0.away)}</div></div>
-        <div class="bh-prob"><b>${pct(b0.p)}</b><span>Model probability</span></div></div>
-        <div class="tiny muted" style="margin-top:8px">${botd.length} pick${botd.length === 1 ? '' : 's'} on the card \u00b7 built section by section through the day</div></div>`);
-    }
+    // accas stay one tap away at the top (compact summary, user choice 2026-10-09)
+    if (((d.accas || {}).bets || []).length) parts.push(`<div class="card compact tap" data-page-go="accas"><div class="row"><span class="ico">${icon('ticket')}</span><div class="grow"><div class="b">Today\u2019s accas · ${(d.accas.bets || []).length} build${(d.accas.bets || []).length === 1 ? '' : 's'} at ~${f2(d.accas.target || 3)}</div><div class="tiny muted">Gated legs, tracked to settlement → tap to open</div></div>${icon('next')}</div></div>`);
     if (PR.APP_VERSION && settings.seenVersion !== PR.APP_VERSION) {
       parts.push(`<div class="card whatsnew"><div class="row"><div class="grow"><b>${icon('sparkle', 'sm')} New in PlayReport ${esc(PR.APP_VERSION)}</b></div><button class="link" id="wn-close">${icon('x')}</button></div>
         <ul><li>📅 <b>60 days of fixtures, every league</b> — the scanner now analyses matches up to 60 days ahead worldwide, so form, statistics and context are gathered early and every match is analysed long before kick-off. League fixture lists span the whole window.</li><li>🎫 <b>Your tickets meet Sportybet</b> — the <b>SB</b> link on any priced match, slip leg or ticket leg opens that match in Sportybet (live odds &amp; slip), and tickets copy to the clipboard in one tap.</li><li>🧾 <b>Booking codes</b> — paste a Sportybet booking code on the slip screen and PlayReport loads it in Sportybet for you.</li><li>🎯 <b>Bets of the day are Sportybet markets</b> — every pick is a market Sportybet prices, labelled with its price.</li><li>⚖️ <b>Odds never filter</b> — minimum-odds floors and market-contradiction hold-backs are gone: model probability, data quality and form decide what appears; prices and EV stay on display.</li><li>🧊 Model untouched — same input, same numbers.</li></ul></div>`);
     }
     const favs = (PR.favList ? PR.favList() : []).map((x) => fx(x.fixture)).filter(Boolean).sort((a, b) => a.kickoff.localeCompare(b.kickoff));
     if (favs.length) parts.push(`<div class="section-head"><h2><span class="ico amber">${icon('star')}</span>Your matches</h2><button class="link" data-tab-go="matches" data-mf-go="fav">All ${favs.length} ${icon('next')}</button></div><div class="card compact">${favs.slice(0, 5).map((f) => { const s = live.for(f); return matchRow(f, { live: s, sub: `${flag(f.country)} ${esc(f.competition)}${f.safe ? ` · 📈 <b>${esc(selShort(f.safe[0]))}</b> ${pct(f.safe[1])}` : ''}`, right: s && s.hg != null ? '' : `<span class="pill ${f.p.O25 >= 0.6 ? 'hi' : ''}">O2.5 ${pct(f.p.O25)}</span>` }); }).join('')}</div>`);
-    const pk = d.picks || {};
-    parts.push(`<div class="card compact"><div class="row" style="flex-wrap:wrap"><div class="grow b">Explore</div></div>
-      <div class="chips">${['O15', 'O25', 'BTTS'].map((k) => `<button class="chip tapchip" data-bets="picks">${icon('star', 'sm')} ${esc(MK[k])} <b>${(pk[k] || []).length}</b></button>`).join('')}<button class="chip tapchip" data-bets="corners">${icon('corner', 'sm')} Corners</button><button class="chip tapchip" data-bets="cards">${icon('card', 'sm')} Cards</button><button class="chip tapchip" data-tab-go="leagues">${icon('trophy', 'sm')} World leagues</button><button class="chip tapchip" data-page-go="marketsboard">${icon('tag', 'sm')} All markets</button><button class="chip tapchip" data-page-go="guide">${icon('info', 'sm')} Guide to the markets</button></div></div>`);
-    const now = tzNow(); const upcoming = d.fixtures.filter((f) => inScope(f) && f.data_ok && f.priced && parseLocal(f.kickoff) > now - 2 * 3600000).sort((a, b) => a.kickoff.localeCompare(b.kickoff)).slice(0, 6);
-    parts.push(`<div class="section-head">${sh('calendar', 'Next kick-offs')}<button class="link" data-tab-go="matches">All matches ${icon('next')}</button></div><div class="card compact">${upcoming.map((f) => { const s = live.for(f); const best = f.top;
-      return matchRow(f, { live: s, sub: `${flag(f.country)} ${esc(f.competition)}${best ? ` · <b>${esc(selShort(best[0]))}</b> ${pct(best[1])} @ ${f2(best[2])}` : ''}`, right: s && s.hg != null ? '' : `<span class="pill ${f.p.O25 >= 0.6 ? 'hi' : ''}">O2.5 ${pct(f.p.O25)}</span><span class="tiny muted">BTTS ${pct(f.p.BTTS)}</span>` }); }).join('') || '<div class="empty small">No upcoming matches in the window.</div>'}</div>`);
+    parts.push(homeBoard(d));
     if (PR.ticketsCard && PR.tickets().some((t) => t.status === 'pending')) parts.push(PR.ticketsCard(true));
     parts.push(PR.editorCard(true));
     parts.push(contactCard(true));
     view().innerHTML = parts.join('');
-    wireCommon(); if (PR.wireTickets) PR.wireTickets();
+    wireCommon(); wireHomeBoard(); if (PR.wireTickets) PR.wireTickets();
     const wn = $('#wn-close'); if (wn) wn.onclick = () => { settings.seenVersion = PR.APP_VERSION; PR.saveSettings(); PR.render(); };
   };
   function wireCommon() {
