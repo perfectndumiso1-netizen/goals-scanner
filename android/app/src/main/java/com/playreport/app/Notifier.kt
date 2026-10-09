@@ -67,7 +67,7 @@ object Notifier {
         nm.createNotificationChannel(channel(ctx, CH_TICKETS, "Ticket results", NotificationManager.IMPORTANCE_HIGH,
             "One of your locked tickets was settled — won or lost", "pr_tickets"))
         nm.createNotificationChannel(channel(ctx, CH_UPDATES, "App updates", NotificationManager.IMPORTANCE_HIGH,
-            "A newer version is available — tap to download it, then Android asks you to install", "pr_report"))
+            "A newer version is available — tap to download it, then tap Install", "pr_report"))
     }
 
     /** Sound file (res/raw name) behind each channel — used by the Settings page previews. */

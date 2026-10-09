@@ -200,7 +200,9 @@
   // to be there. "High probability" = model ≥70% on any market, in its own tab.
   const HOME_BAR = { result: 0.60, corners: 0.65, cards: 0.65 };
   const HOME_HIGH = 0.70;
-  const HOME_SORTS = [['p', 'Model probability ↓'], ['odds_d', 'Odds ↓'], ['odds_a', 'Odds ↑'], ['ko', 'Kick-off'], ['league', 'League']];
+  const HOME_EV_MIN_ODDS = 1.13;   // positive-EV tab: Sportybet price at least 1.13 (user rule, 2026-10-09)
+  const evOf = (s) => s.p * s.odds - 1;   // expected return per 1 staked at Sportybet's price, model probability
+  const HOME_SORTS = [['p', 'Model probability ↓'], ['ev', 'EV ↓'], ['odds_d', 'Odds ↓'], ['odds_a', 'Odds ↑'], ['ko', 'Kick-off'], ['league', 'League']];
   function homeBets(d) {
     const today = ymd(tzNow());
     const worth = (s) => !(s.odds < 1.15 && s.p_model != null && s.p_model > 0 && 1 / s.p_model < 1.15);
@@ -209,15 +211,23 @@
         && s.p >= (HOME_BAR[selGroup(s.sel)] || 0.70))
       .map((s) => ({ f, s, g: selGroup(s.sel) })));
   }
+  function homeEvBets(d) {
+    const today = ymd(tzNow());
+    return (d.fixtures || []).filter((f) => f.date === today && inScope(f)).flatMap((f) => (f.sels || [])
+      .filter((s) => s && s.p != null && s.p > 0 && s.p < 1 && s.odds && s.odds >= HOME_EV_MIN_ODDS && !PR.isOutlier(s)
+        && s.p >= (HOME_BAR[selGroup(s.sel)] || 0.70) && evOf(s) > 0)
+      .map((s) => ({ f, s, g: selGroup(s.sel) })));
+  }
   function homeBoard(d) {
     const all = homeBets(d);
     const high = all.filter((r) => r.s.p >= HOME_HIGH);
-    const tab = state.homeTab === 'high' ? 'high' : 'all';
-    const mk = state.homeMk || 'any'; const sort = state.homeSort || 'p';
-    const base = tab === 'high' ? high : all;
+    const evAll = homeEvBets(d);
+    const tab = state.homeTab === 'high' || state.homeTab === 'ev' ? state.homeTab : 'all';
+    const mk = state.homeMk || 'any'; const sort = state.homeSort || (tab === 'ev' ? 'ev' : 'p');
+    const base = tab === 'high' ? high : tab === 'ev' ? evAll : all;
     const groups = Object.keys(GROUPS).filter((g) => base.some((r) => r.g === g));
     const rows = base.filter((r) => mk === 'any' || r.g === mk);
-    const cmp = { p: (a, b) => b.s.p - a.s.p, odds_d: (a, b) => b.s.odds - a.s.odds, odds_a: (a, b) => a.s.odds - b.s.odds,
+    const cmp = { p: (a, b) => b.s.p - a.s.p, ev: (a, b) => evOf(b.s) - evOf(a.s), odds_d: (a, b) => b.s.odds - a.s.odds, odds_a: (a, b) => a.s.odds - b.s.odds,
       ko: (a, b) => String(a.f.kickoff).localeCompare(String(b.f.kickoff)) || b.s.p - a.s.p,
       league: (a, b) => String(a.f.league || a.f.competition || '').localeCompare(String(b.f.league || b.f.competition || '')) || b.s.p - a.s.p }[sort] || ((a, b) => b.s.p - a.s.p);
     rows.sort(cmp);
@@ -225,21 +235,22 @@
     const row = ({ f, s, g }) => { const lv = live.for(f); const st = lv && lv.hg != null ? `<span class="live-txt">${esc(lv.status || 'LIVE')} ${lv.hg}–${lv.ag}</span>` : esc(koTime(f.kickoff));
       return `<tr class="tap" data-fx="${esc(f.id)}"><td class="tiny muted nowrap">${st}</td>
         <td><div class="b">${GROUP_ICON[g] || ''} ${esc(s.label || selLabel(s.sel, f.home, f.away))}</div><div class="tiny muted">${flag(f.country)} ${esc(f.league || f.competition || '')} · ${teamSpan(f.home, f.country, f.div)} v ${teamSpan(f.away, f.country, f.div)}</div></td>
-        <td class="right nowrap"><b>${f2(s.odds)}</b>${s.p_sb != null ? `<div class="tiny muted">${pct(s.p_sb)} implied</div>` : ''}</td>
+        <td class="right nowrap"><b>${f2(s.odds)}</b>${s.p_sb != null ? `<div class="tiny muted">${pct(s.p_sb)} implied</div>` : ''}${evOf(s) > 0 ? `<div class="tiny good">EV +${f1(100 * evOf(s))}%</div>` : ''}</td>
         <td class="right nowrap">${pill(s.p, 0.8, 0.7)} ${PR.addBtn ? PR.addBtn(f.id, s.sel, s.odds) : ''}</td></tr>`; };
     const out = [];
-    out.push(`<div class="card compact sticky-ish">${segmented([['all', `${icon('star')} Bets of the day (${all.length})`], ['high', `${icon('trend')} High probability (${high.length})`]], tab, 'ht')}
+    out.push(`<div class="card compact sticky-ish">${segmented([['all', `${icon('star')} Bets of the day (${all.length})`], ['high', `${icon('trend')} High probability (${high.length})`], ['ev', `${icon('tag')} Positive EV (${evAll.length})`]], tab, 'ht')}
       <div class="chips small-chips" style="margin-top:6px"><button class="chip tapchip ${mk === 'any' ? 'on' : ''}" data-hmk="any">All markets <b>${base.length}</b></button>${groups.map((g) => `<button class="chip tapchip ${mk === g ? 'on' : ''}" data-hmk="${g}">${GROUP_ICON[g]} ${esc(GROUPS[g])} <b>${base.filter((r) => r.g === g).length}</b></button>`).join('')}</div>
       <div class="row" style="margin-top:6px"><div class="grow tiny muted">${rows.length} bet${rows.length === 1 ? '' : 's'} · ${matches} match${matches === 1 ? '' : 'es'}</div><span class="tiny muted">Sort&nbsp;</span>${select('home-sort', HOME_SORTS, sort)}</div></div>`);
     const shown = Math.min(rows.length, state.homeShow || 100);
     if (rows.length) out.push(`<div class="card compact"><table class="tbl head" style="margin-top:4px"><tr><th>Time</th><th>Match · bet</th><th class="right">Sportybet</th><th class="right">Model</th></tr>${rows.slice(0, shown).map(row).join('')}</table>${shown < rows.length ? `<div class="row" style="justify-content:center;margin-top:8px"><button class="btn" id="home-more">Show ${Math.min(100, rows.length - shown)} more · ${rows.length - shown} left</button></div>` : ''}</div>`);
-    else out.push(`<div class="card empty small">${tab === 'high' ? `No priced bet reaches ${pct(HOME_HIGH)} today${mk !== 'any' ? ' in this market' : ''} yet.` : `No priced bet clears its model bar today${mk !== 'any' ? ' in this market' : ''} yet.`} The board fills as Sportybet prices and probabilities firm up.${majorOnly() ? ' (Major leagues only — change in Settings.)' : ''}</div>`);
+    else out.push(`<div class="card empty small">${tab === 'ev' ? `No bet the model supports has positive EV at a Sportybet price of ${f2(HOME_EV_MIN_ODDS)} or more today${mk !== 'any' ? ' in this market' : ''}.` : tab === 'high' ? `No priced bet reaches ${pct(HOME_HIGH)} today${mk !== 'any' ? ' in this market' : ''} yet.` : `No priced bet clears its model bar today${mk !== 'any' ? ' in this market' : ''} yet.`} The board fills as Sportybet prices and probabilities firm up.${majorOnly() ? ' (Major leagues only — change in Settings.)' : ''}</div>`);
+    if (tab === 'ev') out.push(`<div class="card tiny muted"><b>Positive EV</b> — bets the model supports (same bars: 1X2 ≥60%, corners &amp; bookings ≥65%, every other market ≥70%) whose Sportybet price is <b>${f2(HOME_EV_MIN_ODDS)} or more</b> and pays more than the model thinks is fair: <b>EV = model probability × odds − 1 &gt; 0</b>. EV +5% means the model expects 5c back per R1 staked over many such bets — an estimate that is only as good as the model, not a guarantee. Gaps of 15+ points over the price stay quarantined as data faults.</div>`);
     out.push(`<div class="card tiny muted"><b>How this board is built</b> — today's matches, every market. A bet appears when the model clears its bar (<b>1X2 ≥60%</b>, <b>corners &amp; bookings ≥65%</b>, <b>every other market ≥70%</b>) <b>and</b> Sportybet prices it. <b>High probability</b> = model ≥70% on any market. The price is shown, never used to compute the probability; selections 15+ points above the price are quarantined as data faults. A high probability is not a certainty.</div>`);
     if (!PR._homeRefreshed && (d.fixtures || []).length && !(d.fixtures || []).some((f) => (f.sels || []).length)) { PR._homeRefreshed = true; setTimeout(() => PR.loadData(false), 250); }
     return out.join('');
   }
   function wireHomeBoard() {
-    $$('[data-ht]').forEach((b) => { b.onclick = () => { state.homeTab = b.dataset.ht; state.homeMk = 'any'; state.homeShow = 100; PR.render(); }; });
+    $$('[data-ht]').forEach((b) => { b.onclick = () => { state.homeTab = b.dataset.ht; state.homeMk = 'any'; state.homeSort = null; state.homeShow = 100; PR.render(); }; });
     $$('[data-hmk]').forEach((b) => { b.onclick = () => { state.homeMk = b.dataset.hmk; state.homeShow = 100; PR.render(); }; });
     const so = $('#home-sort'); if (so) so.onchange = (e) => { state.homeSort = e.target.value; state.homeShow = 100; PR.render(); };
     const mo = $('#home-more'); if (mo) mo.onclick = () => { const y = window.scrollY; state.homeShow = (state.homeShow || 100) + 100; PR.render(); window.scrollTo(0, y); };

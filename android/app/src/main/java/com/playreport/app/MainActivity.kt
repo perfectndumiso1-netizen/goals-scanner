@@ -186,13 +186,10 @@ class MainActivity : AppCompatActivity() {
             else "null"
             js("window.__updateInfo && window.__updateInfo($payload);")
             if (info == null) return@execute
-            js("window.__updateProgress && window.__updateProgress('downloading');")
-            val f = Updater.download(this@MainActivity, info)     // verified against the published SHA-256
-            if (f == null) {
-                js("window.__updateProgress && window.__updateProgress('failed');")
-            } else {
-                js("window.__updateProgress && window.__updateProgress('installing');")
-                runOnUiThread { Updater.install(this@MainActivity, f) }
+            // the browser downloads it and Android shows its install screen (see Updater.handOff)
+            runOnUiThread {
+                val ok = Updater.handOff(this@MainActivity, info)
+                js("window.__updateProgress && window.__updateProgress('${if (ok) "browser" else "failed"}');")
             }
         }
     }
@@ -407,16 +404,12 @@ class MainActivity : AppCompatActivity() {
         @JavascriptInterface
         fun installUpdate(url: String) {
             pool.execute {
-                js("window.__updateProgress && window.__updateProgress('downloading');")
                 // the URL comes from the page, so it is resolved against the release feed and allowlisted
-                // before a single byte is downloaded — the page cannot point the app at an arbitrary file
+                // first — the page cannot point the app (or the browser) at an arbitrary file
                 val info = Updater.check()?.takeIf { it.url == url }
-                val f = if (info == null) null else Updater.download(this@MainActivity, info)
-                if (f == null) {
-                    js("window.__updateProgress && window.__updateProgress('failed');")
-                } else {
-                    js("window.__updateProgress && window.__updateProgress('installing');")
-                    runOnUiThread { Updater.install(this@MainActivity, f) }
+                runOnUiThread {
+                    val ok = info != null && Updater.handOff(this@MainActivity, info)
+                    js("window.__updateProgress && window.__updateProgress('${if (ok) "browser" else "failed"}');")
                 }
             }
         }

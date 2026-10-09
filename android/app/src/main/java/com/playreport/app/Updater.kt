@@ -81,7 +81,31 @@ object Updater {
         return f
     }
 
-    /** Hand the verified file to the system installer. The user sees Android's own confirmation screen. */
+    /**
+     * The update path the app actually uses: give the release's APK link to the phone's browser.
+     *
+     * Why not [install]: since Android 8 the system installer silently refuses an install started by an app
+     * that does not declare REQUEST_INSTALL_PACKAGES — and that permission is exactly what gets a sideloaded
+     * app flagged/blocked by Play Protect, so it stays out. The browser already holds the "install unknown
+     * apps" permission (it is how PlayReport was installed in the first place), downloads the file and offers
+     * Android's own install screen. Android then refuses the upgrade unless the APK is signed with the same
+     * key as the installed app, so a swapped file cannot replace PlayReport.
+     */
+    fun handOff(ctx: Context, info: Info): Boolean {
+        if (!Security.nativeAllowed(info.url)) return false
+        return try {
+            val i = Intent(Intent.ACTION_VIEW, Uri.parse(info.url)).apply {
+                addCategory(Intent.CATEGORY_BROWSABLE)
+                flags = Intent.FLAG_ACTIVITY_NEW_TASK
+            }
+            ctx.startActivity(i)
+            true
+        } catch (e: Exception) {
+            false
+        }
+    }
+
+    /** Hand the verified file to the system installer (kept for devices/builds that hold the permission). The user sees Android's own confirmation screen. */
     fun install(ctx: Context, file: File): Boolean {
         return try {
             val uri: Uri = FileProvider.getUriForFile(ctx, "${ctx.packageName}.fileprovider", file)

@@ -149,6 +149,17 @@ def test_updater_verifies_the_download_and_lets_android_install():
 
 
 # ------------------------------------------------------------------ the page and the shell must agree
+def test_update_is_handed_to_the_browser_not_the_blocked_installer():
+    """Without REQUEST_INSTALL_PACKAGES (deliberately absent) Android 8+ silently refuses an install the app
+    starts itself — that broke updates in 1.6.39–1.6.45. The flow must give the allowlisted release link to
+    the browser instead."""
+    updater = read(JAVA / "Updater.kt")
+    main = read(JAVA / "MainActivity.kt")
+    assert "fun handOff(" in updater and "Security.nativeAllowed(info.url)" in updater
+    assert "Updater.handOff(" in main, "both update entry points must hand off to the browser"
+    assert "Updater.install(" not in main, "the app-started install is silently refused without the permission"
+
+
 def test_page_and_shell_share_one_host_list():
     """The two lists live in different languages; if they drift, a feature breaks in a way that looks like a
     network error. Compare them literally."""

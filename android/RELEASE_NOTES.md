@@ -1,4 +1,10 @@
-## What's new — 🏠 New Home: every bet of the day, with Sportybet odds
+## What's new — 🔄 Updates work again · 💰 Positive EV tab · Home is football only
+- 🔄 **In-app updates are fixed.** Since 1.6.39 Android was silently refusing to install updates started by the app (it no longer holds the "install other apps" permission — the permission that triggers Play Protect). Now tapping the update notification (or Settings → Check for updates) hands the new version to your browser: it downloads, you tap the file and choose **Install**. No more going to GitHub. Android only accepts it if it is signed with the same key as your installed app.
+- 💰 **Positive EV tab on Home** — bets the model supports (1X2 ≥60%, corners & bookings ≥65%, every other market ≥70%), with a Sportybet price of **1.13 or more**, where **model probability × odds − 1 > 0**. All markets, sorted by EV, with the EV shown on every row.
+- 🏠 **Tennis is off the football Home page.** The ⚽ / 🎾 switch at the top still opens tennis.
+- 🧊 Model untouched.
+
+## Earlier — 🏠 New Home: every bet of the day, with Sportybet odds
 - 🏠 **Home is now the day's betting board.** Every market (1X2, double chance, total goals, BTTS, team goals, corners, bookings) in one list — each bet clears its model bar (**1X2 ≥60%, corners & bookings ≥65%, every other market ≥70%**) **and** has a Sportybet price on it, shown next to the model probability.
 - 📈 **High probability tab** — bets the model rates **≥70%** get their own tab.
 - 🔎 Filter by market, sort by model probability, odds (high or low), kick-off or league, and tap any row for the full match page. Long days load 100 bets at a time.

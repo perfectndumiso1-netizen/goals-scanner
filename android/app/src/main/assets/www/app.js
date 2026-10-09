@@ -24,7 +24,7 @@
   }
   PR.startUpdate = function () {
     if (!state.update || !PR.native || !PR.native.installUpdate) return;
-    state.updateStage = 'downloading'; toast('Downloading update…');
+    state.updateStage = 'downloading'; toast('Opening the download…');
     PR.native.installUpdate(state.update.url);
   };
   /** release notes (markdown-ish) -> list items */
@@ -46,7 +46,7 @@
   window.__updateInstalling = function () { toast('Verified — Android will ask you to install it'); };
   /** CSV "save as" result from the native picker */
   window.__saveDone = function (ok) { toast(ok ? 'Saved — open it with Google Sheets or Excel' : 'Not saved'); };
-  window.__updateProgress = function (stage) { state.updateStage = stage; if (stage === 'failed') toast('Update download failed'); };
+  window.__updateProgress = function (stage) { state.updateStage = stage; if (stage === 'failed') toast('Could not open the download — try again'); else if (stage === 'browser') toast('Downloading — when it finishes, tap the file and choose Install'); };
 
   // native entry points
   window.app = {

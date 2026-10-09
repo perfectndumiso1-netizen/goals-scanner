@@ -83,7 +83,6 @@
     } catch (e) { T.error = String(e.message || e); }
     T.loading = false;
     if (isTennis()) { PR.render(); T.statusLine(); }
-    else if (state.tab === 'home' && !state.stack.length && state.data) PR.render();   // fills the tennis card on the football home
   };
   T.detail = function (id) {
     const key = String(id);
@@ -252,7 +251,7 @@
         try { T.views[tab](); } catch (e) { view().innerHTML = `<div class="card empty">The tennis screen hit an error (${esc(e.message || e)}). Pull to refresh.</div>`; }
         T.statusLine();
         if (tab === 'live' || tab === 'home') T.liveRefresh(false);
-      } else { orig.apply(this, arguments); if (tab === 'home') addTennisCard(); }
+      } else { orig.apply(this, arguments); }   // football Home no longer carries tennis (user, 2026-10-09) — the ⚽ / 🎾 bar opens it
       addSportBar();
     };
   });
