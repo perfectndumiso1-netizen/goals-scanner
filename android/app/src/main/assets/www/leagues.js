@@ -10,6 +10,7 @@
   function wireBack() { const b = $('#back'); if (b) b.onclick = () => PR.back(); }
   const LG = state.lg = state.lg || { idx: null, idxStale: false, loading: false, error: null, det: {} };
   state.lgSeg = state.lgSeg || 'table';
+  state.lgTab = state.lgTab || 'comps';
   state.lgQ = state.lgQ || '';
 
   // ------------------------------------------------------------------ data (on-phone cache first, network second)
@@ -46,6 +47,21 @@
     if (detailCached(slug)) return;
     loadDetail(slug).then(() => PR.render()).catch((e) => { LG.det[slug] = { error: e.message }; PR.render(); });
   }
+  async function loadFixtures(force) {
+    if (LG.fx && !force) return LG.fx;
+    if (LG.fxLoading) return LG.fx;
+    LG.fxLoading = true; LG.fxError = null;
+    try {
+      const j = await getJson(rawUrl('data/app/leagues/fixtures.json') + '?t=' + Math.floor(Date.now() / 600000));
+      PR.cache.put('leag/fx', j, j.generated || '');
+      LG.fx = j; LG.fxStale = false;
+    } catch (e) {
+      const c = PR.cache.get('leag/fx');
+      if (c && c.d) { LG.fx = c.d; LG.fxStale = true; }
+      else { LG.fxError = e.message; }
+    } finally { LG.fxLoading = false; }
+    return LG.fx;
+  }
   const fetchStamp = (s) => { const d = parseLocal(s); return d ? `${niceDate(s)} · ${koTime(s)}` : (s || 'unknown'); };
 
   // ------------------------------------------------------------------ TAB: league browser
@@ -55,6 +71,9 @@
     parts.push(`<div class="lg-head"><div class="grow"><div class="b">${icon('trophy', 'sm')} Leagues</div><div class="tiny muted">Tables, results &amp; fixtures — every competition on the public feed</div></div>
       ${LG.idx ? `<span class="tiny muted">${LG.idx.count} competitions · ${new Set((LG.idx.leagues || []).map((x) => x.country)).size} countries${LG.idxStale ? ' · saved copy' : ''}</span>` : ''}</div>`);
     if (sum) parts.push(`<div class="tiny muted" style="margin:2px 4px 0">Data collection: <b>${sum.active}</b> active · <b>${sum.eligible}</b> model-eligible${sum.collecting ? ` · <b>${sum.collecting}</b> still collecting stats` : ''}${sum.no_stats ? ` · <b>${sum.no_stats}</b> where the provider publishes no stats (corners/cards N/A)` : ''}${sum.data_error ? ` · ${sum.data_error} data error${sum.data_error === 1 ? '' : 's'}` : ''}. One bad league never stops the worldwide scan.</div>`);
+    parts.push(`<div class="card compact" style="margin-bottom:8px">${segmented([['comps', `${icon('trophy', 'sm')} Competitions`], ['fixtures', `${icon('calendar', 'sm')} Fixtures`]], state.lgTab, 'lgtab')}</div>`);
+    const wireSeg = () => $$('[data-lgtab]').forEach((b) => { b.onclick = () => { state.lgTab = b.dataset.lgtab; PR.render(); window.scrollTo(0, 0); }; });
+    if (state.lgTab === 'fixtures') { fixturesTab(parts); return; }
     parts.push(`<div class="searchbar"><div class="field">${icon('search', 'sm')}<input id="lg-search" type="search" placeholder="Search a league, country or team" value="${esc(state.lgQ)}" autocomplete="off"></div></div>`);
     parts.push(`<div class="row" style="padding:0 4px 6px;gap:8px"><div class="grow tiny muted">${LG.idx ? `${LG.idx.count} competitions` : ''} · tap a league to open it</div>${select('lg-sort', [['country', 'Sort: Country'], ['name', 'Sort: Name'], ['next', 'Sort: Next fixture'], ['played', 'Sort: Most played'], ['teams', 'Sort: Most teams']], state.lgSort || 'country')}</div>`);
     if (!LG.idx) {
@@ -63,6 +82,7 @@
       view().innerHTML = parts.join('');
       const s = $('#lg-search'); if (s) s.oninput = (e) => { state.lgQ = e.target.value; PR.render(); s.focus(); };
       const r = $('#lg-retry'); if (r) r.onclick = () => loadIndex(true).then(() => PR.render());
+      wireSeg();
       if (!LG.loading) loadIndex(true).then(() => PR.render());
       return;
     }
@@ -107,7 +127,59 @@
     const so = $('#lg-sort'); if (so) so.onchange = (e) => { state.lgSort = e.target.value; PR.render(); };
     $$('#view [data-lg]').forEach((el) => { el.onclick = () => openLeague(el.dataset.lg); });
     $$('[data-lgtm]').forEach((el) => { el.onclick = () => { const p = el.dataset.lgtm.split('|'); PR.openTeam(p.slice(0, -2).join('|'), p[p.length - 2], p[p.length - 1]); }; });
+    wireSeg();
   };
+
+  // ------------------------------------------------------------------ TAB: fixtures across all competitions
+  // One list of every upcoming fixture the public feed publishes (fixtures.json, published with the
+  // league data every scan) — fixtures used to be visible only by opening leagues one by one.
+  function fixturesTab(parts) {
+    const q = (state.lgQ || '').trim().toLowerCase();
+    parts.push(`<div class="searchbar"><div class="field">${icon('search', 'sm')}<input id="lg-search" type="search" placeholder="Search a team, league or country" value="${esc(state.lgQ)}" autocomplete="off"></div></div>`);
+    const wireSearch = () => { const s = $('#lg-search'); if (s) { s.oninput = (e) => { state.lgQ = e.target.value; PR.render(); const n = $('#lg-search'); if (n) { n.focus(); n.setSelectionRange(n.value.length, n.value.length); } }; } };
+    if (!LG.fx && !LG.fxError) {
+      parts.push(skeleton(8));
+      view().innerHTML = parts.join(''); wireSearch();
+      loadFixtures(true).then(() => PR.render()).catch(() => PR.render());
+      return;
+    }
+    if (!LG.fx) {
+      parts.push(`<div class="card empty">Could not load the fixtures list (${esc(LG.fxError || 'unavailable')}).<br><button class="btn" id="lg-fx-retry">Try again</button></div>`);
+      view().innerHTML = parts.join(''); wireSearch();
+      const r = $('#lg-fx-retry'); if (r) r.onclick = () => { LG.fxError = null; loadFixtures(true).then(() => PR.render()).catch(() => PR.render()); };
+      return;
+    }
+    const all = LG.fx.fixtures || [];
+    const rows = all.filter((f) => !q || (f.home || '').toLowerCase().includes(q) || (f.away || '').toLowerCase().includes(q) || (f.league || '').toLowerCase().includes(q) || (f.country || '').toLowerCase().includes(q));
+    // fixtures inside the analysis window get the Match Center; the rest open their league page
+    const winKeys = new Set();
+    (state.data.fixtures || []).forEach((f) => { const day = String(f.kickoff).slice(0, 10); winKeys.add(`${day}|${f.home}|${f.away}`); winKeys.add(`${day}|${f.away}|${f.home}`); });
+    const inWin = (f) => { const day = String(f.ko).slice(0, 10); return winKeys.has(`${day}|${f.home}|${f.away}`); };
+    parts.push(`<div class="card small"><b>Every upcoming fixture, all competitions</b> — ${all.length} matches in the next ${LG.fx.days || 10} days${LG.fxStale ? ' (saved copy)' : ''}. Matches in today's analysis open the Match Center; the rest open their league.</div>`);
+    if (!rows.length) parts.push(`<div class="card empty small">No fixture matches “${esc(state.lgQ)}”.</div>`);
+    const byDay = {};
+    rows.forEach((f) => { const day = String(f.ko).slice(0, 10); (byDay[day] = byDay[day] || []).push(f); });
+    const days = Object.keys(byDay).sort();
+    const CAP = state.lgFxShow || 120;
+    let shown = 0; const dayParts = [];
+    for (const day of days) {
+      if (shown >= CAP) { dayParts.push(`<div class="row" style="justify-content:center;padding:8px 0 2px"><button class="btn" id="lg-fx-more">Show more · ${rows.length - shown} left</button></div>`); break; }
+      const list = byDay[day]; shown += list.length;
+      dayParts.push(`<div class="comp-head">${esc(dayName(day))} · ${list.length}</div><table class="tbl" style="margin-top:2px">${list.map((f) => `<tr class="tap" data-lgfx2="1" data-day="${esc(String(f.ko).slice(0, 10))}" data-home="${esc(f.home)}" data-away="${esc(f.away)}" data-slug="${esc(f.slug)}"><td class="tiny muted nowrap">${esc(koTime(f.ko))}</td><td><div class="res-line">${badge(f.home, null, 20)}<span class="tm">${esc(f.home)}</span><span class="sc muted">v</span><span class="tm">${esc(f.away)}</span>${badge(f.away, null, 20)}</div><div class="tiny muted">${flag(f.country)} ${esc(f.league)}${inWin(f) ? ' · <b class="good">in today&#8217;s analysis</b>' : ''}</div></td></tr>`).join('')}</table>`);
+    }
+    if (days.length) parts.push(`<div class="card compact">${dayParts.join('')}</div>`);
+    parts.push(`<div class="tiny muted" style="margin:10px 4px 18px">Same public live-score archive as the league pages · updated every 30 minutes with each scan.</div>`);
+    view().innerHTML = parts.join(''); wireSearch();
+    $$('[data-lgfx2]').forEach((el) => {
+      el.onclick = () => {
+        const day = el.dataset.day, home = el.dataset.home, away = el.dataset.away;
+        const w = (state.data.fixtures || []).find((f) => f.kickoff.slice(0, 10) === day && ((f.home === home && f.away === away) || (f.home === away && f.away === home)));
+        if (w) PR.openMatch(w.id, w.d); else PR.openLeague(el.dataset.slug);
+      };
+    });
+    const m = $('#lg-fx-more'); if (m) m.onclick = () => { state.lgFxShow = (state.lgFxShow || 120) + 150; PR.render(); };
+    $$('[data-lgtab]').forEach((b) => { b.onclick = () => { state.lgTab = b.dataset.lgtab; PR.render(); window.scrollTo(0, 0); }; });
+  }
 
   // ------------------------------------------------------------------ PAGE: one league
   function openLeague(slug) {
@@ -235,38 +307,32 @@
     });
   };
 
-  // ------------------------------------------------------------------ league TREND tab
+  // ------------------------------------------------------------------ league TREND tab (simplified: last 10 vs season)
   function leagueTrends(parts, d) {
     const t = d.trends;
     if (!t) { parts.push(`<div class="card empty">No finished matches on record yet — trends appear as results come in.</div>`); return; }
-    const W = [['last5', 'L5'], ['last10', 'L10'], ['last20', 'L20'], ['season', 'Season'], ['previous_season', 'Prev. season']];
+    const w10 = t.last10 || null, ws = t.season || null;
+    if (!w10 && !ws) { parts.push(`<div class="card empty">Not enough finished matches for a trend yet (a window needs 5).</div>`); return; }
     const pctf = (v) => (v == null ? 'N/A' : Math.round(v * 100) + '%');
     const num2 = (v) => (v == null ? 'N/A' : String(Math.round(v * 100) / 100));
-    const M = [
-      ['avg_goals', 'Avg goals', num2], ['o05', 'Over 0.5', pctf], ['o15', 'Over 1.5', pctf],
-      ['o25', 'Over 2.5', pctf], ['o35', 'Over 3.5', pctf], ['btts', 'BTTS', pctf],
-      ['home_win', 'Home win', pctf], ['draw', 'Draw', pctf], ['away_win', 'Away win', pctf],
-      ['home_goals', 'Home goals', num2], ['away_goals', 'Away goals', num2],
-      ['home_clean_sheet', 'Home clean sheet', pctf], ['away_clean_sheet', 'Away clean sheet', pctf],
-      ['home_failed_to_score', 'Home fails to score', pctf], ['away_failed_to_score', 'Away fails to score', pctf],
-      ['avg_corners', 'Avg corners', num2], ['avg_cards', 'Avg cards', num2],
-    ];
-    const rows = M.map(([k, label, fmt]) => {
-      const cells = W.map(([wk, wl]) => {
-        const w = t[wk]; const v = w ? w[k] : null;
-        const note = (k === 'avg_corners' || k === 'avg_cards') && w && w.n && w[k + '_n'] != null && w[k + '_n'] < w.n ? ` <span class="tiny muted">(${w[k + '_n']}/${w.n})</span>` : '';
-        return `<div class="cell"><span class="cl">${wl}${w ? ` · ${w.n}` : ''}</span><b>${fmt(v)}</b></div>`;
-      }).join('');
-      return `<div class="trend-metric"><div class="k">${label}</div><div class="v">${cells}</div></div>`;
-    }).join('');
-    parts.push(`<div class="card tiny muted">Data-driven league trends, computed only from published results. A window needs at least 5 finished matches — thinner windows show N/A rather than a guess. Corners/cards use only the matches whose statistics the provider publishes.</div>`);
-    parts.push(`<div class="card compact"><div class="b" style="margin-bottom:2px">Trend windows</div><div class="tiny muted" style="margin-bottom:4px">n = matches in window · swipe sideways for all windows</div><div class="tbl-wrap"><div class="trend-grid">${rows}</div></div></div>`);
-    const ch = t.change_last10_vs_season;
-    if (ch) {
-      const pp = (v) => (v == null ? 'N/A' : (v > 0 ? '+' : '') + Math.round(v * 100) + ' pp');
-      parts.push(`<div class="card compact"><div class="b">Last 10 vs season average</div><div class="tiny muted" style="margin-top:4px">descriptive only — the prediction model does not use these numbers</div>
-        <div class="grid4" style="margin-top:6px"><div class="cell"><div class="k">Avg goals</div><div class="v">${ch.avg_goals > 0 ? '+' : ''}${ch.avg_goals}</div></div><div class="cell"><div class="k">Over 2.5</div><div class="v">${pp(ch.o25)}</div></div><div class="cell"><div class="k">BTTS</div><div class="v">${pp(ch.btts)}</div></div></div></div>`);
-    }
+    const val = (w, k, fmt) => (w ? fmt(w[k]) : 'N/A');
+    const note = (w, k) => (w && w.n && w[k + '_n'] != null && w[k + '_n'] < w.n ? ` <span class="tiny muted">(${w[k + '_n']}/${w.n})</span>` : '');
+    const rowm = (label, k, fmt, notes) => `<tr><td>${label}</td><td class="right b">${val(w10, k, fmt)}${notes ? note(w10, k) : ''}</td><td class="right">${val(ws, k, fmt)}${notes ? note(ws, k) : ''}</td></tr>`;
+    const th = (w, lbl) => `${lbl}${w && w.n ? ` <span class="tiny muted">· ${w.n} matches</span>` : ''}`;
+    parts.push(`<div class="card compact"><div class="b">${icon('trend', 'sm')} Last 10 matches vs season</div>
+      <table class="tbl head" style="margin-top:4px"><tr><th></th><th class="right">${th(w10, 'Last 10')}</th><th class="right">${th(ws, 'Season')}</th></tr>
+      ${rowm('Avg goals', 'avg_goals', num2)}
+      ${rowm('Over 1.5 goals', 'o15', pctf)}
+      ${rowm('Over 2.5 goals', 'o25', pctf)}
+      ${rowm('Over 3.5 goals', 'o35', pctf)}
+      ${rowm('BTTS', 'btts', pctf)}
+      ${rowm('Home win', 'home_win', pctf)}
+      ${rowm('Draw', 'draw', pctf)}
+      ${rowm('Away win', 'away_win', pctf)}
+      ${rowm('Avg corners', 'avg_corners', num2, true)}
+      ${rowm('Avg cards', 'avg_cards', num2, true)}
+      </table></div>`);
+    parts.push(`<div class="card tiny muted">Computed from published results only — a window needs at least 5 finished matches, thinner windows show N/A rather than a guess. Corners/cards use only matches whose statistics the provider publishes. Descriptive only — the prediction model does not use these numbers.</div>`);
   }
 
   // ------------------------------------------------------------------ league TEAMS tab

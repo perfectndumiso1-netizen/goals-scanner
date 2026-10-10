@@ -529,12 +529,12 @@ ul.notes li { margin: 3px 0; }
 .menu { border-radius: 14px; }
 
 /* ---------- bottom nav: icon tiles (Home / Scan / Live / Matches / More) ---------- */
-#tabs { height: calc(74px + var(--safe-bottom)); padding: 8px 10px calc(8px + var(--safe-bottom));
-  gap: 4px; background: var(--nav-glass); backdrop-filter: blur(18px); border-top: 1px solid var(--line); }
-#tabs button { border-radius: 12px; font-size: 10px; font-weight: 700; letter-spacing: .02em; gap: 3px;
-  color: var(--muted); flex: 1; }
+#tabs { height: calc(74px + var(--safe-bottom)); padding: 8px 3px calc(8px + var(--safe-bottom));
+  gap: 2px; background: var(--nav-glass); backdrop-filter: blur(18px); border-top: 1px solid var(--line); }
+#tabs button { border-radius: 12px; font-size: 10px; font-weight: 700; letter-spacing: 0; gap: 3px;
+  color: var(--muted); flex: 1; min-width: 0; padding-left: 0; padding-right: 0; white-space: nowrap; }
 #tabs button::before { display: none; }
-#tabs .ic-wrap { width: 36px; height: 26px; border-radius: 9px; background: transparent; transition: background .15s, box-shadow .15s; }
+#tabs .ic-wrap { width: 32px; height: 26px; border-radius: 9px; background: transparent; transition: background .15s, box-shadow .15s; }
 #tabs button.active { color: var(--brand-text); background: transparent; }
 #tabs button.active .ic-wrap { background: var(--brand); box-shadow: 0 4px 14px rgba(59, 130, 246, .35); }
 #tabs button.active .ic-wrap .ic, #tabs button.active .ic { color: #fff; }

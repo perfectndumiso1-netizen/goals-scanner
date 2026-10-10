@@ -504,7 +504,7 @@ window.PR = (function () {
 
   // ------------------------------------------------------------------ navigation (shell: Home / Scan / Live / Matches / Low odds / More —
   // Days and Leagues stay valid tabs, reached from the More page)
-  const TABS = ['home', 'bets', 'live', 'matches', 'lowodds', 'days', 'leagues', 'more'];
+  const TABS = ['home', 'bets', 'live', 'matches', 'lowodds', 'shortlist', 'days', 'leagues', 'more'];
   function render() {
     if (!state.data && !(state.stack.length && state.stack[state.stack.length - 1].type === 'settings')) return;
     closeMenu();
@@ -518,7 +518,7 @@ window.PR = (function () {
     if (top) return PR.pages[top.type](top);
     PR.views[state.tab]();
   }
-  const TAB_TITLE = { home: 'PlayReport', bets: 'Scan', live: 'Live', matches: 'Matches', lowodds: 'Low odds 1.19 – 1.45', more: 'More', days: 'Days', leagues: 'Leagues' };
+  const TAB_TITLE = { home: 'PlayReport', bets: 'Scan', live: 'Live', matches: 'Matches', lowodds: 'Low odds 1.19 – 1.45', more: 'More', days: 'Days', leagues: 'Leagues', shortlist: 'Shortlist' };
   function setTab(tab) {
     if (tab === 'today') tab = 'home';
     if (!TABS.includes(tab)) tab = 'home';

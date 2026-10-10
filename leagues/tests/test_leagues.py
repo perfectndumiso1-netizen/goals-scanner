@@ -167,3 +167,39 @@ def test_real_archive_build_smoke(tmp_path):
         det = json.loads((tmp_path / "out" / x["slug"]).read_text())
         pts = [r["pts"] for r in det["table"]]
         assert pts == sorted(pts, reverse=True)
+
+
+def test_build_publishes_app_wide_fixtures_list(tmp_path):
+    """fixtures.json: every competition's upcoming matches in one file, so the app's Leagues tab can
+    list fixtures without opening each league. Inside the 10-day window only; already-kicked-off
+    matches never appear; the per-league detail keeps the whole 60-day coverage window."""
+    stages = tmp_path / "stages"
+    stages.mkdir()
+    ev = {"1000": _rec("202609011500", "A", "B", 1, 0), "1001": _rec("202609021500", "C", "D", 2, 1),
+          "1002": _rec("202609031500", "A", "C", 1, 1), "1003": _rec("202609041500", "B", "D", 0, 2),
+          "1004": _rec("202609051500", "A", "D", 2, 0), "1005": _rec("202609061500", "B", "C", 1, 1)}
+    (stages / "test__league.json").write_text(json.dumps(
+        {"key": "test/league", "country": "Test", "league": "League",
+         "fetched": "2026-09-01 08:00", "events": ev, "backfill": {"2024-2025": 6}}))
+    now = datetime(2026, 9, 1, 9, 0)
+
+    def ns(eid, ko, home, away):
+        return {"eid": eid, "status": "NS", "home": home, "away": away, "kickoff": ko,
+                "ccd": "test", "scd": "league"}
+
+    events = [ns("9001", datetime(2026, 9, 2, 15, 0), "A", "B"),
+              ns("9002", datetime(2026, 9, 20, 18, 0), "C", "D"),    # inside 60d, beyond the 10-day list
+              ns("9003", datetime(2026, 8, 30, 18, 0), "E", "F")]    # already kicked off
+    leagues.build(stages, now, tmp_path / "out", tz_hours=2, events=events)
+    fx = json.loads((tmp_path / "out" / "fixtures.json").read_text())
+    assert fx["days"] == leagues.FIXTURES_INDEX_DAYS
+    assert fx["count"] == len(fx["fixtures"]) == 1
+    assert fx["fixtures"][0] == {"ko": "2026-09-02 15:00", "home": "A", "away": "B",
+                                 "league": "League", "country": "Test", "slug": "test__league.json"}
+    det = json.loads((tmp_path / "out" / "test__league.json").read_text())
+    assert len(det["fixtures"]) == 2          # the league page keeps the whole coverage window
+    ks = [r["ko"] for r in fx["fixtures"]]
+    assert ks == sorted(ks)                   # kickoff order
+    # a rebuild keeps the file (it is not treated as a stale detail file)
+    leagues.build(stages, now, tmp_path / "out", tz_hours=2, events=events)
+    assert (tmp_path / "out" / "fixtures.json").exists()

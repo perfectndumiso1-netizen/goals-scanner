@@ -7,6 +7,8 @@ worldfeed.py) plus a short upcoming-fixture window:
                                          women's, youth — every stage the public feed publishes)
 * data/app/leagues/<stage-slug>.json   - on-demand detail: league table (where the format allows it),
                                          the 40 most recent results, and the next fixtures
+* data/app/leagues/fixtures.json       - every upcoming fixture across all competitions in one file,
+                                         so the app can list fixtures without opening each league
 
 This module is strictly additive: it reads the archive and writes new app-data files. It never feeds
 the model — the stage archive stays the model's world history, and nothing in here changes a probability.
@@ -35,6 +37,8 @@ RESULTS_KEEP = 40       # most recent finished matches published per stage
 FIXTURES_KEEP = 12      # upcoming fixtures published per stage
 FIXTURE_HOURS = 48      # look-ahead for the fixtures list when no coverage window is passed (standalone runs)
 FIXTURE_WINDOW_DAYS = 60  # how far ahead the Leagues tab's fixture lists reach (coverage window)
+FIXTURES_INDEX_DAYS = 10  # fixtures.json: the app-wide fixtures list reaches this many days ahead
+FIXTURES_INDEX_MAX = 3000  # fixtures.json hard row cap — keeps the file small enough for phones
 _MIN_TEAMS = 4          # a table needs at least this many teams
 TREND_MIN_N = 5         # a trend window needs at least this many matches, otherwise N/A (never 0)
 
@@ -278,6 +282,7 @@ def build(stages_dir: Path, now: datetime, out_dir: Path, tz_hours: int = 2, eve
             pass
 
     index: list[dict] = []
+    fx_rows: list[dict] = []
     slugs: set[str] = set()
     n = 0
     for path in sorted(stages_dir.glob("*.json")):
@@ -320,6 +325,9 @@ def build(stages_dir: Path, now: datetime, out_dir: Path, tz_hours: int = 2, eve
             entry["hist"] = st.get("historical_matches")
             entry["earlier"] = dict(list((st.get("seasons") or {}).items())[:2])
         index.append(entry)
+        for e in up[:FIXTURES_KEEP]:
+            fx_rows.append({"ko": e["kickoff"].strftime("%Y-%m-%d %H:%M"), "home": e["home"], "away": e["away"],
+                            "league": entry["league"], "country": entry["country"], "slug": path.name})
         detail = {"key": key, "country": entry["country"], "league": entry["league"], "season": entry["season"],
                   "fetched": entry["fetched"], "teams": entry["teams"], "played": entry["played"],
                   "teams_div": f"LS:{key}",  # the model pool's division for this stage = the team pages' key
@@ -352,10 +360,22 @@ def build(stages_dir: Path, now: datetime, out_dir: Path, tz_hours: int = 2, eve
         {"generated": now.strftime("%Y-%m-%d %H:%M"), "count": len(index), "summary": summary, "leagues": index},
         ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
 
+    # app-wide fixtures list: every competition's upcoming matches in one file, so the app's Leagues
+    # tab can show fixtures across the world without the user opening leagues one by one
+    cut = (now + timedelta(days=FIXTURES_INDEX_DAYS)).strftime("%Y-%m-%d %H:%M")
+    fx_all = sorted((r for r in fx_rows if r["ko"] <= cut), key=lambda r: (r["ko"], r["league"], r["home"]))
+    fx_all = fx_all[:FIXTURES_INDEX_MAX]
+    (out_dir / "fixtures.json").write_text(json.dumps(
+        {"generated": now.strftime("%Y-%m-%d %H:%M"), "days": FIXTURES_INDEX_DAYS, "count": len(fx_all),
+         "fixtures": fx_all},
+        ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
+    log.info("leagues: fixtures.json — %d upcoming fixtures across %d competitions (next %d days)",
+             len(fx_all), len({r["slug"] for r in fx_all}), FIXTURES_INDEX_DAYS)
+
     # drop detail files of stages that no longer exist (renamed competitions) —
     # the coverage registry (status.json / STATUS.md) lives in this directory too
     for old in out_dir.glob("*.json"):
-        if old.name not in ("index.json", "status.json") and old.name not in slugs:
+        if old.name not in ("index.json", "status.json", "fixtures.json") and old.name not in slugs:
             try:
                 old.unlink()
             except OSError:

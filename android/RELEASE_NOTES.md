@@ -1,4 +1,12 @@
-## What's new — 🎯 High-conviction shortlist
+## What's new — Shortlist tab, league fixtures list, simpler trends
+- 🎯 **Shortlist moved to the bottom bar** — it is now its own tab (🎯 Shortlist), always one tap away, instead of a cramped fourth segment on Home.
+- 🗂️ **Shortlist grouped by market** — the picks are grouped under Match result, Double chance, Total goals, BTTS, Team goals, Cards and Corners, each group with a count. Watchlist, rejection reasons, the daily decision summary and the settling track record stay below.
+- 📅 **Leagues tab: new Fixtures view** — every upcoming fixture worldwide for the next 10 days in one searchable list (`leagues/fixtures.json`, published every scan). Fixtures used to be visible only by opening each league one by one. Matches inside today's analysis window open the Match Center; the rest open their league page.
+- 📊 **League trends simplified** — the 5-window × 17-metric grid is now one table: last 10 matches vs the season (avg goals, over 1.5/2.5/3.5, BTTS, home/draw/away, avg corners/cards), partial stat coverage still shown as (9/10). Nothing is deleted from the data — only the display is simpler.
+- 🏷️ The old model-picks segment on the Scan page is renamed **Model picks** so it cannot be confused with the 🎯 shortlist.
+- 🧊 Nothing else changed: bets of the day, high probability, positive EV, accas, low odds, the model and all probabilities work exactly as before.
+
+## Earlier — 🎯 High-conviction shortlist
 - 🎯 **New Shortlist tab on Home** — out of every analysed match, at most **7** that deserve your attention today (a maximum, not a target). If nothing is good enough it says **NO QUALIFYING SELECTIONS** instead of lowering the bar.
 - Every market goes through the same gates (1X2, double chance, goals, BTTS, team goals, corners, bookings). **Rejected:** odds 1.14 or below, no Sportybet price, probability under its market bar, negative EV, failed data checks, or a model/market gap too big to believe. **Watchlist:** no edge over the market, an edge that's just the model's usual gap on that market, weak data, low confidence, or a model-v-data warning, each with its exact reason.
 - Each shortlisted match shows the price, raw model probability, calibrated probability (N/A until validated), implied probability with the margin removed, edge, EV, data quality, the evidence, the main risk and **QUALIFIED FOR FURTHER REVIEW**. Ranked by data quality, edge and EV, not probability alone. One selection per match; other selections from the same match are marked as correlated.
