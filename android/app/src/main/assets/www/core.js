@@ -188,6 +188,8 @@ window.PR = (function () {
   const GROUPS = { result: 'Match result', dc: 'Double chance', goals: 'Total goals', btts: 'Both teams to score', team: 'Team goals', corners: 'Corners', cards: 'Cards' };
   const GROUP_ICON = { result: '🏆', dc: '🛡️', goals: '⚽', btts: '🔁', team: '🎯', corners: '🚩', cards: '🟨' };
   const line = (code) => parseInt(code.replace(/\D/g, ''), 10) / 10;
+  /** user rule (2026-10-10): Unders are ignored everywhere — Overs only. Under codes: U25, HU05/AU15 (team), CU85 (corners), KU35 (cards). */
+  const isUnder = (sel) => /^U\d/.test(sel || '') || /^[HACK]U/.test(sel || '');
   function selGroup(sel) {
     if (sel === 'H' || sel === 'D' || sel === 'A') return 'result';
     if (sel === '1X' || sel === '12' || sel === 'X2') return 'dc';
@@ -504,7 +506,7 @@ window.PR = (function () {
 
   // ------------------------------------------------------------------ navigation (shell: Home / Scan / Live / Matches / Low odds / More —
   // Days and Leagues stay valid tabs, reached from the More page)
-  const TABS = ['home', 'bets', 'live', 'matches', 'lowodds', 'shortlist', 'days', 'leagues', 'more'];
+  const TABS = ['home', 'bets', 'live', 'matches', 'lowodds', 'shortlist', 'sequences', 'days', 'leagues', 'more'];
   function render() {
     if (!state.data && !(state.stack.length && state.stack[state.stack.length - 1].type === 'settings')) return;
     closeMenu();
@@ -518,7 +520,7 @@ window.PR = (function () {
     if (top) PR.pages[top.type](top); else PR.views[state.tab]();
     injectSearch();
   }
-  const TAB_TITLE = { home: 'PlayReport', bets: 'Scan', live: 'Live', matches: 'Matches', lowodds: 'Low odds 1.19 – 1.45', more: 'More', days: 'Days', leagues: 'Leagues', shortlist: 'Shortlist' };
+  const TAB_TITLE = { home: 'PlayReport', bets: 'Scan', live: 'Live', matches: 'Matches', lowodds: 'Low odds 1.19 – 1.45', more: 'More', days: 'Days', leagues: 'Leagues', shortlist: 'Shortlist', sequences: 'Sequences' };
   function setTab(tab) {
     if (tab === 'today') tab = 'home';
     if (!TABS.includes(tab)) tab = 'home';
@@ -654,7 +656,7 @@ window.PR = (function () {
       for (const f of (d.fixtures || [])) {
         if (!Array.isArray(f.sels) || seenFx.has(f.id)) continue;
         for (const s of f.sels) {
-          if (!s || !s.sel) continue;
+          if (!s || !s.sel || isUnder(s.sel)) continue;
           const lbl = selLabel(s.sel, f.home, f.away);
           if (lbl && hit(lbl) && s.odds) {
             seenFx.add(f.id);   // one market per match here too
@@ -719,7 +721,7 @@ window.PR = (function () {
   }
 
   return { native, settings, state, $, $$, saveSettings, nfetch, getJson, rawUrl, esc, pct, f1, f2, signed, DAYS, MONTHS, parseLocal, tzNow, ymd, stored, persist, cache, prefetchDetails, pubStamp,
-    dayName, niceDate, koTime, koShort, toast, pill, bar, wdl, formBadges, md, GROUPS, GROUP_ICON, selGroup, selLabel, selShort, settleSel,
+    dayName, niceDate, koTime, koShort, toast, pill, bar, wdl, formBadges, md, GROUPS, GROUP_ICON, selGroup, isUnder, selLabel, selShort, settleSel,
     liveVerdict, isLive, isFT, indexData, fx, loadDetail, detailCached, detailKey, loadData, saveLatest, saveAux, statusLine, isOutlier, loadDay, dayRecord, finalFor, storedIncidents, loadTeams, teamsCached, loadTeamIndex, realTable, slug, TABS, render, setTab, push, replace,
     sbEventUrl, sbShareUrl, openSportybet, openBookingCode, openExternal, copyText,
     back, openMatch, openTeam, toggleMenu, closeMenu, contactCard, editorCard, teamLink, teamSpan, matchLine, matchRow, segmented, select, scoreBox, statusIcon, CONTACT, APP_VERSION,

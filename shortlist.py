@@ -67,6 +67,8 @@ MAX_EDGE = 0.12          # more than 12 pp over the de-vigged market = data faul
 MAX_RAW_EDGE = 0.25      # no de-vigged view: gap over the raw implied price above this = data fault
 BASELINE_MIN_N = 15      # a market needs this many priced selections today before its usual gap is measured
 MAX_PER_MARKET = int(os.getenv("SHORTLIST_MAX_PER_MARKET", "10"))  # best picks kept PER MARKET GROUP
+IGNORE_UNDER = os.getenv("SHORTLIST_IGNORE_UNDER", "1") != "0"   # user rule: Overs only — Under selections are never candidates
+UNDER_RE = None if not IGNORE_UNDER else __import__("re").compile(r"^U\d|^[HACK]U")
 MAX_WATCH = 10
 KEEP_DAYS = 120
 
@@ -226,6 +228,8 @@ def build(rows: list, now: datetime, window_end: datetime | None = None,
     for r in analysed:
         recs = []
         for s in sels_by_row[id(r)]:
+            if UNDER_RE is not None and UNDER_RE.match(s.sel or ""):
+                continue    # user rule: ignore Unders in every market — Overs only
             try:
                 recs.append(evaluate(r, s, baseline))
             except Exception:  # noqa: BLE001 - one bad selection must not take the board down
@@ -282,6 +286,8 @@ def build(rows: list, now: datetime, window_end: datetime | None = None,
         "rules": {"min_odds": MIN_ODDS, "max_odds": MAX_ODDS, "bars": BARS, "min_edge_pp": 100 * MIN_EDGE,
                   "max_edge_pp": 100 * MAX_EDGE, "max_per_market": max_per_market,
                   "band": f"{MIN_ODDS:.2f}\u2013{MAX_ODDS:.2f} (odds outside the band are rejected)",
+                  "unders": "ignored — Overs only (user rule)",
+                  "day": "today's matches only (nothing from tomorrow or later)",
                   "implied_method": "de-vigged = Sportybet price with the bookmaker margin removed proportionally "
                                     "across the market's outcomes; raw = 1 / decimal odds",
                   "calibration": "N/A — no validated live calibration map; raw model probability shown"},

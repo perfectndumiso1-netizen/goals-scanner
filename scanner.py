@@ -41,7 +41,7 @@ import re
 import shutil
 import time
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta
+from datetime import datetime, time, timedelta
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
@@ -2742,7 +2742,9 @@ def main() -> None:
         sl_book = shortlist_mod.load(SHORTLIST_FILE)
         if not sl_book.empty and (sl_book["result"] == "pending").any():
             sl_book = shortlist_mod.settle(sl_book, results_s, now)
-        sl_board = shortlist_mod.build(rows, now, ctx["app_end"])
+        # user rule (2026-10-10): the shortlist is for THAT day only — nothing from tomorrow on
+        sl_end = min(ctx["app_end"], datetime.combine(now.date(), time(23, 59)))
+        sl_board = shortlist_mod.build(rows, now, sl_end)
         sl_book, sl_new = shortlist_mod.record(sl_book, sl_board, now)
         SHORTLIST_FILE.parent.mkdir(parents=True, exist_ok=True)
         sl_book.to_csv(SHORTLIST_FILE, index=False)

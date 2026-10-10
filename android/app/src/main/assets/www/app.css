@@ -852,3 +852,7 @@ body { padding-bottom: calc(78px + var(--safe-bottom)); }
 @keyframes rise5 { from { opacity: 0; transform: translateY(8px); } }
 @media (prefers-reduced-motion: reduce) { #view.enter > *, #tabs button, .btn { animation: none !important; transition: none !important; } }
 @media (max-width: 359px) { #tabs button { font-size: 9px; } html, body { font-size: 15px; } }
+
+/* ---------- Sequences tab (user's betting windows) ---------- */
+#tabs button { font-size: 9.5px; }
+@media (max-width: 359px) { #tabs button { font-size: 8.5px; } }

@@ -1,4 +1,11 @@
-## What's new — Strictly one market per match, everywhere
+## What's new — Sequences tab, today-only shortlist, Overs only
+- ⏰ **New Sequences tab** — you bet in sequences, so PlayReport now splits **today's** matches into your windows: **Morning 07:00–12:00, Midday 12:00–16:00, Afternoon 16:00–20:00, Evening 20:00–midnight** (plus a small Early-hours section when overnight games exist). Each match appears **once**, with the **one market the model rates strongest**, its price and probability. Matches drop out at kick-off; the list updates every 30 minutes.
+- 📅 **The shortlist is now strictly for that day** — only matches playing today. Nothing from tomorrow or later ever enters the list. Everything else about it (gates, odds band 1.15–1.90, top 10 per market, track record) is unchanged.
+- ⬆️ **Overs only, everywhere** — Unders are ignored in every market (goals, team goals, corners, bookings) on the shortlist, Home boards, High probability, families, Low odds, search and the day card. You believe in Overs; the app now does too.
+- 🗂️ **Shortlist grouping tidy-up** — market chips at the top (All / Match result / Double chance / Goals / …) filter the groups instantly, and the header says **today only**.
+- 🧊 The model's probabilities are untouched — these are selection and display rules only.
+
+## Earlier — Strictly one market per match, everywhere
 - ⚽ **The rule now holds on every screen**: Bets of the day, High probability, Positive EV, Today's strong & value lists, the market families (Goals / Corners / Cards), Model picks, Low odds, the universal search and the Home boards all show **exactly one market per match** — the one the model rates strongest (or the biggest edge on the value list). A match can appear on a screen only once.
 - 🧭 The Today page claims matches in a fixed order — the official day card first, then strong markets, then value — so the same match never shows up twice with different bets.
 - 🎯 Model picks: each match appears once, in the goals market the model rates strongest.

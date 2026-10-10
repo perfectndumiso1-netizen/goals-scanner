@@ -135,11 +135,34 @@ def test_ledger_writes_first_decision_once_and_settles(monkeypatch, tmp_path):
 
 def test_a_gap_the_model_shows_on_every_match_is_not_value(monkeypatch):
     """Spec rule 7: an edge that is just the model's systematic gap on a market is an artifact."""
-    common = [[Sel("U55", 0.90, 0.80, 1.20)] for _ in range(20)]          # +10 pp on every match
-    special = [[Sel("U55", 0.91, 0.795, 1.21)]]                            # +11.5 pp vs median +10 -> excess 1.5
+    common = [[Sel("O55", 0.90, 0.80, 1.20)] for _ in range(20)]          # +10 pp on every match
+    special = [[Sel("O55", 0.91, 0.795, 1.21)]]                            # +11.5 pp vs median +10 -> excess 1.5
     rows, b = _board(monkeypatch, common + special)
     assert b["counts"]["primary"] == 0, "nothing stands out from the model's usual gap"
     assert any("usual gap" in x["reasons"][0] for x in b["watchlist"])
-    real = [[Sel("U55", 0.91, 0.82, 1.18)] for _ in range(20)] + [[Sel("U55", 0.93, 0.82, 1.18)]]   # +9 vs +11 -> excess 2
+    real = [[Sel("O55", 0.91, 0.82, 1.18)] for _ in range(20)] + [[Sel("O55", 0.93, 0.82, 1.18)]]   # +9 vs +11 -> excess 2
     rows, b = _board(monkeypatch, real)
     assert b["counts"]["primary"] == 1 and b["primary"][0]["excess_pp"] >= 2.0
+
+
+def test_unders_are_ignored_overs_only(monkeypatch):
+    """User rule (2026-10-10): Under selections are never candidates in any market."""
+    rows, b = _board(monkeypatch, [[Sel("U25", 0.80, 0.72, 1.30)], [Sel("CU85", 0.75, 0.70, 1.35)]])
+    assert b["counts"]["candidates"] == 0 and b["counts"]["primary"] == 0
+    assert b["rules"]["unders"].startswith("ignored")
+    overs = [[Sel("O25", 0.74, 0.68, 1.45)]]
+    rows, b = _board(monkeypatch, overs)
+    assert b["counts"]["candidates"] == 1 and b["counts"]["primary"] == 1
+
+
+def test_shortlist_covers_today_only():
+    """User rule (2026-10-10): matches from tomorrow or later never enter the day's shortlist."""
+    r_today = row(home="T1", away="T2", ko_h=5)
+    r_tomorrow = row(home="T3", away="T4", ko_h=24 + 5)
+    table = {id(r_today): [Sel("O25", 0.74, 0.68, 1.45)], id(r_tomorrow): [Sel("O25", 0.74, 0.68, 1.45)]}
+    sl.safe_mod.selections = lambda r: table[id(r)]
+    end_of_day = datetime.combine(NOW.date(), datetime.min.time()).replace(hour=23, minute=59)
+    b = sl.build([r_today, r_tomorrow], NOW, end_of_day)
+    assert b["counts"]["analysed"] == 1
+    assert all(x["home"] != "T3" for x in b["primary"])
+    assert b["rules"]["day"] == "today's matches only (nothing from tomorrow or later)"

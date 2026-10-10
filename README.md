@@ -78,3 +78,6 @@ the football model code; the only shared piece is the generic Markdown → PDF h
 
 ### High-conviction shortlist (`shortlist.py`)
 A strict filter over the analysed board: hard gates (data checks, verified price, odds > 1.14, per-market probability bar, EV ≥ 0, believable model/market gap) and soft gates (edge ≥ 2 pp over the de-vigged market and beyond the model's usual gap on that market, data quality, confidence, warnings, research conflicts). At most 7 matches, one selection each; otherwise **NO QUALIFYING SELECTIONS**. Read-only: it never changes a probability. Every decision is logged to `data/shortlist.csv` before kick-off and settled for walk-forward evaluation. Levers: `SHORTLIST_MIN_ODDS`, `SHORTLIST_MAX`.
+
+### Sequences tab & selection rules
+User betting sequences (07–12, 12–16, 16–20, 20–00 SAST) get their own tab: today's matches only, one strongest market per match, Sportybet price and model probability. Standing selection rules across the app: **Overs only** (Under goals/team-goals/corners/cards selections are never candidates), the shortlist covers **that day only** (nothing from tomorrow), one market per match on every list, and the shortlist odds band is 1.15–1.90 with a per-market cap of 10 (`SHORTLIST_IGNORE_UNDER=0` re-enables Unders).

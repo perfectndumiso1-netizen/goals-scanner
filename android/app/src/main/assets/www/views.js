@@ -2,7 +2,7 @@
 (function (PR) {
   'use strict';
   const { $, $$, esc, pct, f1, f2, signed, state, settings, fx, pill, koShort, koTime, dayName, toast, selLabel, selShort, selGroup,
-    GROUPS, GROUP_ICON, liveVerdict, isLive, isFT, segmented, select, contactCard, matchRow, tzNow, parseLocal, ymd, icon, flag, badge, fxBadge, teamSpan } = PR;
+    GROUPS, GROUP_ICON, liveVerdict, isLive, isFT, segmented, select, contactCard, matchRow, tzNow, parseLocal, ymd, icon, flag, badge, fxBadge, teamSpan, isUnder } = PR;
   const sh = (ico, title, cls) => `<h2><span class="ico ${cls || ''}">${icon(ico)}</span>${title}</h2>`;
   const view = () => $('#view');
   const MK = { O15: 'Over 1.5 goals', O25: 'Over 2.5 goals', BTTS: 'Both teams to score' };
@@ -114,7 +114,7 @@
   const sameDay = (b) => String((b && b.kickoff) || '').slice(0, 10) === ymd(tzNow());
   function safeList(group) {
     const sf = state.data.safe || { bets: [] };
-    let lst = (sf.bets || []).filter((b) => inScope(fx(b.fixture)));
+    let lst = (sf.bets || []).filter((b) => inScope(fx(b.fixture)) && !isUnder(b.sel));
     if (group && group !== 'all') lst = lst.filter((b) => (FAMILY[group] || [group]).includes(b.group));
     return lst;
   }
@@ -137,7 +137,9 @@
       <td class="right nowrap">${s.odds ? `<b>${f2(s.odds)}</b>` : '<span class="muted">–</span>'}</td><td class="right"><div class="row" style="gap:0;justify-content:flex-end">${pill(s.p, 0.8, 0.7)}${PR.addBtn ? PR.addBtn(f.id, s.sel, s.odds) : ''}</div>${s.ev != null ? `<div class="tiny good" style="text-align:right">edge +${Math.round(s.ev * 100)}%</div>` : ''}</td></tr>`;
   }
   function botdCard(compact) {
-    const sf = state.data.safe || {}; const today = sf.today || { bets: [] }; const bets = today.bets || []; const groups = today.groups || [];
+    const sf = state.data.safe || {}; const today = sf.today || { bets: [] };
+    const over = (b) => b && !isUnder(b.sel);
+    const bets = (today.bets || []).filter(over); const groups = (today.groups || []).map((g) => ({ ...g, bets: (g.bets || []).filter(over) })).filter((g) => g.bets.length);
     const settled = bets.filter((b) => b.status && b.status !== 'pending'); const won = settled.filter((b) => b.status === 'hit' || b.status === 'won').length;
     const rec = (sf.summary && sf.summary.botd) || {};
     const head = `<div class="section-head">${sh('star', 'Bets of the day', 'amber')}${compact ? `<button class="link" data-bets="today">Details ${icon('next')}</button>` : `<span class="tiny muted">${esc(dayName(today.date || ''))}</span>`}</div>`;
@@ -207,14 +209,14 @@
     const today = ymd(tzNow());
     const worth = (s) => !(s.odds < 1.15 && s.p_model != null && s.p_model > 0 && 1 / s.p_model < 1.15);
     return (d.fixtures || []).filter((f) => f.date === today && inScope(f)).flatMap((f) => (f.sels || [])
-      .filter((s) => s && s.p != null && s.p > 0 && s.p < 1 && s.odds && s.odds > 1 && worth(s) && !PR.isOutlier(s)
+      .filter((s) => s && s.p != null && s.p > 0 && s.p < 1 && s.odds && s.odds > 1 && worth(s) && !PR.isOutlier(s) && !isUnder(s.sel)
         && s.p >= (HOME_BAR[selGroup(s.sel)] || 0.70))
       .map((s) => ({ f, s, g: selGroup(s.sel) })));
   }
   function homeEvBets(d) {
     const today = ymd(tzNow());
     return (d.fixtures || []).filter((f) => f.date === today && inScope(f)).flatMap((f) => (f.sels || [])
-      .filter((s) => s && s.p != null && s.p > 0 && s.p < 1 && s.odds && s.odds >= HOME_EV_MIN_ODDS && !PR.isOutlier(s)
+      .filter((s) => s && s.p != null && s.p > 0 && s.p < 1 && s.odds && s.odds >= HOME_EV_MIN_ODDS && !PR.isOutlier(s) && !isUnder(s.sel)
         && s.p >= (HOME_BAR[selGroup(s.sel)] || 0.70) && evOf(s) > 0)
       .map((s) => ({ f, s, g: selGroup(s.sel) })));
   }
@@ -231,12 +233,14 @@
     const d = state.data; const sl = d.shortlist || {}; const c = sl.counts || {}; const R = sl.rules || {};
     const parts = [];
     const np = (sl.primary || []).length;
-    parts.push(`<div class="hero-row"><div><div class="kicker">High-conviction shortlist</div><h1>Shortlist</h1></div><span class="quality">${np ? `${np} match${np === 1 ? '' : 'es'}` : 'daily'}</span></div>`);
+    parts.push(`<div class="hero-row"><div><div class="kicker">High-conviction shortlist</div><h1>Shortlist</h1></div><span class="quality">today only</span></div>`);
     if (!sl.counts) {
       parts.push(`<div class="card empty">The high-conviction shortlist appears after the next analysis run (every 30 minutes).</div>`);
       view().innerHTML = parts.join('');
       return;
     }
+    state.slMk = state.slMk || 'any';
+    parts.push(`<div class="chips small-chips" style="margin:0 0 10px"><button class="chip tapchip ${state.slMk === 'any' ? 'on' : ''}" data-slmk="any">All markets <b>${np}</b></button>${SL_ORDER.filter((g) => (sl.primary || []).some((x) => x.market === g)).map((g) => `<button class="chip tapchip ${state.slMk === g ? 'on' : ''}" data-slmk="${g}">${GROUP_ICON[g] || ''} ${esc(GROUPS[g] || g)} <b>${(sl.primary || []).filter((x) => x.market === g).length}</b></button>`).join('')}</div>`);
     const na = (v, f) => (v == null ? 'N/A' : f(v));
     const card = (x) => `<div class="card compact tap" data-fx="${esc(x.fixture || '')}">
       <div class="row"><span class="pill hi">#${x.rank}</span><div class="grow"><div class="b">${esc(x.home)} v ${esc(x.away)}</div><div class="tiny muted">${flag(x.country)} ${esc(x.league)} · ${esc(koShort(x.kickoff))}</div></div><span class="tiny good b">QUALIFIED FOR FURTHER REVIEW</span></div>
@@ -252,9 +256,9 @@
       <div class="tiny" style="margin-top:2px"><b>Main risk:</b> ${esc(x.risk || 'N/A')}</div>
       ${(x.correlated || []).length ? `<div class="tiny muted" style="margin-top:2px">Same match, correlated (not separate bets): ${x.correlated.map(esc).join(', ')}</div>` : ''}
       <div class="row" style="justify-content:flex-end;margin-top:6px">${PR.addBtn && x.odds ? PR.addBtn(x.fixture, x.sel, x.odds) : ''}</div></div>`;
-    parts.push(`<div class="card compact"><div class="b">A · Primary shortlist</div><div class="tiny muted">Odds band ${f2(R.min_odds || 1.15)}–${f2(R.max_odds || 1.90)} · top ${R.max_per_market || 10} per market · Analysed ${c.analysed} · screened ${c.screened} · watchlist ${c.watchlist} · rejected ${c.rejected}</div></div>`);
-    if (np) {
-      const prim = sl.primary.slice();
+    const prim = (sl.primary || []).filter((x) => state.slMk === 'any' || x.market === state.slMk);
+    parts.push(`<div class="card compact"><div class="b">A · Primary shortlist — today's matches only</div><div class="tiny muted">Odds band ${f2(R.min_odds || 1.15)}–${f2(R.max_odds || 1.90)} · top ${R.max_per_market || 10} per market · Overs only (Unders ignored) · Analysed ${c.analysed} · screened ${c.screened} · watchlist ${c.watchlist} · rejected ${c.rejected}</div></div>`);
+    if (prim.length) {
       SL_ORDER.forEach((g) => {
         const items = prim.filter((x) => x.market === g);
         if (!items.length) return;
@@ -263,7 +267,7 @@
       const rest = prim.filter((x) => !SL_ORDER.includes(x.market));
       if (rest.length) parts.push(`<div class="card compact"><div class="comp-head">${icon('star', 'sm')} Other markets · ${rest.length}</div>${rest.map(card).join('')}</div>`);
     } else {
-      parts.push(`<div class="card empty small"><b>NO QUALIFYING SELECTIONS.</b> Nothing passed every gate — standards are not lowered to fill the list.</div>`);
+      parts.push(`<div class="card empty small"><b>NO QUALIFYING SELECTIONS${state.slMk === 'any' ? '' : ' IN THIS MARKET'}.</b> Nothing passed every gate — standards are not lowered to fill the list.</div>`);
     }
     if ((sl.watchlist || []).length) parts.push(`<div class="card compact"><div class="b">B · Secondary watchlist</div><table class="tbl" style="margin-top:4px">${sl.watchlist.map((x) => `<tr class="tap" data-fx="${esc(x.fixture || '')}"><td><div class="b">${esc(x.home)} v ${esc(x.away)}</div><div class="tiny muted">${esc(x.label)} @ ${na(x.odds, f2)} · model ${pct(x.p)}</div><div class="tiny">Not yet qualified: ${esc((x.reasons || [])[0] || '')}</div></td></tr>`).join('')}</table></div>`);
     if ((sl.rejected_patterns || []).length) parts.push(`<div class="card compact"><div class="b">C · Rejected (${c.rejected})</div><div class="tiny muted" style="margin-top:4px">Main reasons: ${sl.rejected_patterns.map((r) => `${esc(r[0])} <b>${r[1]}</b>`).join(' · ')}</div></div>`);
@@ -272,7 +276,59 @@
     parts.push(`<div class="card compact"><div class="b">Daily decision summary</div><div class="small" style="margin-top:4px">${esc(sl.verdict || '')}</div>
       <div class="tiny muted" style="margin-top:4px">${(sl.markets || []).length ? `Markets on the shortlist: ${sl.markets.map((m) => `${esc(GROUPS[m[0]] || m[0])} ${m[1]}`).join(', ')}. ` : ''}${sl.value ? `Estimated value: ${sl.value.genuine} · high probability only: ${sl.value.high_prob_only}.` : ''}</div>
       ${trBody ? `<table class="tbl head" style="margin-top:6px"><tr><th>Track record</th><th class="right">Settled</th><th class="right">Hit</th><th class="right">Expected</th><th class="right">Flat ROI</th></tr>${trBody}</table>` : '<div class="tiny muted" style="margin-top:4px">Track record: every decision is logged before kick-off and settled — the numbers appear once results come in.</div>'}</div>`);
-    parts.push(`<div class="card tiny muted"><b>How the shortlist is built</b> — every priced selection of every analysed match goes through the same gates. <b>Rejected</b> if: the match failed data checks, no Sportybet price (N/A, never assumed), odds <b>under ${f2(R.min_odds || 1.15)} or over ${f2(R.max_odds || 1.90)}</b> (the high-conviction band), probability under its market bar (1X2 60%, corners &amp; bookings 65%, everything else 70%), negative EV, or a model/market gap over ${R.max_edge_pp || 12} pp (data fault). <b>Watchlist</b> if: no de-vigged market view, edge under ${R.min_edge_pp || 2} pp, an edge that is just the model's usual gap on that market, data quality Low, Low confidence, a model-v-data warning, or a research conflict. One selection per match; each market group keeps its <b>top ${R.max_per_market || 10}</b> — picking the bests, never padding. Ranked by data quality, edge, EV and margin above the bar, not probability alone. Calibrated probability is N/A (no validated live calibration). A shortlist for your review — never an instruction to bet, never guaranteed.</div>`);
+    parts.push(`<div class="card tiny muted"><b>How the shortlist is built</b> — every priced selection of every analysed match goes through the same gates. <b>Rejected</b> if: the match failed data checks, no Sportybet price (N/A, never assumed), odds <b>under ${f2(R.min_odds || 1.15)} or over ${f2(R.max_odds || 1.90)}</b> (the high-conviction band), probability under its market bar (1X2 60%, corners &amp; bookings 65%, everything else 70%), negative EV, or a model/market gap over ${R.max_edge_pp || 12} pp (data fault). <b>Watchlist</b> if: no de-vigged market view, edge under ${R.min_edge_pp || 2} pp, an edge that is just the model's usual gap on that market, data quality Low, Low confidence, a model-v-data warning, or a research conflict. One selection per match; each market group keeps its <b>top ${R.max_per_market || 10}</b> — picking the bests, never padding. Ranked by data quality, edge, EV and margin above the bar, not probability alone. Calibrated probability is N/A (no validated live calibration). <b>Today's matches only; Overs only (Unders are ignored).</b> A shortlist for your review — never an instruction to bet, never guaranteed.</div>`);
+    view().innerHTML = parts.join('');
+    $$('[data-slmk]').forEach((b) => { b.onclick = () => { state.slMk = b.dataset.slmk; PR.render(); window.scrollTo(0, 0); }; });
+  };
+
+  // ------------------------------------------------------------------ SEQUENCES: the user's betting windows
+  // "I bet in the morning for matches playing 7-12, 12-16, 16-20 and 20-midnight" - today's matches
+  // split into those windows, each match once, with the market the model rates strongest (Overs only).
+  const SEQ_WINDOWS = [
+    ['early', 'Early hours', '00:00 – 07:00', 0, 7, '#94a3b8'],
+    ['morning', 'Morning sequence', '07:00 – 12:00', 7, 12, '#fbbf24'],
+    ['midday', 'Midday sequence', '12:00 – 16:00', 12, 16, '#38bdf8'],
+    ['afternoon', 'Afternoon sequence', '16:00 – 20:00', 16, 20, '#00c86f'],
+    ['evening', 'Evening sequence', '20:00 – midnight', 20, 24, '#a78bfa'],
+  ];
+  PR.views.sequences = function () {
+    const d = state.data; const now = tzNow(); const today = ymd(now);
+    const parts = [];
+    parts.push(`<div class="hero-row"><div><div class="kicker">Bet in sequences</div><h1>Sequences</h1></div><span class="quality">${esc(dayName(today))}</span></div>`);
+    if (!d.fixtures || !d.fixtures.length) {
+      parts.push(`<div class="card empty">The day's matches appear after the next analysis run.</div>`);
+      view().innerHTML = parts.join('');
+      return;
+    }
+    // candidates: today's still-upcoming analysed matches, priced, Overs only - then ONE market per match:
+    // the model's strongest (probability above the market's bar, then raw probability)
+    const rows = (d.fixtures || []).filter((f) => f.date === today && inScope(f) && f.data_ok && parseLocal(f.kickoff) > now)
+      .flatMap((f) => (f.sels || [])
+        .filter((x) => x && x.sel && !isUnder(x.sel) && x.odds > 1 && x.p != null && x.p > 0 && x.p < 1
+          && !PR.isOutlier(x) && !(x.odds < 1.15 && x.p_model != null && 1 / x.p_model < 1.15)
+          && x.p >= (HOME_BAR[selGroup(x.sel)] || 0.70))
+        .map((x) => ({ f, s: x, g: selGroup(x.sel) })));
+    const best = bestPerMatch(rows, (r) => r.f.id, (r) => (r.s.p - (HOME_BAR[r.g] || 0.70)) * 100 + r.s.p * 10);
+    const buckets = SEQ_WINDOWS.map(([k, name, range, lo, hi, col]) => ({ k, name, range, lo, hi, col, items: [] }));
+    best.forEach((r) => {
+      const h = +String(r.f.kickoff).slice(11, 13);
+      const b = buckets.find((x) => h >= x.lo && h < x.hi) || buckets[0];
+      b.items.push(r);
+    });
+    buckets.forEach((b) => { b.items.sort((x, y) => String(x.f.kickoff).localeCompare(String(y.f.kickoff))); });
+    const totalQ = best.length;
+    parts.push(`<div class="card small"><b>Your day in sequences</b> — ${totalQ} match${totalQ === 1 ? '' : 'es'} left today, each with the <b>one market</b> the model rates strongest (Overs only). The list updates every 30 minutes and matches drop out at kick-off.</div>`);
+    buckets.forEach((b) => {
+      if (!b.items.length) return;
+      const q = b.items.length;
+      parts.push(`<div class="card compact" style="border-left:3px solid ${b.col}"><div class="comp-head">${esc(b.name)} <span class="tiny muted">· ${esc(b.range)} · ${q} match${q === 1 ? '' : 'es'}</span></div>
+        <table class="tbl" style="margin-top:2px">${b.items.map(({ f, s, g }) => `<tr class="tap" data-fx="${esc(f.id)}"><td class="tiny muted nowrap">${esc(koTime(f.kickoff))}</td>
+          <td><div class="b">${teamSpan(f.home, f.country, f.div)} <span class="muted">v</span> ${teamSpan(f.away, f.country, f.div)}</div><div class="tiny muted">${GROUP_ICON[g] || ''} ${esc(s.label || selLabel(s.sel, f.home, f.away))} · ${flag(f.country)} ${esc(f.league || f.competition || '')}</div></td>
+          <td class="right nowrap"><b>${s.odds ? f2(s.odds) : '\u2013'}</b>${s.ev != null && s.ev > 0 ? `<div class="tiny good">EV +${f1(100 * s.ev)}%</div>` : ''}</td>
+          <td class="right">${pill(s.p, 0.8, 0.7)}</td></tr>`).join('')}</table></div>`);
+    });
+    if (!best.length) parts.push(`<div class="card empty small">No matches left to bet today — the first sequence of tomorrow appears after tonight's runs.</div>`);
+    parts.push(`<div class="card tiny muted"><b>How this list works</b> — today's fixtures only, split into your sequences (${SEQ_WINDOWS.slice(1).map((x) => x.range).join(', ')}). One market per match: the strongest the model has (probability above its bar — 1X2 60%, corners &amp; bookings 65%, others 70%). Overs only, Unders ignored. Prices are Sportybet's, shown never used. A high probability is not a certainty.</div>`);
     view().innerHTML = parts.join('');
   };
 
@@ -332,7 +388,7 @@
     if (((d.accas || {}).bets || []).length) parts.push(`<div class="card compact tap" data-page-go="accas"><div class="row"><span class="ico">${icon('ticket')}</span><div class="grow"><div class="b">Today\u2019s accas · ${(d.accas.bets || []).length} build${(d.accas.bets || []).length === 1 ? '' : 's'} at ~${f2(d.accas.target || 3)}</div><div class="tiny muted">Gated legs, tracked to settlement → tap to open</div></div>${icon('next')}</div></div>`);
     if (PR.APP_VERSION && settings.seenVersion !== PR.APP_VERSION) {
       parts.push(`<div class="card whatsnew"><div class="row"><div class="grow"><b>${icon('sparkle', 'sm')} New in PlayReport ${esc(PR.APP_VERSION)}</b></div><button class="link" id="wn-close">${icon('x')}</button></div>
-        <ul><li>⚽ <b>One market per match — everywhere</b> — every board, list and search result now shows a match once, in the market the model rates strongest.</li><li>🧊 The model is untouched — same inputs, same numbers.</li></ul></div>`);
+        <ul><li>⏰ <b>New: Sequences tab</b> — today's matches split into your betting windows (07–12, 12–16, 16–20, 20–00), one strongest market per match.</li><li>📅 <b>Shortlist = today only</b> — nothing from tomorrow or later.</li><li>⬆️ <b>Overs only everywhere</b> — Unders are ignored in every market.</li><li>🗂️ Market chips on the shortlist filter groups instantly.</li></ul></div>`);
     }
     const favs = (PR.favList ? PR.favList() : []).map((x) => fx(x.fixture)).filter(Boolean).sort((a, b) => a.kickoff.localeCompare(b.kickoff));
     if (favs.length) parts.push(`<div class="section-head"><h2><span class="ico amber">${icon('star')}</span>Your matches</h2><button class="link" data-tab-go="matches" data-mf-go="fav">All ${favs.length} ${icon('next')}</button></div><div class="card compact">${favs.slice(0, 5).map((f) => { const s = live.for(f); return matchRow(f, { live: s, sub: `${flag(f.country)} ${esc(f.competition)}${f.safe ? ` · 📈 <b>${esc(selShort(f.safe[0]))}</b> ${pct(f.safe[1])}` : ''}`, right: s && s.hg != null ? '' : `<span class="pill ${f.p.O25 >= 0.6 ? 'hi' : ''}">O2.5 ${pct(f.p.O25)}</span>` }); }).join('')}</div>`);
@@ -396,9 +452,10 @@
   function groupsCards(parts, exclude) {
     const excl = exclude || new Set();
     const g = (state.data.groups) || {};
-    const strong = bestPerMatch((g.strong || []).map((p) => ({ p, f: fx(p.id) })).filter((x) => x.f && !excl.has(x.f.id)), (x) => x.f.id, (x) => x.p.p);
+    const notUnder = (x) => x.f && !excl.has(x.f.id) && !isUnder(x.p.sel);
+    const strong = bestPerMatch((g.strong || []).map((p) => ({ p, f: fx(p.id) })).filter(notUnder), (x) => x.f.id, (x) => x.p.p);
     const sIds = new Set(strong.map((x) => x.f.id));
-    const value = bestPerMatch((g.value || []).map((p) => ({ p, f: fx(p.id) })).filter((x) => x.f && !excl.has(x.f.id) && !sIds.has(x.f.id)), (x) => x.f.id, (x) => (x.p.ev || 0) * 100 + x.p.p);
+    const value = bestPerMatch((g.value || []).map((p) => ({ p, f: fx(p.id) })).filter((x) => notUnder(x) && !sIds.has(x.f.id)), (x) => x.f.id, (x) => (x.p.ev || 0) * 100 + x.p.p);
     parts.push(`<div class="section-head">${sh('shield', 'Today’s strong markets', 'green')}<span class="tiny muted">${strong.length}</span></div>`);
     if (!strong.length) parts.push(`<div class="card empty small">No strong market in this window yet — the list fills in as the probabilities firm up.</div>`);
     else {
@@ -453,7 +510,7 @@
     if (safe.length) parts.push(`<div class="card compact"><div class="row"><div class="grow b">${icon('trend', 'sm')} High-probability ${title.toLowerCase()}</div><span class="chip good">${safe.length}</span></div><table class="tbl">${safe.map((b) => safeRow(b)).join('')}</table></div>`);
     // other high-probability selections need the per-match details; use the index's top/safe and the priced flag
     const lst = [];
-    (state.data.fixtures || []).forEach((f) => { if (!inScope(f) || !f.data_ok) return; (f.hi || []).forEach((x) => { const s = { sel: x[0], p: x[1], odds: x[2] }; if (s.p >= minP && groups.includes(selGroup(s.sel)) && !safe.some((b) => b.fixture === f.id)) lst.push({ f, s }); }); });
+    (state.data.fixtures || []).forEach((f) => { if (!inScope(f) || !f.data_ok) return; (f.hi || []).forEach((x) => { const s = { sel: x[0], p: x[1], odds: x[2] }; if (s.p >= minP && !isUnder(s.sel) && groups.includes(selGroup(s.sel)) && !safe.some((b) => b.fixture === f.id)) lst.push({ f, s }); }); });
     const bestFam = bestPerMatch(lst, (x) => x.f.id, (x) => x.s.p).sort((a, b) => b.s.p - a.s.p);
     lst.length = 0; bestFam.forEach((x) => lst.push(x));
     if (lst.length) {
@@ -670,7 +727,7 @@
   function loDays(d) {
     const map = new Map();
     (d.fixtures || []).forEach((f) => {
-      const sels = (f.sels || []).filter(loInBand);
+      const sels = (f.sels || []).filter((x) => loInBand(x) && !isUnder(x && x.sel));
       if (!sels.length) return;
       const day = String(f.date || (f.kickoff || '').slice(0, 10));
       if (!map.has(day)) map.set(day, { day, rows: [], matches: 0, from: null, to: null });
@@ -757,7 +814,8 @@
     parts.push(`<div class="more-list">
       ${row('calendar', 'Days', 'Analysed fixtures · day by day', 'data-tab-go="days"')}
       ${row('trophy', 'Leagues', 'Worldwide competitions', 'data-tab-go="leagues"')}
-      ${row('target', 'Shortlist', 'Today\\u2019s high-conviction picks · grouped by market', 'data-tab-go="shortlist"')}
+      ${row('target', 'Shortlist', 'Today’s high-conviction picks · grouped by market', 'data-tab-go="shortlist"')}
+      ${row('clock', 'Sequences', 'Your betting windows · today’s matches', 'data-tab-go="sequences"')}
       ${row('users', 'Teams', 'Stats, form &amp; trends', 'data-page-go="teams"')}
       ${row('chart', 'Performance', 'Your results &amp; calibration', 'data-page-go="performance"')}
       ${row('ticket', 'Tickets', pendingTickets ? `${pendingTickets} awaiting result` : 'My selections &amp; history', 'data-page-go="tickets"', pendingTickets ? `<span class="cnt">${pendingTickets}</span>` : undefined)}
