@@ -90,6 +90,7 @@ TEAMS_DIR = DATA_DIR / "app" / "teams"
 SAFE_BETS_FILE = DATA_DIR / "safe_bets.csv"
 SAFE_ACCAS_FILE = DATA_DIR / "safe_accas.csv"
 SHORTLIST_FILE = DATA_DIR / "shortlist.csv"   # high-conviction shortlist decisions (primary / watchlist / rejected), settled
+SB_CACHE = DATA_DIR / "sb_last.json"          # last verified Sportybet price sets — restored (stamped) when a fetch fails
 ACCAS_FILE = DATA_DIR / "accas.csv"          # the daily 3.00 builds: gated legs, tracked and settled
 PDF_DIR = REPORTS_DIR / "pdf"
 README_FILE = ROOT / "README.md"
@@ -943,6 +944,7 @@ class MatchRow:
     sb: dict | None = None        # Sportybet prices (main markets) or None when not matched
     sb_event: dict | None = None  # Sportybet event meta (id, names)
     sb_full: dict | None = None   # full Sportybet market list (corners / cards), dossier matches only
+    sb_asof: str | None = None    # when prices were carried forward from a previous run (fetch failed)
     fair: dict = field(default_factory=dict)   # market-implied probabilities of the shortlist markets (comparison only)
     trends: dict = field(default_factory=dict) # plain-language team / match / h2h trends (v4)
     mkt_source: str = ""          # where the market xG comes from ("reference odds" / "Sportybet")
@@ -2550,6 +2552,19 @@ def main() -> None:
         events = sporty.fetch_upcoming(CONFIG["COVER_DAYS"] * 24 + 6)
         sb_ok = bool(events)
         sbmap = sporty.match_fixtures(todays, events) if events else {}
+    if not sb_ok:
+        # the book blocked the fetch (HTTP 403 happens): restore the last verified price sets, stamped
+        try:
+            sporty.cache_seed_from_publication(DATA_DIR / "app" / "latest.json", SB_CACHE)
+        except Exception as exc:  # noqa: BLE001
+            log.warning("Sportybet cache seed failed (non-fatal): %s", exc)
+        try:
+            n_carried, sb_asof = sporty.cache_apply(rows, SB_CACHE, now)
+            if n_carried:
+                ctx["sb_asof"] = sb_asof
+                log.info("Sportybet fetch failed — carried %d verified price set(s) from %s", n_carried, sb_asof)
+        except Exception as exc:  # noqa: BLE001
+            log.warning("Sportybet carry-forward failed (non-fatal): %s", exc)
     attach_prices(rows, sbmap, todays)
     ctx["sb_ok"] = sb_ok
     # full market lists (corners / cards) for the main-league matches the count models cover
@@ -2562,6 +2577,11 @@ def main() -> None:
                 r.sb_full = sporty.fetch_event_markets(r.sb_event["id"])
                 n_full += 1
     log.info("Sportybet: %d fixtures priced, %d full market lists", len(sbmap), n_full)
+    if sb_ok:
+        try:
+            sporty.cache_save(SB_CACHE, rows, now)
+        except Exception as exc:  # noqa: BLE001
+            log.warning("Sportybet price cache write failed (non-fatal): %s", exc)
     picks = select_picks(rows)
     # analysis lookups are done — drop the per-team caches and the long frame before the trends pass
     # (trends works from its own frame); keeps the 60-day run inside a small runner's memory budget
@@ -2754,8 +2774,12 @@ def main() -> None:
     if lowdata:
         notes.append(f"{lowdata} fixture(s) flagged ⚠️ low data and excluded from shortlists.")
     if CONFIG["SPORTYBET"]:
-        notes.append(f"Sportybet ({sporty.CC.upper()}): {len(sbmap)} of {len(rows)} fixtures priced." if sb_ok
-                     else "Sportybet prices unavailable this run — average market prices shown instead.")
+        if sb_ok:
+            notes.append(f"Sportybet ({sporty.CC.upper()}): {len(sbmap)} of {len(rows)} fixtures priced.")
+        elif ctx.get("sb_asof"):
+            notes.append(f"Sportybet blocked the fetch this run — verified prices carried forward from {ctx['sb_asof']} and stamped as such.")
+        else:
+            notes.append("Sportybet prices unavailable this run — average market prices shown instead.")
     coverage = {"fixtures": len(rows), "app_window": len(app_rows), "cover_days": CONFIG["COVER_DAYS"],
                 "competitions": len({comp(r) for r in rows}), "priced": len(sbmap),
                 "main": sum(1 for r in rows if r.fx["source"] == "main"), "extra": sum(1 for r in rows if r.fx["source"] == "extra"),

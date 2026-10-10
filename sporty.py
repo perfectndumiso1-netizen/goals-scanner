@@ -31,9 +31,16 @@ SESSION.headers.update({"User-Agent": UA, "Accept": "application/json", "Accept-
 
 # Sportybet sits behind AWS WAF bot control. Python's HTTP/1.1 client gets a JavaScript challenge
 # (HTTP 202, x-amzn-waf-action: challenge) from cloud IPs such as GitHub's runners, while curl over
-# HTTP/2 is served normally from the same machine. So: curl first, requests as a fallback.
+# HTTP/2 is served normally from the same machine — and when whole-IP blocks arrive (HTTP 403, seen
+# 2026-10-10), a real browser TLS fingerprint (curl-cffi impersonating Chrome) is the next best try.
+# Transport order: curl -> curl-cffi (browser fingerprint) -> requests; a transport that serves 200
+# becomes the preferred one for the rest of the run.
 CURL = shutil.which("curl")
-_TRANSPORT = {"mode": "curl" if CURL else "requests"}
+try:
+    from curl_cffi import requests as _IMPERSONATE
+except Exception:  # noqa: BLE001 - optional dependency; the fallback chain still works without it
+    _IMPERSONATE = None
+_TRANSPORT = {"mode": "curl" if CURL else ("impersonate" if _IMPERSONATE else "requests")}
 
 
 def _fetch_curl(url: str) -> tuple[int, str]:
@@ -44,26 +51,51 @@ def _fetch_curl(url: str) -> tuple[int, str]:
     return int(code or 0), body
 
 
+def _fetch_impersonate(url: str) -> tuple[int, str]:
+    r = _IMPERSONATE.get(url, timeout=TIMEOUT, impersonate="chrome",
+                         headers={"Accept": "application/json", "Accept-Language": "en"})
+    return r.status_code, r.text
+
+
 def _fetch_requests(url: str) -> tuple[int, str]:
     r = SESSION.get(url, timeout=TIMEOUT)
     return r.status_code, r.text
 
 
+def _modes() -> list:
+    out = []
+    if CURL:
+        out.append("curl")
+    if _IMPERSONATE is not None:
+        out.append("impersonate")
+    out.append("requests")
+    return out
+
+
+def _fetch(url: str, mode: str) -> tuple[int, str]:
+    try:
+        if mode == "curl":
+            return _fetch_curl(url)
+        if mode == "impersonate":
+            return _fetch_impersonate(url)
+        return _fetch_requests(url)
+    except (OSError, subprocess.SubprocessError, ValueError, requests.RequestException) as exc:
+        log.warning("Sportybet %s transport failed: %s", mode, exc)
+        return 0, ""
+
+
 def _get(url: str) -> dict | None:
     try:
-        if _TRANSPORT["mode"] == "curl":
-            try:
-                code, body = _fetch_curl(url)
-            except (OSError, subprocess.SubprocessError, ValueError) as exc:
-                log.warning("Sportybet curl failed (%s) - switching to requests", exc)
-                _TRANSPORT["mode"] = "requests"
-                code, body = _fetch_requests(url)
-        else:
-            code, body = _fetch_requests(url)
-        if code == 202 and _TRANSPORT["mode"] == "requests" and CURL:
-            # WAF challenge on the plain client: retry once through curl and stay there
-            _TRANSPORT["mode"] = "curl"
-            code, body = _fetch_curl(url)
+        modes = _modes()
+        mode = _TRANSPORT["mode"] if _TRANSPORT["mode"] in modes else modes[0]
+        code, body = _fetch(url, mode)
+        # 403 (IP block) / 202 (WAF challenge) / 0 (transport error): try the next transport once
+        for nxt in (m for m in modes if m != mode):
+            if code not in (0, 202, 403):
+                break
+            log.warning("Sportybet HTTP %s via %s - retrying via %s", code or "error", mode, nxt)
+            mode, _TRANSPORT["mode"] = nxt, nxt
+            code, body = _fetch(url, mode)
         if code != 200:
             log.warning("Sportybet HTTP %s for %s", code, url[:120])
             return None
@@ -268,3 +300,161 @@ if __name__ == "__main__":  # quick manual check
     print(len(evs), "events")
     for e in evs[:5]:
         print(e["ko"], e["country"], e["tournament"], e["home"], "v", e["away"], json.dumps(e["markets"])[:200])
+
+# ------------------------------------------------------------------ price carry-forward (outage resilience)
+# Sportybet sometimes blocks the runner's IP (HTTP 403, seen 2026-10-10). Prices are a comparison layer and
+# move slowly pre-match, so the last verified price set is persisted every run and restored — clearly stamped —
+# when a fetch fails. This is carrying forward REAL verified prices with their age attached, never inventing
+# or modelling odds. The app shows "prices as of <time>" and the shortlist watchlists carried prices.
+FLOAT_KEYS = ("OU", "TGH", "TGA", "CORN", "CARDS")
+def _restore(mkt: dict) -> dict:
+    """Restore one market group: JSON turned tuples into lists and float line keys into strings.
+    Any numeric-looking key ("2.5") becomes a float again; market names ("1X2") stay strings."""
+    out = {}
+    for k, v in (mkt or {}).items():
+        if isinstance(v, list):
+            v = tuple(_restore(x) if isinstance(x, dict) else x for x in v)
+        elif isinstance(v, dict):
+            v = _restore(v)
+        if isinstance(k, str):
+            try:
+                k = float(k)
+            except ValueError:
+                pass
+        out[k] = v
+    return out
+
+
+def cache_save(path, rows, now) -> int:
+    """Persist the verified price sets of every priced row: fid -> {sb, sb_full, event, asof}."""
+    import json as _json
+    from appdata import fixture_id
+    out = {}
+    for r in rows:
+        if not getattr(r, "sb", None):
+            continue
+        fid = fixture_id(r.fx["date"].strftime("%Y-%m-%d"), r.fx["country"], r.fx["home"], r.fx["away"])
+        out[fid] = {"sb": r.sb, "sb_full": getattr(r, "sb_full", None) or None,
+                    "event": getattr(r, "sb_event", None), "asof": now.strftime("%Y-%m-%d %H:%M")}
+    path.write_text(_json.dumps(out, separators=(",", ":")) if out else "{}")
+    return len(out)
+
+
+def cache_apply(rows, path, now, max_age_h: int = 72) -> tuple[int, "str | None"]:
+    """Restore carried prices into unpriced rows. Returns (rows restored, newest asof). Never invents:
+    only real persisted price sets, at most max_age_h old, never for matches that already kicked off."""
+    import json as _json
+    from datetime import datetime as _dt
+    try:
+        raw = _json.loads(path.read_text()) if path.exists() else {}
+    except (OSError, ValueError):
+        raw = {}
+    if not raw:
+        return 0, None
+    n, asof = 0, None
+    for r in rows:
+        if getattr(r, "sb", None):
+            continue
+        try:
+            c = raw[f"{r.fx['date'].strftime('%Y-%m-%d')}|{r.fx['country']}|{r.fx['home']}|{r.fx['away']}"]
+        except KeyError:
+            continue
+        try:
+            age_h = (now - _dt.strptime(c["asof"], "%Y-%m-%d %H:%M")).total_seconds() / 3600
+        except (KeyError, ValueError):
+            continue
+        if age_h < 0 or age_h > max_age_h or r.fx["kickoff"] <= now:
+            continue
+        sb = _restore(c.get("sb") or {})
+        if not sb:
+            continue
+        r.sb = sb
+        full = c.get("sb_full")
+        if full:
+            r.sb_full = _restore(full)
+        if c.get("event"):
+            r.sb_event = c["event"]
+        r.sb_asof = c["asof"]
+        n += 1
+        asof = c["asof"] if asof is None else max(asof, c["asof"])
+    return n, asof
+
+
+def _sb_from_sels(sels: list) -> "dict | None":
+    """Reconstruct the sb / sb_full market dicts from a published fixture's sels rows
+    ([sel, p, p_model, p_sb, odds, ...]) so a fetch outage can be bridged from the
+    previous publication. Only real verified prices are used — missing sides stay None."""
+    o = {}
+    for row in sels or []:
+        try:
+            code, odds = row[0], row[4]
+        except (TypeError, IndexError, ValueError):
+            continue
+        if code and odds:
+            try:
+                o[code] = float(odds)
+            except (TypeError, ValueError):
+                continue
+    if not o:
+        return None
+    sb: dict = {}
+    if all(c in o for c in "HDA"):
+        sb["1X2"] = (o["H"], o["D"], o["A"])
+    dc = {c: o[c] for c in ("1X", "12", "X2") if c in o}
+    if dc:
+        sb["DC"] = dc
+    ou = {}
+    for line in (0.5, 1.5, 2.5, 3.5, 4.5, 5.5):
+        key = f"O{int(line * 10):02d}"
+        over, under = o.get(key), o.get("U" + key[1:])
+        if over or under:
+            ou[line] = (over, under)
+    if ou:
+        sb["OU"] = ou
+    if "BTTS" in o or "NBTTS" in o:
+        sb["BTTS"] = (o.get("BTTS"), o.get("NBTTS"))
+    for side, key in (("H", "TGH"), ("A", "TGA")):
+        tg = {}
+        for line in (0.5, 1.5):
+            ov, un = o.get(f"{side}O{int(line * 10):02d}"), o.get(f"{side}U{int(line * 10):02d}")
+            if ov or un:
+                tg[line] = (ov, un)
+        if tg:
+            sb[key] = tg
+    full: dict = {}
+    for prefix, key in (("C", "CORN"), ("K", "CARDS")):
+        cc: dict = {}
+        for code, odd in o.items():
+            if len(code) > 3 and code[0] == prefix and code[1] in "OU":
+                try:
+                    line = int(code[2:]) / 10
+                except ValueError:
+                    continue
+                cell = cc.setdefault(line, [None, None])
+                cell[0 if code[1] == "O" else 1] = odd
+        if cc:
+            full[key] = {k: tuple(v) for k, v in cc.items()}
+    return {"sb": sb, "sb_full": full or None, "event": None}
+
+
+def cache_seed_from_publication(latest_path, cache_path) -> int:
+    """First-run bridge: build the price cache from the previous publication (which restored with the
+    data state) when the cache file does not exist yet. Used only when a live fetch has failed."""
+    import json as _json
+    if cache_path.exists():
+        return 0
+    try:
+        d = _json.loads(latest_path.read_text())
+    except (OSError, ValueError):
+        return 0
+    asof = (d.get("meta") or {}).get("generated")
+    if not asof:
+        return 0
+    out = {}
+    for f in d.get("fixtures") or []:
+        rec = _sb_from_sels(f.get("sels"))
+        if rec and f.get("id"):
+            rec["asof"] = asof
+            out[f["id"]] = rec
+    cache_path.write_text(_json.dumps(out, separators=(",", ":")) if out else "{}")
+    return len(out)

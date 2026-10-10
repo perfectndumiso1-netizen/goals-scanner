@@ -115,6 +115,7 @@ def evaluate(r, s, baseline: dict | None = None) -> dict:
     ck = _conf_key(s.sel, group)
     conf = (audit.get("confidence") or {}).get(ck) if ck else None
     warns = [w for w in (audit.get("warnings") or []) if w.get("level") == "warn"]
+    carried = getattr(r, "sb_asof", None)
     cx = audit.get("context") or {}
     conflicts = cx.get("conflicts") or []
     bar = BARS.get(group, 0.70)
@@ -155,6 +156,8 @@ def evaluate(r, s, baseline: dict | None = None) -> dict:
         soft.append("warning: " + str(warns[0].get("text") or warns[0].get("code") or "model v raw data")[:90])
     if conflicts:
         soft.append("unresolved conflict in the live research")
+    if carried:
+        soft.append(f"price carried forward from {carried} (the book blocked the fetch) — value claim is only as fresh as that")
 
     status = STATUS_REJECT if hard else STATUS_WATCH if soft else STATUS_PRIMARY
     qscore = float(q.get("score") or 0.0)

@@ -1,4 +1,10 @@
-## What's new — Search everywhere, price-band shortlist, modern look
+## What's new — One market per match, new interface, outage-proof prices
+- ⚽ **One bet per match** — the model now names each match's **strongest market** and the boards list exactly that one. No more several markets on the same match: Bets of the day, High probability and Positive EV all show one bet per match (a match page still shows every market for those who want the detail).
+- 🎨 **The interface is rebuilt** — a clean broadcast-sportsbook look: ink-navy dark theme with one electric-green accent, big scoreboard numerals, solid panels, chunky odds, crisp lines and a classic solid bottom bar. No glass, no gradients on content.
+- 🛡️ **Price outages can no longer blank the app.** Sportybet blocked the server this morning (HTTP 403) and every priced board went empty — fixed at the root: the last verified prices are now carried forward and clearly stamped (**"prices from 05:54"** on Home, and the shortlist says when a price is carried), and the odds fetch gained a real-browser fingerprint transport chain to get through bot walls.
+- 🔎 Search on every page, the Leagues → Fixtures list and market-grouped shortlist (top 10 per market, odds 1.15–1.90) stay as shipped.
+
+## Earlier — Search everywhere, price-band shortlist, modern look
 - 🔎 **Search on every page** — the bar at the top of every tab searches *everything at once*: matches, bets and markets (e.g. type "over 2.5"), teams worldwide, leagues, archive days, and the app's own pages. Tap a result to jump straight there.
 - 🎨 **Modern interface** — glass surfaces, a blue→violet brand gradient, soft glows, a floating dock for the bottom navigation and richer hero cards. Same features, same layout, a cleaner more premium feel (Settings → Appearance still has System / Light / Dark).
 - 🎯 **Shortlist: best picks per market in a price band** — each market group (result, double chance, goals, BTTS, team goals, cards, corners) now keeps its **top 10**, and only odds between **1.15 and 1.90** qualify: below the band the price is too short to be worth a pick, above it the pick is a coin-flip punt. Watchlist, exact reasons and the settling track record stay below.

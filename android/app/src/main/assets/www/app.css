@@ -721,129 +721,134 @@ h2.section { margin: 16px 6px 6px; }
 
 /* tappable team names (AiScore-style navigation) */
 span[data-team], .tmn { cursor: pointer; }
-
 /* ==================================================================================================================================
-   design system v4 — modern refresh (additive override layer; nothing above is edited, so this is safe to revert)
-   Look: deep-space glass, one blue→violet brand gradient, soft glows, floating dock nav, big numerals.
-   Performance rules: backdrop-filter ONLY on the two fixed surfaces (top bar + dock); cards use translucent
-   fills without blur; all animation is transform/opacity only and honours prefers-reduced-motion.
+   design system v5 — "broadcast sportsbook": solid panels, ink-navy dark, one electric-green accent,
+   big numerals, chunky odds, crisp 1px lines. Replaces v4 entirely (it was reverted) — nothing above
+   this block is edited, so the previous look is one file-revert away. Flat surfaces only: no blur, no
+   gradients on content, so it stays fast on low-end phones.
    ================================================================================================================================== */
 :root {
-  --grad: linear-gradient(135deg, #3b82f6 0%, #6366f1 55%, #8b5cf6 100%);
-  --grad-soft: linear-gradient(135deg, rgba(59,130,246,.16), rgba(139,92,246,.16));
-  --glow: 0 6px 20px rgba(99,102,241,.35);
-  --glow-sm: 0 2px 10px rgba(99,102,241,.25);
-  --r: 20px; --r-s: 14px;
-  --card: rgba(255,255,255,.86); --card-2: rgba(243,245,249,.9); --line: rgba(226,231,238,.9);
-  --shadow: 0 1px 2px rgba(16,24,40,.05), 0 8px 24px -12px rgba(16,24,40,.18);
-  --shadow-lg: 0 24px 60px -16px rgba(16,24,40,.35);
+  --brand: #00b869; --brand-2: #00e076; --brand-text: #009e58; --brand-soft: rgba(0, 184, 105, .10);
+  --accent: #00b869; --good: #009e58; --live: #ff4d5e;
+  --r: 18px; --r-s: 12px;
 }
 [data-theme="dark"], [data-theme="system"] {
-  --card: rgba(17,26,42,.72); --card-2: rgba(22,34,55,.65); --line: rgba(45,62,89,.55); --line-2: rgba(38,54,80,.45);
-  --shadow: 0 1px 0 rgba(255,255,255,.03) inset, 0 12px 32px -14px rgba(0,0,0,.6);
-  --shadow-lg: 0 24px 64px -12px rgba(0,0,0,.7);
-  --nav: rgba(7,11,20,.82); --seg-on: rgba(59,130,246,.18);
+  --bg: #04060c; --card: #0c1220; --card-2: #111a2c; --text: #f2f6ff; --muted: #8b99b8; --line: #1b2740; --line-2: #16223a;
+  --brand: #00c86f; --brand-2: #2be08a; --brand-text: #2be08a; --brand-soft: rgba(0, 200, 111, .13);
+  --good: #2be08a; --chip: #17233a; --nav: #070b15; --top: #04060c; --sk: #16223a; --sk-2: #1c2a44;
+  --seg-on: #1b2a45; --toast: #101a2e;
+  --shadow: 0 1px 0 rgba(255,255,255,.03) inset, 0 10px 26px -16px rgba(0,0,0,.8);
+  --shadow-lg: 0 26px 60px -18px rgba(0,0,0,.85);
 }
-@media (prefers-color-scheme: light) { [data-theme="system"] { --card: rgba(255,255,255,.86); --card-2: rgba(243,245,249,.9); --line: rgba(226,231,238,.9); --nav: rgba(255,255,255,.82); --seg-on: rgba(59,130,246,.12); } }
+@media (prefers-color-scheme: light) {
+  [data-theme="system"] {
+    --bg: #eef1f6; --card: #ffffff; --card-2: #f3f5f9; --text: #0e1526; --muted: #5d6b85; --line: #e0e6ef; --line-2: #eaeef5;
+    --brand: #00a85a; --brand-2: #00c86f; --brand-text: #008a4b; --brand-soft: rgba(0, 168, 90, .10);
+    --good: #008a4b; --chip: #eef2f7; --nav: #ffffff; --top: #0a1122; --sk: #e6ebf3; --sk-2: #f0f4f9;
+    --seg-on: #ffffff; --toast: #17233a;
+  }
+}
 
-/* ambient background: two soft brand-coloured glows, fixed, cheap (no blur) */
-body::before { content: ''; position: fixed; inset: 0; z-index: -1; pointer-events: none;
-  background: radial-gradient(520px 340px at 88% -60px, rgba(99,102,241,.14), transparent 62%),
-              radial-gradient(460px 320px at -80px 34%, rgba(59,130,246,.10), transparent 60%),
-              radial-gradient(600px 420px at 55% 118%, rgba(139,92,246,.08), transparent 60%); }
-[data-theme="dark"] body::before, [data-theme="system"] body::before { background:
-    radial-gradient(520px 340px at 88% -60px, rgba(99,102,241,.22), transparent 62%),
-    radial-gradient(460px 320px at -80px 34%, rgba(37,99,235,.16), transparent 60%),
-    radial-gradient(600px 420px at 55% 118%, rgba(139,92,246,.13), transparent 60%); }
+/* ---------- canvas: flat ink with one quiet green horizon glow (dark only) ---------- */
+body::before { content: ''; position: fixed; inset: 0; z-index: -1; pointer-events: none; background: none; }
+[data-theme="dark"] body::before, [data-theme="system"] body::before {
+  background: radial-gradient(900px 300px at 50% -120px, rgba(0, 200, 111, .07), transparent 70%); }
 
-/* top bar: glass */
-#top { background: rgba(10,14,22,.78); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); border-bottom: 1px solid rgba(255,255,255,.06); }
-#top .title { font-weight: 800; letter-spacing: .2px; }
+/* ---------- type: bigger, tighter, bolder ---------- */
+html, body { font-size: 15.5px; }
+h1, .hero-row h1 { font-size: 27px; font-weight: 800; letter-spacing: -.6px; margin: 2px 0 0; }
+.hero-row { margin: 6px 4px 14px; align-items: center; }
+.hero-row .kicker { color: var(--brand-2); font-weight: 800; font-size: 11px; }
+.hero-row .quality { background: var(--chip); border: 1px solid var(--line); color: var(--muted); border-radius: 999px; padding: 5px 12px; font-size: 11px; font-weight: 700; }
+.section-head h2, h2.section { font-size: 17px; font-weight: 800; letter-spacing: -.2px; }
+.b, b { font-weight: 700; }
+.tiny { font-size: 12px; line-height: 1.5; }
 
-/* bottom nav: floating glass dock with gradient active pill */
-#tabs { left: 10px; right: 10px; bottom: calc(8px + var(--safe-bottom)); height: 62px; padding: 0 6px;
-  border: 1px solid var(--line); border-radius: 22px; background: var(--nav);
-  backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px);
-  box-shadow: 0 12px 34px -10px rgba(0,0,0,.45), 0 1px 0 rgba(255,255,255,.06) inset; }
-#tabs button { gap: 2px; font-size: 9.5px; letter-spacing: .01em; color: var(--muted); border-radius: 16px; }
-#tabs .ic-wrap { width: 40px; height: 27px; border-radius: 12px; }
-#tabs button.active .ic-wrap { background: var(--grad); box-shadow: var(--glow-sm); }
-#tabs button.active { color: #fff; }
-#tabs button.active .ic-wrap .ic, #tabs button.active .ic { color: #fff; stroke-width: 2.2; }
-#tabs .dot { top: 2px; right: 16px; }
-body { padding-bottom: calc(86px + var(--safe-bottom)); }
+/* ---------- cards: solid panels, generous radius, crisp edge ---------- */
+.card { border-radius: var(--r); border: 1px solid var(--line); background: var(--card); box-shadow: var(--shadow); padding: 14px 16px; }
+.card.compact { padding: 10px 14px; border-radius: 16px; }
+.card.tap:active, .lg-row:active, .list-item.tap:active, .more-row:active, tr.tap:active { background: var(--card-2); }
+.card.empty { border-style: dashed; background: transparent; box-shadow: none; }
 
-/* cards: translucent glass, roomier radius, layered depth */
-.card { border-radius: var(--r); border: 1px solid var(--line); background: var(--card); box-shadow: var(--shadow); }
-.card.compact { border-radius: 16px; }
-.card.empty { border: 1.5px dashed var(--line); background: transparent; box-shadow: none; }
-.card.tap:active, .lg-row:active, .list-item.tap:active, .more-row:active, tr.tap:active { transform: scale(.988); transition: transform .08s; }
+/* ---------- top bar: solid ink, brand tick ---------- */
+#top { background: var(--top); border-bottom: 1px solid var(--line); }
+#top .title { font-weight: 800; font-size: 18px; letter-spacing: -.2px; }
 
-/* hero: gradient-border surface, glowing numerals */
-.hero, .whatsnew { border: 1px solid transparent;
-  background: linear-gradient(var(--card), var(--card)) padding-box,
-              linear-gradient(135deg, rgba(59,130,246,.55), rgba(139,92,246,.45) 55%, rgba(53,208,127,.35)) border-box; }
-.hero-nums > div { border-radius: 14px; background: var(--grad-soft); border: 1px solid rgba(99,102,241,.18); }
-.hero-nums b { font-size: 26px; font-weight: 800; background: var(--grad); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; }
+/* ---------- bottom nav: solid attached bar, green active block ---------- */
+#tabs { left: 0; right: 0; bottom: 0; height: calc(68px + var(--safe-bottom)); padding: 6px 4px calc(6px + var(--safe-bottom));
+  border-radius: 0; border-top: 1px solid var(--line); background: var(--nav); backdrop-filter: none; box-shadow: none; }
+body { padding-bottom: calc(78px + var(--safe-bottom)); }
+#tabs button { gap: 3px; font-size: 10px; color: var(--muted); border-radius: 14px; }
+#tabs .ic-wrap { width: 44px; height: 28px; border-radius: 10px; }
+#tabs button.active { color: var(--brand-2); }
+#tabs button.active .ic-wrap { background: var(--brand-soft); box-shadow: none; }
+#tabs button.active .ic-wrap .ic, #tabs button.active .ic { color: var(--brand-2); }
+#tabs .dot { top: 2px; right: 12px; }
 
-/* headers: bigger, bolder, gradient kicker */
-.hero-row h1, h1 { font-size: 25px; font-weight: 800; letter-spacing: -.5px; margin: 2px 0 0; }
-.hero-row .kicker { background: var(--grad); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; font-weight: 800; letter-spacing: .14em; }
+/* ---------- hero: scoreboard panel with huge numerals ---------- */
+.hero { border-radius: 20px; }
+.hero .eyebrow { font-size: 11px; font-weight: 800; letter-spacing: .14em; }
+.hero .eyebrow::before { background: var(--brand-2); box-shadow: 0 0 0 3px var(--brand-soft); }
+.hero-nums { gap: 10px; margin-top: 14px; }
+.hero-nums > div { border-radius: 14px; background: var(--card-2); border: 1px solid var(--line-2); padding: 12px 4px 10px; }
+.hero-nums b { font-size: 30px; font-weight: 800; letter-spacing: -1px; color: var(--text); }
+.hero-nums span { font-size: 9.5px; letter-spacing: .08em; }
+.live-strip { border-radius: 12px; }
 
-/* segmented control: pill track, gradient selection */
-.seg { border-radius: 14px; padding: 3px; background: var(--card-2); }
-.seg button { border-radius: 11px; padding: 8px 12px; }
-.seg button.on { background: var(--grad); color: #fff; box-shadow: var(--glow-sm); }
-
-/* chips: full pills; active = gradient */
-.chip, .tapchip { border-radius: 999px; }
-.tapchip { border: 1px solid var(--line); }
-.tapchip.on { background: var(--grad); color: #fff; border-color: transparent; box-shadow: var(--glow-sm); }
+/* ---------- segmented control + chips: chunky, solid, green selection ---------- */
+.seg { border-radius: 14px; padding: 3px; background: var(--card-2); border: 1px solid var(--line); }
+.seg button { border-radius: 11px; padding: 9px 13px; font-weight: 700; }
+.seg button.on { background: var(--brand); color: #fff; box-shadow: 0 4px 14px -6px rgba(0, 184, 105, .55); }
+.tapchip { border-radius: 999px; padding: 7px 13px; font-weight: 600; }
+.tapchip.on { background: var(--brand); color: #fff; border-color: transparent; box-shadow: 0 4px 14px -6px rgba(0, 184, 105, .55); }
 .tapchip.on b, .tapchip.on .ic { color: #fff; }
+.chip { border-radius: 8px; font-weight: 600; }
 
-/* buttons: gradient primary with glow */
-.btn { border-radius: 13px; border: 1px solid var(--line); background: var(--card); }
-.btn.primary { background: var(--grad); border-color: transparent; box-shadow: var(--glow-sm); }
+/* ---------- buttons: solid green primary ---------- */
+.btn { border-radius: 12px; font-weight: 700; }
+.btn.primary { background: var(--brand); border-color: transparent; color: #fff; box-shadow: 0 6px 18px -8px rgba(0, 184, 105, .6); }
 
-/* pills & probabilities */
-.pill { border-radius: 999px; }
-.pill.hi { background: var(--grad); color: #fff; box-shadow: var(--glow-sm); }
+/* ---------- pills & probabilities: green scale reads like a sportsbook price ---------- */
+.pill { border-radius: 9px; font-weight: 800; }
+.pill.hi { background: var(--brand); color: #fff; box-shadow: 0 4px 14px -6px rgba(0, 184, 105, .55); }
 
-/* tables: airy, uppercase headers, soft rules */
-.tbl th { font-size: 10px; text-transform: uppercase; letter-spacing: .8px; color: var(--muted); font-weight: 700; }
-.tbl td { padding-top: 8px; padding-bottom: 8px; }
-.tbl tr { border-color: var(--line-2); }
+/* ---------- tables: roomy, strong headers ---------- */
+.tbl th { font-size: 10.5px; text-transform: uppercase; letter-spacing: .9px; font-weight: 800; }
+.tbl td { padding-top: 9px; padding-bottom: 9px; }
 
-/* more page rows, league rows */
-.more-row, .lg-row { border-radius: 16px; }
-.more-row .tile { background: var(--grad-soft); border: 1px solid rgba(99,102,241,.18); color: var(--brand-text); }
+/* ---------- lists, more rows, league rows: touch-friendly, clear dividers ---------- */
+.more-row, .lg-row { border-radius: 16px; padding: 12px 10px; }
+.more-row .tile { width: 44px; height: 44px; border-radius: 13px; background: var(--brand-soft); border: 1px solid transparent; color: var(--brand-2); }
+.list-item { padding: 12px 0; }
 
-/* live accents: glow */
-.status-dot.live, .live-txt { text-shadow: 0 0 12px rgba(240,80,90,.45); }
+/* ---------- market accent rails (shortlist groups, market cards) ---------- */
+.mk-rail { border-left: 3px solid var(--brand); }
+.mk-rail.result { border-left-color: #ffb020; }
+.mk-rail.dc { border-left-color: #38bdf8; }
+.mk-rail.goals { border-left-color: #00c86f; }
+.mk-rail.btts { border-left-color: #a78bfa; }
+.mk-rail.team { border-left-color: #f472b6; }
+.mk-rail.corners { border-left-color: #22d3ee; }
+.mk-rail.cards { border-left-color: #facc15; }
+.comp-head { display: flex; align-items: center; gap: 6px; }
 
-/* quality/odds chips on cards keep contrast in glass */
-.card .chip { backdrop-filter: none; }
-
-/* toast + menu: glass */
-.toast, .menu { backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px); }
-
-/* enter animation: slightly deeper rise for the fancy feel */
-#view.enter > * { animation-name: rise4; }
-@keyframes rise4 { from { opacity: 0; transform: translateY(10px) scale(.995); } }
-@media (prefers-reduced-motion: reduce) { #view.enter > *, #tabs button, .card, .btn { animation: none !important; transition: none !important; } }
-
-/* very narrow screens: dock labels stay readable */
-@media (max-width: 359px) { #tabs button { font-size: 8.5px; } #tabs { left: 6px; right: 6px; } }
-
-/* ---------- universal search bar (every page) ---------- */
-.searchbar.gs { position: sticky; top: calc(70px + var(--safe-top)); z-index: 6; display: block; margin: 0 0 10px; }
-.searchbar.gs .field { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 0 12px;
-  box-shadow: var(--shadow); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); }
+/* ---------- search bar: solid, obvious focus ---------- */
+.searchbar.gs { position: sticky; top: calc(66px + var(--safe-top)); z-index: 6; display: block; margin: 0 0 10px; }
+.searchbar.gs .field { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 0 12px; box-shadow: var(--shadow); }
+.searchbar.gs .field:focus-within { border-color: var(--brand); box-shadow: 0 0 0 3px var(--brand-soft); }
 .searchbar.gs .field input { padding: 12px 0; }
 .searchbar.gs .gs-x { border: 0; background: var(--chip); color: var(--muted); width: 24px; height: 24px; border-radius: 50%;
   display: inline-flex; align-items: center; justify-content: center; padding: 0; }
 #gq-res:empty { display: none; }
 #gq-res { margin-top: 8px; }
-#gq-res .card { margin-bottom: 0; }
-.gs-h { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .8px; color: var(--muted); padding: 10px 2px 2px; }
+.gs-h { font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: .9px; color: var(--muted); padding: 10px 2px 2px; }
 #gq-res .list-item .match { font-size: 14px; }
+
+/* ---------- toast / menu / skeleton: solid ---------- */
+.toast, .menu { backdrop-filter: none; }
+
+/* ---------- motion: keep the soft rise, honour reduced motion ---------- */
+#view.enter > * { animation-name: rise5; }
+@keyframes rise5 { from { opacity: 0; transform: translateY(8px); } }
+@media (prefers-reduced-motion: reduce) { #view.enter > *, #tabs button, .btn { animation: none !important; transition: none !important; } }
+@media (max-width: 359px) { #tabs button { font-size: 9px; } html, body { font-size: 15px; } }

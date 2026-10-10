@@ -251,7 +251,7 @@
       SL_ORDER.forEach((g) => {
         const items = prim.filter((x) => x.market === g);
         if (!items.length) return;
-        parts.push(`<div class="card compact"><div class="comp-head">${GROUP_ICON[g] || `${icon('star', 'sm')} `} ${esc(GROUPS[g] || g)} · ${items.length}</div>${items.map(card).join('')}</div>`);
+        parts.push(`<div class="card compact mk-rail ${esc(g)}"><div class="comp-head">${GROUP_ICON[g] || `${icon('star', 'sm')} `} ${esc(GROUPS[g] || g)} · ${items.length}</div>${items.map(card).join('')}</div>`);
       });
       const rest = prim.filter((x) => !SL_ORDER.includes(x.market));
       if (rest.length) parts.push(`<div class="card compact"><div class="comp-head">${icon('star', 'sm')} Other markets · ${rest.length}</div>${rest.map(card).join('')}</div>`);
@@ -270,9 +270,13 @@
   };
 
   function homeBoard(d) {
-    const all = homeBets(d);
+    // ONE MARKET PER MATCH (user rule): the model names the strongest market of each match and only that
+    // one is listed. Strength = probability above the market's bar; the EV tab ranks by expected value.
+    const strength = (r) => (r.s.p - (HOME_BAR[r.g] || 0.70)) * 100 + r.s.p * 10;
+    const bestBy = (rows, fn) => { const m = new Map(); rows.forEach((r) => { const c = m.get(r.f.id); if (!c || fn(r) > fn(c) + 1e-9) m.set(r.f.id, r); }); return [...m.values()]; };
+    const all = bestBy(homeBets(d), strength);
     const high = all.filter((r) => r.s.p >= HOME_HIGH);
-    const evAll = homeEvBets(d);
+    const evAll = bestBy(homeEvBets(d), (r) => evOf(r.s));
     const tab = state.homeTab === 'high' || state.homeTab === 'ev' ? state.homeTab : 'all';
     const mk = state.homeMk || 'any'; const sort = state.homeSort || (tab === 'ev' ? 'ev' : 'p');
     const base = tab === 'high' ? high : tab === 'ev' ? evAll : all;
@@ -296,7 +300,7 @@
     if (rows.length) out.push(`<div class="card compact"><table class="tbl head" style="margin-top:4px"><tr><th>Time</th><th>Match · bet</th><th class="right">Sportybet</th><th class="right">Model</th></tr>${rows.slice(0, shown).map(row).join('')}</table>${shown < rows.length ? `<div class="row" style="justify-content:center;margin-top:8px"><button class="btn" id="home-more">Show ${Math.min(100, rows.length - shown)} more · ${rows.length - shown} left</button></div>` : ''}</div>`);
     else out.push(`<div class="card empty small">${tab === 'ev' ? `No bet the model supports has positive EV at a Sportybet price of ${f2(HOME_EV_MIN_ODDS)} or more today${mk !== 'any' ? ' in this market' : ''}.` : tab === 'high' ? `No priced bet reaches ${pct(HOME_HIGH)} today${mk !== 'any' ? ' in this market' : ''} yet.` : `No priced bet clears its model bar today${mk !== 'any' ? ' in this market' : ''} yet.`} The board fills as Sportybet prices and probabilities firm up.${majorOnly() ? ' (Major leagues only — change in Settings.)' : ''}</div>`);
     if (tab === 'ev') out.push(`<div class="card tiny muted"><b>Positive EV</b> — bets the model supports (same bars: 1X2 ≥60%, corners &amp; bookings ≥65%, every other market ≥70%) whose Sportybet price is <b>${f2(HOME_EV_MIN_ODDS)} or more</b> and pays more than the model thinks is fair: <b>EV = model probability × odds − 1 &gt; 0</b>. EV +5% means the model expects 5c back per R1 staked over many such bets — an estimate that is only as good as the model, not a guarantee. Gaps of 15+ points over the price stay quarantined as data faults.</div>`);
-    out.push(`<div class="card tiny muted"><b>How this board is built</b> — today's matches, every market. A bet appears when the model clears its bar (<b>1X2 ≥60%</b>, <b>corners &amp; bookings ≥65%</b>, <b>every other market ≥70%</b>) <b>and</b> Sportybet prices it. <b>High probability</b> = model ≥70% on any market. The price is shown, never used to compute the probability; selections 15+ points above the price are quarantined as data faults. A high probability is not a certainty.</div>`);
+    out.push(`<div class="card tiny muted"><b>How this board is built</b> — <b>one bet per match</b>: the model names each match's strongest market and lists only that one (the match page still shows every market). Today's matches, all markets. A bet appears when the model clears its bar (<b>1X2 ≥60%</b>, <b>corners &amp; bookings ≥65%</b>, <b>every other market ≥70%</b>) <b>and</b> Sportybet prices it. <b>High probability</b> = model ≥70% on any market. The price is shown, never used to compute the probability; selections 15+ points above the price are quarantined as data faults. A high probability is not a certainty.</div>`);
     if (!PR._homeRefreshed && (d.fixtures || []).length && !(d.fixtures || []).some((f) => (f.sels || []).length)) { PR._homeRefreshed = true; setTimeout(() => PR.loadData(false), 250); }
     return out.join('');
   }
@@ -316,13 +320,13 @@
     parts.push(`<div class="hero-row"><div><div class="kicker">Football intelligence</div><h1>${esc(String(dayName(m.generated || '')).replace(/^Today · /, ''))}</h1></div><span class="quality">updated ${esc(koTime(m.generated || ''))}</span></div>`);
     parts.push(`<div class="card hero"><div class="eyebrow">Today</div>
       <div class="hero-nums"><div><b>${m.fixtures}</b><span>Matches</span></div><div><b>${d.fixtures.filter((f) => f.data_ok).length}</b><span>Analysed</span></div><div><b>${safe.length}</b><span>High confidence</span></div><div><b>${(state.liveAll || []).length || inPlay.length}</b><span>Live</span></div></div>
-      <div class="tiny muted" style="margin-top:8px">Next update ${esc(koTime(m.next_run || ''))} · ${cov.competitions || '–'} competitions worldwide · ${cov.priced || 0} priced by Sportybet</div>
+      <div class="tiny muted" style="margin-top:8px">Next update ${esc(koTime(m.next_run || ''))} · ${cov.competitions || '–'} competitions worldwide · ${cov.priced || 0} priced by Sportybet${m.odds_asof ? ` · <b>prices from ${esc(koTime(m.odds_asof))}</b> (the book blocked the refresh)` : ''}</div>
       ${inPlay.length ? `<div class="live-strip" data-tab-go="live"><span class="status-dot live"></span><div class="grow"><b>${inPlay.length} tracked in play</b> · ${inPlay.slice(0, 2).map((f) => { const s = live.for(f); return `${esc(f.home)} ${s.hg}–${s.ag} ${esc(f.away)}`; }).join(' · ')}${inPlay.length > 2 ? ' …' : ''}</div>${icon('next', 'sm')}</div>` : ''}</div>`);
     // accas stay one tap away at the top (compact summary, user choice 2026-10-09)
     if (((d.accas || {}).bets || []).length) parts.push(`<div class="card compact tap" data-page-go="accas"><div class="row"><span class="ico">${icon('ticket')}</span><div class="grow"><div class="b">Today\u2019s accas · ${(d.accas.bets || []).length} build${(d.accas.bets || []).length === 1 ? '' : 's'} at ~${f2(d.accas.target || 3)}</div><div class="tiny muted">Gated legs, tracked to settlement → tap to open</div></div>${icon('next')}</div></div>`);
     if (PR.APP_VERSION && settings.seenVersion !== PR.APP_VERSION) {
       parts.push(`<div class="card whatsnew"><div class="row"><div class="grow"><b>${icon('sparkle', 'sm')} New in PlayReport ${esc(PR.APP_VERSION)}</b></div><button class="link" id="wn-close">${icon('x')}</button></div>
-        <ul><li>🔎 <b>Search on every page</b> — matches, bets (try “over 2.5”), teams, leagues, days and app pages, all from one bar.</li><li>🎨 <b>Modern look</b> — glass surfaces, gradient accents, floating navigation dock.</li><li>🎯 <b>Shortlist upgraded</b> — top <b>10 per market group</b>, odds band <b>1.15–1.90</b> only: bests without coin-flip punts.</li><li>📅 <b>Leagues → Fixtures</b> — every upcoming fixture worldwide in one list.</li><li>🧊 The model is untouched — same inputs, same numbers.</li></ul>></div>`);
+        <ul><li>⚽ <b>One bet per match</b> — the model picks each match's strongest market; the boards are de-cluttered.</li><li>🎨 <b>New interface</b> — ink navy + electric green, big scoreboard numbers, solid clean panels.</li><li>🛡️ <b>Outage-proof prices</b> — if Sportybet blocks a scan, last verified prices carry over, stamped with their time.</li><li>🧊 The model is untouched — same inputs, same numbers.</li></ul></div>`);
     }
     const favs = (PR.favList ? PR.favList() : []).map((x) => fx(x.fixture)).filter(Boolean).sort((a, b) => a.kickoff.localeCompare(b.kickoff));
     if (favs.length) parts.push(`<div class="section-head"><h2><span class="ico amber">${icon('star')}</span>Your matches</h2><button class="link" data-tab-go="matches" data-mf-go="fav">All ${favs.length} ${icon('next')}</button></div><div class="card compact">${favs.slice(0, 5).map((f) => { const s = live.for(f); return matchRow(f, { live: s, sub: `${flag(f.country)} ${esc(f.competition)}${f.safe ? ` · 📈 <b>${esc(selShort(f.safe[0]))}</b> ${pct(f.safe[1])}` : ''}`, right: s && s.hg != null ? '' : `<span class="pill ${f.p.O25 >= 0.6 ? 'hi' : ''}">O2.5 ${pct(f.p.O25)}</span>` }); }).join('')}</div>`);

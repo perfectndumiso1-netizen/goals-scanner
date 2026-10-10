@@ -365,7 +365,7 @@ def export(path: Path, *, ctx: dict, rows: list, all_rows: list | None = None, p
             "x12": [_f(x12.get("H")), _f(x12.get("D")), _f(x12.get("A"))],
             # sels: [sel, p (model), p_model, p_market (implied), odds, disagreement flag, diff pp, EV]
             "sels": [[d["sel"], d["p"], d["p_model"], d["p_sb"], d["odds"], 1 if d.get("diff") else 0, d.get("diff_pp"), d.get("ev")] for d in sels],
-            "priced": bool(r.sb), "top": top, "safe": safe_best, "hi": hi, "bo": _board(sels),
+            "priced": bool(r.sb), "top": top, "safe": safe_best, "hi": hi, "bo": _board(sels), "odds_asof": getattr(r, "sb_asof", None),
             "badges": {"home": badges.get(fx["home"]), "away": badges.get(fx["away"])},
             "livescore_id": eid,
             # full Sportybet event meta so the app can deep-link the match into Sportybet ("open in Sportybet")
@@ -483,6 +483,9 @@ def export(path: Path, *, ctx: dict, rows: list, all_rows: list | None = None, p
         "thresholds": {m: t["p"] for m, t in thresholds.items()}, "backtest": backtest,
         "bench": bench, "bias": bias,
         "next_run": ctx["window_end"].strftime("%Y-%m-%d %H:%M"), "refresh_minutes": 30,
+        # when the book blocked the fetch, prices on rows are real verified prices carried forward —
+        # the app labels them with this timestamp instead of pretending they are live
+        "odds_asof": ctx.get("sb_asof"),
         "coverage": coverage or {},
         # research layer summary for this run: how many fixtures were researched, how many facts were stored,
         # how many fixtures carried a (bounded) context adjustment and the research-quality mix
