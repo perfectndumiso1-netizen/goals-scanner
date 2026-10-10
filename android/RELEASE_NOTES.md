@@ -1,4 +1,10 @@
-## What's new — One market per match, new interface, outage-proof prices
+## What's new — Strictly one market per match, everywhere
+- ⚽ **The rule now holds on every screen**: Bets of the day, High probability, Positive EV, Today's strong & value lists, the market families (Goals / Corners / Cards), Model picks, Low odds, the universal search and the Home boards all show **exactly one market per match** — the one the model rates strongest (or the biggest edge on the value list). A match can appear on a screen only once.
+- 🧭 The Today page claims matches in a fixed order — the official day card first, then strong markets, then value — so the same match never shows up twice with different bets.
+- 🎯 Model picks: each match appears once, in the goals market the model rates strongest.
+- 🧊 Nothing was removed: match pages still show every market, and all probabilities, prices and records are unchanged.
+
+## Earlier — One market per match, new interface, outage-proof prices
 - ⚽ **One bet per match** — the model now names each match's **strongest market** and the boards list exactly that one. No more several markets on the same match: Bets of the day, High probability and Positive EV all show one bet per match (a match page still shows every market for those who want the detail).
 - 🎨 **The interface is rebuilt** — a clean broadcast-sportsbook look: ink-navy dark theme with one electric-green accent, big scoreboard numerals, solid panels, chunky odds, crisp lines and a classic solid bottom bar. No glass, no gradients on content.
 - 🛡️ **Price outages can no longer blank the app.** Sportybet blocked the server this morning (HTTP 403) and every priced board went empty — fixed at the root: the last verified prices are now carried forward and clearly stamped (**"prices from 05:54"** on Home, and the shortlist says when a price is carried), and the odds fetch gained a real-browser fingerprint transport chain to get through bot walls.

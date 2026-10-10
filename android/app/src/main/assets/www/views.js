@@ -220,6 +220,13 @@
   }
   // ------------------------------------------------------------------ HOME: high-conviction shortlist (server-built, shortlist.py)
   const SL_ORDER = ['result', 'dc', 'goals', 'btts', 'team', 'cards', 'corners'];   // market grouping order (GROUPS names)
+  /** ONE MARKET PER MATCH (user rule, app-wide): from candidate rows keep only the strongest market of each
+   *  match. Strength = probability above the market's bar; callers that rank by EV pass their own score. */
+  function bestPerMatch(rows, fidOf, scoreOf) {
+    const m = new Map();
+    rows.forEach((r) => { const k = fidOf(r); const c = m.get(k); if (!c || scoreOf(r) > scoreOf(c) + 1e-9) m.set(k, r); });
+    return [...m.values()];
+  }
   PR.views.shortlist = function () {
     const d = state.data; const sl = d.shortlist || {}; const c = sl.counts || {}; const R = sl.rules || {};
     const parts = [];
@@ -273,10 +280,9 @@
     // ONE MARKET PER MATCH (user rule): the model names the strongest market of each match and only that
     // one is listed. Strength = probability above the market's bar; the EV tab ranks by expected value.
     const strength = (r) => (r.s.p - (HOME_BAR[r.g] || 0.70)) * 100 + r.s.p * 10;
-    const bestBy = (rows, fn) => { const m = new Map(); rows.forEach((r) => { const c = m.get(r.f.id); if (!c || fn(r) > fn(c) + 1e-9) m.set(r.f.id, r); }); return [...m.values()]; };
-    const all = bestBy(homeBets(d), strength);
+    const all = bestPerMatch(homeBets(d), (r) => r.f.id, strength);
     const high = all.filter((r) => r.s.p >= HOME_HIGH);
-    const evAll = bestBy(homeEvBets(d), (r) => evOf(r.s));
+    const evAll = bestPerMatch(homeEvBets(d), (r) => r.f.id, (r) => evOf(r.s));
     const tab = state.homeTab === 'high' || state.homeTab === 'ev' ? state.homeTab : 'all';
     const mk = state.homeMk || 'any'; const sort = state.homeSort || (tab === 'ev' ? 'ev' : 'p');
     const base = tab === 'high' ? high : tab === 'ev' ? evAll : all;
@@ -326,7 +332,7 @@
     if (((d.accas || {}).bets || []).length) parts.push(`<div class="card compact tap" data-page-go="accas"><div class="row"><span class="ico">${icon('ticket')}</span><div class="grow"><div class="b">Today\u2019s accas · ${(d.accas.bets || []).length} build${(d.accas.bets || []).length === 1 ? '' : 's'} at ~${f2(d.accas.target || 3)}</div><div class="tiny muted">Gated legs, tracked to settlement → tap to open</div></div>${icon('next')}</div></div>`);
     if (PR.APP_VERSION && settings.seenVersion !== PR.APP_VERSION) {
       parts.push(`<div class="card whatsnew"><div class="row"><div class="grow"><b>${icon('sparkle', 'sm')} New in PlayReport ${esc(PR.APP_VERSION)}</b></div><button class="link" id="wn-close">${icon('x')}</button></div>
-        <ul><li>⚽ <b>One bet per match</b> — the model picks each match's strongest market; the boards are de-cluttered.</li><li>🎨 <b>New interface</b> — ink navy + electric green, big scoreboard numbers, solid clean panels.</li><li>🛡️ <b>Outage-proof prices</b> — if Sportybet blocks a scan, last verified prices carry over, stamped with their time.</li><li>🧊 The model is untouched — same inputs, same numbers.</li></ul></div>`);
+        <ul><li>⚽ <b>One market per match — everywhere</b> — every board, list and search result now shows a match once, in the market the model rates strongest.</li><li>🧊 The model is untouched — same inputs, same numbers.</li></ul></div>`);
     }
     const favs = (PR.favList ? PR.favList() : []).map((x) => fx(x.fixture)).filter(Boolean).sort((a, b) => a.kickoff.localeCompare(b.kickoff));
     if (favs.length) parts.push(`<div class="section-head"><h2><span class="ico amber">${icon('star')}</span>Your matches</h2><button class="link" data-tab-go="matches" data-mf-go="fav">All ${favs.length} ${icon('next')}</button></div><div class="card compact">${favs.slice(0, 5).map((f) => { const s = live.for(f); return matchRow(f, { live: s, sub: `${flag(f.country)} ${esc(f.competition)}${f.safe ? ` · 📈 <b>${esc(selShort(f.safe[0]))}</b> ${pct(f.safe[1])}` : ''}`, right: s && s.hg != null ? '' : `<span class="pill ${f.p.O25 >= 0.6 ? 'hi' : ''}">O2.5 ${pct(f.p.O25)}</span>` }); }).join('')}</div>`);
@@ -378,16 +384,26 @@
     const max = state.expanded['top_' + key] ? lst.length : 20;
     parts.push(`<div class="card compact"><table class="tbl head"><tr><th></th><th>Match</th><th class="right">Price</th><th class="right">Prob.</th></tr>${lst.slice(0, max).map(({ f, p, odds }) => `<tr class="tap" data-fx="${esc(f.id)}"><td class="tiny muted nowrap">${esc(koShort(f.kickoff))}</td><td><div class="row" style="gap:6px">${fxBadge(f, 'home').replace('s24', 's20')}${fxBadge(f, 'away').replace('s24', 's20')}<div class="b grow">${teamSpan(f.home, f.country, f.div)} <span class="muted">v</span> ${teamSpan(f.away, f.country, f.div)}</div></div><div class="tiny muted">${flag(f.country)} ${esc(f.competition)} · ${esc(selLabel(key, f.home, f.away))}</div></td><td class="right nowrap">${odds ? `<b>${f2(odds)}</b>` : '<span class="muted">–</span>'}</td><td class="right"><div class="row" style="gap:0;justify-content:flex-end">${pill(p, 0.7, 0.6)}${PR.addBtn ? PR.addBtn(f.id, key, odds) : ''}</div></td></tr>`).join('')}</table>${lst.length > max ? `<button class="btn wide" data-more="top_${key}">Show all ${lst.length}</button>` : ''}</div>`);
   }
-  /** the two pick groups: strong markets (any odds) and value (mispriced by Sportybet) */
-  function groupsCards(parts) {
+  /** fixtures already used by today's official day card — a match may appear only once on a screen */
+  function botdIds() {
+    const today = (state.data.safe || {}).today || {}; const out = new Set();
+    (today.bets || []).forEach((b) => { if (b && b.fixture) out.add(b.fixture); });
+    (today.groups || []).forEach((gx) => (gx.bets || []).forEach((b) => { if (b && b.fixture) out.add(b.fixture); }));
+    return out;
+  }
+  /** the two pick groups: strong markets (any odds) and value (mispriced by Sportybet) — one market per
+   *  match per screen: matches already on the day card are skipped, value skips the strong list's matches */
+  function groupsCards(parts, exclude) {
+    const excl = exclude || new Set();
     const g = (state.data.groups) || {};
-    const strong = (g.strong || []).map((p) => ({ p, f: fx(p.id) })).filter((x) => x.f);
-    const value = (g.value || []).map((p) => ({ p, f: fx(p.id) })).filter((x) => x.f);
+    const strong = bestPerMatch((g.strong || []).map((p) => ({ p, f: fx(p.id) })).filter((x) => x.f && !excl.has(x.f.id)), (x) => x.f.id, (x) => x.p.p);
+    const sIds = new Set(strong.map((x) => x.f.id));
+    const value = bestPerMatch((g.value || []).map((p) => ({ p, f: fx(p.id) })).filter((x) => x.f && !excl.has(x.f.id) && !sIds.has(x.f.id)), (x) => x.f.id, (x) => (x.p.ev || 0) * 100 + x.p.p);
     parts.push(`<div class="section-head">${sh('shield', 'Today’s strong markets', 'green')}<span class="tiny muted">${strong.length}</span></div>`);
     if (!strong.length) parts.push(`<div class="card empty small">No strong market in this window yet — the list fills in as the probabilities firm up.</div>`);
     else {
       const max = state.expanded.grp_strong ? strong.length : 15;
-      parts.push(`<div class="card compact"><div class="tiny muted" style="margin-bottom:6px">Today's matches only — every market with a model probability of at least <b>70%</b>, <b>any odds</b>, highest probability first.</div>
+      parts.push(`<div class="card compact"><div class="tiny muted" style="margin-bottom:6px">Today's matches only — <b>one market per match</b> (the model's strongest), each at 70%+ model probability, <b>any odds</b>, highest probability first.</div>
         <table class="tbl head"><tr><th></th><th>Match · selection</th><th class="right">Price</th><th class="right">Model</th></tr>${strong.slice(0, max).map(({ p, f }) => selRow(f, p)).join('')}</table>
         ${strong.length > max ? `<button class="btn wide" data-more="grp_strong">Show all ${strong.length}</button>` : ''}</div>`);
     }
@@ -395,13 +411,13 @@
     if (!value.length) parts.push(`<div class="card empty small">No value selection right now — nothing is mispriced enough by the market with solid stats behind it.</div>`);
     else {
       const max = state.expanded.grp_value ? value.length : 15;
-      parts.push(`<div class="card compact"><div class="tiny muted" style="margin-bottom:6px">Markets <b>Sportybet</b> misprices: the model probability beats the price by at least <b>8%</b> expected value at 60%+ probability, with strong data behind it — biggest edge first.</div>
+      parts.push(`<div class="card compact"><div class="tiny muted" style="margin-bottom:6px">Markets <b>Sportybet</b> misprices — <b>one per match</b> (the biggest edge): the model probability beats the price by at least <b>8%</b> expected value at 60%+ probability, with strong data behind it.</div>
         <table class="tbl head"><tr><th></th><th>Match · selection</th><th class="right">Price</th><th class="right">Model</th></tr>${value.slice(0, max).map(({ p, f }) => selRow(f, p)).join('')}</table>
         ${value.length > max ? `<button class="btn wide" data-more="grp_value">Show all ${value.length}</button>` : ''}</div>`);
     }
   }
   function renderToday(parts) {
-    groupsCards(parts);
+    groupsCards(parts, botdIds());
     parts.push(botdCard(false));
     if (PR.ticketsCard) parts.push(PR.ticketsCard(false));
     const rec = ((state.data.safe || {}).summary || {}).botd || {};
@@ -411,14 +427,14 @@
   function renderSafest(parts) {
     const sf = state.data.safe || {}; const all = safeList(state.betGroup || 'all');
     const winAll = !!state.safestAll;
-    const lst = winAll ? all : all.filter(sameDay);
+    const lst = bestPerMatch(winAll ? all : all.filter(sameDay), (b) => b.fixture, (b) => b.p);
     const nToday = all.filter(sameDay).length;
     const groupOptions = [['all', 'All markets'], ['goals', 'Goals (incl. BTTS, team goals)'], ['corners', 'Corners'], ['cards', 'Cards']];
     parts.push(`<div class="card compact">${leagueChips()}<div class="chips small-chips" style="margin-top:6px">
       <button class="chip tapchip ${!winAll ? 'on' : ''}" data-scope="today">📅 Today (${nToday})</button>
       <button class="chip tapchip ${winAll ? 'on' : ''}" data-scope="all">🗓 Next 60 days (${all.length})</button></div>
       <div class="filters" style="margin-top:6px"><label>Market ${select('f-group', groupOptions, state.betGroup || 'all')}</label></div>
-      <div class="tiny muted">High-probability selection = <b>model probability</b> of at least ${pct(sf.min_p || 0.7)} (football data only), in the goals, corners and cards markets — the price appears on every row but never filters — the one exception is a selection where model and price both say under 1.15 odds (dropped as worthless). <b>Today</b> shows matches kicking off this day; the 60-day view lists every upcoming analysed match. A high probability is not a certainty: expect roughly ${pct(sf.min_p || 0.7)}–85% of these to land. Each one shows its data quality and is graded in Days.</div></div>`);
+      <div class="tiny muted">One selection per match (the strongest). High-probability selection = <b>model probability</b> of at least ${pct(sf.min_p || 0.7)} (football data only), in the goals, corners and cards markets — the price appears on every row but never filters — the one exception is a selection where model and price both say under 1.15 odds (dropped as worthless). <b>Today</b> shows matches kicking off this day; the 60-day view lists every upcoming analysed match. A high probability is not a certainty: expect roughly ${pct(sf.min_p || 0.7)}–85% of these to land. Each one shows its data quality and is graded in Days.</div></div>`);
     if (!lst.length) parts.push(`<div class="card empty">${winAll ? 'No high-probability selection in this window' : 'No high-probability selection for today’s matches'}${majorOnly() ? ' for the major leagues' : ''}.</div>`);
     else {
       const max = state.expanded.safest ? lst.length : 30;
@@ -430,15 +446,16 @@
   }
   function renderFamily(parts, fam) {
     const minP = settings.hiP || 0.7; const groups = FAMILY[fam] || [fam];
-    const safe = safeList(fam);
+    const safe = bestPerMatch(safeList(fam), (b) => b.fixture, (b) => b.p);
     const title = { goals: 'Goals markets', corners: 'Corners', cards: 'Cards & bookings' }[fam] || fam;
     parts.push(`<div class="card compact">${leagueChips()}<div class="filters" style="margin-top:6px"><label>Probability ≥ ${select('f-hip', [[0.7, '70%'], [0.75, '75%'], [0.8, '80%'], [0.85, '85%'], [0.9, '90%']], minP)}</label></div>
       <div class="tiny muted">${fam === 'goals' ? 'Over/Under, both teams to score and team goals.' : fam === 'corners' ? 'Total corners — modelled for the leagues with corner statistics (the 22 main European leagues) and priced by Sportybet.' : 'Total cards (yellow = 1, red = 2 on Sportybet) — modelled for the 22 main European leagues from team and referee averages.'} High-probability selections first, then every other selection at or above the threshold.</div></div>`);
     if (safe.length) parts.push(`<div class="card compact"><div class="row"><div class="grow b">${icon('trend', 'sm')} High-probability ${title.toLowerCase()}</div><span class="chip good">${safe.length}</span></div><table class="tbl">${safe.map((b) => safeRow(b)).join('')}</table></div>`);
     // other high-probability selections need the per-match details; use the index's top/safe and the priced flag
     const lst = [];
-    (state.data.fixtures || []).forEach((f) => { if (!inScope(f) || !f.data_ok) return; (f.hi || []).forEach((x) => { const s = { sel: x[0], p: x[1], odds: x[2] }; if (s.p >= minP && groups.includes(selGroup(s.sel)) && !safe.some((b) => b.fixture === f.id && b.sel === s.sel)) lst.push({ f, s }); }); });
-    lst.sort((a, b) => b.s.p - a.s.p);
+    (state.data.fixtures || []).forEach((f) => { if (!inScope(f) || !f.data_ok) return; (f.hi || []).forEach((x) => { const s = { sel: x[0], p: x[1], odds: x[2] }; if (s.p >= minP && groups.includes(selGroup(s.sel)) && !safe.some((b) => b.fixture === f.id)) lst.push({ f, s }); }); });
+    const bestFam = bestPerMatch(lst, (x) => x.f.id, (x) => x.s.p).sort((a, b) => b.s.p - a.s.p);
+    lst.length = 0; bestFam.forEach((x) => lst.push(x));
     if (lst.length) {
       const key = 'fam_' + fam; const max = state.expanded[key] ? lst.length : 25;
       parts.push(`<div class="card compact"><div class="row"><div class="grow b">${icon('trend', 'sm')} Other selections ≥ ${pct(minP)}</div><span class="chip">${lst.length}</span></div><table class="tbl">${lst.slice(0, max).map((x) => selRow(x.f, x.s)).join('')}</table>${lst.length > max ? `<button class="btn wide" data-more="${key}">Show all ${lst.length}</button>` : ''}</div>`);
@@ -446,9 +463,15 @@
   }
   function renderPicks(parts) {
     const d = state.data, m = d.meta;
-    parts.push(`<div class="card small">${leagueChips()}<div style="margin-top:6px"><b>Goals shortlists</b> — the matches most likely to produce goals, ranked by probability (⭐ = threshold, ⭐⭐⭐ = very strong). These are match ratings, not priced bets: use them to pick games to watch or to build your own selections.</div></div>`);
+    parts.push(`<div class="card small">${leagueChips()}<div style="margin-top:6px"><b>Goals shortlists</b> — the matches most likely to produce goals, ranked by probability (⭐ = threshold, ⭐⭐⭐ = very strong). Each match appears once, in the goals market the model rates strongest. These are match ratings, not priced bets: use them to pick games to watch or to build your own selections.</div></div>`);
+    // ONE MARKET PER MATCH: each match appears only in the goals market the model rates strongest
+    const claimed = new Map();
+    for (const mk of ['O15', 'O25', 'BTTS']) for (const p of (d.picks[mk] || [])) {
+      const cur = claimed.get(p.fixture);
+      if (!cur || p.p > cur.p.p) claimed.set(p.fixture, { mk, p });
+    }
     for (const mk of ['O15', 'O25', 'BTTS']) {
-      const lst = (d.picks[mk] || []).filter((p) => inScope(fx(p.fixture)));
+      const lst = [...claimed.entries()].filter(([, v]) => v.mk === mk).map(([, v]) => v.p).filter((p) => inScope(fx(p.fixture)));
       parts.push(`<div class="card compact"><div class="row"><div class="grow"><b>${MK[mk]}</b> <span class="muted small">· threshold ${pct(m.thresholds[mk])}</span></div><span class="chip">${lst.length}</span></div>`);
       if (!lst.length) parts.push(`<div class="muted small">None met the criteria.</div>`);
       else parts.push(`<table class="tbl">${lst.map((p) => { const f = fx(p.fixture); if (!f) return ''; return `<tr class="tap" data-fx="${esc(f.id)}"><td class="tiny muted nowrap">${esc(koShort(f.kickoff))}</td><td><div class="row" style="gap:6px">${fxBadge(f, 'home').replace('s24', 's20')}${fxBadge(f, 'away').replace('s24', 's20')}<div class="b grow">${teamSpan(f.home, f.country, f.div)} v ${teamSpan(f.away, f.country, f.div)}</div></div><div class="tiny muted">${flag(f.country)} ${esc(f.competition)}</div></td><td class="right">${p.sportybet ? `<b>${f2(p.sportybet)}</b>` : '<span class="muted">–</span>'}</td><td class="right">${pill(p.p, 0.7, 0.6)}<div class="stars">${esc(p.stars)}</div></td></tr>`; }).join('')}</table>`);
@@ -686,7 +709,7 @@
       league: (a, b) => String(a.f.country || '').localeCompare(String(b.f.country || '')) ||
         String(a.f.league || a.f.competition || '').localeCompare(String(b.f.league || b.f.competition || '')) || byKo(a, b),
     }[sort] || ((a, b) => a.s.odds - b.s.odds || byKo(a, b));
-    const rows = cur.rows.slice().sort(cmp);
+    const rows = bestPerMatch(cur.rows.slice(), (r) => r.f.id, (r) => r.s.p).sort(cmp);
     parts.push(`<div class="hero-row"><div><div class="kicker">Low odds</div><h1>1.19 – 1.45</h1></div><span class="quality">${rows.length} market${rows.length === 1 ? '' : 's'}</span></div>`);
     parts.push(`<div class="card compact"><div class="row"><div class="grow small"><b>${rows.length} market${rows.length === 1 ? '' : 's'} in the window</b> · ${cur.matches} match${cur.matches === 1 ? '' : 'es'}${cur.from ? ` · kick-off ${esc(cur.from)}–${esc(cur.to)}` : ''}</div></div>
       ${days.length > 1 ? `<div class="chips small-chips" style="margin-top:6px">${days.map((x) => `<button class="chip tapchip ${x.day === pick ? 'on' : ''}" data-lo-day="${esc(x.day)}">${esc(dayName(x.day))} <b>${x.rows.length}</b></button>`).join('')}</div>` : ''}

@@ -650,14 +650,16 @@ window.PR = (function () {
     // bets / markets (priced selections whose label matches — the only group that needs a longer query)
     if (q.length >= 3) {
       const bets = [];
+      const seenFx = new Set();
       for (const f of (d.fixtures || [])) {
-        if (!Array.isArray(f.sels)) continue;
+        if (!Array.isArray(f.sels) || seenFx.has(f.id)) continue;
         for (const s of f.sels) {
           if (!s || !s.sel) continue;
           const lbl = selLabel(s.sel, f.home, f.away);
           if (lbl && hit(lbl) && s.odds) {
+            seenFx.add(f.id);   // one market per match here too
             bets.push(`<div class="list-item tap gsr" data-gsf="${esc(f.id)}"><span class="ko">${esc(koShort(f.kickoff))}</span><div class="main"><div class="match">${esc(lbl)} <span class="tiny muted">@ ${f2(s.odds)}</span></div><div class="meta">${esc(f.home)} v ${esc(f.away)}</div></div>${icon('next')}</div>`);
-            if (bets.length >= 6) break;
+            break;
           }
         }
         if (bets.length >= 6) break;
