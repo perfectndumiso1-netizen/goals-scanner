@@ -1,4 +1,12 @@
-## What's new — Shortlist tab, league fixtures list, simpler trends
+## What's new — Search everywhere, price-band shortlist, modern look
+- 🔎 **Search on every page** — the bar at the top of every tab searches *everything at once*: matches, bets and markets (e.g. type "over 2.5"), teams worldwide, leagues, archive days, and the app's own pages. Tap a result to jump straight there.
+- 🎨 **Modern interface** — glass surfaces, a blue→violet brand gradient, soft glows, a floating dock for the bottom navigation and richer hero cards. Same features, same layout, a cleaner more premium feel (Settings → Appearance still has System / Light / Dark).
+- 🎯 **Shortlist: best picks per market in a price band** — each market group (result, double chance, goals, BTTS, team goals, cards, corners) now keeps its **top 10**, and only odds between **1.15 and 1.90** qualify: below the band the price is too short to be worth a pick, above it the pick is a coin-flip punt. Watchlist, exact reasons and the settling track record stay below.
+- 📅 **Leagues → Fixtures** — every upcoming fixture worldwide (next 10 days) in one searchable list; matches in today's analysis open the Match Center, the rest open their league.
+- 📊 **League trends simplified** — one table: last 10 matches vs the season.
+- 🧊 The model is untouched — same inputs, same numbers, add-only features.
+
+## Earlier — Shortlist tab, league fixtures list, simpler trends
 - 🎯 **Shortlist moved to the bottom bar** — it is now its own tab (🎯 Shortlist), always one tap away, instead of a cramped fourth segment on Home.
 - 🗂️ **Shortlist grouped by market** — the picks are grouped under Match result, Double chance, Total goals, BTTS, Team goals, Cards and Corners, each group with a count. Watchlist, rejection reasons, the daily decision summary and the settling track record stay below.
 - 📅 **Leagues tab: new Fixtures view** — every upcoming fixture worldwide for the next 10 days in one searchable list (`leagues/fixtures.json`, published every scan). Fixtures used to be visible only by opening each league one by one. Matches inside today's analysis window open the Match Center; the rest open their league page.

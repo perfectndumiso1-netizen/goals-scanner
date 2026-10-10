@@ -721,3 +721,129 @@ h2.section { margin: 16px 6px 6px; }
 
 /* tappable team names (AiScore-style navigation) */
 span[data-team], .tmn { cursor: pointer; }
+
+/* ==================================================================================================================================
+   design system v4 — modern refresh (additive override layer; nothing above is edited, so this is safe to revert)
+   Look: deep-space glass, one blue→violet brand gradient, soft glows, floating dock nav, big numerals.
+   Performance rules: backdrop-filter ONLY on the two fixed surfaces (top bar + dock); cards use translucent
+   fills without blur; all animation is transform/opacity only and honours prefers-reduced-motion.
+   ================================================================================================================================== */
+:root {
+  --grad: linear-gradient(135deg, #3b82f6 0%, #6366f1 55%, #8b5cf6 100%);
+  --grad-soft: linear-gradient(135deg, rgba(59,130,246,.16), rgba(139,92,246,.16));
+  --glow: 0 6px 20px rgba(99,102,241,.35);
+  --glow-sm: 0 2px 10px rgba(99,102,241,.25);
+  --r: 20px; --r-s: 14px;
+  --card: rgba(255,255,255,.86); --card-2: rgba(243,245,249,.9); --line: rgba(226,231,238,.9);
+  --shadow: 0 1px 2px rgba(16,24,40,.05), 0 8px 24px -12px rgba(16,24,40,.18);
+  --shadow-lg: 0 24px 60px -16px rgba(16,24,40,.35);
+}
+[data-theme="dark"], [data-theme="system"] {
+  --card: rgba(17,26,42,.72); --card-2: rgba(22,34,55,.65); --line: rgba(45,62,89,.55); --line-2: rgba(38,54,80,.45);
+  --shadow: 0 1px 0 rgba(255,255,255,.03) inset, 0 12px 32px -14px rgba(0,0,0,.6);
+  --shadow-lg: 0 24px 64px -12px rgba(0,0,0,.7);
+  --nav: rgba(7,11,20,.82); --seg-on: rgba(59,130,246,.18);
+}
+@media (prefers-color-scheme: light) { [data-theme="system"] { --card: rgba(255,255,255,.86); --card-2: rgba(243,245,249,.9); --line: rgba(226,231,238,.9); --nav: rgba(255,255,255,.82); --seg-on: rgba(59,130,246,.12); } }
+
+/* ambient background: two soft brand-coloured glows, fixed, cheap (no blur) */
+body::before { content: ''; position: fixed; inset: 0; z-index: -1; pointer-events: none;
+  background: radial-gradient(520px 340px at 88% -60px, rgba(99,102,241,.14), transparent 62%),
+              radial-gradient(460px 320px at -80px 34%, rgba(59,130,246,.10), transparent 60%),
+              radial-gradient(600px 420px at 55% 118%, rgba(139,92,246,.08), transparent 60%); }
+[data-theme="dark"] body::before, [data-theme="system"] body::before { background:
+    radial-gradient(520px 340px at 88% -60px, rgba(99,102,241,.22), transparent 62%),
+    radial-gradient(460px 320px at -80px 34%, rgba(37,99,235,.16), transparent 60%),
+    radial-gradient(600px 420px at 55% 118%, rgba(139,92,246,.13), transparent 60%); }
+
+/* top bar: glass */
+#top { background: rgba(10,14,22,.78); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); border-bottom: 1px solid rgba(255,255,255,.06); }
+#top .title { font-weight: 800; letter-spacing: .2px; }
+
+/* bottom nav: floating glass dock with gradient active pill */
+#tabs { left: 10px; right: 10px; bottom: calc(8px + var(--safe-bottom)); height: 62px; padding: 0 6px;
+  border: 1px solid var(--line); border-radius: 22px; background: var(--nav);
+  backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px);
+  box-shadow: 0 12px 34px -10px rgba(0,0,0,.45), 0 1px 0 rgba(255,255,255,.06) inset; }
+#tabs button { gap: 2px; font-size: 9.5px; letter-spacing: .01em; color: var(--muted); border-radius: 16px; }
+#tabs .ic-wrap { width: 40px; height: 27px; border-radius: 12px; }
+#tabs button.active .ic-wrap { background: var(--grad); box-shadow: var(--glow-sm); }
+#tabs button.active { color: #fff; }
+#tabs button.active .ic-wrap .ic, #tabs button.active .ic { color: #fff; stroke-width: 2.2; }
+#tabs .dot { top: 2px; right: 16px; }
+body { padding-bottom: calc(86px + var(--safe-bottom)); }
+
+/* cards: translucent glass, roomier radius, layered depth */
+.card { border-radius: var(--r); border: 1px solid var(--line); background: var(--card); box-shadow: var(--shadow); }
+.card.compact { border-radius: 16px; }
+.card.empty { border: 1.5px dashed var(--line); background: transparent; box-shadow: none; }
+.card.tap:active, .lg-row:active, .list-item.tap:active, .more-row:active, tr.tap:active { transform: scale(.988); transition: transform .08s; }
+
+/* hero: gradient-border surface, glowing numerals */
+.hero, .whatsnew { border: 1px solid transparent;
+  background: linear-gradient(var(--card), var(--card)) padding-box,
+              linear-gradient(135deg, rgba(59,130,246,.55), rgba(139,92,246,.45) 55%, rgba(53,208,127,.35)) border-box; }
+.hero-nums > div { border-radius: 14px; background: var(--grad-soft); border: 1px solid rgba(99,102,241,.18); }
+.hero-nums b { font-size: 26px; font-weight: 800; background: var(--grad); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; }
+
+/* headers: bigger, bolder, gradient kicker */
+.hero-row h1, h1 { font-size: 25px; font-weight: 800; letter-spacing: -.5px; margin: 2px 0 0; }
+.hero-row .kicker { background: var(--grad); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; font-weight: 800; letter-spacing: .14em; }
+
+/* segmented control: pill track, gradient selection */
+.seg { border-radius: 14px; padding: 3px; background: var(--card-2); }
+.seg button { border-radius: 11px; padding: 8px 12px; }
+.seg button.on { background: var(--grad); color: #fff; box-shadow: var(--glow-sm); }
+
+/* chips: full pills; active = gradient */
+.chip, .tapchip { border-radius: 999px; }
+.tapchip { border: 1px solid var(--line); }
+.tapchip.on { background: var(--grad); color: #fff; border-color: transparent; box-shadow: var(--glow-sm); }
+.tapchip.on b, .tapchip.on .ic { color: #fff; }
+
+/* buttons: gradient primary with glow */
+.btn { border-radius: 13px; border: 1px solid var(--line); background: var(--card); }
+.btn.primary { background: var(--grad); border-color: transparent; box-shadow: var(--glow-sm); }
+
+/* pills & probabilities */
+.pill { border-radius: 999px; }
+.pill.hi { background: var(--grad); color: #fff; box-shadow: var(--glow-sm); }
+
+/* tables: airy, uppercase headers, soft rules */
+.tbl th { font-size: 10px; text-transform: uppercase; letter-spacing: .8px; color: var(--muted); font-weight: 700; }
+.tbl td { padding-top: 8px; padding-bottom: 8px; }
+.tbl tr { border-color: var(--line-2); }
+
+/* more page rows, league rows */
+.more-row, .lg-row { border-radius: 16px; }
+.more-row .tile { background: var(--grad-soft); border: 1px solid rgba(99,102,241,.18); color: var(--brand-text); }
+
+/* live accents: glow */
+.status-dot.live, .live-txt { text-shadow: 0 0 12px rgba(240,80,90,.45); }
+
+/* quality/odds chips on cards keep contrast in glass */
+.card .chip { backdrop-filter: none; }
+
+/* toast + menu: glass */
+.toast, .menu { backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px); }
+
+/* enter animation: slightly deeper rise for the fancy feel */
+#view.enter > * { animation-name: rise4; }
+@keyframes rise4 { from { opacity: 0; transform: translateY(10px) scale(.995); } }
+@media (prefers-reduced-motion: reduce) { #view.enter > *, #tabs button, .card, .btn { animation: none !important; transition: none !important; } }
+
+/* very narrow screens: dock labels stay readable */
+@media (max-width: 359px) { #tabs button { font-size: 8.5px; } #tabs { left: 6px; right: 6px; } }
+
+/* ---------- universal search bar (every page) ---------- */
+.searchbar.gs { position: sticky; top: calc(70px + var(--safe-top)); z-index: 6; display: block; margin: 0 0 10px; }
+.searchbar.gs .field { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 0 12px;
+  box-shadow: var(--shadow); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); }
+.searchbar.gs .field input { padding: 12px 0; }
+.searchbar.gs .gs-x { border: 0; background: var(--chip); color: var(--muted); width: 24px; height: 24px; border-radius: 50%;
+  display: inline-flex; align-items: center; justify-content: center; padding: 0; }
+#gq-res:empty { display: none; }
+#gq-res { margin-top: 8px; }
+#gq-res .card { margin-bottom: 0; }
+.gs-h { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .8px; color: var(--muted); padding: 10px 2px 2px; }
+#gq-res .list-item .match { font-size: 14px; }

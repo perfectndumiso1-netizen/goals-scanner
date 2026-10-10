@@ -26,9 +26,13 @@ def row(home="A", away="B", ok=True, quality="High", qscore=0.85, conf="High", w
               home=NS(n=20), away=NS(n=20))
 
 
-def test_odds_at_or_below_114_are_rejected_and_na_odds_are_never_assumed():
+def test_odds_band_115_to_190_and_na_odds_are_never_assumed():
     r = row()
-    assert sl.evaluate(r, Sel("O15", 0.90, 0.86, 1.14))["status"] == "rejected"
+    assert sl.evaluate(r, Sel("O15", 0.90, 0.86, 1.14))["status"] == "rejected"     # under the 1.15 floor
+    assert sl.evaluate(r, Sel("O15", 0.90, 0.86, 1.15))["status"] == "primary"      # floor is inclusive
+    rec = sl.evaluate(r, Sel("O15", 0.86, 0.84, 1.95))
+    assert rec["status"] == "rejected" and "ceiling" in rec["reasons"][0]           # over the 1.90 ceiling
+    assert sl.evaluate(r, Sel("O15", 0.90, 0.86, 1.90))["status"] == "primary"      # ceiling is inclusive
     rec = sl.evaluate(r, Sel("O15", 0.90, None, None))
     assert rec["status"] == "rejected" and rec["odds"] is None and "N/A" in rec["reasons"][0]
 
@@ -66,7 +70,7 @@ def test_weak_data_warnings_and_conflicts_send_it_to_the_watchlist_with_a_reason
     assert sl.evaluate(row(ok=False), s)["status"] == "rejected"
 
 
-def _board(monkeypatch, rows_sels):
+def _board(monkeypatch, rows_sels, cap=3):
     rows = []
     table = {}
     for i, sels in enumerate(rows_sels):
@@ -74,23 +78,34 @@ def _board(monkeypatch, rows_sels):
         rows.append(r)
         table[id(r)] = sels
     monkeypatch.setattr(sl.safe_mod, "selections", lambda r: table[id(r)])
-    return rows, sl.build(rows, NOW, NOW + timedelta(hours=24), max_primary=3)
+    return rows, sl.build(rows, NOW, NOW + timedelta(hours=24), max_per_market=cap)
 
 
-def test_one_selection_per_match_cap_is_a_maximum_and_correlated_are_named(monkeypatch):
+def test_cap_is_per_market_and_correlated_are_named(monkeypatch):
     good = [Sel("O25", 0.74, 0.68, 1.45), Sel("BTTS", 0.72, 0.66, 1.50)]
     rows, b = _board(monkeypatch, [good] * 5)
-    assert b["counts"]["primary"] == 3 and len(b["primary"]) == 3
+    assert b["counts"]["primary"] == 3 and len(b["primary"]) == 3          # one per match first, then cap 3
     assert len({(x["home"], x["away"]) for x in b["primary"]}) == 3
+    assert all(x["status"] == "primary" for x in b["primary"])
     assert b["primary"][0]["correlated"], "the second selection of the match is named as correlated"
     assert any("outside the top 3" in x["reasons"][0] for x in b["watchlist"])
-    assert [x["rank"] for x in b["primary"]] == [1, 2, 3]
+    assert all(x["rank"] in (1, 2, 3) for x in b["primary"])
+    assert b["rules"]["band"].startswith("1.15")
+
+
+def test_per_market_cap_keeps_the_best_ten(monkeypatch):
+    rows, b = _board(monkeypatch, [[Sel("O25", 0.74, 0.68, 1.45)]] * 13, cap=10)
+    assert b["counts"]["primary"] == 10
+    assert b["counts"]["watchlist"] == 3
+    assert all(x["market"] == "goals" for x in b["primary"])
+    ranks = sorted(x["rank"] for x in b["primary"])
+    assert ranks == list(range(1, 11))                                     # rank = position in its market
 
 
 def test_no_qualifying_selections_is_reported_honestly(monkeypatch):
     rows, b = _board(monkeypatch, [[Sel("O15", 0.90, 0.88, 1.10)]] * 3)
     assert b["primary"] == [] and "NO QUALIFYING SELECTIONS" in b["verdict"]
-    assert b["rejected_patterns"][0][0] == "odds 1.14 or below"
+    assert b["rejected_patterns"][0][0] == "odds under the 1.15 floor"
     assert "NO QUALIFYING SELECTIONS" in "\n".join(sl.markdown(sl.public(b)))
 
 

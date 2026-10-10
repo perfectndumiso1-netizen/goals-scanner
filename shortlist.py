@@ -10,7 +10,9 @@ whatever the market (1X2, double chance, goals, BTTS, team goals, corners, booki
   hard gates (fail one = REJECTED)
     H1  the match passed the pipeline's own data checks (data_ok)
     H2  a verified Sportybet price exists (unknown = "N/A", never assumed)
-    H3  odds above MIN_ODDS (1.14 or below is never shortlisted — user rule)
+    H3  odds inside the band: MIN_ODDS <= odds <= MAX_ODDS (1.15 to 1.90 — user rule. Below the floor the
+        price is too short to be worth a pick; above the ceiling the pick is a coin-flip punt, not a
+        high-conviction selection)
     H4  model probability clears the bar for that market (stated explicitly in BARS)
     H5  the model is at least as likely as the price says (EV >= 0 at Sportybet's own price)
     H6  the model/market gap is believable: <= MAX_EDGE over the de-vigged market. A wider gap is the
@@ -29,8 +31,9 @@ whatever the market (1X2, double chance, goals, BTTS, team goals, corners, booki
     S6  no unresolved conflict in the live research for the match
 
 Passing everything = QUALIFIED FOR FURTHER REVIEW. One selection per match (the best-ranked one); the others
-from the same match are listed as correlated, never as separate opportunities. At most MAX_PRIMARY matches —
-a maximum, not a target. If nothing qualifies the answer is "NO QUALIFYING SELECTIONS".
+from the same match are listed as correlated, never as separate opportunities. The list is grouped by market
+and each market keeps its best MAX_PER_MARKET (10) — picking the bests, never padding. If nothing qualifies
+the answer is "NO QUALIFYING SELECTIONS".
 
 Ranking is a transparent composite, not probability alone:
     score = 0.30 x data-quality score + 0.30 x min(excess edge / 0.08, 1) + 0.20 x min(EV / 0.10, 1)
@@ -56,13 +59,14 @@ import pandas as pd
 import safe as safe_mod
 
 # ------------------------------------------------------------------ the rules (stated, applied consistently)
-MIN_ODDS = float(os.getenv("SHORTLIST_MIN_ODDS", "1.14"))     # 1.14 or below is rejected (strictly above)
+MIN_ODDS = float(os.getenv("SHORTLIST_MIN_ODDS", "1.15"))     # band floor: odds below this are rejected
+MAX_ODDS = float(os.getenv("SHORTLIST_MAX_ODDS", "1.90"))     # band ceiling: odds above this are rejected
 BARS = {"result": 0.60, "dc": 0.70, "goals": 0.70, "btts": 0.70, "team": 0.70, "corners": 0.65, "cards": 0.65}
 MIN_EDGE = 0.02          # beat the de-vigged market by at least 2 pp to count as value
 MAX_EDGE = 0.12          # more than 12 pp over the de-vigged market = data fault, not edge
 MAX_RAW_EDGE = 0.25      # no de-vigged view: gap over the raw implied price above this = data fault
 BASELINE_MIN_N = 15      # a market needs this many priced selections today before its usual gap is measured
-MAX_PRIMARY = int(os.getenv("SHORTLIST_MAX", "7"))
+MAX_PER_MARKET = int(os.getenv("SHORTLIST_MAX_PER_MARKET", "10"))  # best picks kept PER MARKET GROUP
 MAX_WATCH = 10
 KEEP_DAYS = 120
 
@@ -120,8 +124,10 @@ def evaluate(r, s, baseline: dict | None = None) -> dict:
         hard.append("failed the pipeline's data checks")
     if odds is None:
         hard.append("odds N/A (not priced by Sportybet)")
-    elif odds <= MIN_ODDS:
-        hard.append(f"odds {odds:.2f} at or below {MIN_ODDS:.2f}")
+    elif odds < MIN_ODDS:
+        hard.append(f"odds {odds:.2f} below the {MIN_ODDS:.2f} floor")
+    elif odds > MAX_ODDS:
+        hard.append(f"odds {odds:.2f} above the {MAX_ODDS:.2f} ceiling (band {MIN_ODDS:.2f}\u2013{MAX_ODDS:.2f})")
     if s.p_model < bar:
         hard.append(f"probability {100 * s.p_model:.0f}% below the {100 * bar:.0f}% bar for {group}")
     if ev is not None and ev < 0:
@@ -194,7 +200,8 @@ def evaluate(r, s, baseline: dict | None = None) -> dict:
     }
 
 
-def build(rows: list, now: datetime, window_end: datetime | None = None, max_primary: int = MAX_PRIMARY) -> dict:
+def build(rows: list, now: datetime, window_end: datetime | None = None,
+          max_per_market: int = MAX_PER_MARKET) -> dict:
     """The day's shortlist from the analysed rows. Pure: reads rows, returns a JSON-safe dict."""
     start = now + timedelta(minutes=10)
     analysed = [r for r in rows if r.fx["kickoff"] >= start and (window_end is None or r.fx["kickoff"] <= window_end)]
@@ -228,16 +235,27 @@ def build(rows: list, now: datetime, window_end: datetime | None = None, max_pri
         best["correlated"] = [x["label"] for x in recs[1:] if x["status"] == best["status"] != STATUS_REJECT][:3]
         per_match.append({"best": best, "all": recs})
 
-    prim = sorted((m["best"] for m in per_match if m["best"]["status"] == STATUS_PRIMARY), key=lambda x: -x["score"])
+    qual_all = sorted((m["best"] for m in per_match if m["best"]["status"] == STATUS_PRIMARY), key=lambda x: -x["score"])
     watch = sorted((m["best"] for m in per_match if m["best"]["status"] == STATUS_WATCH), key=lambda x: -x["score"])
-    over = prim[max_primary:]
-    prim = prim[:max_primary]
-    for x in over:                     # qualified but beyond the cap: watchlist, saying so
+    # per-market cap: each market group keeps its best max_per_market — bests, never padding
+    by_market: dict[str, list] = {}
+    for x in qual_all:
+        by_market.setdefault(x["market"], []).append(x)
+    prim, over = [], []
+    for g, items in by_market.items():
+        prim.extend(items[:max_per_market])
+        over.extend(items[max_per_market:])
+    prim.sort(key=lambda x: -x["score"])
+    for x in over:                     # qualified but beyond its market's cap: watchlist, saying so
         x["status"] = STATUS_WATCH
-        x["reasons"] = [f"qualified, but outside the top {max_primary} by overall ranking"]
+        x["reasons"] = [f"qualified, but outside the top {max_per_market} of its market by ranking"]
     watch = sorted(over + watch, key=lambda x: -x["score"])
-    for i, x in enumerate(prim, 1):
-        x["rank"] = i
+    by_m = {}
+    for x in prim:
+        by_m.setdefault(x["market"], []).append(x)
+    for g, items in by_m.items():      # rank = position within the market group
+        for i, x in enumerate(items, 1):
+            x["rank"] = i
     rejected = [m["best"] for m in per_match if m["best"]["status"] == STATUS_REJECT]
     patterns = Counter()
     for m in per_match:
@@ -249,7 +267,8 @@ def build(rows: list, now: datetime, window_end: datetime | None = None, max_pri
     genuine_value = sum(1 for x in prim if (x["edge_pp"] or 0) >= 100 * MIN_EDGE and (x["ev"] or 0) > 0)
 
     if prim:
-        verdict = (f"{len(prim)} selection(s) qualified for further review; "
+        verdict = (f"{len(prim)} selection(s) across {len(by_market)} market group(s) qualified for further review "
+                   f"(top {max_per_market} per market, odds {MIN_ODDS:.2f}\u2013{MAX_ODDS:.2f}); "
                    f"{genuine_value} show an estimated edge over the de-vigged market. Review each before betting — "
                    "this is a shortlist, not an instruction to bet.")
     else:
@@ -257,8 +276,9 @@ def build(rows: list, now: datetime, window_end: datetime | None = None, max_pri
 
     return {
         "generated": now.strftime("%Y-%m-%d %H:%M"),
-        "rules": {"min_odds": MIN_ODDS, "bars": BARS, "min_edge_pp": 100 * MIN_EDGE, "max_edge_pp": 100 * MAX_EDGE,
-                  "max_primary": max_primary,
+        "rules": {"min_odds": MIN_ODDS, "max_odds": MAX_ODDS, "bars": BARS, "min_edge_pp": 100 * MIN_EDGE,
+                  "max_edge_pp": 100 * MAX_EDGE, "max_per_market": max_per_market,
+                  "band": f"{MIN_ODDS:.2f}\u2013{MAX_ODDS:.2f} (odds outside the band are rejected)",
                   "implied_method": "de-vigged = Sportybet price with the bookmaker margin removed proportionally "
                                     "across the market's outcomes; raw = 1 / decimal odds",
                   "calibration": "N/A — no validated live calibration map; raw model probability shown"},
@@ -278,13 +298,13 @@ def build(rows: list, now: datetime, window_end: datetime | None = None, max_pri
 
 def _pattern(reason: str) -> str:
     r = reason.lower()
-    for key, name in (("odds n/a", "not priced"), ("at or below", "odds 1.14 or below"),
+    for key, name in (("odds n/a", "not priced"), ("floor", "odds under the 1.15 floor"), ("ceiling", "odds over the 1.90 ceiling"),
                       ("below the", "probability under its market bar"), ("price too short", "price too short (negative EV)"),
                       ("data fault", "implausible model/market gap"), ("data checks", "failed data checks"),
                       ("no de-vigged", "no market view to measure value"), ("high probability, not value", "no edge over the market"),
                       ("data quality", "data quality low"), ("confidence low", "low confidence"),
                       ("warning", "model v raw-data warning"), ("conflict", "research conflict"),
-                      ("outside the top", "beyond the daily cap"), ("usual gap", "edge is the model's usual gap (systematic)")):
+                      ("outside the top", "beyond its market's cap"), ("usual gap", "edge is the model's usual gap (systematic)")):
         if key in r:
             return name
     return reason[:40]
@@ -386,7 +406,8 @@ def markdown(board: dict) -> list[str]:
     c = board["counts"]
     L = ["## 🎯 High-conviction shortlist", "",
          f"_Analysed {c['analysed']} · passed screening {c['screened']} · shortlist {c['primary']} · "
-         f"watchlist {c['watchlist']} · rejected {c['rejected']}. Odds must be above {MIN_ODDS:.2f}; one selection per match._", ""]
+         f"watchlist {c['watchlist']} · rejected {c['rejected']}. Odds band {MIN_ODDS:.2f}\u2013{MAX_ODDS:.2f}; "
+         f"top {board['rules']['max_per_market']} per market group; one selection per match._", ""]
     if not board["primary"]:
         L += ["**NO QUALIFYING SELECTIONS.**", ""]
     for x in board["primary"]:

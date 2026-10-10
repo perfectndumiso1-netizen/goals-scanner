@@ -35,7 +35,7 @@ window.PR = (function () {
   try { savedSettings = JSON.parse(stored('pr_settings') || '{}'); } catch (e) { savedSettings = {}; }
   const settings = Object.assign({ liveEvery: 60, tzOffset: 2, goalAlerts: true, htAlerts: false, ftAlerts: true, betAlerts: true, reportAlerts: true, minP: 0.70, hiP: 0.70, theme: 'dark', seenVersion: '', leagues: 'all' },
     savedSettings);
-  const state = { data: null, tab: 'home', stack: [], live: {}, incidents: {}, liveTimer: null, lastLive: 0, loading: false,
+  const state = { data: null, tab: 'home', stack: [], live: {}, incidents: {}, liveTimer: null, lastLive: 0, loading: false, q: '',
     update: null, updateStage: null, days: {}, teams: {}, reports: {}, details: {}, betsView: 'today', search: '', sort: 'ko', matchFilter: 'all',
     liveView: 'tracked', liveAll: null, lastLiveAll: 0, dayView: 'results', matchView: 'overview', teamView: 'overview', menuOpen: false, expanded: {}, badges: {}, dark: false,
     teamIdx: null, teamIdxLoading: false, lgSort: 'country', lgTableSort: 'pts' };
@@ -515,8 +515,8 @@ window.PR = (function () {
     }
     const v = $('#view'); v.classList.remove('enter'); void v.offsetWidth; v.classList.add('enter');
     document.body.classList.toggle('depth', !!top);
-    if (top) return PR.pages[top.type](top);
-    PR.views[state.tab]();
+    if (top) PR.pages[top.type](top); else PR.views[state.tab]();
+    injectSearch();
   }
   const TAB_TITLE = { home: 'PlayReport', bets: 'Scan', live: 'Live', matches: 'Matches', lowodds: 'Low odds 1.19 – 1.45', more: 'More', days: 'Days', leagues: 'Leagues', shortlist: 'Shortlist' };
   function setTab(tab) {
@@ -622,12 +622,106 @@ window.PR = (function () {
     if (state.menuOpen && !e.target.closest('#menu') && !e.target.closest('#btn-menu') && !e.target.closest('#btn-search')) closeMenu();
   });
 
+  // ------------------------------------------------------------------ universal search (bar on every page)
+  // One bar, everything: matches, bets/markets, teams, leagues, days and the app's own pages.
+  // The input repaints only the results panel (never the whole view), so focus is never lost while typing.
+  const PLACES = [
+    { label: 'Bets of the day', icn: 'star', go: { tab: 'bets' } }, { label: 'Live scores', icn: 'live', go: { tab: 'live' } },
+    { label: 'Matches', icn: 'calendar', go: { tab: 'matches' } }, { label: 'Low odds 1.19 – 1.45', icn: 'tag', go: { tab: 'lowodds' } },
+    { label: 'Shortlist', icn: 'target', go: { tab: 'shortlist' } }, { label: 'Days', icn: 'history', go: { tab: 'days' } },
+    { label: 'Leagues', icn: 'trophy', go: { tab: 'leagues' } }, { label: 'Today\u2019s accas', icn: 'ticket', go: { page: 'accas' } },
+    { label: 'Tickets', icn: 'ticket', go: { page: 'tickets' } }, { label: 'Teams', icn: 'users', go: { page: 'teams' } },
+    { label: 'Performance', icn: 'chart', go: { page: 'performance' } }, { label: 'Bet advisor', icn: 'shield', go: { page: 'advisor' } },
+    { label: 'All markets', icn: 'swap', go: { page: 'marketsboard' } }, { label: 'Guide to the markets', icn: 'info', go: { page: 'guide' } },
+    { label: 'Full analysis', icn: 'doc', go: { page: 'analysis' } }, { label: 'Tennis', icn: 'ball', go: { page: 'tennis' } },
+    { label: 'Settings', icn: 'settings', go: { page: 'settings' } },
+  ];
+  function searchResults(qs) {
+    const q = (qs || '').trim().toLowerCase();
+    if (q.length < 2) return '';
+    const d = state.data || { fixtures: [] };
+    const hit = (t) => String(t || '').toLowerCase().includes(q);
+    const grp = (name, rows) => (rows.length ? `<div class="gs-h">${name}</div>${rows.join('')}` : '');
+    const out = [];
+    // matches (analysis window)
+    const fx = (d.fixtures || []).filter((f) => hit(f.home) || hit(f.away) || hit(f.league || f.competition) || hit(f.country)).slice(0, 6)
+      .map((f) => `<div class="list-item tap gsr" data-gsf="${esc(f.id)}"><span class="ko">${esc(koShort(f.kickoff))}</span><div class="main"><div class="match">${esc(f.home)} v ${esc(f.away)}</div><div class="meta">${flag(f.country)} ${esc(f.league || f.competition || '')}</div></div>${icon('next')}</div>`);
+    out.push(grp('Matches', fx));
+    // bets / markets (priced selections whose label matches — the only group that needs a longer query)
+    if (q.length >= 3) {
+      const bets = [];
+      for (const f of (d.fixtures || [])) {
+        if (!Array.isArray(f.sels)) continue;
+        for (const s of f.sels) {
+          if (!s || !s.sel) continue;
+          const lbl = selLabel(s.sel, f.home, f.away);
+          if (lbl && hit(lbl) && s.odds) {
+            bets.push(`<div class="list-item tap gsr" data-gsf="${esc(f.id)}"><span class="ko">${esc(koShort(f.kickoff))}</span><div class="main"><div class="match">${esc(lbl)} <span class="tiny muted">@ ${f2(s.odds)}</span></div><div class="meta">${esc(f.home)} v ${esc(f.away)}</div></div>${icon('next')}</div>`);
+            if (bets.length >= 6) break;
+          }
+        }
+        if (bets.length >= 6) break;
+      }
+      out.push(grp('Bets', bets));
+    }
+    // teams (worldwide index, loaded on demand)
+    const tIdx = state.teamIdx;
+    if (!tIdx) PR.loadTeamIndex().then((j) => { if (j && (state.q || '').trim().toLowerCase() === q) paintResults(); }).catch(() => { /* offline */ });
+    const teams = tIdx ? (tIdx.teams || []).filter((t) => hit(t.n)).slice(0, 6)
+      .map((t) => `<div class="list-item tap gsr" data-gsteam="${esc(t.n)}|${esc(t.c)}|${esc(t.d)}"><span class="ko">${badge(t.n, null, 24)}</span><div class="main"><div class="match">${esc(t.n)}</div><div class="meta">${flag(t.c)} ${esc(t.c || '')} · ${esc(t.l || '')}</div></div>${icon('next')}</div>`) : [];
+    out.push(grp('Teams', teams));
+    // leagues
+    const lidx = (PR.leaguesIndex && PR.leaguesIndex()) || null;
+    const lgs = lidx ? (lidx.leagues || []).filter((x) => hit(x.league) || hit(x.country)).slice(0, 5)
+      .map((x) => `<div class="list-item tap gsr" data-gslg="${esc(x.slug)}"><span class="ko">${x.table ? icon('trophy') : flag(x.country)}</span><div class="main"><div class="match">${esc(x.league)}</div><div class="meta">${esc(x.country || '')}${x.next ? ` · next ${esc(koShort(x.next))}` : ''}</div></div>${icon('next')}</div>`) : [];
+    out.push(grp('Leagues', lgs));
+    // days (archive)
+    const days = ((d.history || {}).days || []).filter((x) => hit(x.date) || hit(dayName(x.date))).slice(0, 3)
+      .map((x) => `<div class="list-item tap gsr" data-gsday="${esc(x.date)}"><span class="ko">${icon('calendar')}</span><div class="main"><div class="match">${esc(dayName(x.date))}</div><div class="meta">${x.n} matches</div></div>${icon('next')}</div>`);
+    out.push(grp('Days', days));
+    // app pages
+    const places = PLACES.filter((p) => hit(p.label)).slice(0, 4)
+      .map((p) => `<div class="list-item tap gsr" data-gsgo='${esc(JSON.stringify(p.go))}'><span class="ko">${icon(p.icn)}</span><div class="main"><div class="match">${esc(p.label)}</div></div>${icon('next')}</div>`);
+    out.push(grp('Go to', places));
+    const body = out.filter(Boolean).join('');
+    return body ? body : `<div class="gs-h">No match, team, league, bet or page matches “${esc(qs.trim())}”.</div>`;
+  }
+  function paintResults() {
+    const box = $('#gq-res'); if (!box) return;
+    box.innerHTML = searchResults(state.q);
+    $$('#gq-res .gsr').forEach((el) => {
+      el.onclick = () => {
+        state.q = '';       // a fresh page starts with a clean bar
+        if (el.dataset.gsf) openMatch(el.dataset.gsf);
+        else if (el.dataset.gsteam) { const p = el.dataset.gsteam.split('|'); openTeam(p.slice(0, -2).join('|'), p[p.length - 2], p[p.length - 1]); }
+        else if (el.dataset.gslg) { state.stack = []; setTab('leagues'); PR.openLeague(el.dataset.gslg); }
+        else if (el.dataset.gsday) { state.stack = []; setTab('days'); state.dayView = 'results'; push({ type: 'day', date: el.dataset.gsday }); }
+        else if (el.dataset.gsgo) { try { const g = JSON.parse(el.dataset.gsgo); if (g.tab) setTab(g.tab); else push({ type: g.page }); } catch (e) { /* ignore */ } }
+      };
+    });
+  }
+  function injectSearch() {
+    const v = $('#view'); if (!v) return;
+    const had = document.activeElement && document.activeElement.id === 'gq';
+    const old = $('#gsearch-wrap'); if (old) old.remove();
+    v.insertAdjacentHTML('afterbegin',
+      `<div class="searchbar gs" id="gsearch-wrap"><div class="field">${icon('search', 'sm')}<input id="gq" type="search" placeholder="Search matches, teams, leagues, bets…" value="${esc(state.q || '')}" autocomplete="off">${(state.q || '') ? '<button class="gs-x" id="gq-x" aria-label="Clear">' + icon('x', 'sm') + '</button>' : ''}</div><div id="gq-res"></div></div>`);
+    const inp = $('#gq');
+    if (inp) {
+      let t = null;
+      inp.oninput = () => { state.q = inp.value; clearTimeout(t); t = setTimeout(paintResults, 140); };
+      if (had) { inp.focus(); inp.setSelectionRange(inp.value.length, inp.value.length); }
+      const x = $('#gq-x'); if (x) x.onclick = () => { state.q = ''; inp.value = ''; paintResults(); inp.focus(); };
+    }
+    paintResults();
+  }
+
   return { native, settings, state, $, $$, saveSettings, nfetch, getJson, rawUrl, esc, pct, f1, f2, signed, DAYS, MONTHS, parseLocal, tzNow, ymd, stored, persist, cache, prefetchDetails, pubStamp,
     dayName, niceDate, koTime, koShort, toast, pill, bar, wdl, formBadges, md, GROUPS, GROUP_ICON, selGroup, selLabel, selShort, settleSel,
     liveVerdict, isLive, isFT, indexData, fx, loadDetail, detailCached, detailKey, loadData, saveLatest, saveAux, statusLine, isOutlier, loadDay, dayRecord, finalFor, storedIncidents, loadTeams, teamsCached, loadTeamIndex, realTable, slug, TABS, render, setTab, push, replace,
     sbEventUrl, sbShareUrl, openSportybet, openBookingCode, openExternal, copyText,
     back, openMatch, openTeam, toggleMenu, closeMenu, contactCard, editorCard, teamLink, teamSpan, matchLine, matchRow, segmented, select, scoreBox, statusIcon, CONTACT, APP_VERSION,
     confirmBox, isFav, toggleFav, favList: () => favs, saveFavs,
-    icon, flag, badge, fxBadge, skeleton, ring, applyTheme, loadBadges, BADGE_BASE,
+    icon, flag, badge, fxBadge, skeleton, ring, applyTheme, loadBadges, BADGE_BASE, searchResults, injectSearch,
     views: {}, pages: {}, live: {} };
 })();

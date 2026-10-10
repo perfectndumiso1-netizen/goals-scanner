@@ -11,7 +11,6 @@
   const LG = state.lg = state.lg || { idx: null, idxStale: false, loading: false, error: null, det: {} };
   state.lgSeg = state.lgSeg || 'table';
   state.lgTab = state.lgTab || 'comps';
-  state.lgQ = state.lgQ || '';
 
   // ------------------------------------------------------------------ data (on-phone cache first, network second)
   async function loadIndex(force) {
@@ -74,22 +73,20 @@
     parts.push(`<div class="card compact" style="margin-bottom:8px">${segmented([['comps', `${icon('trophy', 'sm')} Competitions`], ['fixtures', `${icon('calendar', 'sm')} Fixtures`]], state.lgTab, 'lgtab')}</div>`);
     const wireSeg = () => $$('[data-lgtab]').forEach((b) => { b.onclick = () => { state.lgTab = b.dataset.lgtab; PR.render(); window.scrollTo(0, 0); }; });
     if (state.lgTab === 'fixtures') { fixturesTab(parts); return; }
-    parts.push(`<div class="searchbar"><div class="field">${icon('search', 'sm')}<input id="lg-search" type="search" placeholder="Search a league, country or team" value="${esc(state.lgQ)}" autocomplete="off"></div></div>`);
-    parts.push(`<div class="row" style="padding:0 4px 6px;gap:8px"><div class="grow tiny muted">${LG.idx ? `${LG.idx.count} competitions` : ''} · tap a league to open it</div>${select('lg-sort', [['country', 'Sort: Country'], ['name', 'Sort: Name'], ['next', 'Sort: Next fixture'], ['played', 'Sort: Most played'], ['teams', 'Sort: Most teams']], state.lgSort || 'country')}</div>`);
+    parts.push(`<div class="row" style="padding:0 4px 6px;gap:8px"><div class="grow tiny muted">${LG.idx ? `${LG.idx.count} competitions` : ''} · tap a league to open it · the search bar above filters everything</div>${select('lg-sort', [['country', 'Sort: Country'], ['name', 'Sort: Name'], ['next', 'Sort: Next fixture'], ['played', 'Sort: Most played'], ['teams', 'Sort: Most teams']], state.lgSort || 'country')}</div>`);
     if (!LG.idx) {
-      if (!LG.loading) { state.lgQ = ''; parts.push(LG.error ? `<div class="card empty">Could not load the league data (${esc(LG.error)}).<br><button class="btn" id="lg-retry">Try again</button></div>` : skeleton(8)); }
+      if (!LG.loading) parts.push(LG.error ? `<div class="card empty">Could not load the league data (${esc(LG.error)}).<br><button class="btn" id="lg-retry">Try again</button></div>` : skeleton(8));
       else parts.push(skeleton(8));
       view().innerHTML = parts.join('');
-      const s = $('#lg-search'); if (s) s.oninput = (e) => { state.lgQ = e.target.value; PR.render(); s.focus(); };
       const r = $('#lg-retry'); if (r) r.onclick = () => loadIndex(true).then(() => PR.render());
       wireSeg();
       if (!LG.loading) loadIndex(true).then(() => PR.render());
       return;
     }
-    const q = (state.lgQ || '').trim().toLowerCase();
+    const q = (state.q || '').trim().toLowerCase();
     const sort = state.lgSort || 'country';
     let rows = (LG.idx.leagues || []).filter((x) => !q || (x.league || '').toLowerCase().includes(q) || (x.country || '').toLowerCase().includes(q));
-    if (!rows.length) parts.push(`<div class="card empty small">No league matches “${esc(state.lgQ)}”.</div>`);
+    if (!rows.length) parts.push(`<div class="card empty small">No league matches the search.</div>`);
     const rowCard = (x, showCountry) => `<div class="lg-row tap" data-lg="${esc(x.slug)}"><div class="lg-ic">${x.table ? icon('trophy') : flag(x.country)}</div>
       <div class="grow"><div class="b">${showCountry ? `${flag(x.country)} ` : ''}${esc(x.league)}</div><div class="tiny muted">${showCountry ? (x.country || '') : ''}${showCountry && x.teams ? ' · ' : ''}${x.teams ? `${x.teams} teams` : ''}${x.played ? ` · ${x.played} played` : ''}${x.season ? ` · ${x.season}` : ''}</div></div>
       <div class="lg-right">${x.next ? `<div class="tiny muted">next</div><div class="b" style="font-size:13px">${esc(koShort(x.next))}</div>` : ''}</div></div>`;
@@ -119,11 +116,10 @@
       const hits = tIdx ? (tIdx.teams || []).filter((t) => (t.n || '').toLowerCase().includes(q)).slice(0, 12) : [];
       if (hits.length) {
         parts.push(`<div class="card compact"><div class="comp-head">Teams (${hits.length}${tIdx && hits.length >= 12 ? '+' : ''})</div>${hits.map((t) => `<div class="lg-row tap" data-lgtm="${esc(t.n)}|${esc(t.c)}|${esc(t.d)}"><div class="lg-ic">${badge(t.n, null, 24)}</div><div class="grow"><div class="b">${esc(t.n)}</div><div class="tiny muted">${flag(t.c)} ${esc(t.c || '')} · ${esc(t.l || '')}</div></div></div>`).join('')}</div>`);
-      } else if (tIdx && !rows.length) parts.push(`<div class="card empty small">No club matches “${esc(state.lgQ)}” either.</div>`);
+      } else if (tIdx && !rows.length) parts.push(`<div class="card empty small">No club matches the search either.</div>`);
     }
     parts.push(`<div class="tiny muted" style="margin:10px 4px 18px">Updated every 30 minutes from the public live-score archive · ${LG.idx.count} competitions · season history accumulates each matchday.</div>`);
     view().innerHTML = parts.join('');
-    const s = $('#lg-search'); if (s) { s.oninput = (e) => { state.lgQ = e.target.value; PR.render(); const n = $('#lg-search'); if (n) { n.focus(); n.setSelectionRange(n.value.length, n.value.length); } }; }
     const so = $('#lg-sort'); if (so) so.onchange = (e) => { state.lgSort = e.target.value; PR.render(); };
     $$('#view [data-lg]').forEach((el) => { el.onclick = () => openLeague(el.dataset.lg); });
     $$('[data-lgtm]').forEach((el) => { el.onclick = () => { const p = el.dataset.lgtm.split('|'); PR.openTeam(p.slice(0, -2).join('|'), p[p.length - 2], p[p.length - 1]); }; });
@@ -134,18 +130,16 @@
   // One list of every upcoming fixture the public feed publishes (fixtures.json, published with the
   // league data every scan) — fixtures used to be visible only by opening leagues one by one.
   function fixturesTab(parts) {
-    const q = (state.lgQ || '').trim().toLowerCase();
-    parts.push(`<div class="searchbar"><div class="field">${icon('search', 'sm')}<input id="lg-search" type="search" placeholder="Search a team, league or country" value="${esc(state.lgQ)}" autocomplete="off"></div></div>`);
-    const wireSearch = () => { const s = $('#lg-search'); if (s) { s.oninput = (e) => { state.lgQ = e.target.value; PR.render(); const n = $('#lg-search'); if (n) { n.focus(); n.setSelectionRange(n.value.length, n.value.length); } }; } };
+    const q = (state.q || '').trim().toLowerCase();
     if (!LG.fx && !LG.fxError) {
       parts.push(skeleton(8));
-      view().innerHTML = parts.join(''); wireSearch();
+      view().innerHTML = parts.join('');
       loadFixtures(true).then(() => PR.render()).catch(() => PR.render());
       return;
     }
     if (!LG.fx) {
       parts.push(`<div class="card empty">Could not load the fixtures list (${esc(LG.fxError || 'unavailable')}).<br><button class="btn" id="lg-fx-retry">Try again</button></div>`);
-      view().innerHTML = parts.join(''); wireSearch();
+      view().innerHTML = parts.join('');
       const r = $('#lg-fx-retry'); if (r) r.onclick = () => { LG.fxError = null; loadFixtures(true).then(() => PR.render()).catch(() => PR.render()); };
       return;
     }
@@ -156,7 +150,7 @@
     (state.data.fixtures || []).forEach((f) => { const day = String(f.kickoff).slice(0, 10); winKeys.add(`${day}|${f.home}|${f.away}`); winKeys.add(`${day}|${f.away}|${f.home}`); });
     const inWin = (f) => { const day = String(f.ko).slice(0, 10); return winKeys.has(`${day}|${f.home}|${f.away}`); };
     parts.push(`<div class="card small"><b>Every upcoming fixture, all competitions</b> — ${all.length} matches in the next ${LG.fx.days || 10} days${LG.fxStale ? ' (saved copy)' : ''}. Matches in today's analysis open the Match Center; the rest open their league.</div>`);
-    if (!rows.length) parts.push(`<div class="card empty small">No fixture matches “${esc(state.lgQ)}”.</div>`);
+    if (!rows.length) parts.push(`<div class="card empty small">No fixture matches the search.</div>`);
     const byDay = {};
     rows.forEach((f) => { const day = String(f.ko).slice(0, 10); (byDay[day] = byDay[day] || []).push(f); });
     const days = Object.keys(byDay).sort();
@@ -169,7 +163,7 @@
     }
     if (days.length) parts.push(`<div class="card compact">${dayParts.join('')}</div>`);
     parts.push(`<div class="tiny muted" style="margin:10px 4px 18px">Same public live-score archive as the league pages · updated every 30 minutes with each scan.</div>`);
-    view().innerHTML = parts.join(''); wireSearch();
+    view().innerHTML = parts.join('');
     $$('[data-lgfx2]').forEach((el) => {
       el.onclick = () => {
         const day = el.dataset.day, home = el.dataset.home, away = el.dataset.away;
@@ -373,6 +367,7 @@
     teams.forEach(([t, list]) => parts.push(`<div class="card compact"><div class="b" style="margin-bottom:4px">${badge(t, null, 20)} ${esc(t)}</div>${list.map(item).join('')}</div>`));
   }
 
-  // expose for tests
+  // expose for the universal search + tests
+  PR.leaguesIndex = () => LG.idx;
   PR.leaguesApi = { loadIndex, loadDetail };
 })(window.PR);
