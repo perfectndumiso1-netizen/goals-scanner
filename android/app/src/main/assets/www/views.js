@@ -282,53 +282,46 @@
   };
 
   // ------------------------------------------------------------------ SEQUENCES: the user's betting windows
-  // "I bet in the morning for matches playing 7-12, 12-16, 16-20 and 20-midnight" - today's matches
-  // split into those windows, each match once, with the market the model rates strongest (Overs only).
+  // "I bet in the morning for matches playing 7-12, 12-16, 16-20 and 20-midnight." The Sequences tab is
+  // the day's SHORTLIST split into those windows — the exact same rule-approved picks (every gate of
+  // shortlist.py: data checks, verified prices, odds band 1.15-1.90, market bars, EV >= 0, believable
+  // gaps, quality/confidence, Overs only, one strongest market per match across ALL markets). Nothing
+  // looser, nothing goals-biased: corners, cards, result, DC, BTTS and team goals all compete on the
+  // same score, and the strongest wins the match's slot.
   const SEQ_WINDOWS = [
-    ['early', 'Early hours', '00:00 – 07:00', 0, 7, '#94a3b8'],
-    ['morning', 'Morning sequence', '07:00 – 12:00', 7, 12, '#fbbf24'],
-    ['midday', 'Midday sequence', '12:00 – 16:00', 12, 16, '#38bdf8'],
-    ['afternoon', 'Afternoon sequence', '16:00 – 20:00', 16, 20, '#00c86f'],
-    ['evening', 'Evening sequence', '20:00 – midnight', 20, 24, '#a78bfa'],
+    ['early', 'Early hours', '00:00 \u2013 07:00', 0, 7, '#94a3b8'],
+    ['morning', 'Morning sequence', '07:00 \u2013 12:00', 7, 12, '#fbbf24'],
+    ['midday', 'Midday sequence', '12:00 \u2013 16:00', 12, 16, '#38bdf8'],
+    ['afternoon', 'Afternoon sequence', '16:00 \u2013 20:00', 16, 20, '#00c86f'],
+    ['evening', 'Evening sequence', '20:00 \u2013 midnight', 20, 24, '#a78bfa'],
   ];
   PR.views.sequences = function () {
-    const d = state.data; const now = tzNow(); const today = ymd(now);
+    const d = state.data; const sl = d.shortlist || {}; const now = tzNow();
     const parts = [];
-    parts.push(`<div class="hero-row"><div><div class="kicker">Bet in sequences</div><h1>Sequences</h1></div><span class="quality">${esc(dayName(today))}</span></div>`);
-    if (!d.fixtures || !d.fixtures.length) {
-      parts.push(`<div class="card empty">The day's matches appear after the next analysis run.</div>`);
+    parts.push(`<div class="hero-row"><div><div class="kicker">Bet in sequences</div><h1>Sequences</h1></div><span class="quality">shortlist rules</span></div>`);
+    if (!sl.counts) {
+      parts.push(`<div class="card empty">The sequences appear after the next analysis run (every 30 minutes) \u2014 they are the day's shortlist split into your betting windows.</div>`);
       view().innerHTML = parts.join('');
       return;
     }
-    // candidates: today's still-upcoming analysed matches, priced, Overs only - then ONE market per match:
-    // the model's strongest (probability above the market's bar, then raw probability)
-    const rows = (d.fixtures || []).filter((f) => f.date === today && inScope(f) && f.data_ok && parseLocal(f.kickoff) > now)
-      .flatMap((f) => (f.sels || [])
-        .filter((x) => x && x.sel && !isUnder(x.sel) && x.odds > 1 && x.p != null && x.p > 0 && x.p < 1
-          && !PR.isOutlier(x) && !(x.odds < 1.15 && x.p_model != null && 1 / x.p_model < 1.15)
-          && x.p >= (HOME_BAR[selGroup(x.sel)] || 0.70))
-        .map((x) => ({ f, s: x, g: selGroup(x.sel) })));
-    const best = bestPerMatch(rows, (r) => r.f.id, (r) => (r.s.p - (HOME_BAR[r.g] || 0.70)) * 100 + r.s.p * 10);
+    // the day's qualified picks only (kickoff still ahead); every window counts, even when empty
+    const prim = (sl.primary || []).filter((x) => x.fixture && parseLocal(x.kickoff) > now);
     const buckets = SEQ_WINDOWS.map(([k, name, range, lo, hi, col]) => ({ k, name, range, lo, hi, col, items: [] }));
-    best.forEach((r) => {
-      const h = +String(r.f.kickoff).slice(11, 13);
-      const b = buckets.find((x) => h >= x.lo && h < x.hi) || buckets[0];
-      b.items.push(r);
+    prim.forEach((x) => {
+      const h = +String(x.kickoff).slice(11, 13);
+      (buckets.find((b) => h >= b.lo && h < b.hi) || buckets[0]).items.push(x);
     });
-    buckets.forEach((b) => { b.items.sort((x, y) => String(x.f.kickoff).localeCompare(String(y.f.kickoff))); });
-    const totalQ = best.length;
-    parts.push(`<div class="card small"><b>Your day in sequences</b> — ${totalQ} match${totalQ === 1 ? '' : 'es'} left today, each with the <b>one market</b> the model rates strongest (Overs only). The list updates every 30 minutes and matches drop out at kick-off.</div>`);
+    buckets.forEach((b) => b.items.sort((a, b2) => String(a.kickoff).localeCompare(String(b2.kickoff))));
+    parts.push(`<div class="card small"><b>Your day in sequences</b> \u2014 ${prim.length} qualified pick${prim.length === 1 ? '' : 's'} left today, split into your betting windows. These are the <b>same picks as the Shortlist</b>: one strongest market per match with <b>all markets competing</b> (result, double chance, goals, BTTS, team goals, corners, bookings), odds 1.15\u20131.90, Overs only, data-checked, EV \u2265 0. Updates every 30 minutes; matches drop out at kick-off.</div>`);
     buckets.forEach((b) => {
-      if (!b.items.length) return;
-      const q = b.items.length;
-      parts.push(`<div class="card compact" style="border-left:3px solid ${b.col}"><div class="comp-head">${esc(b.name)} <span class="tiny muted">· ${esc(b.range)} · ${q} match${q === 1 ? '' : 'es'}</span></div>
-        <table class="tbl" style="margin-top:2px">${b.items.map(({ f, s, g }) => `<tr class="tap" data-fx="${esc(f.id)}"><td class="tiny muted nowrap">${esc(koTime(f.kickoff))}</td>
-          <td><div class="b">${teamSpan(f.home, f.country, f.div)} <span class="muted">v</span> ${teamSpan(f.away, f.country, f.div)}</div><div class="tiny muted">${GROUP_ICON[g] || ''} ${esc(s.label || selLabel(s.sel, f.home, f.away))} · ${flag(f.country)} ${esc(f.league || f.competition || '')}</div></td>
-          <td class="right nowrap"><b>${s.odds ? f2(s.odds) : '\u2013'}</b>${s.ev != null && s.ev > 0 ? `<div class="tiny good">EV +${f1(100 * s.ev)}%</div>` : ''}</td>
-          <td class="right">${pill(s.p, 0.8, 0.7)}</td></tr>`).join('')}</table></div>`);
+      const head = `<div class="card compact" style="border-left:3px solid ${b.col}"><div class="comp-head">${esc(b.name)} <span class="tiny muted">\u00b7 ${esc(b.range)} \u00b7 ${b.items.length} pick${b.items.length === 1 ? '' : 's'}</span></div>`;
+      if (!b.items.length) { parts.push(head + `<div class="tiny muted" style="padding:2px 0 4px">No qualified pick in this window right now \u2014 the next run (every 30 minutes) fills it if matches qualify.</div></div>`); return; }
+      parts.push(head + `<table class="tbl" style="margin-top:2px">${b.items.map((x) => `<tr class="tap" data-fx="${esc(x.fixture)}"><td class="tiny muted nowrap">${esc(koTime(x.kickoff))}</td>
+          <td><div class="b">${esc(x.home)} v ${esc(x.away)}</div><div class="tiny muted">${GROUP_ICON[x.market] || ''} ${esc(x.label)} \u00b7 ${flag(x.country)} ${esc(x.league || '')}</div></td>
+          <td class="right nowrap"><b>${x.odds ? f2(x.odds) : '\u2013'}</b>${x.ev != null && x.ev > 0 ? `<div class="tiny good">EV +${f1(100 * x.ev)}%</div>` : ''}</td>
+          <td class="right">${pill(x.p, 0.8, 0.7)}</td></tr>`).join('')}</table></div>`);
     });
-    if (!best.length) parts.push(`<div class="card empty small">No matches left to bet today — the first sequence of tomorrow appears after tonight's runs.</div>`);
-    parts.push(`<div class="card tiny muted"><b>How this list works</b> — today's fixtures only, split into your sequences (${SEQ_WINDOWS.slice(1).map((x) => x.range).join(', ')}). One market per match: the strongest the model has (probability above its bar — 1X2 60%, corners &amp; bookings 65%, others 70%). Overs only, Unders ignored. Prices are Sportybet's, shown never used. A high probability is not a certainty.</div>`);
+    parts.push(`<div class="card tiny muted"><b>Same rules as the Shortlist</b> \u2014 every gate applies: the match passed the data checks, Sportybet prices it, odds 1.15\u20131.90, the model clears that market's bar (1X2 60%, corners &amp; bookings 65%, everything else 70%), EV \u2265 0, a believable model/market gap, solid data quality. One market per match: the strongest across <b>all</b> markets \u2014 ranked by data quality, edge, EV and margin above the bar, never probability alone. Overs only; today only; a pick for your review, never an instruction to bet.</div>`);
     view().innerHTML = parts.join('');
   };
 
@@ -388,7 +381,7 @@
     if (((d.accas || {}).bets || []).length) parts.push(`<div class="card compact tap" data-page-go="accas"><div class="row"><span class="ico">${icon('ticket')}</span><div class="grow"><div class="b">Today\u2019s accas · ${(d.accas.bets || []).length} build${(d.accas.bets || []).length === 1 ? '' : 's'} at ~${f2(d.accas.target || 3)}</div><div class="tiny muted">Gated legs, tracked to settlement → tap to open</div></div>${icon('next')}</div></div>`);
     if (PR.APP_VERSION && settings.seenVersion !== PR.APP_VERSION) {
       parts.push(`<div class="card whatsnew"><div class="row"><div class="grow"><b>${icon('sparkle', 'sm')} New in PlayReport ${esc(PR.APP_VERSION)}</b></div><button class="link" id="wn-close">${icon('x')}</button></div>
-        <ul><li>⏰ <b>New: Sequences tab</b> — today's matches split into your betting windows (07–12, 12–16, 16–20, 20–00), one strongest market per match.</li><li>📅 <b>Shortlist = today only</b> — nothing from tomorrow or later.</li><li>⬆️ <b>Overs only everywhere</b> — Unders are ignored in every market.</li><li>🗂️ Market chips on the shortlist filter groups instantly.</li></ul></div>`);
+        <ul><li>⏰ <b>Sequences tab</b> — today's matches in your betting windows (07–12, 12–16, 16–20, 20–00): the shortlist's rule-approved picks, strongest market per match across ALL markets.</li><li>📅 <b>Shortlist = today only</b> — nothing from tomorrow or later.</li><li>⬆️ <b>Overs only everywhere</b> — Unders are ignored in every market.</li><li>🗂️ Market chips on the shortlist filter groups instantly.</li></ul></div>`);
     }
     const favs = (PR.favList ? PR.favList() : []).map((x) => fx(x.fixture)).filter(Boolean).sort((a, b) => a.kickoff.localeCompare(b.kickoff));
     if (favs.length) parts.push(`<div class="section-head"><h2><span class="ico amber">${icon('star')}</span>Your matches</h2><button class="link" data-tab-go="matches" data-mf-go="fav">All ${favs.length} ${icon('next')}</button></div><div class="card compact">${favs.slice(0, 5).map((f) => { const s = live.for(f); return matchRow(f, { live: s, sub: `${flag(f.country)} ${esc(f.competition)}${f.safe ? ` · 📈 <b>${esc(selShort(f.safe[0]))}</b> ${pct(f.safe[1])}` : ''}`, right: s && s.hg != null ? '' : `<span class="pill ${f.p.O25 >= 0.6 ? 'hi' : ''}">O2.5 ${pct(f.p.O25)}</span>` }); }).join('')}</div>`);
