@@ -28,3 +28,4 @@ passwords.txt
 secrets/
 *.secret
 backtest/cache_boost/
+node_modules/
