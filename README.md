@@ -76,6 +76,9 @@ the football model code; the only shared piece is the generic Markdown → PDF h
   Stats / Data (sample labels, last 10 matches with raw scores, H2H context only, quality checks, identity, inputs).
   Smoke test: `android/tennis_ui_test.py`.
 
+### Model diet: data-rich leagues only (2026-10-11)
+Fixture intake is filtered before analysis (`scanner.league_allowed`): only the big-5 European leagues + second tiers, strong top flights (NL/PT/BE/TR/SC/DK/CH/GR/PL/AT/SE/NO/HR/RS/UA), Brazil, Argentina (top flight), MLS, Liga MX and the big African leagues (ZA/NG/EG/MA) are analysed. Hard blocks: Japan, Australia, women, youth/reserve, friendlies, all cups (incl. UEFA competitions), internationals. Depth gate: a fixture where either team has fewer than `MIN_TEAM_MATCHES` (8) recent matches with data is skipped entirely. Every app surface inherits the filter; history collection stays wide so cup/international results still feed team form. Levers: `MODEL_DIET`, `MIN_TEAM_MATCHES`, `SEED_STAGES`.
+
 ### High-conviction shortlist (`shortlist.py`)
 A strict filter over the day's board: hard gates (data checks, verified price, odds band 1.15–1.90, per-market probability bar, believable model/market gap) and soft gates (data quality, confidence, warnings, research conflicts, carried prices). EV and edge are displayed but never gate (user rule 2026-10-11) — value hunting lives on the Positive EV tab. At most 7 matches, one selection each; otherwise **NO QUALIFYING SELECTIONS**. Read-only: it never changes a probability. Every decision is logged to `data/shortlist.csv` before kick-off and settled for walk-forward evaluation. Levers: `SHORTLIST_MIN_ODDS`, `SHORTLIST_MAX`.
 

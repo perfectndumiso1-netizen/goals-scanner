@@ -1,4 +1,10 @@
-## What's new — Shortlist & Sequences: strength decides, not EV
+## What's new — Model diet: data-rich leagues only
+- 🥇 **The model now analyses only data-rich leagues** (your rule): the big-5 European leagues and their second tiers (Premier League & Championship, La Liga & Segunda, Serie A & B, Bundesliga & 2., Ligue 1 & 2), the strong top flights (Netherlands, Portugal, Belgium, Turkey, Scotland, Denmark, Switzerland, Greece, Poland, Austria, Sweden, Norway, Croatia, Serbia, Ukraine), Brazil, Argentina (top flight), MLS, Liga MX, and the big African leagues (South Africa, Nigeria, Egypt, Morocco).
+- 🚫 **Hard-dropped everywhere, on every tab**: Japan and Australia, women's and youth/reserve leagues, friendlies, ALL cups (including the Champions League — knockout games have thin, rotation-heavy samples), internationals, and every lower division (Serie D, Regionalliga, RFEF groups, USL, …). A typical day goes from ~670 analysed matches to ~100–150 that are worth the model's time.
+- 📏 **Depth gate**: a match where either team has fewer than **8 recent matches with data** is skipped entirely — never analysed, never published.
+- 🧠 History collection is deliberately kept wide, so cup and international results still feed team form for the allowed leagues; only the analysed fixture list is filtered.
+
+## Earlier — Shortlist & Sequences: strength decides, not EV
 - 🎯 **EV is no longer a gate on the Shortlist and Sequences** (your rule): selections qualify on **strength and data support** — the market bar (1X2 60%, corners/bookings 65%, others 70%), passed data checks, verified prices, the 1.15–1.90 band, solid data quality and confidence. Edge and expected value still show on each pick for information; value hunting stays in its own Positive EV tab.
 - ⏰ Sequences = the same rule-approved picks in your windows (07–12, 12–16, 16–20, 20–00). Nothing looser, nothing different — just split by time of day.
 - 🧊 Ranking now rewards data quality, margin above the bar and confidence — never EV.

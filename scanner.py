@@ -192,10 +192,17 @@ CONFIG = {
     # between matchdays: every stage key was verified against the public Livescore feed in Sep 2026.
     # Discovered stages (anything in the last three day feeds) and already-archived stages are added
     # to this automatically on every run, so the list only needs a manual entry for a new code.
-    "SEED_STAGES": os.getenv("SEED_STAGES", "england/premier-league,england/championship,spain/laliga,spain/laliga-2,italy/serie-a,germany/bundesliga,germany/2-bundesliga,france/ligue-1,france/ligue-2,portugal/primeira-liga,scotland/scotland-premiership,turkey/super-lig,switzerland/super-league,greece/super-league,poland/ekstraklasa,ukraine/premier-league,romania/liga-1,croatia/1st-league,denmark/superliga,norway/eliteserien,sweden/allsvenskan,finland/veikkausliiga,austria/bundesliga,belgium/belgian-pro-league-2025,israel/premier-league,ireland/league-of-ireland-premier-division,wales/cymru-premier,south-africa/premiership,egypt/premier-league,morocco/botola-pro,algeria/ligue-1-2025,nigeria/npfl,ghana/premier-league,tanzania/premier-league,botswana/premier-league,brazil/serie-a,argentina/liga-profesional-clausura,chile/primera-division,colombia/primera-a-clausura,uruguay/primera-division-clausura,paraguay/division-profesional-clausura,peru/primera-division-clausura,ecuador/serie-a,venezuela/primera-division-clausura,usa/major-league-soccer-2026,mexico/liga-mx-apertura,japan/j-league-2025,iran/persian-gulf-pro-league,saudi-arabia/saudi-professional-league,qatar/qatar-stars-league,indonesia/super-league,australia/northern"),
+    # seed stages = the model diet's competitions (user rule 2026-10-11). They get archive-refresh
+    # priority; everything else on the day feed is still discovered but (per the diet) not analysed.
+    "SEED_STAGES": os.getenv("SEED_STAGES", "england/premier-league,england/championship,spain/laliga,spain/laliga-2,italy/serie-a,italy/serie-b,germany/bundesliga,germany/2-bundesliga,france/ligue-1,france/ligue-2,netherlands/eredivisie,belgium/belgian-pro-league-2025,portugal/primeira-liga,scotland/scotland-premiership,turkey/super-lig,denmark/superliga,switzerland/super-league,greece/super-league,poland/ekstraklasa,austria/bundesliga,sweden/allsvenskan,norway/eliteserien,croatia/1st-league,ukraine/premier-league,brazil/serie-a,argentina/liga-profesional-clausura,usa/major-league-soccer-2026,mexico/liga-mx-apertura,south-africa/premiership,nigeria/npfl,egypt/premier-league,morocco/botola-pro"),
     "STATS_BUDGET_S": _env_float("STATS_BUDGET_S", 75),      # Livescore match statistics per run: time budget
     "STATS_MAX": int(_env_float("STATS_MAX", 400)),          # ... and request cap
     "WORLD_COUNT_MIN_N": int(_env_float("WORLD_COUNT_MIN_N", 5)),  # corners/cards outside the main leagues need this many matches with stats per team
+    # ---- model diet (user rule 2026-10-11): prioritise data-rich leagues ----
+    # Fixtures outside the diet (see DIET_ALLOW below) are never analysed; every app surface
+    # (shortlist, sequences, Positive EV tab, accas, bets of the day) inherits the filter.
+    "MODEL_DIET": os.getenv("MODEL_DIET", "1") != "0",
+    "MIN_TEAM_MATCHES": int(_env_float("MIN_TEAM_MATCHES", 8)),  # depth gate: skip a fixture when either team has fewer recent matches with data
     # per-fixture news for the app's Match Center (context only — never a model input):
     # distinct headline queries fetched per run (the rest is served from the 6 h TTL cache)
     "NEWS_BUDGET": int(_env_float("NEWS_BUDGET", 90)),
@@ -276,6 +283,66 @@ EXTRA_LEAGUES = {
     "Mexico": "MEX", "Norway": "NOR", "Poland": "POL", "Romania": "ROU",
     "Russia": "RUS", "Sweden": "SWE", "Switzerland": "SWZ", "USA": "USA",
 }
+
+# ----------------------------------------------------------------------------- model diet (user rule, 2026-10-11)
+# "Prioritise data-rich leagues." A fixture outside the diet is never analysed, so the shortlist,
+# sequences, the Positive EV tab, accas and bets of the day all inherit the filter (they are all
+# built from the analysed rows). History collection is deliberately untouched: cup / international
+# / friendly results still feed team form for the allowed leagues (friendlies already drop out of
+# the stats once a team has enough competitive matches).
+# Order matters: hard blocks first (never analysed even if an allow pattern matches) - Japan and
+# Australia (explicit user rule), women's, youth/reserve, friendlies, and every cup / knockout /
+# international competition. National teams play in no league, so competitive internationals and
+# everything unlisted (lower divisions, minor countries) drop out through the allowlist.
+DIET_BLOCK_RE = re.compile(
+    r"women|femini|damall|femeni|kvinner"
+    r"|\bu-?1[4-9]\b|\bu-?2[0-3]\b|youth|reserve|primavera|jukuren|devel"
+    r"|friendly|japan|australia|\ba-?league\b|\bj[123]\b"
+    r"|\bcups?\b|coppa|coupe|pokal|\bcopa\b|kupa|\bkup\b|ta[cčç]a|beker|pokalen|super ?cup|superkupa"
+    r"|play-?offs?\b|qualification|qualifiers|uefa|champions league|europa league|conference league"
+    r"|libertadores|sudamericana|nations league|world cup|concacaf|conmebol|carabao"
+    , re.I)
+
+DIET_ALLOW: "list[tuple[re.Pattern, re.Pattern]]" = [
+    (re.compile(c, re.I), re.compile(l, re.I)) for c, l in [
+        ("^england$", r"premier league$|championship$"),
+        ("^spain$", r"la ?liga( |$)|laliga( |$)|^segunda divisi[oó]n$"),   # exact = kills RFEF 3rd-tier groups
+        ("^italy$", r"serie a$|serie b$"),
+        ("^germany$", r"^(2\.? )?bundesliga$"),
+        ("^france$", r"ligue 1$|ligue 2$"),
+        ("^netherlands$", r"eredivisie$"),
+        ("^belgium$", r"^(jupiler )?pro league$"),
+        ("^portugal$", r"primeira liga$"),
+        ("^scotland$", r"premiership$"),
+        ("^t[uü]rkiye$|^turkey$", r"s[uü]per lig$"),
+        ("^denmark$", r"superliga"),
+        ("^switzerland$", r"super league$"),
+        ("^greece$", r"super league$"),                                    # exact = kills "Super League 2"
+        ("^poland$", r"ekstraklasa$"),
+        ("^austria$", r"bundesliga$"),
+        ("^sweden$", r"allsvenskan$"),
+        ("^norway$", r"eliteserien$"),
+        ("^croatia$", r"^(1\. )?hnl$"),
+        ("^serbia$", r"super liga$"),
+        ("^ukraine$", r"premier league$"),
+        ("^brazil$", r"serie a$"),
+        ("^argentina$", r"liga profesional"),                              # substring = livescore appends phase names
+        ("^usa$|^united states$", r"major league soccer$|^mls$"),
+        ("^mexico$", r"liga mx"),
+        ("^south africa$", r"premiership|premier (soccer )?league"),
+        ("^nigeria$", r"\bnpfl\b|premier league$"),
+        ("^egypt$", r"premier league$"),
+        ("^morocco$", r"botola"),
+    ]]
+
+
+def league_allowed(country: str, league: str) -> bool:
+    """Model diet: is this competition analysed? (pure function - see block comment above)."""
+    c, l = str(country or ""), str(league or "")
+    if DIET_BLOCK_RE.search(f"{c} {l}"):
+        return False
+    return any(cp.search(c) and lp.search(l) for cp, lp in DIET_ALLOW)
+
 
 log = logging.getLogger("scanner")
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
@@ -593,6 +660,11 @@ def load_fixtures(tz: ZoneInfo) -> pd.DataFrame:
     fx["referee"] = fx["referee"].replace({"nan": "", "None": ""})
     if CONFIG["LEAGUES"]:
         fx = fx[fx["code"].isin(CONFIG["LEAGUES"])]
+    if not fx.empty and CONFIG["MODEL_DIET"]:
+        n0 = len(fx)
+        fx = fx[fx.apply(lambda r: league_allowed(r["country"], r["league"]), axis=1)]
+        if len(fx) < n0:
+            log.info("Model diet: %d of %d feed fixtures outside data-rich leagues — not analysed", n0 - len(fx), n0)
     return fx.sort_values(["kickoff", "country", "league"]).reset_index(drop=True)
 
 
@@ -2417,6 +2489,13 @@ def main() -> None:
         used = {v["eid"] for v in ls_map.values()}
         world_events = [e for e in worldfeed.upcoming(ls_events, start, end) if e["eid"] not in used]
         world_fx = worldfeed.fixtures_frame(world_events, tz)
+        if CONFIG["MODEL_DIET"] and not world_fx.empty:
+            n0 = len(world_fx)
+            keep = world_fx.apply(lambda r: league_allowed(r["country"], r["league"]), axis=1)
+            world_fx = world_fx[keep]
+            if len(world_fx) < n0:
+                log.info("Model diet: %d of %d world fixtures outside data-rich leagues — not analysed",
+                         n0 - len(world_fx), n0)
         if not world_fx.empty:
             base = todays.copy()
             base["home_id"] = None
@@ -2542,7 +2621,19 @@ def main() -> None:
     cards_df.loc[results["hy"].isna(), ["hcards", "acards"]] = np.nan
     MODELS["cards"] = markets.CountModel(cards_df, "hcards", "acards", now, markets.CARDS, use_ref=True)
 
-    rows = [analyse(fx, long, results, div_avgs, now, pool) for _, fx in todays.iterrows()]
+    # depth gate (user rule 2026-10-11): a fixture where either team has fewer than
+    # MIN_TEAM_MATCHES recent matches with data is skipped entirely - never analysed, never published.
+    rows, thin = [], 0
+    for _, fx in todays.iterrows():
+        H0 = build_profile(long, fx["country"], fx["home"], "H", now, fx.get("home_id"))
+        A0 = build_profile(long, fx["country"], fx["away"], "A", now, fx.get("away_id"))
+        if H0.n < CONFIG["MIN_TEAM_MATCHES"] or A0.n < CONFIG["MIN_TEAM_MATCHES"]:
+            thin += 1
+            continue
+        rows.append(analyse(fx, long, results, div_avgs, now, pool))
+    if thin:
+        log.info("Depth gate: %d fixture(s) skipped — a team has fewer than %d recent matches with data",
+                 thin, CONFIG["MIN_TEAM_MATCHES"])
     app_rows = [r for r in rows if r.fx["kickoff"] <= app_end]   # what the app publication carries
 
     # ---- Sportybet prices (their feed lists every event they have priced — currently ~33 days out,
