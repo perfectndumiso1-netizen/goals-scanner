@@ -10,34 +10,31 @@ whatever the market (1X2, double chance, goals, BTTS, team goals, corners, booki
   hard gates (fail one = REJECTED)
     H1  the match passed the pipeline's own data checks (data_ok)
     H2  a verified Sportybet price exists (unknown = "N/A", never assumed)
-    H3  odds inside the band: MIN_ODDS <= odds <= MAX_ODDS (1.15 to 1.90 — user rule. Below the floor the
-        price is too short to be worth a pick; above the ceiling the pick is a coin-flip punt, not a
-        high-conviction selection)
+    H3  odds inside the band: MIN_ODDS <= odds <= MAX_ODDS (1.15 to 1.90 — user rule)
     H4  model probability clears the bar for that market (stated explicitly in BARS)
-    H5  the model is at least as likely as the price says (EV >= 0 at Sportybet's own price)
-    H6  the model/market gap is believable: <= MAX_EDGE over the de-vigged market. A wider gap is the
-        signature of a data fault (friendly, cup qualifier, wrong team), not value — the same rule the
-        accas and the app's outlier quarantine use
+    H5  the model/market gap is believable: <= MAX_EDGE over the de-vigged market (or the raw price when
+        no de-vigged view exists). A much wider gap is the signature of a data fault, not strength
 
   soft gates (fail one = WATCHLIST, with the exact reason)
-    S1  a de-vigged market view exists, so the edge is measured against the market, not against a price that
-        still contains the bookmaker's margin
-    S2  edge over the de-vigged market >= MIN_EDGE (otherwise it is a high-probability pick, not value)
-    S2b the edge beats the model's usual gap on that market today (median over the board) by MIN_EDGE — a gap
-        the model shows on every match is a systematic model/market difference, not match-specific value
-    S3  data quality High or Medium (the audit's own grade)
-    S4  confidence for this market is not Low (sample size x data quality, quality.confidence)
-    S5  no 'warn'-level automatic warning on the match (model v raw data contradictions)
-    S6  no unresolved conflict in the live research for the match
+    S1  data quality High or Medium (the audit's own grade)
+    S2  confidence for this market is not Low (sample size x data quality, quality.confidence)
+    S3  no 'warn'-level automatic warning on the match (model v raw data contradictions)
+    S4  no unresolved conflict in the live research for the match
+    S5  prices are this run's own fetch — carried-forward prices (a blocked fetch) go to the watchlist
+
+  NOT gates (user rule, 2026-10-11): EV and market edge. Chasing positive EV had its own tab and it does
+  not decide what qualifies here. Edge and EV are still DISPLAYED on every pick for information; the
+  Positive EV tab remains the place for value hunting. Strength + data support decide membership.
 
 Passing everything = QUALIFIED FOR FURTHER REVIEW. One selection per match (the best-ranked one); the others
 from the same match are listed as correlated, never as separate opportunities. The list is grouped by market
-and each market keeps its best MAX_PER_MARKET (10) — picking the bests, never padding. If nothing qualifies
-the answer is "NO QUALIFYING SELECTIONS".
+and each market keeps its best MAX_PER_MARKET (10) — picking the bests, never padding. Today's matches only
+(nothing from tomorrow or later); Overs only (Unders are never candidates). If nothing qualifies the answer
+is "NO QUALIFYING SELECTIONS".
 
-Ranking is a transparent composite, not probability alone:
-    score = 0.30 x data-quality score + 0.30 x min(excess edge / 0.08, 1) + 0.20 x min(EV / 0.10, 1)
-            + 0.20 x (probability above its market bar, scaled over 25 pp)
+Ranking is a transparent composite of strength and data support, never EV:
+    score = 0.40 x data-quality score + 0.40 x (probability above its market bar, scaled over 20 pp)
+            + 0.20 x confidence (High 1.0 / Medium 0.6 / N/A 0.3)
 
 Calibrated probability: no validated live calibration map is shipped with the model, so it is reported as
 N/A rather than invented. The backtest calibration tables live in backtest/RESULTS.md.
@@ -62,10 +59,8 @@ import safe as safe_mod
 MIN_ODDS = float(os.getenv("SHORTLIST_MIN_ODDS", "1.15"))     # band floor: odds below this are rejected
 MAX_ODDS = float(os.getenv("SHORTLIST_MAX_ODDS", "1.90"))     # band ceiling: odds above this are rejected
 BARS = {"result": 0.60, "dc": 0.70, "goals": 0.70, "btts": 0.70, "team": 0.70, "corners": 0.65, "cards": 0.65}
-MIN_EDGE = 0.02          # beat the de-vigged market by at least 2 pp to count as value
 MAX_EDGE = 0.12          # more than 12 pp over the de-vigged market = data fault, not edge
 MAX_RAW_EDGE = 0.25      # no de-vigged view: gap over the raw implied price above this = data fault
-BASELINE_MIN_N = 15      # a market needs this many priced selections today before its usual gap is measured
 MAX_PER_MARKET = int(os.getenv("SHORTLIST_MAX_PER_MARKET", "10"))  # best picks kept PER MARKET GROUP
 IGNORE_UNDER = os.getenv("SHORTLIST_IGNORE_UNDER", "1") != "0"   # user rule: Overs only — Under selections are never candidates
 UNDER_RE = None if not IGNORE_UNDER else __import__("re").compile(r"^U\d|^[HACK]U")
@@ -100,12 +95,8 @@ def _conf_key(sel: str, group: str) -> str:
     return ""          # goals lines without their own grade, corners, cards: data quality decides alone
 
 
-def evaluate(r, s, baseline: dict | None = None) -> dict:
-    """One selection through every gate. Returns the full record with reasons; changes nothing.
-
-    `baseline` = median model-minus-market gap per selection code across today's board. An edge that is no
-    bigger than the model's usual gap on that market is a systematic model/market difference, not value
-    specific to this match (spec rule 7: the edge must not be an artifact)."""
+def evaluate(r, s) -> dict:
+    """One selection through every gate. Returns the full record with reasons; changes nothing."""
     fx = r.fx
     audit = r.audit or {}
     q = audit.get("quality") or {}
@@ -133,22 +124,11 @@ def evaluate(r, s, baseline: dict | None = None) -> dict:
         hard.append(f"odds {odds:.2f} above the {MAX_ODDS:.2f} ceiling (band {MIN_ODDS:.2f}\u2013{MAX_ODDS:.2f})")
     if s.p_model < bar:
         hard.append(f"probability {100 * s.p_model:.0f}% below the {100 * bar:.0f}% bar for {group}")
-    if ev is not None and ev < 0:
-        hard.append(f"price too short for the probability (EV {100 * ev:+.1f}%)")
     if edge is not None and edge > MAX_EDGE:
         hard.append(f"model {100 * edge:.0f} pp above the market — data fault, not edge")
     elif edge is None and implied is not None and s.p_model - implied > MAX_RAW_EDGE:
         hard.append(f"model {100 * (s.p_model - implied):.0f} pp above the raw price — data fault, not edge")
 
-    base = (baseline or {}).get(s.sel)
-    excess = None if edge is None else edge - (base or 0.0)
-    if edge is None:
-        soft.append("no de-vigged market view to measure the edge against")
-    elif edge < MIN_EDGE:
-        soft.append(f"edge {100 * edge:+.1f} pp — high probability, not value")
-    elif base is not None and excess < MIN_EDGE:
-        soft.append(f"edge {100 * edge:+.1f} pp is the model's usual gap on this market today "
-                    f"(median {100 * base:+.1f} pp) — systematic, not specific to this match")
     qual = q.get("overall")
     if qual not in ("High", "Medium"):
         soft.append(f"data quality {qual or 'N/A'}")
@@ -163,10 +143,10 @@ def evaluate(r, s, baseline: dict | None = None) -> dict:
 
     status = STATUS_REJECT if hard else STATUS_WATCH if soft else STATUS_PRIMARY
     qscore = float(q.get("score") or 0.0)
-    score = (0.30 * qscore
-             + 0.30 * (min(max(excess if excess is not None else 0.0, 0.0) / 0.08, 1.0))
-             + 0.20 * (min(max(ev or 0.0, 0.0) / 0.10, 1.0))
-             + 0.20 * min(max(s.p_model - bar, 0.0) / 0.25, 1.0))
+    conf_score = {"High": 1.0, "Medium": 0.6}.get(conf, 0.3)
+    score = (0.40 * qscore
+             + 0.40 * min(max(s.p_model - bar, 0.0) / 0.20, 1.0)
+             + 0.20 * conf_score)
 
     support = []
     hist = r.hist or {}
@@ -178,9 +158,8 @@ def evaluate(r, s, baseline: dict | None = None) -> dict:
     n_min = min(getattr(r.home, "n", 0) or 0, getattr(r.away, "n", 0) or 0)
     if n_min:
         support.append(f"{n_min}+ matches per team in the sample")
-    if edge is not None and edge >= MIN_EDGE:
-        support.append(f"model {100 * edge:.1f} pp above the de-vigged market"
-                       + (f" ({100 * excess:+.1f} pp beyond its usual gap on this market)" if base is not None else ""))
+    if edge is not None and edge > 0:
+        support.append(f"model {100 * edge:.1f} pp above the de-vigged market")
     risk = (soft[0] if soft else
             f"one-in-{max(2, round(1 / max(1 - s.p_model, 0.01)))} miss rate even if the model is right"
             if s.p_model >= 0.5 else "less likely than not")
@@ -197,7 +176,6 @@ def evaluate(r, s, baseline: dict | None = None) -> dict:
         "p_sb": None if s.p_sb is None else round(s.p_sb, 3),
         "implied_raw": None if implied is None else round(implied, 3),
         "edge_pp": None if edge is None else round(100 * edge, 1),
-        "excess_pp": None if excess is None else round(100 * excess, 1),
         "ev": None if ev is None else round(ev, 3),
         "quality": qual or "N/A", "quality_score": round(qscore, 2), "confidence": conf or "N/A",
         "bar": bar, "status": status, "reasons": hard or soft, "score": round(score, 3),
@@ -212,18 +190,12 @@ def build(rows: list, now: datetime, window_end: datetime | None = None,
     analysed = [r for r in rows if r.fx["kickoff"] >= start and (window_end is None or r.fx["kickoff"] <= window_end)]
     screened = [r for r in analysed if r.data_ok and r.sb]
     sels_by_row = {}
-    gaps: dict[str, list] = {}
     for r in analysed:
         try:
             ss = safe_mod.selections(r)
         except Exception:  # noqa: BLE001
             ss = []
         sels_by_row[id(r)] = ss
-        if r.data_ok:
-            for s in ss:
-                if s.p_sb is not None and s.priced:
-                    gaps.setdefault(s.sel, []).append(s.p_model - s.p_sb)
-    baseline = {k: float(pd.Series(v).median()) for k, v in gaps.items() if len(v) >= BASELINE_MIN_N}
     per_match: list[dict] = []
     for r in analysed:
         recs = []
@@ -231,7 +203,7 @@ def build(rows: list, now: datetime, window_end: datetime | None = None,
             if UNDER_RE is not None and UNDER_RE.match(s.sel or ""):
                 continue    # user rule: ignore Unders in every market — Overs only
             try:
-                recs.append(evaluate(r, s, baseline))
+                recs.append(evaluate(r, s))
             except Exception:  # noqa: BLE001 - one bad selection must not take the board down
                 continue
         if not recs:
@@ -271,21 +243,20 @@ def build(rows: list, now: datetime, window_end: datetime | None = None,
                 patterns[_pattern(reason)] += 1
     watch_patterns = Counter(_pattern(x["reasons"][0]) for x in watch)
     markets = Counter(x["market"] for x in prim)
-    genuine_value = sum(1 for x in prim if (x["edge_pp"] or 0) >= 100 * MIN_EDGE and (x["ev"] or 0) > 0)
-
     if prim:
         verdict = (f"{len(prim)} selection(s) across {len(by_market)} market group(s) qualified for further review "
-                   f"(top {max_per_market} per market, odds {MIN_ODDS:.2f}\u2013{MAX_ODDS:.2f}); "
-                   f"{genuine_value} show an estimated edge over the de-vigged market. Review each before betting — "
-                   "this is a shortlist, not an instruction to bet.")
+                   f"(top {max_per_market} per market, odds {MIN_ODDS:.2f}\u2013{MAX_ODDS:.2f}, today only, Overs only). "
+                   "Strength and data support decide the list — not EV. Review each before betting: this is a "
+                   "shortlist, not an instruction to bet.")
     else:
         verdict = "NO QUALIFYING SELECTIONS — the evidence does not support a betting decision today. Standards were not lowered."
 
     return {
         "generated": now.strftime("%Y-%m-%d %H:%M"),
-        "rules": {"min_odds": MIN_ODDS, "max_odds": MAX_ODDS, "bars": BARS, "min_edge_pp": 100 * MIN_EDGE,
+        "rules": {"min_odds": MIN_ODDS, "max_odds": MAX_ODDS, "bars": BARS,
                   "max_edge_pp": 100 * MAX_EDGE, "max_per_market": max_per_market,
                   "band": f"{MIN_ODDS:.2f}\u2013{MAX_ODDS:.2f} (odds outside the band are rejected)",
+                  "ev": "not a gate — strength and data support decide; value hunting lives on the Positive EV tab",
                   "unders": "ignored — Overs only (user rule)",
                   "day": "today's matches only (nothing from tomorrow or later)",
                   "implied_method": "de-vigged = Sportybet price with the bookmaker margin removed proportionally "
@@ -298,7 +269,6 @@ def build(rows: list, now: datetime, window_end: datetime | None = None,
         "rejected_patterns": [[k, v] for k, v in patterns.most_common(6) if v],
         "watch_patterns": [[k, v] for k, v in watch_patterns.most_common(4)],
         "markets": [[k, v] for k, v in markets.most_common()],
-        "value": {"genuine": genuine_value, "high_prob_only": len(prim) - genuine_value},
         "verdict": verdict,
         "_rejected": rejected,          # for the ledger only; stripped before publication
         "_watch_all": watch,
@@ -310,10 +280,9 @@ def _pattern(reason: str) -> str:
     for key, name in (("odds n/a", "not priced"), ("floor", "odds under the 1.15 floor"), ("ceiling", "odds over the 1.90 ceiling"),
                       ("below the", "probability under its market bar"), ("price too short", "price too short (negative EV)"),
                       ("data fault", "implausible model/market gap"), ("data checks", "failed data checks"),
-                      ("no de-vigged", "no market view to measure value"), ("high probability, not value", "no edge over the market"),
                       ("data quality", "data quality low"), ("confidence low", "low confidence"),
                       ("warning", "model v raw-data warning"), ("conflict", "research conflict"),
-                      ("outside the top", "beyond its market's cap"), ("usual gap", "edge is the model's usual gap (systematic)")):
+                      ("outside the top", "beyond its market's cap")):
         if key in r:
             return name
     return reason[:40]

@@ -77,7 +77,7 @@ the football model code; the only shared piece is the generic Markdown → PDF h
   Smoke test: `android/tennis_ui_test.py`.
 
 ### High-conviction shortlist (`shortlist.py`)
-A strict filter over the analysed board: hard gates (data checks, verified price, odds > 1.14, per-market probability bar, EV ≥ 0, believable model/market gap) and soft gates (edge ≥ 2 pp over the de-vigged market and beyond the model's usual gap on that market, data quality, confidence, warnings, research conflicts). At most 7 matches, one selection each; otherwise **NO QUALIFYING SELECTIONS**. Read-only: it never changes a probability. Every decision is logged to `data/shortlist.csv` before kick-off and settled for walk-forward evaluation. Levers: `SHORTLIST_MIN_ODDS`, `SHORTLIST_MAX`.
+A strict filter over the day's board: hard gates (data checks, verified price, odds band 1.15–1.90, per-market probability bar, believable model/market gap) and soft gates (data quality, confidence, warnings, research conflicts, carried prices). EV and edge are displayed but never gate (user rule 2026-10-11) — value hunting lives on the Positive EV tab. At most 7 matches, one selection each; otherwise **NO QUALIFYING SELECTIONS**. Read-only: it never changes a probability. Every decision is logged to `data/shortlist.csv` before kick-off and settled for walk-forward evaluation. Levers: `SHORTLIST_MIN_ODDS`, `SHORTLIST_MAX`.
 
 ### Sequences tab & selection rules
 User betting sequences (07–12, 12–16, 16–20, 20–00 SAST) get their own tab: the day's shortlist split into windows — the same gates, one strongest market per match across all markets, Sportybet price and model probability.

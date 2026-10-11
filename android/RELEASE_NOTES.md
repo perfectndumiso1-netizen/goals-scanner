@@ -1,4 +1,9 @@
-## What's new — Sequences tab, today-only shortlist, Overs only
+## What's new — Shortlist & Sequences: strength decides, not EV
+- 🎯 **EV is no longer a gate on the Shortlist and Sequences** (your rule): selections qualify on **strength and data support** — the market bar (1X2 60%, corners/bookings 65%, others 70%), passed data checks, verified prices, the 1.15–1.90 band, solid data quality and confidence. Edge and expected value still show on each pick for information; value hunting stays in its own Positive EV tab.
+- ⏰ Sequences = the same rule-approved picks in your windows (07–12, 12–16, 16–20, 20–00). Nothing looser, nothing different — just split by time of day.
+- 🧊 Ranking now rewards data quality, margin above the bar and confidence — never EV.
+
+## Earlier — Sequences tab, today-only shortlist, Overs only
 - ⏰ **New Sequences tab** — you bet in sequences, so PlayReport now splits **today's** matches into your windows: **Morning 07:00–12:00, Midday 12:00–16:00, Afternoon 16:00–20:00, Evening 20:00–midnight** (plus a small Early-hours section when overnight games exist). Each match appears **once**, with the **one strongest market across all markets** — the exact same rule-approved picks as the Shortlist (odds band 1.15–1.90, market bars, EV ≥ 0, data checks, Overs only), price and probability. Matches drop out at kick-off; the list updates every 30 minutes.
 - 📅 **The shortlist is now strictly for that day** — only matches playing today. Nothing from tomorrow or later ever enters the list. Everything else about it (gates, odds band 1.15–1.90, top 10 per market, track record) is unchanged.
 - ⬆️ **Overs only, everywhere** — Unders are ignored in every market (goals, team goals, corners, bookings) on the shortlist, Home boards, High probability, families, Low odds, search and the day card. You believe in Overs; the app now does too.

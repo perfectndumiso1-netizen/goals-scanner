@@ -43,14 +43,16 @@ def test_a_clean_value_selection_qualifies():
     assert rec["p_cal"] is None                                # calibration is N/A, never invented
 
 
-def test_high_probability_without_edge_is_watchlist_not_shortlist():
+def test_high_probability_qualifies_even_without_an_edge():
+    """User rule (2026-10-11): EV/edge no longer gate the shortlist — strength + data support decide."""
     rec = sl.evaluate(row(), Sel("O15", 0.86, 0.855, 1.17))
-    assert rec["status"] == "watchlist" and "not value" in rec["reasons"][0]
+    assert rec["status"] == "primary", rec["reasons"]
+    assert rec["ev"] is not None                       # still displayed, never gating
 
 
-def test_negative_ev_and_implausible_gaps_are_rejected():
-    assert sl.evaluate(row(), Sel("O25", 0.72, 0.70, 1.30))["status"] == "rejected"        # 0.72*1.30 < 1
-    rec = sl.evaluate(row(), Sel("H", 0.75, 0.55, 1.75))                                   # 20 pp gap
+def test_negative_ev_is_not_a_gate_but_data_faults_still_are():
+    assert sl.evaluate(row(), Sel("O25", 0.72, 0.70, 1.30))["status"] == "primary"         # price too short: fine here
+    rec = sl.evaluate(row(), Sel("H", 0.75, 0.55, 1.75))                                   # 20 pp gap = data fault
     assert rec["status"] == "rejected" and "data fault" in rec["reasons"][0]
 
 
@@ -133,16 +135,12 @@ def test_ledger_writes_first_decision_once_and_settles(monkeypatch, tmp_path):
     assert len(sl.load(tmp_path / "x.csv")) == 2
 
 
-def test_a_gap_the_model_shows_on_every_match_is_not_value(monkeypatch):
-    """Spec rule 7: an edge that is just the model's systematic gap on a market is an artifact."""
-    common = [[Sel("O55", 0.90, 0.80, 1.20)] for _ in range(20)]          # +10 pp on every match
-    special = [[Sel("O55", 0.91, 0.795, 1.21)]]                            # +11.5 pp vs median +10 -> excess 1.5
-    rows, b = _board(monkeypatch, common + special)
-    assert b["counts"]["primary"] == 0, "nothing stands out from the model's usual gap"
-    assert any("usual gap" in x["reasons"][0] for x in b["watchlist"])
-    real = [[Sel("O55", 0.91, 0.82, 1.18)] for _ in range(20)] + [[Sel("O55", 0.93, 0.82, 1.18)]]   # +9 vs +11 -> excess 2
-    rows, b = _board(monkeypatch, real)
-    assert b["counts"]["primary"] == 1 and b["primary"][0]["excess_pp"] >= 2.0
+def test_cap_overflow_sends_the_rest_to_the_watchlist(monkeypatch):
+    """With EV out of the gates, strength still fills the list only to the per-market cap."""
+    rows, b = _board(monkeypatch, [[Sel("O25", 0.74, 0.68, 1.45)]] * 13, cap=10)
+    assert b["counts"]["primary"] == 10 and b["counts"]["watchlist"] == 3
+    assert any("outside the top 10" in x["reasons"][0] for x in b["watchlist"])
+    assert b["rules"]["ev"].startswith("not a gate")
 
 
 def test_unders_are_ignored_overs_only(monkeypatch):
