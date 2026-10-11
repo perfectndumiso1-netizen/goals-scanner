@@ -33,11 +33,18 @@ def build(tmp: Path, accas: dict | None = None) -> tuple[Path, Path]:
     staging, live = tmp / "app" / "_staging", tmp / "app"
     for sub in (staging / "fx", tmp / "app" / "days"):
         sub.mkdir(parents=True, exist_ok=True)
-    (staging / "fx" / "k1.json").write_text(json.dumps({"id": "f1", "quality": {"overall": "High"},
-                                                        "xg": {"home": 1.4, "model_home": 1.4}, "sels": []}), encoding="utf-8")
-    fixtures = [{"id": f"fx{i}", "d": "k1", "kickoff": "2026-10-03 16:00", "home": f"H{i}", "away": f"A{i}",
-                 "p": {"O15": 0.7}, "x12": [0.4, 0.3, 0.3], "xg": [1.4, 1.0]}
-                for i in range(300) if i % 10 in (0, 1, 2)]
+    (staging / "fx").mkdir(parents=True, exist_ok=True)
+    fixtures = []
+    for i in range(300):
+        if i % 10 not in (0, 1, 2):
+            continue
+        # one real detail per fixture (the identity check rejects a file that belongs to another match)
+        (staging / "fx" / f"k{i}.json").write_text(
+            json.dumps({"id": f"fx{i}", "home": f"H{i}", "away": f"A{i}",
+                        "quality": {"overall": "High"}, "xg": {"home": 1.4, "model_home": 1.4}, "sels": []}),
+            encoding="utf-8")
+        fixtures.append({"id": f"fx{i}", "d": f"k{i}", "kickoff": "2026-10-03 16:00", "home": f"H{i}",
+                         "away": f"A{i}", "p": {"O15": 0.7}, "x12": [0.4, 0.3, 0.3], "xg": [1.4, 1.0]})
     latest = {"version": 3, "meta": {"generated": NOW.strftime("%Y-%m-%d %H:%M")}, "fixtures": fixtures,
               "safe": {"min_p": 0.7, "bets": [], "today": {"bets": []}}, "picks": {},
               "tracker": {},

@@ -67,9 +67,16 @@
   PR.pages.match = function (page) {
     const f0 = fx(page.id); const key = PR.detailKey(page.id, page.d);
     let x = PR.detailCached(page.id, page.d);
-    if (!x && key && !state.details[key + '_loading']) {
+    // wrong-stats guard: a detail that belongs to another match is never rendered — drop it, refetch
+    // once from the network, and if the source itself is poisoned fall back to the fixture row (always right)
+    if (x && page.id && x.id && String(x.id) !== String(page.id)) { state.details[key] = null; x = null; }
+    if (!x && key && !state.details[key + '_loading'] && !state.details[key + '_bad']) {
       state.details[key + '_loading'] = true;
-      PR.loadDetail(page.id, page.d).then(() => PR.render()).catch((e) => { state.details[key] = { error: e.message }; PR.render(); }).finally(() => { delete state.details[key + '_loading']; });
+      PR.loadDetail(page.id, page.d).then(() => {
+        const j = PR.detailCached(page.id, page.d);
+        if (j && j.id && page.id && String(j.id) !== String(page.id)) state.details[key + '_bad'] = true;
+        PR.render();
+      }).catch((e) => { state.details[key] = { error: e.message }; PR.render(); }).finally(() => { delete state.details[key + '_loading']; });
     }
     if (x && x.error) x = null;
     const drec = PR.dayRecord(page.id);

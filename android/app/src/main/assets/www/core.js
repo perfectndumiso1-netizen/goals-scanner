@@ -350,7 +350,10 @@ window.PR = (function () {
     const stamp = pubStamp();
     const c = cache.get('fx/' + k);
     if (c && c.d) {
-      const f = fx(id); const j = prepDetail(c.d); state.details[k] = j;
+      const j = prepDetail(c.d);
+      // a cached file that belongs to another match must never be shown (wrong-stats bug) — go to the network
+      if (j && j.id && id && String(j.id) !== String(id)) return fetchDetail(k, stamp);
+      const f = fx(id); state.details[k] = j;
       // a match that is still in the current publication may have a fresher analysis: refresh quietly
       if (f && !f.frozen && c.s !== stamp) fetchDetail(k, stamp).then(() => render()).catch(() => { /* keep cache */ });
       return j;

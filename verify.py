@@ -147,6 +147,14 @@ def check_publication(staging: Path, live: Path, ledger: Path, now: datetime, ex
         except (OSError, ValueError):
             continue
         n_checked += 1
+        # identity: the detail must belong to THIS fixture (user-reported bug: a match page
+        # showed another match's stats). A mis-keyed file must block the publication.
+        fxid = f.get("id")
+        if det.get("id") is not None and fxid is not None and str(det.get("id")) != str(fxid):
+            errors.append(f"detail file {key}.json belongs to {det.get('id')!r}, not {fxid!r}")
+        for side in ("home", "away"):
+            if det.get(side) and f.get(side) and str(det.get(side)) != str(f.get(side)):
+                errors.append(f"detail file {key}.json has {side}={det.get(side)!r}, fixture says {f.get(side)!r}")
         q = det.get("quality") or {}
         if q.get("overall") not in ("High", "Medium", "Low"):
             n_noq += 1
