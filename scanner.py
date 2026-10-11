@@ -2305,6 +2305,42 @@ def send_telegram_document(path: Path, caption: str) -> bool:
         return False
 
 
+def telegram_shortlist(sl_pub: dict, now: datetime) -> None:
+    """Push the day's shortlist picks to Telegram — the strongest market per match only (user rule).
+    Each pick is sent once per day (deduped via a state file in the published state)."""
+    prim = (sl_pub or {}).get("primary") or []
+    if not prim:
+        return
+    if not (os.getenv("TELEGRAM_BOT_TOKEN") and os.getenv("TELEGRAM_CHAT_ID")):
+        return                      # unconfigured: no push, no state churn
+    today = now.strftime("%Y-%m-%d")
+    state_path = DATA_DIR / "app" / "telegram_state.json"
+    try:
+        st = json.loads(state_path.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        st = {}
+    if st.get("day") != today:
+        st = {"day": today, "sent": []}
+    sent = {tuple(k) for k in (st.get("sent") or [])}
+    fresh = [x for x in prim if x.get("key") and tuple(x["key"]) not in sent]
+    if not fresh:
+        return
+    L = [f"🏆 <b>Shortlist — {len(fresh)} pick(s) with a strongest market</b> "
+         f"(the full written analysis is in the app)"]
+    for x in fresh:
+        odds = "N/A" if x.get("odds") is None else f"{x['odds']:.2f}"
+        pr = "N/A" if x.get("p") is None else f"{100 * x['p']:.0f}%"
+        L.append(f"🎯 <b>{x['home']} v {x['away']}</b> — {x['label']} @ {odds} · model {pr}\n"
+                 f"🕘 {x['kickoff']} · {x.get('country', '')} — {x.get('league', '')}")
+    send_telegram("\n".join(L))
+    st["sent"] = [list(k) for k in sent | {tuple(x["key"]) for x in fresh}]
+    try:
+        state_path.parent.mkdir(parents=True, exist_ok=True)
+        state_path.write_text(json.dumps(st, ensure_ascii=False), encoding="utf-8")
+    except OSError:
+        pass
+
+
 def telegram_text(ctx: dict, rows: list[MatchRow], picks: dict, report_url: str | None) -> str:
     now = ctx["now"]
     cov = ctx.get("coverage") or {}
@@ -2576,7 +2612,8 @@ def main() -> None:
     # reads the world archive + the coverage window already fetched above; never feeds the model)
     try:
         import leagues
-        leagues.build(LS_DIR / "stages", now, DATA_DIR / "app" / "leagues", tz_hours=2, events=ls_events or None)
+        leagues.build(LS_DIR / "stages", now, DATA_DIR / "app" / "leagues", tz_hours=2, events=ls_events or None,
+                  allow=league_allowed if CONFIG["MODEL_DIET"] else None)
     except Exception as exc:  # noqa: BLE001
         log.warning("Leagues build failed (non-fatal): %s", exc)
     ls_events = None   # last use — free the ~17k window events before the analysis runs
@@ -3010,6 +3047,10 @@ def main() -> None:
         mark_report_run(now, run_label)
     elif new_bets:
         send_telegram(alert_text(new_bets, now))
+    try:
+        telegram_shortlist(ctx.get("shortlist") or {}, now)
+    except Exception as exc:  # noqa: BLE001 - pushes must never break the scan
+        log.warning("Telegram shortlist push failed: %s", exc)
     if digest_lines:
         send_telegram(digest_text(digest_lines))
 

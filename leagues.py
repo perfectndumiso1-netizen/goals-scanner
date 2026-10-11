@@ -250,12 +250,14 @@ def _window_events(events: list[dict] | None, now: datetime, days: int = 60) -> 
     return out
 
 
-def build(stages_dir: Path, now: datetime, out_dir: Path, tz_hours: int = 2, events: list[dict] | None = None) -> int:
+def build(stages_dir: Path, now: datetime, out_dir: Path, tz_hours: int = 2, events: list[dict] | None = None, allow=None) -> int:
     """Publish index.json + one detail file per stage. Returns the number of league files written.
 
     `events` = the scanner's coverage-window day-feed events (naive SAST kick-offs); when given, the
     fixture lists span the whole coverage window (60 days) with no extra network. Falls back to a
     short day-feed look-ahead when called standalone.
+    `allow` = optional (country, league) -> bool predicate — the model diet: anything it rejects is
+    left out of the browser, the fixtures index and the league pages entirely (user rule 2026-10-11).
     """
     if now.tzinfo is not None:
         now = now.replace(tzinfo=None)   # feed kick-offs are naive display-time (SAST), like worldfeed.upcoming
@@ -288,6 +290,8 @@ def build(stages_dir: Path, now: datetime, out_dir: Path, tz_hours: int = 2, eve
     for path in sorted(stages_dir.glob("*.json")):
         d = _stage_data(path)
         if not d:
+            continue
+        if allow and not allow(d.get("country"), d.get("league")):
             continue
         evts = [ev for ev in (_evt(eid, v) for eid, v in (d.get("events") or {}).items()) if ev]
         if not evts:
@@ -359,6 +363,14 @@ def build(stages_dir: Path, now: datetime, out_dir: Path, tz_hours: int = 2, eve
     (out_dir / "index.json").write_text(json.dumps(
         {"generated": now.strftime("%Y-%m-%d %H:%M"), "count": len(index), "summary": summary, "leagues": index},
         ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
+
+    # drop detail files of stages the diet no longer publishes, so nothing stale lingers in the app
+    for stale in out_dir.glob("*.json"):
+        if stale.name not in slugs and stale.name not in ("index.json", "status.json", "fixtures.json"):
+            try:
+                stale.unlink()
+            except OSError:
+                pass
 
     # app-wide fixtures list: every competition's upcoming matches in one file, so the app's Leagues
     # tab can show fixtures across the world without the user opening leagues one by one

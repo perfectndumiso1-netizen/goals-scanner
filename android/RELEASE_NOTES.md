@@ -1,4 +1,9 @@
-## What's new — Model diet: data-rich leagues only
+## What's new — Deep analysis, app-wide diet, Telegram picks
+- 📝 **Every shortlist pick now carries a data-written deep analysis** with visuals: both teams' last-five form chips, a model-v-market probability bar (model %, the market bar a selection must clear, the de-vigged market view), goals per match, venue splits, head-to-head record and a plain-language verdict. Every number comes from the model's own tracked data — nothing invented, missing data shows N/A.
+- 🥇 **The model diet now applies everywhere in the app**, not just the analysis: the Leagues browser, the 10-day fixtures list and search only show the diet's competitions. Japan, Australia, cups, women/youth/friendlies and every small league are gone from every screen.
+- 📣 **Shortlist picks are pushed to Telegram**: whenever the strongest market per match qualifies, the pick lands in your Telegram (each pick once per day — no spam), alongside the daily PDF/CSV reports.
+
+## Earlier — Model diet: data-rich leagues only
 - 🥇 **The model now analyses only data-rich leagues** (your rule): the big-5 European leagues and their second tiers (Premier League & Championship, La Liga & Segunda, Serie A & B, Bundesliga & 2., Ligue 1 & 2), the strong top flights (Netherlands, Portugal, Belgium, Turkey, Scotland, Denmark, Switzerland, Greece, Poland, Austria, Sweden, Norway, Croatia, Serbia, Ukraine), Brazil, Argentina (top flight), MLS, Liga MX, and the big African leagues (South Africa, Nigeria, Egypt, Morocco).
 - 🚫 **Hard-dropped everywhere, on every tab**: Japan and Australia, women's and youth/reserve leagues, friendlies, ALL cups (including the Champions League — knockout games have thin, rotation-heavy samples), internationals, and every lower division (Serie D, Regionalliga, RFEF groups, USL, …). A typical day goes from ~670 analysed matches to ~100–150 that are worth the model's time.
 - 📏 **Depth gate**: a match where either team has fewer than **8 recent matches with data** is skipped entirely — never analysed, never published.

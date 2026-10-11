@@ -74,6 +74,14 @@ COLS = ["day", "decided", "match_date", "kickoff", "country", "league", "home", 
 STATUS_PRIMARY, STATUS_WATCH, STATUS_REJECT = "primary", "watchlist", "rejected"
 
 
+def _pct(x) -> str:
+    return "N/A" if x is None or x != x else f"{100 * x:.0f}%"
+
+
+def _num(x, nd: int = 2) -> str:
+    return "N/A" if x is None or x != x else f"{x:.{nd}f}"
+
+
 def _nan(x) -> bool:
     return x is None or (isinstance(x, float) and math.isnan(x))
 
@@ -183,6 +191,90 @@ def evaluate(r, s) -> dict:
     }
 
 
+# ------------------------------------------------------------------ the analysis (user rule 2026-10-11)
+# A data-written article per primary selection. Real numbers only: tracked form, goals, venue
+# splits, head-to-head and verified prices, straight off the MatchRow. Nothing is invented —
+# anything missing renders as N/A. Displayed in the app under each pick, with visuals.
+
+def _form_str(p) -> str:
+    out = []
+    for m in (getattr(p, "last5", None) or [])[:5]:
+        out.append("W" if m["gf"] > m["ga"] else ("L" if m["gf"] < m["ga"] else "D"))
+    return "".join(out)          # newest first (last5 is newest-first)
+
+
+def match_article(r, x: dict) -> dict:
+    """Deep-dive article for one primary selection x, written from row r's own data."""
+    H, A = r.home, r.away
+    aid = f"{x['home']}|{x['away']}|{x['kickoff']}"
+    odds = "N/A" if x.get("odds") is None else f"{x['odds']:.2f}"
+
+    p1 = (f"Data and form. {H.name} arrive with {H.n} tracked matches, scoring "
+          f"{_num(H.gf)} and conceding {_num(H.ga)} per match; last five: {_form_str(H) or 'N/A'} (newest first). "
+          f"{A.name}: {A.n} tracked matches, {_num(A.gf)}–{_num(A.ga)} per match, last five {_form_str(A) or 'N/A'}.")
+    if not _nan(getattr(H, "venue_gf", float("nan"))) and (getattr(H, "venue_n", 0) or 0) >= 4 \
+            and (getattr(A, "venue_n", 0) or 0) >= 4:
+        p1 += (f" Venue split: {H.name} at home {_num(H.venue_gf)}–{_num(H.venue_ga)}; "
+               f"{A.name} away {_num(A.venue_gf)}–{_num(A.venue_ga)}.")
+    hist = getattr(r, "hist", None) or {}
+    if not _nan(hist.get("O25")):
+        p1 += f" Both teams' combined Over-2.5 rate this season: {100 * hist['O25']:.0f}%."
+
+    edge = x.get("edge_pp")
+    ev = x.get("ev")
+    p2 = (f"The model's read. The Dixon–Coles engine prices {x['label']} at {_pct(x.get('p'))} — "
+          f"{'above' if (edge or 0) >= 0 else 'below'} the {_pct(x.get('bar'))} evidence bar this market must clear"
+          + (f" by {abs(edge):.1f} pp." if edge is not None else ".")
+          + (f" Sportybet's de-vigged price implies {_pct(x.get('p_sb'))}, so the model sits {edge:.1f} pp "
+             f"{'above' if (edge or 0) >= 0 else 'below'} the market (EV {_num(ev) if ev is not None else 'N/A'} — displayed, never a gate)."
+             if x.get("p_sb") is not None else " No verified price view was available for this comparison."))
+
+    p3 = ""
+    h2h = getattr(r, "h2h", None) or []
+    if h2h:
+        n = len(h2h)
+        hw = sum(1 for m in h2h if ((m["hg"] > m["ag"]) if m["home"] == x["home"] else (m["ag"] > m["hg"])))
+        draw = sum(1 for m in h2h if m["hg"] == m["ag"])
+        aw = n - hw - draw
+        g = sum(m["hg"] + m["ag"] for m in h2h) / max(n, 1)
+        p3 = (f"Head to head. Last {n} meetings: {x['home']} {hw}–{draw}–{aw} {A.name}, "
+              f"averaging {g:.1f} goals; the model's expected goals for this meeting are "
+              f"{_num(getattr(r, 'mod_h', float('nan')))}–{_num(getattr(r, 'mod_a', float('nan')))}. ")
+    p3 += (f"Verdict: {x.get('confidence', 'N/A')} confidence on {x.get('quality', 'N/A')} data quality. "
+           f"Main risk: {x.get('risk', 'N/A')}")
+
+    return {"id": aid, "home": x["home"], "away": x["away"], "title": f"{x['home']} v {x['away']} — {x['label']} @ {odds}",
+            "form": {"h": _form_str(H), "a": _form_str(A)},
+            "stats": {"p": x.get("p"), "bar": x.get("bar"), "p_mkt": x.get("p_sb"), "edge_pp": edge},
+            "paras": [p1, p2, p3.strip()]}
+
+
+def build_article(analysed: list, prim: list, markets, now: datetime) -> dict | None:
+    rows_by = {}
+    for r in analysed:
+        try:
+            rows_by[(r.fx["country"], str(r.fx["home"]), str(r.fx["away"]))] = r
+        except Exception:  # noqa: BLE001
+            continue
+    items = []
+    for x in prim:
+        r = rows_by.get((x.get("country"), x.get("home"), x.get("away")))
+        if r is None:
+            continue
+        try:
+            items.append(match_article(r, x))
+        except Exception:  # noqa: BLE001 - one bad article must not take the board down
+            continue
+    if not items:
+        return None
+    mk = ", ".join(f"{k} {v}" for k, v in markets.most_common())
+    return {"generated": now.strftime("%Y-%m-%d %H:%M"),
+            "intro": (f"{len(prim)} selections made today's list ({mk}). Every analysis below is written "
+                      "from the model's own data — tracked form, goals, head-to-head and verified prices. "
+                      "No invented facts; anything missing shows as N/A."),
+            "items": items}
+
+
 def build(rows: list, now: datetime, window_end: datetime | None = None,
           max_per_market: int = MAX_PER_MARKET) -> dict:
     """The day's shortlist from the analysed rows. Pure: reads rows, returns a JSON-safe dict."""
@@ -243,6 +335,7 @@ def build(rows: list, now: datetime, window_end: datetime | None = None,
                 patterns[_pattern(reason)] += 1
     watch_patterns = Counter(_pattern(x["reasons"][0]) for x in watch)
     markets = Counter(x["market"] for x in prim)
+    article = build_article(analysed, prim, markets, now) if prim else None
     if prim:
         verdict = (f"{len(prim)} selection(s) across {len(by_market)} market group(s) qualified for further review "
                    f"(top {max_per_market} per market, odds {MIN_ODDS:.2f}\u2013{MAX_ODDS:.2f}, today only, Overs only). "
@@ -271,6 +364,7 @@ def build(rows: list, now: datetime, window_end: datetime | None = None,
         "watch_patterns": [[k, v] for k, v in watch_patterns.most_common(4)],
         "markets": [[k, v] for k, v in markets.most_common()],
         "verdict": verdict,
+        "article": article,
         "_rejected": rejected,          # for the ledger only; stripped before publication
         "_watch_all": watch,
     }
