@@ -770,6 +770,30 @@
   };
 
   // ------------------------------------------------------------------ PERFORMANCE
+  // ---- deep-dive: the full data-written analysis of one shortlist pick (2026-10-11) ----
+  PR.pages.pick = function () {
+    const a = state.pickArt;
+    const parts = [head('\uD83D\uDCDD Deep analysis', a ? `${a.home} v ${a.away}` : '')];
+    if (!a) {
+      parts.push('<div class="card empty">Open a pick from the Shortlist to read its full analysis.</div>');
+      view().innerHTML = parts.join(''); wireBack(); return;
+    }
+    const st = a.stats || {};
+    const p = (st.p || 0) * 100, b = (st.bar || 0) * 100, m = st.p_mkt != null ? st.p_mkt * 100 : null;
+    const chips = (f) => (f || '').split('').map((c) => `<span style="display:inline-block;width:24px;height:24px;line-height:24px;text-align:center;border-radius:6px;font-size:13px;font-weight:700;color:#04121f;margin-right:4px;background:${c === 'W' ? '#22c55e' : c === 'D' ? '#64748b' : '#ef4444'}">${c}</span>`).join('');
+    const w = 300;
+    const X = (v) => Math.max(0, Math.min(w, Math.round(v / 100 * w)));
+    parts.push(`<div class="card mhead"><div class="b" style="font-size:16px">${esc(a.title || '')}</div>
+      <div class="row" style="margin-top:10px;justify-content:space-around"><div style="text-align:center"><div class="tiny muted">Model</div><div class="score">${p.toFixed(0)}%</div></div><div style="text-align:center"><div class="tiny muted">Bar</div><div class="score muted">${b.toFixed(0)}%</div></div>${m != null ? `<div style="text-align:center"><div class="tiny muted">Market</div><div class="score muted">${m.toFixed(0)}%</div></div>` : ''}</div>
+      <div style="position:relative;height:18px;background:#0b1c30;border:1px solid #1e3a5f;border-radius:9px;margin-top:10px"><div style="position:absolute;top:0;bottom:0;left:0;width:${X(p)}px;background:linear-gradient(90deg,#0e7a4f,#00c86f);border-radius:9px 0 0 9px"></div><div style="position:absolute;top:-3px;bottom:-3px;left:${X(b)}px;width:3px;background:#fbbf24"></div>${m != null ? `<div style="position:absolute;top:-3px;bottom:-3px;left:${X(m)}px;width:3px;background:#e2e8f0"></div>` : ''}</div>
+      <div class="tiny muted" style="margin-top:4px">Green = the model \u00b7 <span style="color:#fbbf24">|</span> = the evidence bar the pick must clear${m != null ? ' \u00b7 <span style="color:#e2e8f0">|</span> = the de-vigged market' : ''}</div></div>`);
+    parts.push(`<div class="card"><div class="ph-label">Last five \u2014 newest first</div>
+      <div class="row" style="justify-content:space-around;margin-top:6px"><div><div class="tiny muted b">${esc(a.home)}</div><div>${chips(a.form && a.form.h)}</div></div>
+      <div><div class="tiny muted b">${esc(a.away)}</div><div>${chips(a.form && a.form.a)}</div></div></div></div>`);
+    (a.paras || []).forEach((t) => parts.push(`<div class="card compact"><div class="small" style="color:#c9d6e6">${esc(t)}</div></div>`));
+    parts.push(`<div class="card tiny muted">Written from the model's own tracked data \u2014 nothing invented; anything missing shows N/A. A pick for your review, never an instruction to bet.</div>`);
+    view().innerHTML = parts.join(''); wireBack();
+  };
   PR.pages.performance = function () {
     const d = state.data; const sf = (d.safe || {}).summary || {}; const parts = [head('Performance', 'Auto-graded from official results')];
     // reference cards on top: all-time stats, calibration band, market types
@@ -819,7 +843,34 @@
         <div class="tiny muted" style="margin-top:6px">${esc(bias.note || '')}</div></div>`);
     }
     parts.push(`<div class="note">Everything on this page is graded automatically from final scores. Bookings and corner bets settle from the match statistics feed a few hours after full time. Statistical information, not betting advice.</div>`);
-    view().innerHTML = parts.join('');
+        // ---- shortlist track + live calibration (2026-10-11): the honest picture of the filter ----
+    const sl = d.shortlist || {}; const trk = sl.track || {}; const cal = ((sl.rules || {}).calibration) || {};
+    const trow2 = (k, n) => { const t = trk[k] || {}; return t.n ? `<tr><td>${n}</td><td class="right">${t.n}</td><td class="right"><b>${pct(t.hit_rate)}</b></td><td class="right muted">${pct(t.expected)}</td><td class="right ${t.roi > 0 ? 'good' : t.roi < 0 ? 'bad' : ''}">${t.roi == null ? '\u2013' : `${t.roi > 0 ? '+' : ''}${f1(100 * t.roi)}%`}</td></tr>` : ''; };
+    const trkBody = trow2('primary', 'Shortlist') + trow2('watchlist', 'Watchlist') + trow2('rejected', 'Rejected');
+    if (trkBody) parts.push(`<div class="card"><div class="row"><span class="ico green">${icon('target')}</span><b>Shortlist track record</b></div>
+      <table class="tbl head" style="margin-top:6px"><tr><th>Class</th><th class="right">Settled</th><th class="right">Actual</th><th class="right">Model said</th><th class="right">Flat ROI</th></tr>${trkBody}</table>
+      <div class="tiny muted" style="margin-top:4px">Every shortlist decision is logged before kick-off and settled against the final score \u2014 this table is the filter's report card.</div></div>`);
+    const live = Object.entries(cal.groups || {}).filter(([, g]) => g.status === 'live');
+    if (live.length) {
+      const W = 280, H = 130, X = (v) => (v * W).toFixed(1), Y = (v) => (H - v * H).toFixed(1);
+      const g0 = live[0][1], curve = g0.curve || [];
+      const pts = curve.map(([x, y]) => `${X(x)},${Y(y)}`).join(' ');
+      parts.push(`<div class="card"><div class="row"><span class="ico">${icon('chart')}</span><b>Live calibration</b><span class="tiny muted">${esc(cal.status || '')}</span></div>
+        <svg viewBox="0 0 ${W} ${H}" style="width:100%;max-height:${H + 10}px;margin-top:8px;background:#0b1c30;border-radius:10px;border:1px solid #1e3a5f">
+          <line x1="0" y1="${H}" x2="${W}" y2="0" stroke="#1e3a5f" stroke-dasharray="4 4"/>
+          <polyline points="${pts}" fill="none" stroke="#00c86f" stroke-width="2.5"/>
+        </svg>
+        <div class="tiny muted" style="margin-top:4px">Green line: what the model's raw probability is worth in reality (${esc(live[0][0])}: settled ${g0.n_holdout} recent picks, Brier ${g0.brier_raw} \u2192 ${g0.brier_cal}). Diagonal = perfect. Applied to the displayed probability where live \u2014 the gates are untouched.</div></div>`);
+      const rows = Object.entries(cal.groups || {}).map(([g, gg]) => `<tr><td>${esc(g)}</td><td class="right">${gg.n_train || 0}/${gg.n_holdout || 0}</td><td class="right ${gg.status === 'live' ? 'good' : 'muted'}">${esc(gg.status || '')}</td><td class="right">${gg.brier_raw == null ? '\u2013' : gg.brier_raw}</td><td class="right">${gg.brier_cal == null ? '\u2013' : gg.brier_cal}</td></tr>`).join('');
+      parts.push(`<div class="card compact"><table class="tbl head" style="margin-top:2px"><tr><th>Market</th><th class="right">Train/Holdout</th><th class="right">Status</th><th class="right">Brier raw</th><th class="right">Brier cal</th></tr>${rows}</table></div>`);
+    } else if (cal.status) {
+      parts.push(`<div class="card tiny muted"><b>Calibration map:</b> ${esc(cal.status)}. It goes live only after it beats the raw model on recent, unseen picks \u2014 until then the raw model probability is shown.</div>`);
+    }
+    const bm = trk.by_market || [];
+    if (bm.length) parts.push(`<div class="card compact"><div class="b">Shortlist by market</div><table class="tbl head" style="margin-top:4px"><tr><th>Market</th><th class="right">Settled</th><th class="right">Actual</th><th class="right">Model said</th></tr>${bm.map((r) => `<tr><td>${esc(GROUPS[r[0]] || r[0])}</td><td class="right">${r[1]}</td><td class="right"><b>${pct(r[2])}</b></td><td class="right muted">${pct(r[3])}</td></tr>`).join('')}</table></div>`);
+    const bnds = trk.bands || [];
+    if (bnds.length) parts.push(`<div class="card compact"><div class="b">Predicted vs actual, by probability band</div><table class="tbl head" style="margin-top:4px"><tr><th>Band</th><th class="right">Settled</th><th class="right">Actual</th><th class="right">Model said</th></tr>${bnds.map((r) => `<tr><td>${r[0].toFixed(2)}\u2013${r[1].toFixed(2)}</td><td class="right">${r[2]}</td><td class="right"><b>${pct(r[3])}</b></td><td class="right muted">${pct(r[4])}</td></tr>`).join('')}</table></div>`);
+view().innerHTML = parts.join('');
     wireBack();
     $$('[data-mkt-go]').forEach((b) => { b.onclick = () => { state.betsView = b.dataset.mktGo; PR.setTab('bets'); }; });
   };
@@ -846,14 +897,23 @@
       <td><div class="b">${esc(l.label || l.sel)}</div><div class="tiny muted">${flag(l.country)} ${esc(l.league || '')} · ${teamSpan(l.home, l.country, l.div)} v ${teamSpan(l.away, l.country, l.div)}</div></td>
       <td class="right nowrap">${f2(l.odds)}</td>
       <td class="right nowrap tiny">${pct(l.p_model)}<div class="${(l.edge_pp || 0) > 0 ? 'good' : 'muted'}">${l.edge_pp == null ? '' : `${l.edge_pp > 0 ? '+' : ''}${f1(l.edge_pp)} pp`}</div></td></tr>`;
-    const card = (b, i) => `<div class="card compact" style="margin-top:8px">
-      <div class="row"><div class="grow"><div class="b">Acca ${i + 1} · ${b.n_legs} legs <span class="chip ${b.status === 'won' ? 'good' : b.status === 'lost' ? 'bad' : ''}">${esc(b.status || 'pending')}</span></div>
-      <div class="tiny muted">price ${f2(b.odds)} · model ${dec1(b.p)} vs market ${dec1(b.p_market)}</div></div>
+    const card = (b, i, kind) => `<div class="card compact" style="margin-top:8px">
+      <div class="row"><div class="grow"><div class="b">${kind || 'Acca'} ${i + 1} · ${b.n_legs} legs <span class="chip ${b.status === 'won' ? 'good' : b.status === 'lost' ? 'bad' : ''}">${esc(b.status || 'pending')}</span></div>
+      <div class="tiny muted">price ${f2(b.odds)} · model ${dec1(b.p)} vs market ${dec1(b.p_market)}${b.p_cal ? ` · <b>calibrated ${dec1(b.p_cal)}</b>` : ''}</div></div>
       ${PR.slipFromAcca ? PR.slipFromAcca(b) : ''}</div>
       <table class="tbl head" style="margin-top:4px"><tr><th>Kick-off</th><th>Selection</th><th class="right">Price</th><th class="right">Model · edge</th></tr>${(b.legs || []).map(legRow).join('')}</table>
       <div class="tiny muted" style="margin-top:6px">If the model is right <b class="${(b.if_model_right || 0) > 0 ? 'good' : ''}">${signed1(b.if_model_right)}</b> · if the market is right <b class="${(b.if_no_edge || 0) < 0 ? 'bad' : ''}">${signed1(b.if_no_edge)}</b>. Both are honest: the second is what happens if the model has no edge over the price.</div></div>`;
     if ((a.bets || []).length) (a.bets || []).forEach((b, i) => parts.push(card(b, i)));
     else parts.push(`<div class="card empty">No acca is buildable right now.<br><span class="tiny muted">A build needs at least ${a.legs ? a.legs[0] : 2} legs that pass every gate: a match the pipeline trusts, a real Sportybet price, and a model probability that beats the de-vigged market by ${f1((a.edge_pp || [2, 12])[0])}\u2013${f1((a.edge_pp || [2, 12])[1])} pp. When the board is thin, the honest answer is no acca — not a worse one.</span></div>`);
+    // ---- safer doubles (2026-10-11): the second family, 2 legs at ~2.00, same gates, own record
+    const db = a.doubles || {};
+    if ((db.bets || []).length) {
+      const dst = (db.summary || {}).all;
+      parts.push(`<div class="section-head"><h2><span class="ico green">${icon('shield')}</span>Safer doubles · ~${f2(db.target || 2)} target</h2></div>`);
+      if (dst && dst.n) parts.push(`<div class="card compact"><div class="row"><div class="grow small"><b>The doubles record</b> · ${dst.n} settled · ${dst.won} won · expected ${dec1(dst.exp_rate)} · actual ${dec1(dst.rate)}</div><span class="chip ${dst.roi >= 0 ? 'good' : 'bad'}">ROI ${signed1(dst.roi)}</span></div></div>`);
+      (db.bets || []).forEach((b, i) => parts.push(card(b, i, 'Double')));
+      parts.push(`<div class="card tiny muted">Two legs only — less vig compounded, fewer things to go wrong than a triple, at about half the price. Same edge gate, same data checks, and it never shares a match with the 3.00 builds.</div>`);
+    }
     parts.push(`<div class="card tiny muted"><b>How these are built</b> — the three builds never share a match, so one shock cannot take all of them, and each uses the fewest legs that reach ~${f2(a.target || 3)} (2 legs cost about 15% in vig where 6 cost about 40% for the same payout). <b>Why not the strongest-looking legs on the board?</b> Because the biggest model numbers are the model's biggest errors — the board is full of friendlies and cup qualifiers where the model rates a team 60% and the market rates it 17%. Those are rejected by the edge gate, not sold as value. The gap between "model" and "market" on each card is the entire bet: this app does not yet have proof the model beats the close, and the record above will show it either way.</div>`);
     const rec = (a.recent || []).filter((r) => r.status !== 'pending');
     if (rec.length) {

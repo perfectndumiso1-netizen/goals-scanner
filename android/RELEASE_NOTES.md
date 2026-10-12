@@ -1,3 +1,10 @@
+## What's new — Calibrated probabilities, safer doubles, the honest record
+- 🎚️ **Calibrated probabilities are live where they earn it**: the app now learns from every settled pick whether the model runs hot, per market group, and only applies the correction where it provably beats the raw model on recent, unseen picks. Where live, picks and accas show an honest **calibrated %** next to the raw one; the gates are untouched.
+- 🛡️ **Safer doubles** — a second daily family: exactly **2 legs at ~2.00**, same edge gate and data checks as the 3.00 builds, never sharing a match with them, tracked and settled in its own record so you can compare 2-leg vs 3-leg honestly.
+- 📈 **The Performance page now shows the filter's report card**: shortlist track record (actual vs what the model said, flat ROI), the live calibration curve, per-market splits and predicted-vs-actual bands.
+- 🔬 **Phase-B evidence run**: the reconstructable research factors (rest, congestion, form gap) were tested against 3,288 settled picks — none shows a reliable signal yet, so research weights stay at 0 (lineups/weather can't be replayed retroactively). See `backtest/RESEARCH_RESULTS.md`.
+- ⏰ New-push notification when the shortlist publishes, alongside kick-off reminders and goals.
+
 ## What's new — Deep analysis, app-wide diet, Telegram picks
 - 📝 **Every shortlist pick now carries a data-written deep analysis** with visuals: both teams' last-five form chips, a model-v-market probability bar (model %, the market bar a selection must clear, the de-vigged market view), goals per match, venue splits, head-to-head record and a plain-language verdict. Every number comes from the model's own tracked data — nothing invented, missing data shows N/A.
 - 🥇 **The model diet now applies everywhere in the app**, not just the analysis: the Leagues browser, the 10-day fixtures list and search only show the diet's competitions. Japan, Australia, cups, women/youth/friendlies and every small league are gone from every screen.

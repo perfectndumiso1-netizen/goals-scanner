@@ -225,6 +225,14 @@ def shortlist_payload(sl: dict, ids_by_key: dict, fixture_id) -> dict:
     return out
 
 
+def safe_group(sel: str) -> str:
+    try:
+        import safe as _safe
+        return _safe.group(sel)
+    except Exception:  # noqa: BLE001
+        return (sel or "")[:2]
+
+
 def accas_payload(ctx: dict, ids_by_key: dict, tracked: set, badges: dict, fixture_id) -> dict:
     """The daily acca builds in publication shape: this run's three (with their fixture ids) plus the
     settled record. Kept out of export() so the shape can be tested without the whole pipeline."""
@@ -233,6 +241,20 @@ def accas_payload(ctx: dict, ids_by_key: dict, tracked: set, badges: dict, fixtu
                  "summary": ac.get("summary") or {}, "legs": [ac.get("legs_min"), ac.get("legs_max")],
                  "edge_pp": [_f(100 * (ac.get("edge_range") or (0, 0))[0]), _f(100 * (ac.get("edge_range") or (0, 0))[1])],
                  "vig": _f(ac.get("vig")), "ids": ac.get("ids") or []}
+    # calibration (2026-10-11): composite calibrated probability where a validated map exists
+    cal = ac.get("cal")
+    import sys as _sys
+    calib = _sys.modules.get("calibration")
+    def _p_cal(legs) -> float | None:
+        if calib is None or not cal:
+            return None
+        vals = [calib.apply_map(b.p, safe_group(b.sel), cal) for b in legs]
+        if any(v is None for v in vals):
+            return None
+        out = 1.0
+        for v in vals:
+            out *= v
+        return round(out, 4)
     for i, a in enumerate(ac.get("plans") or []):
         legs_out = []
         for b in a:
@@ -248,10 +270,36 @@ def accas_payload(ctx: dict, ids_by_key: dict, tracked: set, badges: dict, fixtu
         p_market = math.prod((b.p_sb if b.p_sb is not None else 1 / b.odds) for b in a)
         price = acca_odds_of(a)
         accas_out["bets"].append({"id": accas_out["ids"][i] if i < len(accas_out["ids"]) else None,
-                                  "odds": _f(price, 2), "p": _f(p_model), "p_market": _f(p_market),
+                                  "odds": _f(price, 2), "p": _f(p_model), "p_cal": _p_cal(a), "p_market": _f(p_market),
                                   "n_legs": len(a), "status": "pending", "legs": legs_out,
                                   "if_model_right": _f(p_model * price - 1, 3),
                                   "if_no_edge": _f(p_market * price - 1, 3)})
+    # ---- the safer-doubles family (2 legs, ~2.00), same shape, its own record
+    dt = _f(ac.get("doubles_target"))
+    if dt:
+        fam = {"target": dt, "bets": []}
+        for i, a in enumerate(ac.get("doubles_plans") or []):
+            legs_out = []
+            for b in a:
+                fid = ids_by_key.get(b.key) or fixture_id(*b.key)
+                tracked.add(fid)
+                legs_out.append({"fixture": fid, "home": b.home, "away": b.away, "country": b.key[1], "div": b.div,
+                                 "league": b.league, "kickoff": b.kickoff, "sel": b.sel, "label": b.label,
+                                 "p": _f(b.p), "p_model": _f(b.p_model), "p_sb": _f(b.p_sb),
+                                 "edge_pp": _f(100 * (b.p_model - b.p_sb)) if b.p_sb is not None else None,
+                                 "odds": _f(b.odds, 2), "fair": _f(1 / b.p, 2) if b.p else None,
+                                 "badges": {"home": badges.get(b.home), "away": badges.get(b.away)}})
+            p_model = math.prod(b.p for b in a)
+            p_market = math.prod((b.p_sb if b.p_sb is not None else 1 / b.odds) for b in a)
+            price = acca_odds_of(a)
+            fam["bets"].append({"id": (ac.get("doubles_ids") or [None] * (i + 1))[i],
+                                "odds": _f(price, 2), "p": _f(p_model), "p_cal": _p_cal(a), "p_market": _f(p_market),
+                                "n_legs": len(a), "status": "pending", "legs": legs_out,
+                                "if_model_right": _f(p_model * price - 1, 3),
+                                "if_no_edge": _f(p_market * price - 1, 3)})
+        fam["summary"] = ac.get("doubles_summary") or {}
+        fam["recent"] = ac.get("doubles_recent") or []
+        accas_out["doubles"] = fam
     return accas_out
 
 
@@ -478,7 +526,8 @@ def export(path: Path, *, ctx: dict, rows: list, all_rows: list | None = None, p
         "generated": now.strftime("%Y-%m-%d %H:%M"), "tz": tz_label, "run": ctx["run"], "report_run": bool(report_run),
         "window_start": (ctx.get("app_start") or ctx["start"]).strftime("%Y-%m-%d %H:%M"),
         "window_end": (ctx.get("app_end") or ctx["end"]).strftime("%Y-%m-%d %H:%M"),
-        "fixtures": len(rows), "notes": notes, "repo": repo,
+        "fixtures": len(rows), "notes": notes,
+        "counts_shortlist": ((ctx.get("shortlist") or {}).get("counts") or {}), "repo": repo,
         "report_md": f"reports/{now:%Y-%m-%d}.md", "csv": f"reports/{now:%Y-%m-%d}.csv",
         "thresholds": {m: t["p"] for m, t in thresholds.items()}, "backtest": backtest,
         "bench": bench, "bias": bias,

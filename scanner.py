@@ -52,6 +52,7 @@ import requests
 import markets
 import quality
 import research as research_mod
+import calibration as calib
 import news as news_mod
 import parlays as parlay_mod
 import sporty
@@ -92,6 +93,7 @@ SAFE_ACCAS_FILE = DATA_DIR / "safe_accas.csv"
 SHORTLIST_FILE = DATA_DIR / "shortlist.csv"   # high-conviction shortlist decisions (primary / watchlist / rejected), settled
 SB_CACHE = DATA_DIR / "sb_last.json"          # last verified Sportybet price sets — restored (stamped) when a fetch fails
 ACCAS_FILE = DATA_DIR / "accas.csv"          # the daily 3.00 builds: gated legs, tracked and settled
+ACCAS2_FILE = DATA_DIR / "accas_doubles.csv"  # the safer-doubles family (2 legs, ~2.00): own record, same gates
 PDF_DIR = REPORTS_DIR / "pdf"
 README_FILE = ROOT / "README.md"
 
@@ -2857,10 +2859,25 @@ def main() -> None:
     accas_book, acca_ids = acca_mod.add(accas_book, acca_plans, now, run_label, ctx["app_end"])
     if acca_ids:
         accas_book.to_csv(ACCAS_FILE, index=False)
+    # ---- safer doubles (2026-10-11 upgrade): a second family at ~2.00, two legs, same gates,
+    #      never sharing a match with the 3.00 builds, tracked in its own ledger
+    used3 = {b.key for a in acca_plans for b in a}
+    acca2_pool = [b for b in acca_pool if b.key not in used3]
+    acca2_plans = acca_mod.plan(acca2_pool, 2.00, acca_mod.N_ACCAS, min_legs=2, max_legs=2, tol=0.10)
+    acca2_book = acca_mod.load(ACCAS2_FILE)
+    if not acca2_book.empty and (acca2_book["status"] == "pending").any():
+        acca2_book = acca_mod.settle(acca2_book, results_s, now)
+        acca2_book.to_csv(ACCAS2_FILE, index=False)
+    acca2_book, acca2_ids = acca_mod.add(acca2_book, acca2_plans, now, run_label, ctx["app_end"], target=2.00)
+    if acca2_ids:
+        acca2_book.to_csv(ACCAS2_FILE, index=False)
     ctx["accas"] = {"target": acca_mod.TARGET, "pool": len(acca_pool), "plans": acca_plans, "ids": acca_ids,
                     "summary": acca_mod.summary(accas_book, now), "recent": acca_mod.recent(accas_book),
                     "legs_min": acca_mod.MIN_LEGS, "legs_max": acca_mod.MAX_LEGS,
-                    "edge_range": (acca_mod.MIN_EDGE, acca_mod.MAX_EDGE), "vig": acca_mod.VIG}
+                    "edge_range": (acca_mod.MIN_EDGE, acca_mod.MAX_EDGE), "vig": acca_mod.VIG,
+                    "doubles_plans": acca2_plans, "doubles_ids": acca2_ids,
+                    "doubles_summary": acca_mod.summary(acca2_book, now), "doubles_recent": acca_mod.recent(acca2_book),
+                    "doubles_target": 2.00}
     log.info("Accas: %d legs eligible, %d build(s) at %.2f, %d settled so far",
              len(acca_pool), len(acca_ids), acca_mod.TARGET, ctx["accas"]["summary"]["all"].get("n", 0))
 
@@ -2870,23 +2887,29 @@ def main() -> None:
         sl_book = shortlist_mod.load(SHORTLIST_FILE)
         if not sl_book.empty and (sl_book["result"] == "pending").any():
             sl_book = shortlist_mod.settle(sl_book, results_s, now)
+        # calibration (2026-10-11): learned + out-of-time validated from the settled ledger only;
+        # live ONLY where it beats the raw model on the holdout — otherwise the raw p is shown
+        cal_map = calib.build_map(sl_book, now)
+        log.info("Calibration: %s", cal_map.get("status"))
         # user rule (2026-10-10): the shortlist is for THAT day only — nothing from tomorrow on.
         # keep app_end's tzinfo: CI runs tz-aware (SAST); a naive end-of-day would break the comparison
         _app_end = ctx["app_end"]
         sl_end = min(_app_end, datetime.combine(now.date(), time(23, 59), tzinfo=getattr(_app_end, "tzinfo", None)))
-        sl_board = shortlist_mod.build(rows, now, sl_end)
+        sl_board = shortlist_mod.build(rows, now, sl_end, cal_map=cal_map)
         sl_book, sl_new = shortlist_mod.record(sl_book, sl_board, now)
         SHORTLIST_FILE.parent.mkdir(parents=True, exist_ok=True)
         sl_book.to_csv(SHORTLIST_FILE, index=False)
         sl_pub = shortlist_mod.public(sl_board)
         sl_pub["track"] = shortlist_mod.track_record(sl_book)
         ctx["shortlist"] = sl_pub
+        ctx["accas"]["cal"] = cal_map
         c = sl_board["counts"]
         log.info("Shortlist: analysed %d, screened %d, primary %d, watchlist %d, rejected %d (%d decision(s) logged)",
                  c["analysed"], c["screened"], c["primary"], c["watchlist"], c["rejected"], sl_new)
     except Exception as exc:  # noqa: BLE001 - the shortlist is an add-on; it must never break the pipeline
         log.warning("Shortlist skipped: %s", exc)
         ctx["shortlist"] = {}
+        ctx["accas"]["cal"] = None
 
     # ---- alerts for the app (new safest bets), kept in state
     alerts_file = DATA_DIR / "app" / "alerts.json"

@@ -54,6 +54,7 @@ from pathlib import Path
 import pandas as pd
 
 import safe as safe_mod
+import calibration as calib
 
 # ------------------------------------------------------------------ the rules (stated, applied consistently)
 MIN_ODDS = float(os.getenv("SHORTLIST_MIN_ODDS", "1.15"))     # band floor: odds below this are rejected
@@ -276,7 +277,7 @@ def build_article(analysed: list, prim: list, markets, now: datetime) -> dict | 
 
 
 def build(rows: list, now: datetime, window_end: datetime | None = None,
-          max_per_market: int = MAX_PER_MARKET) -> dict:
+          max_per_market: int = MAX_PER_MARKET, cal_map: dict | None = None) -> dict:
     """The day's shortlist from the analysed rows. Pure: reads rows, returns a JSON-safe dict."""
     start = now + timedelta(minutes=10)
     analysed = [r for r in rows if r.fx["kickoff"] >= start and (window_end is None or r.fx["kickoff"] <= window_end)]
@@ -336,6 +337,10 @@ def build(rows: list, now: datetime, window_end: datetime | None = None,
     watch_patterns = Counter(_pattern(x["reasons"][0]) for x in watch)
     markets = Counter(x["market"] for x in prim)
     article = build_article(analysed, prim, markets, now) if prim else None
+    # calibration (2026-10-11 upgrade): honest probability where a validated map exists —
+    # applied AFTER the gates; membership never depends on it
+    for x in prim + watch:
+        x["p_cal"] = calib.apply_map(x.get("p"), x.get("market"), cal_map)
     if prim:
         verdict = (f"{len(prim)} selection(s) across {len(by_market)} market group(s) qualified for further review "
                    f"(top {max_per_market} per market, odds {MIN_ODDS:.2f}\u2013{MAX_ODDS:.2f}, today only, Overs only). "
@@ -355,7 +360,7 @@ def build(rows: list, now: datetime, window_end: datetime | None = None,
                   "day": "today's matches only (nothing from tomorrow or later)",
                   "implied_method": "de-vigged = Sportybet price with the bookmaker margin removed proportionally "
                                     "across the market's outcomes; raw = 1 / decimal odds",
-                  "calibration": "N/A — no validated live calibration map; raw model probability shown"},
+                  "calibration": (cal_map or {"status": "N/A — no validated live calibration map yet; raw model probability shown"}),},
         "counts": {"analysed": len(analysed), "screened": len(screened),
                    "candidates": sum(len(m["all"]) for m in per_match),
                    "primary": len(prim), "watchlist": len(watch), "rejected": len(rejected)},
@@ -471,6 +476,25 @@ def track_record(df: pd.DataFrame) -> dict:
         roi = float(((odds[priced] * hit[priced]).sum() - priced.sum()) / priced.sum()) if priced.sum() else None
         out[st] = {"n": n, "hit_rate": round(float(hit.mean()), 3), "expected": round(float(p.mean()), 3),
                    "roi": None if roi is None else round(roi, 3), "priced": int(priced.sum())}
+    # performance-page extras (2026-10-11): per-market split + predicted-vs-actual bands (primary only)
+    d = df[(df["status"] == STATUS_PRIMARY) & df["result"].isin(["hit", "miss"])].copy()
+    if not d.empty:
+        d["pv"] = pd.to_numeric(d["p"], errors="coerce")
+        d["hit"] = (d["result"] == "hit").astype(float)
+        bym = []
+        for g, gd in d.groupby("market"):
+            bym.append([g, int(len(gd)), round(float(gd["hit"].mean()), 3),
+                        round(float(gd["pv"].mean()), 3) if gd["pv"].notna().any() else None])
+        out["by_market"] = sorted(bym, key=lambda r: -r[1])
+        bands, lo = [], 0.30
+        while lo < 1.0:
+            hi = round(lo + 0.10, 2)
+            bd = d[d["pv"].between(lo, hi - 1e-9)]
+            if len(bd):
+                bands.append([round(lo, 2), round(hi, 2), int(len(bd)), round(float(bd["hit"].mean()), 3),
+                              round(float(bd["pv"].mean()), 3)])
+            lo = hi
+        out["bands"] = bands
     return out
 
 

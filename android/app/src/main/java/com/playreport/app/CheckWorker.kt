@@ -39,6 +39,20 @@ class CheckWorker(ctx: Context, params: WorkerParameters) : Worker(ctx, params) 
             prefs.edit().putString("last_generated", generated).apply()
         }
 
+        // 1b. shortlist published — one push per generated stamp with the pick count (2026-10-11)
+        try {
+            val sl = meta.optJSONObject("counts_shortlist") ?: JSONObject()
+            val n = sl.optInt("primary", -1)
+            val lastSl = prefs.getString("last_shortlist_gen", null)
+            if (n > 0 && generated.isNotEmpty() && generated != lastSl) {
+                prefs.edit().putString("last_shortlist_gen", generated).apply()
+                if (lastSl != null && prefs.getBoolean("pref_reports", true)) {
+                    Notifier.notify(ctx, Notifier.CH_REPORTS, 1002, "🎯 Shortlist is live — $n pick(s)",
+                        "Strongest market per match, data-written analysis on every pick · tap to review", "shortlist")
+                }
+            }
+        } catch (_: Exception) { }
+
         // 2. new high-probability selections
         try { checkAlerts(ctx, meta) } catch (_: Exception) { }
 
