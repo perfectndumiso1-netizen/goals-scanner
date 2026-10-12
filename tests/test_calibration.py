@@ -81,4 +81,19 @@ def test_holdout_adapts_to_a_young_ledger():
     m = calib.build_map(pd.DataFrame(rows), now)
     g = m["groups"]["goals"]
     assert g["n_train"] > 0, g          # without the adaptive split this is 0
-    assert m["holdout_days"] <= 7 or m["holdout_days"] <= 21 // 1  # never inflated beyond the cap
+    span = (pd.to_datetime(max(r["day"] for r in rows)) - pd.to_datetime(min(r["day"] for r in rows))).days
+    assert m["holdout_days"] == min(21, max(1, span // 3))   # exactly the documented adaptive rule
+
+
+def test_four_day_ledger_still_validates():
+    """The real situation (ledger born 2026-10-09, checked 2026-10-12): 3 days train, 1 day holdout."""
+    now = datetime(2026, 10, 12, 12, 0)
+    rows = []
+    for i, day in enumerate(["2026-10-09", "2026-10-10", "2026-10-11", "2026-10-12"]):
+        for j in range(120):
+            rows.append({"day": day, "market": "goals", "p": 0.80,
+                         "result": "hit" if (j + i) % 10 < 7 else "miss"})
+    m = calib.build_map(pd.DataFrame(rows), now)
+    g = m["groups"]["goals"]
+    assert g["n_train"] >= 60 and g["n_holdout"] >= 30, g
+    assert g["status"] == "live" and g["brier_cal"] < g["brier_raw"]
