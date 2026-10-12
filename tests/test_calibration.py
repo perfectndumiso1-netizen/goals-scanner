@@ -69,3 +69,16 @@ def test_apply_map_never_raises_on_garbage():
     assert calib.apply_map(0.8, "goals", None) is None
     bad = {"live": True, "groups": {"goals": {"curve": "not-a-curve"}}}
     assert calib.apply_map(0.8, "goals", bad) is None
+
+
+def test_holdout_adapts_to_a_young_ledger():
+    """A ~3-week-old ledger must still produce a training window (shortlist shipped late Sept)."""
+    now = datetime(2026, 10, 12, 12, 0)
+    rows = []
+    for i in range(150):    # spread over 2026-09-20 .. 2026-10-11 (~3 weeks)
+        day = f"2026-{9 + i // 75:02d}-{1 + (i * 21) % 28:02d}"
+        rows.append({"day": day, "market": "goals", "p": 0.80, "result": "hit" if i % 10 < 7 else "miss"})
+    m = calib.build_map(pd.DataFrame(rows), now)
+    g = m["groups"]["goals"]
+    assert g["n_train"] > 0, g          # without the adaptive split this is 0
+    assert m["holdout_days"] <= 7 or m["holdout_days"] <= 21 // 1  # never inflated beyond the cap

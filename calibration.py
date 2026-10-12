@@ -80,6 +80,11 @@ def build_map(df: pd.DataFrame, today: datetime, groups: tuple[str, ...] = ("res
         d = d[d["pv"].between(0.01, 0.99)]
         d["out"] = (d["result"] == "hit").astype(float)
         d["dayv"] = d["day"].astype(str)
+        # the holdout adapts to the ledger's actual history: a young ledger (weeks old) cannot
+        # afford a 21-day holdout — take at most a third of the span, never fewer than 7 days
+        span = (pd.to_datetime(d["dayv"]).max() - pd.to_datetime(d["dayv"]).min()).days
+        holdout_days = min(holdout_days, max(7, span // 3))
+        out["holdout_days"] = holdout_days
         cut = (today - timedelta(days=holdout_days)).strftime("%Y-%m-%d")
         for g in groups:
             gd = d[d["market"] == g]
