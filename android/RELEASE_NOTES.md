@@ -1,4 +1,5 @@
 ## What's new — Sportybet names no longer mix matches + shortlist briefing video
+- 📬 **Briefing videos go to Telegram, then the file is deleted** — never kept on GitHub or Drive after a successful send.
 - 🐛 **Fixed: many match pages showed another club's name** (Kaizer Chiefs on Bristol City, and the same shift across the list). Cause: Sportybet events were attached by list position, so a skipped fixture slid every later price onto the wrong match. The matcher now looks up by club identity, refuses a name that is not the same club, and never reuses one event on two fixtures. The app also ignores a long name / Sportybet link that does not belong to the match you opened — so today's already-published file stops lying the moment you update.
 - 🎬 **Shortlist briefing video** on the Shortlist tab: watch today's picks as a video with a male voiceover (kick-off times in SAST) and download it to your phone. A shortlist for your review — never an instruction to bet.
 

@@ -2324,6 +2324,41 @@ def send_telegram_document(path: Path, caption: str) -> bool:
         return False
 
 
+def send_telegram_video(path: Path, caption: str, *, delete_after: bool = True) -> bool:
+    """Send a shortlist briefing video to Telegram, then delete the local file.
+
+    Videos are never written to git, Drive, or the data branch. After a successful
+    send the file is unlinked (user rule 2026-10-13). A failed send keeps the file
+    so it can be retried.
+    """
+    token, chat = os.getenv("TELEGRAM_BOT_TOKEN"), os.getenv("TELEGRAM_CHAT_ID")
+    path = Path(path) if path else None
+    if not token or not chat or path is None or not path.exists():
+        return False
+    ok = False
+    try:
+        with path.open("rb") as fh:
+            r = SESSION.post(
+                f"https://api.telegram.org/bot{token}/sendVideo",
+                data={"chat_id": chat, "caption": (caption or "")[:1024], "supports_streaming": "true"},
+                files={"video": (path.name, fh, "video/mp4")},
+                timeout=120,
+            )
+        if r.status_code != 200:
+            log.warning("Telegram video error %s: %s", r.status_code, r.text[:200])
+        else:
+            log.info("Telegram: video sent (%s, %d KB)", path.name, path.stat().st_size // 1024)
+            ok = True
+    except (requests.RequestException, OSError) as exc:
+        log.warning("Telegram video failed: %s", exc)
+    if delete_after and ok:
+        try:
+            path.unlink()
+        except OSError as exc:
+            log.warning("Could not delete briefing after send: %s", exc)
+    return ok
+
+
 def telegram_shortlist(sl_pub: dict, now: datetime) -> None:
     """Push the day's shortlist picks to Telegram — the strongest market per match only (user rule).
     Each pick is sent once per day (deduped via a state file in the published state)."""
@@ -3096,6 +3131,12 @@ def main() -> None:
     report_url = f"{server}/{repo}/blob/data/reports/{today_str}.md" if repo else None
     if report_run:
         send_telegram(telegram_text(ctx, rows, picks, report_url))
+        briefing = os.getenv("PLAYREPORT_BRIEFING_VIDEO")
+        if briefing:
+            send_telegram_video(
+                Path(briefing),
+                f"🎬 PlayReport shortlist briefing — {now:%a %d %b}. A shortlist for your review, not an instruction to bet. 18+.",
+            )
         if pdf_report:
             send_telegram_document(pdf_report, f"📄 PlayReport — {now:%a %d %b}, {run_desc(run_label, True)} ({len(rows)} fixtures)")
         csv_path = REPORTS_DIR / f"{today_str}.csv"

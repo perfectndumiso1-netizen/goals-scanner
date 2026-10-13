@@ -74,6 +74,32 @@ def test_telegram_shortlist_sends_each_pick_once_per_day(monkeypatch, tmp_path):
     assert state["day"] == "2026-10-11" and len(state["sent"]) == 1
 
 
+def test_send_telegram_video_deletes_after_success(monkeypatch, tmp_path):
+    f = tmp_path / "brief.mp4"
+    f.write_bytes(b"fake-mp4")
+    monkeypatch.setenv("TELEGRAM_BOT_TOKEN", "test-token")
+    monkeypatch.setenv("TELEGRAM_CHAT_ID", "test-chat")
+    class R:
+        status_code = 200
+        text = "ok"
+    monkeypatch.setattr(scanner.SESSION, "post", lambda *a, **k: R())
+    assert scanner.send_telegram_video(f, "caption") is True
+    assert not f.exists()
+
+
+def test_send_telegram_video_keeps_file_when_send_fails(monkeypatch, tmp_path):
+    f = tmp_path / "brief.mp4"
+    f.write_bytes(b"fake-mp4")
+    monkeypatch.setenv("TELEGRAM_BOT_TOKEN", "test-token")
+    monkeypatch.setenv("TELEGRAM_CHAT_ID", "test-chat")
+    class R:
+        status_code = 500
+        text = "no"
+    monkeypatch.setattr(scanner.SESSION, "post", lambda *a, **k: R())
+    assert scanner.send_telegram_video(f, "caption") is False
+    assert f.exists()
+
+
 def test_telegram_shortlist_silent_without_config(monkeypatch, tmp_path):
     monkeypatch.delenv("TELEGRAM_BOT_TOKEN", raising=False)
     monkeypatch.delenv("TELEGRAM_CHAT_ID", raising=False)
