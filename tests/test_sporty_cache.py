@@ -73,3 +73,18 @@ def test_shortlist_watchlists_carried_prices_with_the_stamp():
            mod_a=1.2, home=NS(n=20), away=NS(n=20), sb_asof="2026-10-10 05:54")
     rec = sl.evaluate(r, Sel("O25", 0.74, 0.68, 1.45))
     assert rec["status"] == "watchlist" and "carried forward from 2026-10-10 05:54" in rec["reasons"][0]
+
+
+def test_bridge_rebuilds_corner_and_card_lines_into_sb():
+    # 2026-10-13: the list feed now carries total corners (166) and bookings (139), so the outage bridge
+    # must rebuild them into sb from the CO/KO selection codes — team codes (CH/CA/KH/KA) stay out of sb.
+    sels = [["H", 0.4, 0.4, None, 2.1, 0, None, None],
+            ["CO95", 0.49, 0.5, None, 1.83, 0, None, None],
+            ["CU95", 0.51, 0.5, None, 1.95, 0, None, None],
+            ["KO35", 0.6, 0.6, None, 1.53, 0, None, None],
+            ["CHO35", 0.66, 0.6, None, 2.10, 0, None, None]]
+    out = sporty._sb_from_sels(sels)
+    sb = out["sb"]
+    assert sb["CORN"] == {9.5: (1.83, 1.95)}
+    assert sb["CARDS"] == {3.5: (1.53, None)}
+    assert "CORNH" not in sb and "CARDSH" not in sb     # team lines are full-list territory

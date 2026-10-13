@@ -100,6 +100,9 @@
       }).catch((e) => { state.details[key] = { error: e.message }; PR.render(); }).finally(() => { delete state.details[key + '_loading']; });
     }
     if (x && x.error) x = null;
+    // final identity net (wrong-stats bug): the analysis must name the very match that was tapped —
+    // when the index row is known, its teams must match; a mismatched file is dropped, never rendered
+    { const fchk = fx(page.id); if (x && fchk && (String(x.home || '') !== String(fchk.home) || String(x.away || '') !== String(fchk.away))) { state.details[key] = null; x = null; } }
     const drec = PR.dayRecord(page.id);
     const archived = !x && !f0 && drec && (state.details[key] && state.details[key].error || !key);
     if (archived) { archiveMatchPage(drec); return; }
@@ -109,7 +112,7 @@
       const idp = String(page.id || '').split('|');
       const dt = idp[0];
       const day = /^\d{4}-\d{2}-\d{2}$/.test(dt) ? state.days[dt] : null;
-      const rec = day && day.fixtures ? day.fixtures.find((r2) => r2.id === page.id || (idp.length > 3 && r2.home === idp[2] && r2.away === idp.slice(3).join('|'))) : null;
+      const rec = day && day.fixtures ? day.fixtures.find((r2) => r2.id === page.id || (idp.length > 3 && r2.home === idp[2] && r2.away === idp.slice(3).join('|') && r2.country === idp[1])) : null;
       if (rec) { archiveMatchPage(rec); wireBack(); return; }
       if (/^\d{4}-\d{2}-\d{2}$/.test(dt) && !state.days[dt] && !state.days[dt + '_loading'] && !state.days[dt + '_failed']) {
         state.days[dt + '_loading'] = true;
@@ -271,7 +274,9 @@
     if (bets.length) parts.push(`<div class="card compact"><div class="b">Bets on this match</div><div class="chips" style="margin-top:6px">${bets.map((b) => { const vd = liveVerdict(b.sel, s); return `<span class="chip ${vd.cls}">${esc(b.kind)}: ${esc(b.label)}${b.odds ? ' @ ' + f2(b.odds) : ''} · ${esc(vd.text)}</span>`; }).join('')}</div></div>`);
     const best = f.sels.filter((x) => x.odds).slice(0, 5);
     if (best.length) parts.push(`<div class="card compact"><div class="row"><div class="grow b">${icon('target', 'sm')} Highest model probabilities (priced)</div><span class="tiny muted">+ adds to your slip</span></div><table class="tbl">${best.map((x) => `<tr><td><div class="b">${esc(selLabel(x.sel, f.home, f.away))}</div><div class="tiny muted">${esc(GROUPS[selGroup(x.sel)])} · market implied ${pct(x.p_sb)}${x.diff_pp != null ? ` · ${x.diff_pp >= 0 ? '+' : ''}${f1(x.diff_pp)} pp` : ''}</div></td><td class="right"><b>${f2(x.odds)}</b></td><td class="right"><div class="row" style="gap:0;justify-content:flex-end">${pill(x.p, 0.8, 0.7)}${PR.addBtn ? PR.addBtn(f.id, x.sel, x.odds) : ''}</div></td></tr>`).join('')}</table></div>`);
-    const tr = f.trends || {}; const topTrends = [].concat((tr.match || []).filter((t) => t.kind !== 'info'), (tr.home && tr.home.all || []).slice(0, 2), (tr.away && tr.away.all || []).slice(0, 2), (tr.h2h || []).slice(0, 1)).slice(0, 5);
+    // non-Trends surfaces show only the 3 strongest trends (user rule 2026-10-13) — the Trends tab keeps everything
+    const tr = f.trends || {}; const topTrends = [].concat((tr.match || []).filter((t) => t.kind !== 'info'), (tr.home && tr.home.all) || [], (tr.away && tr.away.all) || [], tr.h2h || [])
+      .sort((a, b) => (b.s || 0) - (a.s || 0)).slice(0, 3);
     if (topTrends.length) parts.push(`<div class="card compact tap" id="go-trends"><div class="row"><div class="grow b">${icon('trend', 'sm')} Trends</div><span class="tiny muted">all ${icon('next', 'sm')}</span></div><div class="trends">${topTrends.map(trendLine).join('')}</div></div>`);
     const sb = f.sportybet || {};
     if (Object.keys(sb).length) {

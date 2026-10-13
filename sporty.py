@@ -22,7 +22,9 @@ CC = os.getenv("SPORTY_CC", "za")            # country site: za, ng, gh, ke, ug,
 BASE = f"https://www.sportybet.com/api/{CC}/factsCenter"
 UA = ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) "
       "Chrome/124.0 Safari/537.36")
-LIST_MARKETS = "1,10,18,29,19,20"            # 1X2, double chance, totals, BTTS, home/away team totals
+LIST_MARKETS = "1,10,18,29,19,20,166,139"    # 1X2, DC, totals, BTTS, team totals + TOTAL CORNERS (166) and BOOKINGS (139):
+                                             # probed 2026-10-13 — the list endpoint carries both, so every priced
+                                             # fixture gets corner & card lines with no extra per-event requests
 TIMEOUT = 20
 MAX_PAGES = 40
 
@@ -421,6 +423,19 @@ def _sb_from_sels(sels: list) -> "dict | None":
                 tg[line] = (ov, un)
         if tg:
             sb[key] = tg
+    # total corners / bookings (list-level lines; team lines stay in the per-event full list below)
+    for pfx, key in (("C", "CORN"), ("K", "CARDS")):
+        cc: dict = {}
+        for code, odd in o.items():
+            if len(code) >= 4 and code[0] == pfx and code[1] in "OU":
+                try:
+                    line = int(code[2:]) / 10
+                except ValueError:
+                    continue
+                cell = cc.setdefault(line, [None, None])
+                cell[0 if code[1] == "O" else 1] = odd
+        if cc:
+            sb[key] = {k: tuple(v) for k, v in cc.items()}
     full: dict = {}
     for prefix, key in (("C", "CORN"), ("K", "CARDS")):
         cc: dict = {}

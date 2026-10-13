@@ -206,6 +206,8 @@ window.PR = (function () {
     if (sel === 'BTTS') return 'Both teams to score'; if (sel === 'NBTTS') return 'Not both teams to score';
     if (/^[OU]\d+$/.test(sel)) return `${sel[0] === 'O' ? 'Over' : 'Under'} ${line(sel).toFixed(1)} goals`;
     if (/^[HA][OU]\d+$/.test(sel)) return `${sel[0] === 'H' ? home : away} ${sel[1] === 'O' ? 'over' : 'under'} ${line(sel).toFixed(1)} goals`;
+    if (/^C[HA][OU]\d+$/.test(sel)) return `${sel[1] === 'H' ? home : away} ${sel[2] === 'O' ? 'over' : 'under'} ${line(sel).toFixed(1)} corners`;
+    if (/^K[HA][OU]\d+$/.test(sel)) return `${sel[1] === 'H' ? home : away} ${sel[2] === 'O' ? 'over' : 'under'} ${line(sel).toFixed(1)} cards`;
     if (sel[0] === 'C') return `${sel[1] === 'O' ? 'Over' : 'Under'} ${line(sel).toFixed(1)} corners`;
     if (sel[0] === 'K') return `${sel[1] === 'O' ? 'Over' : 'Under'} ${line(sel).toFixed(1)} cards`;
     return sel;
@@ -263,7 +265,10 @@ window.PR = (function () {
   const CACHE_MAX = 400;      // entries …
   const CACHE_KB = 600;       // … and the whole cache stays under this (JSON characters) — WebView localStorage is small
   const cache = {
-    key: (k) => 'pr_c:' + k,
+    // v1.6.61: namespace bumped pr_c -> pr_d and legacy pr_c:* entries are swept on boot — a cache entry
+    // written by an older build must never survive an app update (wrong-match data could persist for
+    // users who hit the pre-1.6.57 bug even after updating)
+    key: (k) => 'pr_d:' + k,
     get(k) { try { const v = localStorage.getItem(this.key(k)); return v ? JSON.parse(v) : null; } catch (e) { return null; } },
     put(k, data, stamp) {
       const body = JSON.stringify({ t: Date.now(), s: stamp || '', d: data });
@@ -303,6 +308,10 @@ window.PR = (function () {
     size() { let n = 0, b = 0; for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); if (k && k.startsWith('pr_c:')) { n++; b += (localStorage.getItem(k) || '').length; } } return { n, kb: Math.round(b / 1024) }; },
     clear() { const keys = []; for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); if (k && k.startsWith('pr_c:')) keys.push(k); } keys.forEach((k) => localStorage.removeItem(k)); },
   };
+  try {   // one-time sweep of the pre-1.6.61 cache namespace (see key() above)
+    const stale = []; for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); if (k && k.startsWith('pr_c:')) stale.push(k); }
+    stale.forEach((k) => localStorage.removeItem(k));
+  } catch (e) { /* storage unavailable */ }
   const pubStamp = () => (state.data && state.data.meta ? state.data.meta.generated.replace(/\D/g, '') : '');
   /** sha1 hex — lets the app derive a fixture's detail-file key (data/app/fx/<key>.json) even when the
       fixture is not in the 24-hour index (server key = sha1(fixture_id)[:12]). */
@@ -351,8 +360,14 @@ window.PR = (function () {
     const c = cache.get('fx/' + k);
     if (c && c.d) {
       const j = prepDetail(c.d);
-      // a cached file that belongs to another match must never be shown (wrong-stats bug) — go to the network
-      if (j && j.id && id && String(j.id) !== String(id)) return fetchDetail(k, stamp);
+      // a cached file that belongs to another match must never be shown (wrong-stats bug). The file must
+      // PROVE its identity: matching id (an entry without one is legacy poison — refetch) and, when the
+      // 24-hour index row is known, the very same teams.
+      const fchk = fx(id);
+      if (!j || !j.id || !id || String(j.id) !== String(id)
+          || (fchk && (String(j.home || '') !== String(fchk.home) || String(j.away || '') !== String(fchk.away)))) {
+        return fetchDetail(k, stamp);
+      }
       const f = fx(id); state.details[k] = j;
       // a match that is still in the current publication may have a fresher analysis: refresh quietly
       if (f && !f.frozen && c.s !== stamp) fetchDetail(k, stamp).then(() => render()).catch(() => { /* keep cache */ });
@@ -573,9 +588,14 @@ window.PR = (function () {
     if (id && String(id).includes('|') && !String(id).startsWith('live:')) return go();
     const date = ymd(tzNow());
     const teams = (state.liveTeams || {})[id];
+    const idp = String(id || '').split('|');
     loadDay(date).then(() => {
       const day = state.days[date];
-      const rec = day && day.fixtures ? day.fixtures.find((x) => x.id === id || (teams && x.home === teams[0] && x.away === teams[1])) : null;
+      // exact id first; the name fallback must also match the country (two countries can field the same
+      // club names on the same day) — a looser match once opened the wrong match
+      const rec = day && day.fixtures ? day.fixtures.find((x) => x.id === id
+        || (teams && teams.length > 2 ? x.home === teams[0] && x.away === teams[1] && x.country === teams[2] : false)
+        || (idp.length > 3 && x.home === idp[2] && x.away === idp.slice(3).join('|') && x.country === idp[1])) : null;
       if (rec) { state.matchView = 'overview'; push({ type: 'match', id: rec.id, d: null }); }
       else toast('Stats for this match are not available yet.');
     }).catch(() => toast('Stats for this match are not available yet.'));

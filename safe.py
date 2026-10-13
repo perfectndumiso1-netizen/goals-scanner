@@ -58,8 +58,8 @@ BOTD_GROUPS = [
     ("o25", "Over 2.5 goals", lambda sel: sel in ("O25", "O35"), 0.70, 7),
     ("btts", "Both teams to score", lambda sel: sel == "BTTS", 0.70, 7),
     ("result", "1X2", lambda sel: sel in ("H", "A"), 0.70, 5),   # five 1X2 picks a day (user request)
-    ("corners", "Corners", lambda sel: sel.startswith("CO"), 0.65, 7),
-    ("cards", "Bookings", lambda sel: sel.startswith("KO"), 0.65, 7),
+    ("corners", "Corners", lambda sel: sel.startswith(("CO", "CH", "CA")), 0.65, 7),
+    ("cards", "Bookings", lambda sel: sel.startswith(("KO", "KH", "KA")), 0.65, 7),
 ]
 SIGNAL_SECTIONS = ("result", "btts", "o25")
 BOTD_PER_GROUP = 3
@@ -87,6 +87,12 @@ def label(sel: str, home: str = "Home", away: str = "Away") -> str:
     if sel[0] in "HA" and sel[1] in "OU":
         team = home if sel[0] == "H" else away
         return f"{team} {'over' if sel[1] == 'O' else 'under'} {_line(sel):.1f} goals"
+    if sel[:2] in ("CH", "CA"):
+        team = home if sel[1] == "H" else away
+        return f"{team} {'over' if sel[2] == 'O' else 'under'} {_line(sel):.1f} corners"
+    if sel[:2] in ("KH", "KA"):
+        team = home if sel[1] == "H" else away
+        return f"{team} {'over' if sel[2] == 'O' else 'under'} {_line(sel):.1f} cards"
     if sel[0] == "C":
         return f"{'Over' if sel[1] == 'O' else 'Under'} {_line(sel):.1f} corners"
     if sel[0] == "K":
@@ -251,7 +257,9 @@ def selections(r) -> list[Sel]:
                                ("K", (r.extra.card_p or {}).get("total"), "CARDS")):
         if not probs:
             continue
-        lines = full.get(key) or {}
+        # user rule 2026-10-13: corners & bookings belong to the odds feature — the list feed now carries
+        # the total lines for every priced fixture, the per-event full list adds deeper/team lines
+        lines = full.get(key) or sb.get(key) or {}
         for line, po in probs.items():
             if not _valid(po):
                 continue
@@ -260,6 +268,22 @@ def selections(r) -> list[Sel]:
             code = f"{int(float(line) * 10):03d}" if float(line) >= 10 else f"{int(float(line) * 10):02d}"
             add(f"{prefix}O{code}", po, p_sb_over, over)
             add(f"{prefix}U{code}", 1 - po, (1 - p_sb_over) if p_sb_over is not None else None, under)
+    # team corners / cards (home/away over-under; prices come with the per-event full list)
+    cp, kp = r.extra.corner_p or {}, r.extra.card_p or {}
+    for prefix, pmap, lkh, lka in (("C", cp, "CORNH", "CORNA"), ("K", kp, "CARDSH", "CARDSA")):
+        if not pmap:
+            continue
+        for side, pk, lk in (("H", "home", lkh), ("A", "away", lka)):
+            tprobs = pmap.get(pk) or {}
+            tlines = full.get(lk) or {}
+            for line, po in tprobs.items():
+                if not _valid(po):
+                    continue
+                over, under = tlines.get(float(line)) or (None, None)
+                p_sb_over = _two_way(over, under)
+                tcode = f"{int(float(line) * 10):03d}" if float(line) >= 10 else f"{int(float(line) * 10):02d}"
+                add(f"{prefix}{side}O{tcode}", po, p_sb_over, over)
+                add(f"{prefix}{side}U{tcode}", 1 - po, (1 - p_sb_over) if p_sb_over is not None else None, under)
     return out
 
 

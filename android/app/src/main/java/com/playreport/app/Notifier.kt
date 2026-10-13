@@ -16,21 +16,22 @@ import androidx.core.content.ContextCompat
 
 /** Notification channels: new analysis, goals in tracked matches, app updates. */
 object Notifier {
-    // v1.6: every channel has PlayReport's own sound (res/raw/pr_*.ogg). Android fixes a channel's sound when the
+    // Every channel has PlayReport's own sound (res/raw/pr_*.wav). Android fixes a channel's sound when the
     // channel is first created, so the ids carry a version suffix and the old channels are deleted.
-    // v3: the ids carry a version suffix so the new sounds (crowd goal, tennis ping, ticket fanfare) take over.
-    const val CH_REPORTS = "reports_v3"
-    const val CH_GOALS = "goals_v3"
+    // v4 (2026-10-13): the whole family was re-synthesised — softer, warmer chimes that match what each
+    // notification means (goal = rising arpeggio, pick = warm marimba, full-time = calm resolve, ...).
+    const val CH_REPORTS = "reports_v4"
+    const val CH_GOALS = "goals_v4"
     // v2: the update channel becomes HIGH importance with PlayReport's sound — a new release must
     // announce itself like goals do (the old silent, low-priority channel is deleted).
     const val CH_UPDATES = "updates_v2"
-    const val CH_BETS = "bets_v3"
-    const val CH_MATCH = "match_v3"
-    const val CH_KICKOFF = "kickoff_v3"
-    const val CH_TENNIS = "tennis_v3"
-    const val CH_TICKETS = "tickets_v3"
+    const val CH_BETS = "bets_v4"
+    const val CH_MATCH = "match_v4"
+    const val CH_KICKOFF = "kickoff_v4"
+    const val CH_TENNIS = "tennis_v4"
+    const val CH_TICKETS = "tickets_v4"
     const val PREFS = "playreport"
-    private val OLD_CHANNELS = listOf("reports", "goals", "bets", "match", "updates", "reports_v2", "goals_v2", "bets_v2", "match_v2", "kickoff_v2")
+    private val OLD_CHANNELS = listOf("reports", "goals", "bets", "match", "updates", "kickoff", "tennis", "tickets", "reports_v2", "goals_v2", "bets_v2", "match_v2", "kickoff_v2", "reports_v3", "goals_v3", "bets_v3", "match_v3", "kickoff_v3", "tennis_v3", "tickets_v3")
 
     private fun sound(ctx: Context, name: String): Uri =
         Uri.parse("android.resource://${ctx.packageName}/raw/$name")

@@ -62,3 +62,46 @@ def test_safest_drops_over05_and_under55(monkeypatch):
     assert "O05" not in codes
     assert "U55" not in codes
     assert "O15" in codes  # the valuable market still represents the match
+
+
+# ---- corners & bookings join the odds feature (user rule 2026-10-13) -------------------------
+
+def _count_row():
+    r = _row()
+    r.sb = {"OU": {1.5: (1.55, 2.6)}, "CORN": {8.5: (1.90, 1.95), 9.5: (2.10, 1.75)},
+            "CARDS": {3.5: (1.53, 2.45)}}
+    r.extra.corner_p = {"total": {8.5: 0.58, 9.5: 0.49}, "home": {3.5: 0.66, 4.5: 0.44}, "away": {3.5: 0.40}}
+    r.extra.card_p = {"total": {3.5: 0.60}, "home": {1.5: 0.55}, "away": {1.5: 0.48}}
+    r.sb_full = {}
+    return r
+
+
+def _sels(r):
+    return {s.sel: s for s in safe.selections(r)}
+
+
+def test_total_corner_and_card_prices_come_from_the_list_feed(tmp_path=None):
+    s = _sels(_count_row())
+    assert "CO85" in s and s["CO85"].odds == 1.90      # priced although sb_full is EMPTY (list-level lines)
+    assert "CU85" in s and s["CU85"].odds == 1.95
+    assert "KO35" in s and s["KO35"].odds == 1.53
+
+
+def test_team_corner_and_card_selections_with_prices():
+    r = _count_row()
+    r.sb_full = {"CORNH": {3.5: (2.10, 1.70)}, "CARDSA": {1.5: (2.40, 1.55)}}
+    s = _sels(r)
+    assert "CHO35" in s and s["CHO35"].odds == 2.10    # home corners over 3.5
+    assert "CHU35" in s and s["CHU35"].odds == 1.70
+    assert "KAO15" in s and s["KAO15"].odds == 2.40    # away cards over 1.5
+    assert safe.label("CHO35", "Alpha", "Beta") == "Alpha over 3.5 corners"
+    assert safe.label("CAU45", "Alpha", "Beta") == "Beta under 4.5 corners"
+    assert safe.label("KHO15", "Alpha", "Beta") == "Alpha over 1.5 cards"
+    assert safe.group("CHO35") == "corners" and safe.group("KAO15") == "cards"
+
+
+def test_unpriced_team_lines_still_listed_model_only():
+    r = _count_row()
+    s = _sels(r)
+    assert "CHO35" in s and s["CHO35"].odds is None     # no full list -> model probability still shown
+    assert "CAO35" in s and s["CAO35"].odds is None
