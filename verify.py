@@ -216,7 +216,7 @@ def check_publication(staging: Path, live: Path, ledger: Path, now: datetime, ex
             continue
         if n < 2 or n > 3:
             errors.append(f"acca {b.get('id')} has {n} legs (the plan is 2-3: fewer legs is the cheapest way to the price)")
-        if not _num(b.get("odds")) or abs(float(b["odds"]) - float(ac.get("target") or 3)) > 0.06:
+        if not _num(b.get("odds")) or abs(float(b["odds"]) - float(ac.get("target") or 3)) > 0.06 + 1e-9:   # +1e-9 float headroom (2026-10-13)
             errors.append(f"acca {b.get('id')} priced {b.get('odds')} against a {ac.get('target')} target")
         if not _num(b.get("p")) or not _num(b.get("p_market")):
             errors.append(f"acca {b.get('id')} is missing its model or market probability")
@@ -248,7 +248,7 @@ def check_publication(staging: Path, live: Path, ledger: Path, now: datetime, ex
             n = b.get("n_legs") or len(legs)
             if n != 2:
                 errors.append(f"doubles {b.get('id')} has {n} legs (the family is exactly two legs at ~{t2:.2f})")
-            if not _num(b.get("odds")) or abs(float(b["odds"]) - t2) > 0.10:
+            if not _num(b.get("odds")) or abs(float(b["odds"]) - t2) > 0.10 + 1e-9:   # +1e-9: exactly 1.90/2.10 is IN the band (float epsilon, 2026-10-13)
                 errors.append(f"doubles {b.get('id')} priced {b.get('odds')} against a {t2:.2f} target")
             matches = set()
             for leg in legs:

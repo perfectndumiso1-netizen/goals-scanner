@@ -20,10 +20,10 @@ ALLOWED = [
     ("USA", "MLS"), ("USA", "Major League Soccer"), ("Mexico", "Liga MX: Apertura"),
     ("South Africa", "Premiership"), ("Nigeria", "NPFL"),
     ("Egypt", "Premier League"), ("Morocco", "Botola Pro"),
-    # UEFA club competitions are IN (user reversal 2026-10-12): Champions / Europa / Conference League
-    ("UEFA", "Champions League"), ("UEFA", "UEFA Champions League"),
-    ("Europe", "Europa League"), ("UEFA", "UEFA Europa League"),
-    ("UEFA", "Conference League"), ("Europe", "UEFA Europa Conference League"),
+    # UEFA club competitions are IN (user reversal 2026-10-12). Real Livescore shape: the competition
+    # IS the country (Ccd "champions-league"), the league (Scd) is "League Stage" / knockout names.
+    ("Champions League", "League Stage"), ("Europa League", "League Stage"), ("Conference League", "League Stage"),
+    ("UEFA", "Champions League"), ("Europe", "UEFA Europa League"),   # secondary shapes stay covered
 ]
 
 BLOCKED = [
@@ -36,8 +36,8 @@ BLOCKED = [
     ("England", "FA Cup"), ("Italy", "Coppa Italia"), ("Germany", "DFB Pokal"),
     ("France", "Coupe de France"), ("Spain", "Copa del Rey"), ("England", "Carabao Cup"),
     # UEFA club competitions themselves are allowed now — but their qualifiers / play-off rounds stay out
-    ("UEFA", "Champions League Qualification"), ("Europe", "Europa League Qualification"),
-    ("UEFA", "UEFA Champions League, Play-off round"), ("Europe", "Conference League Play-offs"),
+    ("Champions League", "Qualification"), ("Champions League", "2nd Qualifying Round"),
+    ("Europa League", "Play-offs"), ("Conference League", "Qualification Play-offs"),
     ("South America", "Copa Libertadores"), ("Europe", "Nations League"),
     ("International", "World Cup Qualifiers"), ("Denmark", "Superliga: Playoffs"),
     # lower tiers and minor competitions (not on the allowlist)

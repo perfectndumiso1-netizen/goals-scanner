@@ -78,3 +78,46 @@ def test_verify_rejects_broken_doubles(tmp_path):
     errors, _ = verify.check_publication(st, st, tmp_path / "nl.csv", NOW, expect_fixtures=1)
     joined = " | ".join(errors).lower()
     assert "3 legs" in joined and "priced 3.4" in joined and "two markets from one match" in joined
+
+
+def _pub_with(odds, target=2.0, n_legs=2):
+    legs = [{"fixture": f"f{i}", "country": "C", "home": f"A{i}", "away": f"B{i}", "label": "x", "edge_pp": 7}
+            for i in range(n_legs)]
+    return {"version": 3, "meta": {"generated": NOW.strftime("%Y-%m-%d %H:%M")}, "fixtures": [],
+            "safe": {"min_p": 0.7, "bets": [], "today": {"bets": []}}, "picks": {},
+            "accas": {"target": 3.0, "bets": [],
+                      **({"doubles": {"target": 2.0, "bets": [{"id": "D1", "odds": odds, "p": 0.5, "p_market": 0.48,
+                          "n_legs": n_legs, "legs": legs}]}} if target == 2.0 else
+                         {"bets": [{"id": "A1", "odds": odds, "p": 0.5, "p_market": 0.48, "n_legs": n_legs, "legs": legs}]})}}
+
+
+def _errors_for(latest, tmp_path):
+    st = tmp_path / "app"
+    st.mkdir(exist_ok=True)
+    (st / "fx").mkdir(exist_ok=True)
+    (tmp_path / "days").mkdir(exist_ok=True)
+    (tmp_path / "days" / "2026-10-20.json").write_text(json.dumps(
+        {"date": "2026-10-20", "fixtures": [{"id": "f0"}, {"id": "f1"}]}), encoding="utf-8")
+    for name in ("meta.json", "alerts.json", "badges.json"):
+        (st / name).write_text("{}", encoding="utf-8")
+    (st / "latest.json").write_text(json.dumps(latest), encoding="utf-8")
+    errors, _ = verify.check_publication(st, st, tmp_path / "nl.csv", NOW, expect_fixtures=1)
+    return [e for e in errors if "priced" in e]
+
+
+def test_doubles_price_band_includes_both_edges_exactly(tmp_path):
+    # regression 2026-10-13: a build priced EXACTLY 1.90 (the band's floor) failed the check because
+    # 1.9 - 2.0 is -0.10000000000000009 in floats — the verifier rejected what the builder allows.
+    for odds in (1.90, 2.10):
+        assert not _errors_for(_pub_with(odds), tmp_path), f"{odds} is inside the ~2.00 band"
+    for odds in (1.89, 2.11):
+        es = _errors_for(_pub_with(odds), tmp_path)
+        assert es and f"priced {odds}" in es[0], f"{odds} must stay outside the band"
+
+
+def test_acca_price_band_edges_exact(tmp_path):
+    for odds in (2.94, 3.06):
+        assert not _errors_for(_pub_with(odds, target=3.0), tmp_path), f"{odds} is inside the 3.00 band"
+    for odds in (2.93, 3.07):
+        es = _errors_for(_pub_with(odds, target=3.0), tmp_path)
+        assert es and "priced" in es[0]
