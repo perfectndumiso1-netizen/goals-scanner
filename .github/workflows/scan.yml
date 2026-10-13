@@ -47,12 +47,15 @@ jobs:
 
       - name: Install dependencies
         # wheels only + retries: a PyPI hiccup once made pip fall back to building pandas from source and the run failed
+        # ffmpeg + espeak-ng: daily 9:16 reel (slides locked to each VO clip; no music). Arena session voice cannot run here.
         run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq ffmpeg espeak-ng
           for i in 1 2 3; do
             pip install --only-binary=:all: --retries 10 --timeout 60 -r requirements.txt && break
             echo "pip attempt $i failed, retrying"; sleep 20
           done
-          python -c "import pandas, numpy, requests, reportlab; print(pandas.__version__, numpy.__version__)"
+          python -c "import pandas, numpy, requests, reportlab, PIL; print(pandas.__version__, numpy.__version__)"
 
       - name: Restore state (data branch)
         run: |

@@ -73,6 +73,11 @@ try:
 except Exception:  # noqa: BLE001 - reportlab missing: Markdown/Telegram text still work
     pdfgen = None
 
+try:
+    import shortlist_reel as reel_mod
+except Exception:  # noqa: BLE001 - pillow / ffmpeg missing: scan still publishes
+    reel_mod = None
+
 # ----------------------------------------------------------------------------- paths
 ROOT = Path(__file__).resolve().parent
 # machine-written state (ledgers, archives, app data, reports) lives in STATE_DIR — on GitHub that is the `data`
@@ -2359,6 +2364,70 @@ def send_telegram_video(path: Path, caption: str, *, delete_after: bool = True) 
     return ok
 
 
+def _telegram_state(now: datetime) -> tuple[Path, dict]:
+    today = now.strftime("%Y-%m-%d")
+    path = DATA_DIR / "app" / "telegram_state.json"
+    try:
+        st = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        st = {}
+    if st.get("day") != today:
+        st = {"day": today, "sent": []}
+    return path, st
+
+
+def maybe_send_daily_reel(sl_pub: dict, now: datetime) -> None:
+    """9:16 shortlist reel to Telegram once a day, before 07:00 SAST.
+
+    Window is 05:00–06:59 local. If that slot missed, the 07:00 report run still
+    sends (fallback). 12:00 / 17:00 never send a second copy. Video is deleted
+    after a successful send — never git, never Drive, never the data branch.
+
+    GitHub Actions cannot run the Arena session voice. CI uses espeak-ng and
+    holds each slide until that clip ends (no background music).
+    """
+    if reel_mod is None:
+        return
+    if not (os.getenv("TELEGRAM_BOT_TOKEN") and os.getenv("TELEGRAM_CHAT_ID")):
+        return
+    hour, minute = now.hour, now.minute
+    morning = hour in (5, 6) or (hour == 7 and minute < 20)
+    if not morning:
+        return
+    prim = reel_mod.overs_only((sl_pub or {}).get("primary") or [])
+    if not prim:
+        return
+    path, st = _telegram_state(now)
+    today = now.strftime("%Y-%m-%d")
+    if st.get("briefing") == today:
+        return
+    assets = ROOT / "assets" / "reel"
+    if not (assets / "logo.png").exists():
+        log.warning("Daily reel skipped: assets/reel missing")
+        return
+    fixtures = []
+    try:
+        fixtures = json.loads(APP_FILE.read_text(encoding="utf-8")).get("fixtures") or []
+    except (OSError, ValueError):
+        pass
+    work = Path(os.getenv("TMPDIR") or "/tmp") / "playreport-reel"
+    out = work / "briefing.mp4"
+    log.info("Building daily reel (%d Overs, CI voice = espeak-ng, no music)", len(prim))
+    reel_mod.build(prim, out, assets=assets, work=work, fixtures=fixtures)
+    ok = send_telegram_video(
+        out,
+        f"🎬 PlayReport shortlist — {now:%a %d %b}. Voice-over per pick, no music. "
+        f"A shortlist for your review, not an instruction to bet. 18+.",
+    )
+    if ok:
+        st["briefing"] = today
+        try:
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text(json.dumps(st, ensure_ascii=False), encoding="utf-8")
+        except OSError:
+            pass
+
+
 def telegram_shortlist(sl_pub: dict, now: datetime) -> None:
     """Push the day's shortlist picks to Telegram — the strongest market per match only (user rule).
     Each pick is sent once per day (deduped via a state file in the published state)."""
@@ -2367,14 +2436,7 @@ def telegram_shortlist(sl_pub: dict, now: datetime) -> None:
         return
     if not (os.getenv("TELEGRAM_BOT_TOKEN") and os.getenv("TELEGRAM_CHAT_ID")):
         return                      # unconfigured: no push, no state churn
-    today = now.strftime("%Y-%m-%d")
-    state_path = DATA_DIR / "app" / "telegram_state.json"
-    try:
-        st = json.loads(state_path.read_text(encoding="utf-8"))
-    except (OSError, ValueError):
-        st = {}
-    if st.get("day") != today:
-        st = {"day": today, "sent": []}
+    state_path, st = _telegram_state(now)
     sent = {tuple(k) for k in (st.get("sent") or [])}
     fresh = [x for x in prim if x.get("key") and tuple(x["key"]) not in sent]
     if not fresh:
@@ -3150,6 +3212,10 @@ def main() -> None:
         telegram_shortlist(ctx.get("shortlist") or {}, now)
     except Exception as exc:  # noqa: BLE001 - pushes must never break the scan
         log.warning("Telegram shortlist push failed: %s", exc)
+    try:
+        maybe_send_daily_reel(ctx.get("shortlist") or {}, now)
+    except Exception as exc:  # noqa: BLE001 - the reel must never break the scan
+        log.warning("Daily reel failed: %s", exc)
     if digest_lines:
         send_telegram(digest_text(digest_lines))
 

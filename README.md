@@ -35,8 +35,10 @@ Android app and Telegram — no servers, no API keys, and it runs while your pho
   promoted; a failed check keeps the previous publication and reports the problem on Telegram.
 * **Season backfill** — up to two earlier seasons of every covered competition are archived from Livescore once,
   so head-to-head, form and league pages are complete outside football-data's leagues.
-* **Delivery** — full report (Markdown + PDF) at 07:00 / 12:00 / 17:00 SAST on Telegram; app data on the `data`
-  branch (`data/app/latest.json`, per-match files, 60-day history); a weekly performance digest on Mondays.
+* **Delivery** — full report (Markdown + PDF) at 07:00 / 12:00 / 17:00 SAST on Telegram; a 9:16 shortlist reel
+  (no background music; each slide holds until that pick's voice-over ends) once a day before 07:00 SAST, then
+  deleted; app data on the `data` branch (`data/app/latest.json`, per-match files, 60-day history); a weekly
+  performance digest on Mondays.
 
 The code lives on `main`; all generated state (reports, ledgers, app data, the Livescore archive) lives on the
 orphan `data` branch, which is force-pushed by every run so the history stays small.
