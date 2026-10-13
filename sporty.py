@@ -258,6 +258,8 @@ def norm(s: str) -> str:
 
 def similarity(a: str, b: str) -> float:
     a, b = norm(a), norm(b)
+    if not a or not b:
+        return 0.0
     if a == b:
         return 1.0
     if (a, b) in NEVER or (b, a) in NEVER:
@@ -273,25 +275,59 @@ def similarity(a: str, b: str) -> float:
     return difflib.SequenceMatcher(None, a, b).ratio()
 
 
+def fx_key(fx) -> tuple:
+    """Stable identity for a fixture row / Series / dict — never a DataFrame position."""
+    date = fx["date"]
+    if hasattr(date, "strftime"):
+        date = date.strftime("%Y-%m-%d")
+    else:
+        date = str(date)[:10]
+    return (date, str(fx.get("country") or ""), str(fx.get("home") or ""), str(fx.get("away") or ""))
+
+
+def event_fits(fx, ev, min_sim: float = 0.72) -> bool:
+    """True only when BOTH Sportybet team names are the same clubs as the fixture."""
+    if not ev:
+        return False
+    try:
+        return (similarity(fx["home"], ev.get("home") or "") >= min_sim
+                and similarity(fx["away"], ev.get("away") or "") >= min_sim)
+    except (KeyError, TypeError, ValueError):
+        return False
+
+
 def match_fixtures(fixtures, events: list[dict], min_sim: float = 0.72, tol_min: int = 20) -> dict:
-    """Map fixture index -> Sportybet event, using kick-off time (±tol) and both team names."""
+    """Map fixture index -> Sportybet event, using kick-off time (±tol) and both team names.
+
+    Assignment is exclusive: one Sportybet event is never given to two fixtures. Candidates
+    above min_sim are taken highest-score first so a weaker neighbour cannot steal a club's
+    own event just because it was visited earlier in the frame.
+    """
     out = {}
     if fixtures is None or fixtures.empty or not events:
         return out
     by_time = sorted(events, key=lambda e: e["ko"])
     kos = [e["ko"].timestamp() for e in by_time]
     import bisect
+    cands = []
     for idx, f in fixtures.iterrows():
         ko = f["kickoff"].timestamp()
         lo = bisect.bisect_left(kos, ko - tol_min * 60)
         hi = bisect.bisect_right(kos, ko + tol_min * 60)
-        best, bs = None, 0.0
         for e in by_time[lo:hi]:
             s = min(similarity(f["home"], e["home"]), similarity(f["away"], e["away"]))
-            if s > bs:
-                bs, best = s, e
-        if best is not None and bs >= min_sim:
-            out[idx] = best
+            if s >= min_sim:
+                cands.append((s, idx, e))
+    cands.sort(key=lambda x: -x[0])
+    used_i, used_e = set(), set()
+    for s, idx, e in cands:
+        eid = e.get("id")
+        if idx in used_i or (eid and eid in used_e):
+            continue
+        out[idx] = e
+        used_i.add(idx)
+        if eid:
+            used_e.add(eid)
     log.info("Sportybet: matched %d of %d fixtures", len(out), len(fixtures))
     return out
 
@@ -376,6 +412,12 @@ def cache_apply(rows, path, now, max_age_h: int = 72) -> tuple[int, "str | None"
             r.sb_full = _restore(full)
         if c.get("event"):
             r.sb_event = c["event"]
+            # drop only when the carried event NAMES another club; an id-only stub is fine
+            if (r.sb_event.get("home") or r.sb_event.get("away")) and not event_fits(r.fx, r.sb_event):
+                r.sb = None
+                r.sb_full = None
+                r.sb_event = None
+                continue
         r.sb_asof = c["asof"]
         n += 1
         asof = c["asof"] if asof is None else max(asof, c["asof"])

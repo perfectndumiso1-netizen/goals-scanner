@@ -619,9 +619,37 @@ window.PR = (function () {
       <div class="contact-row"><a class="btn wa" href="https://wa.me/${CONTACT.whatsapp}">${icon('chat')} WhatsApp ${esc(CONTACT.whatsappShown)}</a>
       <a class="btn" href="mailto:${esc(CONTACT.email)}">${icon('mail')} ${esc(CONTACT.email)}</a></div></div>`;
   }
+  /** True when two club strings name the same side (short vs long bookmaker name is fine; different clubs are not). */
+  function namesAgree(a, b) {
+    if (!a || !b) return false;
+    const n = (s) => String(s).normalize('NFKD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+    const stop = /^(fc|afc|cf|sc|ac|club|de|the|ud|cd|fk|sk)$/;
+    const toks = (s) => n(s).split(' ').filter((t) => t && !stop.test(t));
+    const ta = toks(a), tb = toks(b);
+    if (!ta.length || !tb.length) return false;
+    const sa = ta.join(' '), sb2 = tb.join(' ');
+    if (sa === sb2 || sa.includes(sb2) || sb2.includes(sa)) return true;
+    const A = new Set(ta), B = new Set(tb);
+    let hit = 0; A.forEach((t) => { if (B.has(t) && t.length >= 3) hit++; });
+    if (hit) return true;
+    const stem = (t) => t.slice(0, Math.min(5, t.length));
+    return ta.some((x) => tb.some((y) => stem(x) === stem(y) && Math.min(x.length, y.length) >= 4));
+  }
+  function displayName(f, side) {
+    const name = (f && f[side]) || '';
+    const long = f && f[side + '_long'];
+    return (long && namesAgree(name, long)) ? long : name;
+  }
+  function fittedSbEvent(f) {
+    const ev = f && f.sportybet_event;
+    if (!ev || !ev.id) return null;
+    if (ev.home && f.home && !namesAgree(f.home, ev.home)) return null;
+    if (ev.away && f.away && !namesAgree(f.away, ev.away)) return null;
+    return ev;
+  }
   function teamLink(f, side) {
-    const name = side === 'home' ? f.home : f.away; const long = side === 'home' ? (f.home_long || f.home) : (f.away_long || f.away);
-    return `<a class="team" href="#" data-team="${esc(name)}" data-country="${esc(f.country)}" data-div="${esc(f.div)}">${esc(long)}</a>`;
+    const name = side === 'home' ? f.home : f.away;
+    return `<a class="team" href="#" data-team="${esc(name)}" data-country="${esc(f.country)}" data-div="${esc(f.div)}">${esc(displayName(f, side))}</a>`;
   }
   function matchLine(f, extra) { return matchRow(f, { right: extra || '' }); }
   function segmented(items, current, attr) {
@@ -746,7 +774,7 @@ window.PR = (function () {
   return { native, settings, state, $, $$, saveSettings, nfetch, getJson, rawUrl, esc, pct, f1, f2, signed, DAYS, MONTHS, parseLocal, tzNow, ymd, stored, persist, cache, prefetchDetails, pubStamp,
     dayName, niceDate, koTime, koShort, toast, pill, bar, wdl, formBadges, md, GROUPS, GROUP_ICON, selGroup, isUnder, selLabel, selShort, settleSel,
     liveVerdict, isLive, isFT, indexData, fx, loadDetail, detailCached, detailKey, loadData, saveLatest, saveAux, statusLine, isOutlier, loadDay, dayRecord, finalFor, storedIncidents, loadTeams, teamsCached, loadTeamIndex, realTable, slug, TABS, render, setTab, push, replace,
-    sbEventUrl, sbShareUrl, openSportybet, openBookingCode, openExternal, copyText,
+    sbEventUrl, sbShareUrl, openSportybet, openBookingCode, openExternal, copyText, namesAgree, displayName, fittedSbEvent,
     back, openMatch, openTeam, toggleMenu, closeMenu, contactCard, editorCard, teamLink, teamSpan, matchLine, matchRow, segmented, select, scoreBox, statusIcon, CONTACT, APP_VERSION,
     confirmBox, isFav, toggleFav, favList: () => favs, saveFavs,
     icon, flag, badge, fxBadge, skeleton, ring, applyTheme, loadBadges, BADGE_BASE, searchResults, injectSearch,

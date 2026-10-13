@@ -1209,12 +1209,27 @@ def attach_prices(rows: list[MatchRow], sbmap: dict, todays: pd.DataFrame) -> No
     (x12_market), the market-implied probabilities of the shortlist markets (r.fair) and the market-implied
     expected goals (mkt_h / mkt_a) — taken from the feed's reference odds when present, else derived from the
     Sportybet 1X2 + Over/Under 2.5 prices.
+
+    sbmap is keyed by *todays* index. `rows` is a subset (the depth gate drops thin fixtures), so we
+    look up by fixture identity — never zip(todays.index, rows). That zip painted Kaizer Chiefs onto
+    Bristol City (and shifted Sportybet names across the app) whenever an earlier fixture was skipped.
     """
-    for i, r in zip(todays.index, rows):
-        ev = sbmap.get(i)
-        if ev:
-            r.sb_event = {k: ev[k] for k in ("id", "home", "away", "country", "tournament", "ko")}
+    ev_by_key = {}
+    if todays is not None and not getattr(todays, "empty", True):
+        for i, f in todays.iterrows():
+            ev = (sbmap or {}).get(i)
+            if ev and sporty.event_fits(f, ev):
+                ev_by_key[sporty.fx_key(f)] = ev
+    for r in rows:
+        ev = ev_by_key.get(sporty.fx_key(r.fx))
+        if ev and sporty.event_fits(r.fx, ev):
+            r.sb_event = {k: ev[k] for k in ("id", "home", "away", "country", "tournament", "ko") if k in ev}
             r.sb = ev["markets"]
+        elif getattr(r, "sb_event", None) and not sporty.event_fits(r.fx, r.sb_event):
+            # a carried event from a previous run that belongs to another match — drop it
+            r.sb_event = None
+            r.sb = None
+            r.sb_full = None
         ex = r.extra
         sb = r.sb or {}
         sb1x2 = sb.get("1X2")

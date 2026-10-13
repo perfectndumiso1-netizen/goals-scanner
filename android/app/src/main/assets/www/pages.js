@@ -2,7 +2,7 @@
 (function (PR) {
   'use strict';
   const { $, $$, esc, pct, f1, f2, signed, state, settings, fx, pill, koShort, koTime, dayName, niceDate, toast, selLabel, selGroup,
-    GROUPS, liveVerdict, isLive, isFT, segmented, select, contactCard, teamLink, teamSpan, statusIcon, formBadges, wdl, md, icon, flag, badge, fxBadge, matchRow, ring, skeleton, parseLocal, tzNow, ymd, teamsCached } = PR;
+    GROUPS, liveVerdict, isLive, isFT, segmented, select, contactCard, teamLink, teamSpan, statusIcon, formBadges, wdl, md, icon, flag, badge, fxBadge, matchRow, ring, skeleton, parseLocal, tzNow, ymd, teamsCached, displayName } = PR;
   const GICON = { result: 'shield', dc: 'swap', goals: 'ball', btts: 'swap', team: 'target', corners: 'corner', cards: 'card' };
   const view = () => $('#view');
   const live = PR.live;
@@ -141,7 +141,7 @@
       <div class="x12"><div class="lbl"><span>${esc(f.home)} ${pct(x12(f, 'H'))}</span><span>Draw ${pct(x12(f, 'D'))}</span><span>${esc(f.away)} ${pct(x12(f, 'A'))}</span></div>
         <div class="tri"><span class="h" style="width:${Math.round((x12(f, 'H') || 0) * 100)}%"></span><span class="d" style="width:${Math.round((x12(f, 'D') || 0) * 100)}%"></span><span class="a" style="width:${Math.round((x12(f, 'A') || 0) * 100)}%"></span></div></div>
       <div class="chips small-chips" style="margin-top:6px;justify-content:center">${qualityChip(f)}${f.data_ok ? '' : '<span class="chip warn">⚠️ low data — never shortlisted</span>'}</div>
-      ${PR.sbEventUrl(f.sportybet_event) ? `<a class="sb-open" href="${esc(PR.sbEventUrl(f.sportybet_event))}" style="display:flex;align-items:center;justify-content:center;gap:6px;margin-top:8px;padding:8px;border-radius:10px;background:var(--chip);font-size:13px;font-weight:600;color:var(--text)">${icon('target', 'sm')} Open in Sportybet — their live odds &amp; slip</a>` : ''}</div>`);
+      ${PR.sbEventUrl(PR.fittedSbEvent(f)) ? `<a class="sb-open" href="${esc(PR.sbEventUrl(PR.fittedSbEvent(f)))}" style="display:flex;align-items:center;justify-content:center;gap:6px;margin-top:8px;padding:8px;border-radius:10px;background:var(--chip);font-size:13px;font-weight:600;color:var(--text)">${icon('target', 'sm')} Open in Sportybet — their live odds &amp; slip</a>` : ''}</div>`);
     const segTabs = [['overview', 'Overview'], ['form', 'Form'], ['markets', 'Markets'], ['trends', 'Trends'], ['stats', 'Stats'],
       ...(fin ? [['report', 'Report']] : []), ['table', 'Table'], ['h2h', 'H2H'], ['news', 'News'], ['data', 'Data'], ['lineups', 'Line-ups']];
     parts.push(`<div class="card compact">${segmented(segTabs, v, 'mv')}</div>`);
@@ -173,7 +173,7 @@
   function matchReportCard(f, sc, bets) {
     if (!sc || sc.hg == null) return '';
     const hg = sc.hg, ag = sc.ag, tot = hg + ag;
-    const H = f.home_long || f.home, A = f.away_long || f.away;
+    const H = displayName(f, 'home'), A = displayName(f, 'away');
     const bits = [];
     if (sc.hth != null) bits.push(`Half-time ${sc.hth}\u2013${sc.hta}.`);
     if (sc.hs != null && sc.as != null) bits.push(`Shots ${sc.hs}\u2013${sc.as}${sc.hst != null ? ` (${sc.hst}\u2013${sc.ast} on target)` : ''}.`);
@@ -223,9 +223,9 @@
     const s = fin ? { status: sc.status || 'FT', hg: sc.hg, ag: sc.ag, ht: [sc.hth, sc.hta], t: 0 } : (sc.status ? { status: sc.status, hg: null, ag: null } : null);
     const parts = [head(`${flag(f.country)} ${esc(f.competition || f.league || '')}`, `${esc(dayName(f.kickoff))} · ${esc(koTime(f.kickoff))} ${esc(d.meta.tz)} · archive`)];
     parts.push(`<div class="card mhead"><div class="teams">
-      <div class="t">${fxBadge(f, 'home').replace('s24', 's56')}<div class="nm b">${esc(f.home_long || f.home)}</div><div class="tiny muted">Home</div></div>
+      <div class="t">${fxBadge(f, 'home').replace('s24', 's56')}<div class="nm b">${esc(displayName(f, 'home'))}</div><div class="tiny muted">Home</div></div>
       <div class="mid">${s && s.hg != null ? `<div class="score big">${s.hg} – ${s.ag}</div><div class="minute ft">FT</div>${s.ht && s.ht[0] != null ? `<div class="tiny muted">HT ${s.ht[0]}–${s.ht[1]}</div>` : ''}` : `<div class="score big muted">${esc(koTime(f.kickoff))}</div><div class="tiny muted">${esc(s && s.status ? s.status : 'no result recorded')}</div>`}</div>
-      <div class="t">${fxBadge(f, 'away').replace('s24', 's56')}<div class="nm b">${esc(f.away_long || f.away)}</div><div class="tiny muted">Away</div></div></div>
+      <div class="t">${fxBadge(f, 'away').replace('s24', 's56')}<div class="nm b">${esc(displayName(f, 'away'))}</div><div class="tiny muted">Away</div></div></div>
       ${Array.isArray(f.x12) && f.x12[0] != null ? `<div class="x12"><div class="lbl"><span>${esc(f.home)} ${pct(f.x12[0])}</span><span>Draw ${pct(f.x12[1])}</span><span>${esc(f.away)} ${pct(f.x12[2])}</span></div><div class="tri"><span class="h" style="width:${Math.round(f.x12[0] * 100)}%"></span><span class="d" style="width:${Math.round(f.x12[1] * 100)}%"></span><span class="a" style="width:${Math.round(f.x12[2] * 100)}%"></span></div></div>` : ''}</div>`);
     const rep = matchReportCard(f, sc, r.bets || []);
     if (rep) parts.push(rep);
@@ -488,7 +488,7 @@
     const strip = (name, list, side) => `<div class="row" style="gap:4px;align-items:center;margin-top:4px"><span class="grow tiny" style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" data-team="${esc(f[side] || name)}" data-country="${esc(f.country)}" data-div="${esc(f.div)}">${esc(name)}</span>${(list || []).slice(0, 5).map((m) => `<span class="fcol"><span class="chip ${m.gf > m.ga ? 'good' : m.gf < m.ga ? 'bad' : ''}" title="${esc((m.venue === 'H' ? 'v ' : '@ ') + m.opp + ' ' + m.gf + '–' + m.ga + (m.opp_s ? ' · ' + m.opp_s + ' opponent' : ''))}">${wdl(m.gf, m.ga)}</span>${m.opp_s ? `<span class="fstr ${m.opp_s}" title="${m.opp_s === 'strong' ? 'Strong opponent' : m.opp_s === 'weak' ? 'Weak opponent' : 'Average opponent'}">${m.opp_s === 'strong' ? '▲' : m.opp_s === 'weak' ? '▼' : '–'}</span>` : ''}</span>`).join('') || '<span class="tiny muted">no recent matches</span>'}</div>`;
     if ((th.last5 || []).length || (ta.last5 || []).length) {
       const anyS = (th.last5 || []).concat(ta.last5 || []).some((m) => m.opp_s);
-      parts.push(`<div class="card compact"><div class="b">Recent form</div>${strip(f.home_long || f.home, th.last5, 'home')}${strip(f.away_long || f.away, ta.last5, 'away')}${anyS ? `<div class="tiny muted" style="margin-top:6px">▲ strong opponent · – average · ▼ weak opponent — the opponent's level relative to its own league</div>` : ''}</div>`);
+      parts.push(`<div class="card compact"><div class="b">Recent form</div>${strip(displayName(f, 'home'), th.last5, 'home')}${strip(displayName(f, 'away'), ta.last5, 'away')}${anyS ? `<div class="tiny muted" style="margin-top:6px">▲ strong opponent · – average · ▼ weak opponent — the opponent's level relative to its own league</div>` : ''}</div>`);
     }
     // recent goals: average scored / conceded over the last 5 and 10, with the home/away split (user ask 2026-10-01)
     const avgWin = (ms) => (ms && ms.length) ? { n: ms.length,
@@ -513,7 +513,7 @@
     if (avH || avA) {
       const line = (nm, side, av) => av ? `<div class="row" style="gap:6px;flex-wrap:wrap;margin-top:4px">${fxBadge(f, side)}<span class="b" data-team="${esc(f[side] || nm)}" data-country="${esc(f.country)}" data-div="${esc(f.div)}">${esc(nm)}</span>${chipsOf(av)}</div>` : '';
       parts.push(`<div class="card compact"><div class="row"><div class="grow b">Recent goals — averages per match</div><span class="tiny muted">scored / conceded</span></div>
-        ${line(f.home_long || f.home, 'home', avH)}${line(f.away_long || f.away, 'away', avA)}
+        ${line(displayName(f, 'home'), 'home', avH)}${line(displayName(f, 'away'), 'away', avA)}
         <div class="tiny muted" style="margin-top:6px">From each club's matches on record (up to 10, all competitions); the home/away split is over the last 10. Averages of what happened — not probabilities.</div></div>`);
     }
     if (hm && hm.n) parts.push(`<div class="card compact"><div class="row" style="gap:6px;flex-wrap:wrap"><span class="b">H2H sample</span>${evChip(hm.n)}<span class="chip ${hm.used_by_model ? '' : 'warn'}">${hm.used_by_model ? 'used by the model' : 'context only — not a model input'}</span></div><div class="tiny muted" style="margin-top:4px">${esc(hm.note || '')}${hm.first_date ? ` Meetings ${esc(hm.first_date)} → ${esc(hm.last_date)}` : ''}${(hm.competitions || []).length ? ` · ${esc(hm.competitions.join(', '))}` : ''}. Figures below are historical frequencies of ${hm.n} match${hm.n === 1 ? '' : 'es'}.</div></div>`);
@@ -530,10 +530,10 @@
     } else parts.push(`<div class="card tiny muted">No previous meeting on record between these two teams.</div>`);
     const recent = (p, name, side, list, title) => `<div class="card compact"><div class="b row" style="gap:6px">${fxBadge(f, side)}${esc(name)} <span class="muted" style="font-weight:500">— ${title}</span></div><table class="tbl" style="margin-top:4px">${(list || []).map((m) => `<tr class="tap" data-fx="${esc(histId(m.date, f.country, m.venue === 'H' ? name : m.opp, m.venue === 'H' ? m.opp : name))}"><td class="tiny muted nowrap">${esc(m.date)}</td><td><div class="row" style="gap:6px"><i class="f ${wdl(m.gf, m.ga)}">${wdl(m.gf, m.ga)}</i>${badge(m.opp, null, 22)}<span class="nowrap">${m.venue === 'H' ? 'v' : '@'} ${esc(m.opp)}</span></div></td><td class="right nowrap"><b>${m.gf} – ${m.ga}</b></td><td class="tiny muted">${esc(m.league || '')}</td></tr>`).join('') || '<tr><td class="muted">no matches</td></tr>'}</table></div>`;
     const H = f.teams.home || {}, A = f.teams.away || {};
-    parts.push(recent(H, f.home_long || f.home, 'home', H.last5, 'last 5'));
-    parts.push(recent(H, f.home_long || f.home, 'home', H.venue_last5, 'last 5 at home'));
-    parts.push(recent(A, f.away_long || f.away, 'away', A.last5, 'last 5'));
-    parts.push(recent(A, f.away_long || f.away, 'away', A.venue_last5, 'last 5 away'));
+    parts.push(recent(H, displayName(f, 'home'), 'home', H.last5, 'last 5'));
+    parts.push(recent(H, displayName(f, 'home'), 'home', H.venue_last5, 'last 5 at home'));
+    parts.push(recent(A, displayName(f, 'away'), 'away', A.last5, 'last 5'));
+    parts.push(recent(A, displayName(f, 'away'), 'away', A.venue_last5, 'last 5 away'));
   }
 
   // ------------------------------------------------------------------ FORM TAB
@@ -557,8 +557,8 @@
         ${ven.length ? `<div class="b tiny" style="margin-top:8px">Last ${ven.length} ${side === 'home' ? 'at home' : 'away'}</div><table class="tbl" style="margin-top:2px">${rowsOf(ven)}</table>` : ''}</div>`;
     };
     parts.push(`<div class="card tiny muted">Recent results of both clubs (all competitions, most recent first). Points and rates are historical frequencies, not model inputs — the model's own numbers live on the Overview.</div>`);
-    parts.push(block('home', f.home_long || f.home, rec('home')));
-    parts.push(block('away', f.away_long || f.away, rec('away')));
+    parts.push(block('home', displayName(f, 'home'), rec('home')));
+    parts.push(block('away', displayName(f, 'away'), rec('away')));
   }
 
   // ------------------------------------------------------------------ TABLE TAB
@@ -582,8 +582,8 @@
       return `<div class="card compact"><div class="b row" style="gap:6px">${fxBadge(f, side)}${esc(name)} <span class="muted" style="font-weight:500">— ${side === 'home' ? 'home' : 'away'} record</span></div>
         <div class="grid4" style="margin-top:6px"><div class="cell"><div class="k">P</div><div class="v">${s.p}</div></div><div class="cell"><div class="k">W-D-L</div><div class="v">${s.w}-${s.d}-${s.l}</div></div><div class="cell"><div class="k">GF / GA</div><div class="v">${s.gf} / ${s.ga}</div></div><div class="cell"><div class="k">O2.5</div><div class="v">${pct(s.o25)}</div></div></div></div>`;
     };
-    parts.push(half('home', f.home_long || f.home, rec('home')));
-    parts.push(half('away', f.away_long || f.away, rec('away')));
+    parts.push(half('home', displayName(f, 'home'), rec('home')));
+    parts.push(half('away', displayName(f, 'away'), rec('away')));
   }
 
   // ------------------------------------------------------------------ NEWS TAB
@@ -1407,5 +1407,181 @@ view().innerHTML = parts.join('');
     wireBack();
     const bp = $('#adv-perf'); if (bp) bp.onclick = () => PR.push({ type: 'performance' });
     const bb = $('#adv-best'); if (bb) bb.onclick = () => PR.push({ type: 'best' });
+  };
+
+  // ------------------------------------------------------------------ SHORTLIST BRIEFING (video-style player + download)
+  function briefingPicks() {
+    const sl = (state.data && state.data.shortlist) || {};
+    return (sl.primary || []).slice(0, 12);
+  }
+  function briefingSlides() {
+    const picks = briefingPicks();
+    const meta = (state.data && state.data.meta) || {};
+    const when = meta.generated || '';
+    const slides = [{
+      kicker: 'PlayReport',
+      title: 'Tonight’s shortlist',
+      sub: `${picks.length} selection${picks.length === 1 ? '' : 's'} · ${esc(when)} SAST`,
+      line: 'A shortlist for your review. Never an instruction to bet. 18+.',
+      speak: `PlayReport shortlist. ${picks.length} selections for today. Kick-off times are South African Standard Time. This is a shortlist for your review, never an instruction to bet.`,
+    }];
+    picks.forEach((x, i) => {
+      const odds = x.odds ? f2(x.odds) : 'N/A';
+      const prb = x.p != null ? Math.round(x.p * 100) + ' percent' : 'N/A';
+      slides.push({
+        kicker: `Pick ${i + 1} of ${picks.length}`,
+        title: `${x.home} v ${x.away}`,
+        sub: `${x.label || ''} @ ${odds} · ${esc(koShort(x.kickoff))}`,
+        line: `Model ${x.p != null ? pct(x.p) : 'N/A'} · ${esc(x.quality || '')} data`,
+        speak: `Pick ${i + 1}. ${x.home} versus ${x.away}. ${x.label || 'the selection'}, at ${odds}. Model probability ${prb}. Kick-off ${koShort(x.kickoff)}.`,
+        pick: x,
+      });
+    });
+    slides.push({
+      kicker: 'PlayReport',
+      title: 'That’s the list',
+      sub: 'Open any pick on the Shortlist tab for the full analysis.',
+      line: 'Statistical information, not betting advice. Never stake money you cannot afford to lose.',
+      speak: 'That’s the shortlist. Open any pick in the app for the full analysis. Statistical information, not betting advice.',
+    });
+    return slides;
+  }
+  function briefingSpeak(text, onend) {
+    try {
+      if (!window.speechSynthesis) { if (onend) onend(); return; }
+      window.speechSynthesis.cancel();
+      const u = new SpeechSynthesisUtterance(text);
+      u.rate = 1.05; u.pitch = 1.0; u.lang = 'en-GB';
+      const voices = window.speechSynthesis.getVoices() || [];
+      const male = voices.find((v) => /en/.test(v.lang) && /male|daniel|david|george|rishi|google uk english male/i.test(v.name))
+        || voices.find((v) => v.lang === 'en-GB') || voices.find((v) => /^en/.test(v.lang));
+      if (male) u.voice = male;
+      u.onend = () => { if (onend) onend(); };
+      u.onerror = () => { if (onend) onend(); };
+      window.speechSynthesis.speak(u);
+    } catch (e) { if (onend) onend(); }
+  }
+  function briefingHtml(slides) {
+    const cards = slides.map((s, i) => `<section class="slide" id="s${i}">
+      <div class="k">${s.kicker}</div><h1>${s.title}</h1><p class="sub">${s.sub || ''}</p><p class="line">${s.line || ''}</p>
+    </section>`).join('');
+    return `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>PlayReport shortlist briefing</title>
+<style>
+html,body{margin:0;background:#07111d;color:#e8f0fa;font-family:system-ui,sans-serif}
+.slide{min-height:100vh;display:flex;flex-direction:column;justify-content:center;padding:32px 28px;box-sizing:border-box;border-bottom:1px solid #14304a}
+.k{color:#00c86f;font-weight:700;letter-spacing:.12em;text-transform:uppercase;font-size:12px}
+h1{font-size:28px;margin:10px 0 8px}
+.sub{color:#9fb3c8}.line{color:#c9d6e6}
+.foot{padding:24px;color:#7f93a8;font-size:12px}
+</style></head><body>
+${cards}
+<p class="foot">PlayReport · statistical information, not betting advice · 18+</p>
+</body></html>`;
+  }
+  function briefingRecord(slides, done) {
+    // Canvas webm — best-effort. Some WebViews cannot record; caller falls back to HTML.
+    try {
+      const W = 1280, H = 720, fps = 4, hold = 5;
+      const c = document.createElement('canvas'); c.width = W; c.height = H;
+      const g = c.getContext('2d');
+      const stream = c.captureStream(fps);
+      const rec = new MediaRecorder(stream, { mimeType: 'video/webm;codecs=vp8' });
+      const chunks = [];
+      rec.ondataavailable = (e) => { if (e.data && e.data.size) chunks.push(e.data); };
+      rec.onstop = () => done(new Blob(chunks, { type: 'video/webm' }));
+      rec.start();
+      let i = 0;
+      const paint = () => {
+        const s = slides[i];
+        g.fillStyle = '#07111d'; g.fillRect(0, 0, W, H);
+        g.fillStyle = '#00c86f'; g.font = '700 28px sans-serif'; g.fillText(s.kicker, 80, 160);
+        g.fillStyle = '#e8f0fa'; g.font = '700 54px sans-serif';
+        const t = s.title.length > 42 ? s.title.slice(0, 40) + '…' : s.title;
+        g.fillText(t, 80, 250);
+        g.fillStyle = '#9fb3c8'; g.font = '28px sans-serif'; g.fillText(s.sub || '', 80, 320);
+        g.fillStyle = '#c9d6e6'; g.font = '24px sans-serif'; g.fillText(s.line || '', 80, 380);
+        g.fillStyle = '#00c86f'; g.fillRect(80, 640, Math.round((i + 1) / slides.length * (W - 160)), 6);
+        g.fillStyle = '#7f93a8'; g.font = '18px sans-serif'; g.fillText('PlayReport · not betting advice · 18+', 80, 680);
+      };
+      paint();
+      const step = () => {
+        i += 1;
+        if (i >= slides.length) { rec.stop(); return; }
+        paint();
+        setTimeout(step, hold * 1000);
+      };
+      setTimeout(step, hold * 1000);
+    } catch (e) { done(null); }
+  }
+  function saveBlob(name, blob, mime) {
+    if (!blob) return false;
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      const data = String(reader.result || '');
+      const b64 = data.split(',')[1] || '';
+      if (PR.native && PR.native.saveBase64 && b64.length < 900000) {
+        try { PR.native.saveBase64(name, mime, b64); toast('Choose where to save the video…'); return; } catch (e) { /* fall through */ }
+      }
+      const a = document.createElement('a'); a.href = data; a.download = name; a.click();
+      toast('Video saved');
+    };
+    reader.readAsDataURL(blob);
+    return true;
+  }
+  PR.pages.briefing = function (page) {
+    const slides = briefingSlides();
+    const parts = [head('Shortlist briefing', 'Video · male voice · downloadable')];
+    if (slides.length < 2) {
+      parts.push('<div class="card empty">The shortlist is empty — the briefing appears once today’s picks publish.</div>');
+      view().innerHTML = parts.join(''); wireBack(); return;
+    }
+    parts.push(`<div class="briefing" id="briefing">
+      <div class="brief-stage" id="brief-stage"></div>
+      <div class="brief-bar"><span id="brief-pos">1 / ${slides.length}</span>
+        <input id="brief-seek" type="range" min="0" max="${slides.length - 1}" value="0">
+      </div>
+      <div class="row" style="gap:8px;margin-top:10px">
+        <button class="btn" id="brief-prev">Prev</button>
+        <button class="btn" id="brief-play" style="flex:1">Play</button>
+        <button class="btn" id="brief-next">Next</button>
+      </div>
+      <button class="btn" id="brief-dl" style="width:100%;margin-top:8px">${icon('download', 'sm')} Download video</button>
+      <div class="tiny muted" style="margin-top:8px">The on-phone voice is your device narrator (we pick a male English voice when the phone has one). The download is a video of these slides you can keep. Statistical information, not betting advice. 18+.</div>
+    </div>`);
+    view().innerHTML = parts.join(''); wireBack();
+    let i = 0, playing = false, timer = null;
+    const stage = $('#brief-stage'), pos = $('#brief-pos'), seek = $('#brief-seek');
+    const show = (n) => {
+      i = Math.max(0, Math.min(slides.length - 1, n));
+      const s = slides[i];
+      stage.innerHTML = `<div class="kicker">${esc(s.kicker)}</div><h2>${esc(s.title)}</h2><div class="sub">${esc(s.sub || '')}</div><div class="line">${esc(s.line || '')}</div>`;
+      pos.textContent = `${i + 1} / ${slides.length}`;
+      seek.value = i;
+    };
+    const stop = () => {
+      playing = false; if (timer) { clearTimeout(timer); timer = null; }
+      try { window.speechSynthesis && window.speechSynthesis.cancel(); } catch (e) { /* ignore */ }
+      const bp = $('#brief-play'); if (bp) bp.textContent = 'Play';
+    };
+    const next = () => { if (i >= slides.length - 1) { stop(); return; } show(i + 1); if (playing) go(); };
+    const go = () => {
+      playing = true; const bp = $('#brief-play'); if (bp) bp.textContent = 'Pause';
+      briefingSpeak(slides[i].speak, () => { if (!playing) return; timer = setTimeout(next, 700); });
+    };
+    show(0);
+    $('#brief-prev').onclick = () => { stop(); show(i - 1); };
+    $('#brief-next').onclick = () => { stop(); show(i + 1); };
+    $('#brief-play').onclick = () => { if (playing) stop(); else go(); };
+    seek.oninput = () => { stop(); show(+seek.value); };
+    const dl = () => {
+      toast('Building your video…');
+      briefingRecord(slides, (blob) => {
+        if (blob && blob.size > 1000) { saveBlob(`PlayReport-briefing-${ymd(tzNow())}.webm`, blob, 'video/webm'); return; }
+        PR.saveTextFile(`PlayReport-briefing-${ymd(tzNow())}.html`, briefingHtml(slides), 'text/html');
+      });
+    };
+    $('#brief-dl').onclick = dl;
+    if (page && page.download) setTimeout(dl, 400);
   };
 })(window.PR);

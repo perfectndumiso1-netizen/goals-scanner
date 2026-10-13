@@ -53,6 +53,8 @@ class MainActivity : AppCompatActivity() {
 
     /** "Save as" for CSV exports: the page hands over the text, the user picks a location (Downloads, Drive, ...). */
     private var pendingSave: Pair<String, String>? = null
+    /** Binary "Save as" for the shortlist briefing video (webm). */
+    private var pendingSaveBytes: Pair<String, ByteArray>? = null
     private val saveDocument = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
         val pending = pendingSave
         pendingSave = null
@@ -64,6 +66,22 @@ class MainActivity : AppCompatActivity() {
         pool.execute {
             val ok = try {
                 contentResolver.openOutputStream(uri, "wt")?.use { it.write(pending.second.toByteArray(Charsets.UTF_8)) } != null
+            } catch (e: Exception) { false }
+                    js("window.__saveDone && window.__saveDone($ok);")
+        }
+    }
+
+    private val saveDocumentBytes = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+        val pending = pendingSaveBytes
+        pendingSaveBytes = null
+        val uri = result.data?.data
+        if (pending == null || uri == null) {
+            js("window.__saveDone && window.__saveDone(false);")
+            return@registerForActivityResult
+        }
+        pool.execute {
+            val ok = try {
+                contentResolver.openOutputStream(uri, "w")?.use { it.write(pending.second) } != null
             } catch (e: Exception) { false }
             js("window.__saveDone && window.__saveDone($ok);")
         }
@@ -311,6 +329,32 @@ class MainActivity : AppCompatActivity() {
         @JavascriptInterface
         fun getString(key: String): String? =
             getSharedPreferences(Notifier.PREFS, MODE_PRIVATE).getString("str_$key", null)
+
+        /** Save a binary file (shortlist briefing video) through the system file picker. */
+        @JavascriptInterface
+        fun saveBase64(name: String, mime: String, b64: String) {
+            runOnUiThread {
+                val bytes = try {
+                    android.util.Base64.decode(b64, android.util.Base64.DEFAULT)
+                } catch (e: Exception) { null }
+                if (bytes == null) {
+                    js("window.__saveDone && window.__saveDone(false);")
+                    return@runOnUiThread
+                }
+                pendingSaveBytes = Pair(name, bytes)
+                val intent = Intent(Intent.ACTION_CREATE_DOCUMENT).apply {
+                    addCategory(Intent.CATEGORY_OPENABLE)
+                    type = mime.ifBlank { "video/webm" }
+                    putExtra(Intent.EXTRA_TITLE, name)
+                }
+                try {
+                    saveDocumentBytes.launch(intent)
+                } catch (e: Exception) {
+                    pendingSaveBytes = null
+                    js("window.__saveDone && window.__saveDone(false);")
+                }
+            }
+        }
 
         /** Save a text file (CSV) through the system file picker; the result comes back via window.__saveDone. */
         @JavascriptInterface

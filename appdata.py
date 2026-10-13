@@ -40,6 +40,23 @@ def fixture_id(date: str, country: str, home: str, away: str) -> str:
     return f"{date}|{country}|{home}|{away}"
 
 
+def _club_long(fx_name, *candidates):
+    """Long display name for a club.
+
+    Sportybet / Livescore names are used only when they are the SAME club as the fixture.
+    A mismatched Sportybet event (the zip-alignment bug of 2026-10-13) must never paint
+    Kaizer Chiefs onto Bristol City.
+    """
+    try:
+        from sporty import similarity
+        for c in candidates:
+            if c and similarity(str(fx_name), str(c)) >= 0.72:
+                return c
+    except Exception:  # noqa: BLE001
+        pass
+    return fx_name
+
+
 def detail_key(fid: str) -> str:
     return hashlib.sha1(fid.encode("utf-8")).hexdigest()[:12]
 
@@ -424,8 +441,8 @@ def export(path: Path, *, ctx: dict, rows: list, all_rows: list | None = None, p
         index.append(slim)
         detail = dict(slim)
         detail.update({
-            "home_long": (r.sb_event or {}).get("home") or (ls or {}).get("home") or fx["home"],
-            "away_long": (r.sb_event or {}).get("away") or (ls or {}).get("away") or fx["away"],
+            "home_long": _club_long(fx["home"], (r.sb_event or {}).get("home"), (ls or {}).get("home")),
+            "away_long": _club_long(fx["away"], (r.sb_event or {}).get("away"), (ls or {}).get("away")),
             "referee": (fx.get("referee") or None) or None,
             # xg.home/away/total = the football-data MODEL (kept under the old keys for older app builds);
             # market_* = market-implied expected goals, a separate comparison layer, never blended in

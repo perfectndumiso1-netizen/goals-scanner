@@ -22,7 +22,7 @@
     return { fixture: f.id, d: f.d || null, eid: f.livescore_id || null, home: f.home, away: f.away, kickoff: f.kickoff, competition: f.competition, country: f.country,
       badges: f.badges || null, sb: f.sportybet_event || null, sel: s.sel, label: selLabel(s.sel, f.home, f.away), odds: +s.odds, p: s.p };
   }
-  const sbLink = (l) => (l && l.sb && PR.sbEventUrl(l.sb)) ? `<a class="link sb-open" href="${esc(PR.sbEventUrl(l.sb))}" title="Open this match in Sportybet">${icon('target', 'sm')} SB</a>` : '';
+  const sbLink = (l) => (l && l.sb && PR.fittedSbEvent({ home: l.home, away: l.away, sportybet_event: l.sb }) && PR.sbEventUrl(l.sb)) ? `<a class="link sb-open" href="${esc(PR.sbEventUrl(l.sb))}" title="Open this match in Sportybet">${icon('target', 'sm')} SB</a>` : '';
   function ticketText(t) {
     const lines = [`PlayReport ticket ${t.id} · odds ${f2(t.final_odds || t.odds)}${t.stake ? ` · stake ${f2(t.stake)}` : ''}`, ''];
     t.legs.forEach((l, i) => lines.push(`${i + 1}. ${l.label} — ${l.home} v ${l.away} · ${koShort(l.kickoff)} @${f2(l.odds)}`));

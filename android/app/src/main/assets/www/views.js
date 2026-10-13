@@ -234,6 +234,10 @@
     const parts = [];
     const np = (sl.primary || []).length;
     parts.push(`<div class="hero-row"><div><div class="kicker">High-conviction shortlist</div><h1>Shortlist</h1></div><span class="quality">today only</span></div>`);
+    if (np) {
+      parts.push(`<div class="card compact briefing-cta"><div class="row"><div class="grow"><div class="b">${icon('sparkle', 'sm')} Tonight's briefing</div><div class="tiny muted">The shortlist as a video you can watch and download on your phone. Male voiceover, kick-off times in SAST. A shortlist for your review — never an instruction to bet.</div></div></div>
+        <div class="row" style="gap:8px;margin-top:8px"><button class="btn" id="btn-briefing">${icon('live', 'sm')} Watch briefing</button><button class="btn" id="btn-briefing-dl">${icon('download', 'sm')} Download video</button></div></div>`);
+    }
     if (!sl.counts) {
       parts.push(`<div class="card empty">The high-conviction shortlist appears after the next analysis run (every 30 minutes).</div>`);
       view().innerHTML = parts.join('');
@@ -287,6 +291,8 @@
     view().innerHTML = parts.join('');
     $$('[data-slmk]').forEach((b) => { b.onclick = () => { state.slMk = b.dataset.slmk; PR.render(); window.scrollTo(0, 0); }; });
     $$('[data-pick-open]').forEach((b) => { b.onclick = (e) => { e.stopPropagation(); const a = art[b.dataset.pickOpen]; if (a) { state.pickArt = a; PR.push({ type: 'pick' }); } }; });
+    const bb = $('#btn-briefing'); if (bb) bb.onclick = () => PR.push({ type: 'briefing' });
+    const bd = $('#btn-briefing-dl'); if (bd) bd.onclick = () => PR.push({ type: 'briefing', download: true });
   };
 
   // ------------------------------------------------------------------ SEQUENCES: the user's betting windows
@@ -390,7 +396,7 @@
     if (((d.accas || {}).bets || []).length) parts.push(`<div class="card compact tap" data-page-go="accas"><div class="row"><span class="ico">${icon('ticket')}</span><div class="grow"><div class="b">Today\u2019s accas · ${(d.accas.bets || []).length} build${(d.accas.bets || []).length === 1 ? '' : 's'} at ~${f2(d.accas.target || 3)}</div><div class="tiny muted">Gated legs, tracked to settlement → tap to open</div></div>${icon('next')}</div></div>`);
     if (PR.APP_VERSION && settings.seenVersion !== PR.APP_VERSION) {
       parts.push(`<div class="card whatsnew"><div class="row"><div class="grow"><b>${icon('sparkle', 'sm')} New in PlayReport ${esc(PR.APP_VERSION)}</b></div><button class="link" id="wn-close">${icon('x')}</button></div>
-        <ul><li>🐛 <b>Fixed: match taps could open another match's data</b> — every page now proves it belongs to the match you tapped, and the phone's cache was swept clean of anything older builds left behind.</li><li>🔔 <b>New notification sounds</b> — softer, shorter chimes that match the moment: rising arpeggio for goals, warm marimba for picks, calm resolve for full-time.</li><li>🚩🟨 <b>Sportybet prices now cover corners &amp; bookings</b> — total corner and card lines on every priced match, team lines where listed.</li><li>📈 <b>Three strongest trends</b> on the match Overview (the Trends tab keeps everything).</li><li>🇪🇺 <b>UEFA competitions in</b> + 📋 <b>predicted line-ups</b> when the official XI is not out — clearly labelled, never official.</li><li>🎚️ Calibrated probabilities + safer doubles · 📣 Telegram picks &amp; reports · ⏰ Sequences · 📅 today-only shortlist · ⬆️ Overs only.</li></ul></div>`);
+        <ul><li>🐛 <b>Fixed: match names from another game</b> — Sportybet events were shifted onto the wrong fixtures (Kaizer Chiefs painted on Bristol City). Names and “Open in Sportybet” now have to be the same clubs.</li><li>🎬 <b>Shortlist briefing</b> — watch today’s picks as a video with a male voice and download it from the Shortlist tab.</li><li>🐛 <b>Fixed: match taps could open another match's data</b> — every page now proves it belongs to the match you tapped, and the phone's cache was swept clean of anything older builds left behind.</li><li>🔔 <b>New notification sounds</b> — softer, shorter chimes that match the moment: rising arpeggio for goals, warm marimba for picks, calm resolve for full-time.</li><li>🚩🟨 <b>Sportybet prices now cover corners &amp; bookings</b> — total corner and card lines on every priced match, team lines where listed.</li><li>📈 <b>Three strongest trends</b> on the match Overview (the Trends tab keeps everything).</li><li>🇪🇺 <b>UEFA competitions in</b> + 📋 <b>predicted line-ups</b> when the official XI is not out — clearly labelled, never official.</li><li>🎚️ Calibrated probabilities + safer doubles · 📣 Telegram picks &amp; reports · ⏰ Sequences · 📅 today-only shortlist · ⬆️ Overs only.</li></ul></div>`);
     }
     const favs = (PR.favList ? PR.favList() : []).map((x) => fx(x.fixture)).filter(Boolean).sort((a, b) => a.kickoff.localeCompare(b.kickoff));
     if (favs.length) parts.push(`<div class="section-head"><h2><span class="ico amber">${icon('star')}</span>Your matches</h2><button class="link" data-tab-go="matches" data-mf-go="fav">All ${favs.length} ${icon('next')}</button></div><div class="card compact">${favs.slice(0, 5).map((f) => { const s = live.for(f); return matchRow(f, { live: s, sub: `${flag(f.country)} ${esc(f.competition)}${f.safe ? ` · 📈 <b>${esc(selShort(f.safe[0]))}</b> ${pct(f.safe[1])}` : ''}`, right: s && s.hg != null ? '' : `<span class="pill ${f.p.O25 >= 0.6 ? 'hi' : ''}">O2.5 ${pct(f.p.O25)}</span>` }); }).join('')}</div>`);
