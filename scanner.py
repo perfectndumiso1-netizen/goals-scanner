@@ -32,6 +32,7 @@ Everything tunable lives in CONFIG below (most values can also be overridden wit
 from __future__ import annotations
 
 import html
+import hashlib
 import io
 import json
 import logging
@@ -39,6 +40,7 @@ import math
 import os
 import re
 import shutil
+import tempfile
 import time
 from dataclasses import dataclass, field
 from datetime import datetime, time, timedelta
@@ -62,6 +64,9 @@ import squads as squads_mod
 import worldfeed
 import appdata
 import verify
+import feed_health
+import monitoring
+import publication
 import safe as safe_mod
 import accas as acca_mod
 import shortlist as shortlist_mod
@@ -358,6 +363,7 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(mess
 
 SESSION = requests.Session()
 SESSION.headers.update({"User-Agent": CONFIG["USER_AGENT"]})
+MODEL_VERSION = "goals-scanner-model-v1"
 
 
 # ----------------------------------------------------------------------------- helpers
@@ -367,11 +373,16 @@ def fetch(url: str) -> bytes | None:
         try:
             r = SESSION.get(url, timeout=CONFIG["REQUEST_TIMEOUT"])
             if r.status_code == 404:
+                feed_health.record("football_data", "empty", "http_404")
                 return None
             if r.status_code == 200 and len(r.content) > 40:
+                feed_health.record("football_data", "success")
                 return r.content
+            feed_health.record("football_data", "empty" if r.status_code == 200 else "error",
+                               "empty_body" if r.status_code == 200 else f"http_{r.status_code}")
             log.warning("HTTP %s for %s", r.status_code, url)
         except requests.RequestException as exc:
+            feed_health.record("football_data", "error", "request_error")
             log.warning("Request failed (%s): %s", url, exc)
         time.sleep(2 * (attempt + 1))
     return None
@@ -522,6 +533,7 @@ def fetch_cached(url: str, name: str) -> bytes | None:
     """Immutable downloads (finished seasons) are kept under data/cache so the half-hourly runs stay light."""
     p = CACHE_DIR / name
     if p.exists():
+        feed_health.record("football_data", "cache")
         return p.read_bytes()
     content = fetch(url)
     if content:
@@ -2556,35 +2568,77 @@ def strong_signal(r: MatchRow, sel: str) -> bool:
 
 
 def promote_publication(staging: Path, live: Path, now: datetime) -> None:
-    """Move a checked staging export into the live app directory (files replaced one by one; the staging copy is
-    complete and valid, so a half-written publication is never picked up by the workflow's commit)."""
+    """Promote a checked staging export, restoring the prior files if any replacement fails."""
     live.mkdir(parents=True, exist_ok=True)
     (live / "fx").mkdir(parents=True, exist_ok=True)
-    for name in ("latest.json", "meta.json", "alerts.json", "badges.json"):
-        src = staging / name
-        if src.exists():
-            os.replace(src, live / name)
-    fx_src = staging / "fx"
-    if fx_src.exists():
-        for f in fx_src.glob("*.json"):
-            os.replace(f, live / "fx" / f.name)
-    # detail files of matches older than the history window are removed from the live directory (the file names are
-    # hashes, so the match date inside each file decides; file times are meaningless after a fresh checkout)
-    keep = {f.name for f in fx_src.glob("*.json")} if fx_src.exists() else set()
-    cutoff = (now - timedelta(days=appdata.KEEP_DETAIL_DAYS)).strftime("%Y-%m-%d")
+    backup = Path(tempfile.mkdtemp(prefix=".publication-backup-", dir=live.parent))
+    changed: list[tuple[Path, bool]] = []
     removed = 0
-    for f in (live / "fx").glob("*.json"):
-        if f.name in keep:
-            continue
-        try:
-            with f.open("rb") as fh:
-                head = fh.read(4096).decode("utf-8", "ignore")
-            m = re.search(r'"date":\s*"(\d{4}-\d{2}-\d{2})"', head)
-            if m is None or m.group(1) < cutoff:
-                f.unlink()
-                removed += 1
-        except OSError:
-            pass
+    preserve_backup = False
+
+    def replace(src: Path, target: Path) -> None:
+        rel = target.relative_to(live)
+        previous = target.exists()
+        if previous:
+            saved = backup / rel
+            saved.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(target, saved)
+        os.replace(src, target)
+        changed.append((rel, previous))
+
+    def quarantine(target: Path) -> None:
+        rel = target.relative_to(live)
+        saved = backup / rel
+        saved.parent.mkdir(parents=True, exist_ok=True)
+        os.replace(target, saved)
+        changed.append((rel, True))
+
+    try:
+        for name in ("latest.json", "meta.json", "alerts.json", "badges.json", "run_manifest.json"):
+            src = staging / name
+            if src.exists():
+                replace(src, live / name)
+        fx_src = staging / "fx"
+        staged_details = sorted(fx_src.glob("*.json")) if fx_src.exists() else []
+        for detail in staged_details:
+            replace(detail, live / "fx" / detail.name)
+        # Detail files are hashed; their embedded date, not filesystem timestamps, determines expiry.
+        keep = {f.name for f in staged_details}
+        cutoff = (now - timedelta(days=appdata.KEEP_DETAIL_DAYS)).strftime("%Y-%m-%d")
+        for f in sorted((live / "fx").glob("*.json")):
+            if f.name in keep:
+                continue
+            try:
+                with f.open("rb") as fh:
+                    head = fh.read(4096).decode("utf-8", "ignore")
+                m = re.search(r'"date":\s*"(\d{4}-\d{2}-\d{2})"', head)
+                if m is None or m.group(1) < cutoff:
+                    quarantine(f)
+                    removed += 1
+            except OSError:
+                continue
+    except Exception as promotion_error:
+        # Roll back both overwritten and pruned files, in reverse application order.
+        rollback_errors = []
+        for rel, previous in reversed(changed):
+            target, saved = live / rel, backup / rel
+            try:
+                if previous and saved.exists():
+                    target.parent.mkdir(parents=True, exist_ok=True)
+                    os.replace(saved, target)
+                elif not previous:
+                    target.unlink(missing_ok=True)
+            except OSError as rollback_error:
+                rollback_errors.append(f"{rel}: {rollback_error}")
+        if rollback_errors:
+            preserve_backup = True
+            log.exception("Publication failed and rollback was incomplete; recovery files retained in %s: %s",
+                          backup, "; ".join(rollback_errors))
+            raise RuntimeError(f"publication rollback incomplete; recovery files retained in {backup}") from promotion_error
+        raise
+    finally:
+        if not preserve_backup:
+            shutil.rmtree(backup, ignore_errors=True)
     if removed:
         log.info("Detail files pruned: %d older than %s", removed, cutoff)
 
@@ -2612,7 +2666,12 @@ def main() -> None:
     app_end = now + timedelta(hours=CONFIG["APP_WINDOW_HOURS"])
     run_label, window_end = run_schedule(now)
     report_run = is_report_run(run_label)
+    run_id = os.getenv("GITHUB_RUN_ID") or f"local-{now:%Y%m%dT%H%M%S%z}"
+    feed_health.begin_run(run_id)
+    config_hash = hashlib.sha256(json.dumps(CONFIG, sort_keys=True, default=str).encode("utf-8")).hexdigest()
     ctx = {"now": now, "start": start, "end": end, "app_start": start, "app_end": app_end, "run": run_label, "window_end": window_end}
+    ctx.update({"run_id": run_id, "revision": os.getenv("GITHUB_SHA") or os.getenv("GIT_COMMIT"),
+                "model_version": MODEL_VERSION, "config_sha256": config_hash})
     log.info("Run %s (%s): coverage window %s -> %s (app window -> %s), state %s",
              run_label, "report" if report_run else "refresh", start, end, app_end, STATE)
 
@@ -2805,6 +2864,7 @@ def main() -> None:
         try:
             n_carried, sb_asof = sporty.cache_apply(rows, SB_CACHE, now)
             if n_carried:
+                feed_health.record("sportybet", "stale", "verified_price_cache")
                 ctx["sb_asof"] = sb_asof
                 log.info("Sportybet fetch failed — carried %d verified price set(s) from %s", n_carried, sb_asof)
         except Exception as exc:  # noqa: BLE001
@@ -3072,6 +3132,12 @@ def main() -> None:
                 "main": sum(1 for r in rows if r.fx["source"] == "main"), "extra": sum(1 for r in rows if r.fx["source"] == "extra"),
                 "world": sum(1 for r in rows if r.fx["source"] == "world"), "data_ok": sum(1 for r in rows if r.data_ok)}
     ctx["coverage"] = coverage
+    previous_meta = monitoring.load_meta(APP_FILE.parent / "meta.json")
+    coverage_warnings = monitoring.coverage_alerts(previous_meta, coverage, ctx.get("shortlist"))
+    ctx["health_alerts"] = coverage_warnings
+    for alert in coverage_warnings:
+        log.warning("Operations alert: %s", alert["message"])
+        notes.append(alert["message"])
     log.info("Coverage: %d fixtures over %d days (%d inside the app window), %d priced by Sportybet",
              len(rows), CONFIG["COVER_DAYS"], len(app_rows), len(sbmap))
 
@@ -3137,42 +3203,47 @@ def main() -> None:
         ncache.save()
     except Exception as exc:  # noqa: BLE001
         log.warning("Per-fixture news failed (non-fatal): %s", exc)
+    ctx["feed_health"] = feed_health.snapshot()
+    feed_warnings = monitoring.feed_alerts(ctx["feed_health"])
+    ctx["health_alerts"] = [*(ctx.get("health_alerts") or []), *feed_warnings][-30:]
+    for alert in feed_warnings:
+        log.warning("Operations alert: %s", alert["message"])
     # ---- structured export for the Android app: written to a staging directory, checked, then promoted.
     # The publication carries only the APP_WINDOW_HOURS window (the Matches tab is "today"); the rest of
     # the coverage window lives in the day files (browseable per day) and feeds the model / tracker.
     staging = APP_FILE.parent / "_staging"
     try:
-        if staging.exists():
-            shutil.rmtree(staging)
-        staging.mkdir(parents=True, exist_ok=True)
-        appdata.export(staging / APP_FILE.name, ctx=ctx, rows=app_rows, all_rows=rows, picks=picks, tracker_summary=summary, notes=notes, ls_map=ls_map,
-                       helpers={"render_details": render_details, "stars": stars, "comp": comp, "sb_price": sb_price,
-                                "selections": all_sels},
-                       reports_dir=REPORTS_DIR, tz_label=TZL, thresholds=CONFIG["THRESHOLDS"],
-                       backtest=CONFIG["BACKTEST"], bench=CONFIG["BENCH"], bias=CONFIG["BIAS"],
-                       repo=os.getenv("GITHUB_REPOSITORY", "perfectndumiso1-netizen/goals-scanner"),
-                       days_index=days_index, safe_summary=ctx["safe_summary"], botd=ctx["botd"], botd_groups=ctx["botd_groups"], alerts=alerts,
-                       coverage=coverage, safe_groups=safe_mod.SAFE_GROUPS,
-                       extra_badges=archive.badge_map() if archive is not None else None, report_run=report_run,
-                       live_dir=APP_FILE.parent)
-        errors, warns = verify.check_publication(staging, APP_FILE.parent, SAFE_BETS_FILE, now, expect_fixtures=len(app_rows))
-        for w in warns[:20]:
+        def build_staged_app() -> None:
+            appdata.export(staging / APP_FILE.name, ctx=ctx, rows=app_rows, all_rows=rows, picks=picks, tracker_summary=summary, notes=notes, ls_map=ls_map,
+                           helpers={"render_details": render_details, "stars": stars, "comp": comp, "sb_price": sb_price,
+                                    "selections": all_sels},
+                           reports_dir=REPORTS_DIR, tz_label=TZL, thresholds=CONFIG["THRESHOLDS"],
+                           backtest=CONFIG["BACKTEST"], bench=CONFIG["BENCH"], bias=CONFIG["BIAS"],
+                           repo=os.getenv("GITHUB_REPOSITORY", "perfectndumiso1-netizen/goals-scanner"),
+                           days_index=days_index, safe_summary=ctx["safe_summary"], botd=ctx["botd"], botd_groups=ctx["botd_groups"], alerts=alerts,
+                           coverage=coverage, safe_groups=safe_mod.SAFE_GROUPS,
+                           extra_badges=archive.badge_map() if archive is not None else None, report_run=report_run,
+                           live_dir=APP_FILE.parent)
+
+        result = publication.publish(
+            staging, build_staged_app,
+            lambda: verify.check_publication(staging, APP_FILE.parent, SAFE_BETS_FILE, now, expect_fixtures=len(app_rows)),
+            lambda: promote_publication(staging, APP_FILE.parent, now),
+        )
+        for w in result.warnings[:20]:
             log.warning("Data check: %s", w)
-        if errors:
-            for e in errors[:30]:
+        if result.errors:
+            for e in result.errors[:30]:
                 log.error("Data check FAILED: %s", e)
-            ctx["data_check"] = {"ok": False, "errors": errors[:30], "warnings": warns[:30]}
-            log.error("Publication kept from the previous run (%d problem(s))", len(errors))
+            ctx["data_check"] = {"ok": False, "errors": list(result.errors[:30]), "warnings": list(result.warnings[:30])}
+            log.error("Publication kept from the previous run (%d problem(s))", len(result.errors))
             send_telegram("⚠️ PlayReport data check failed — the app keeps the previous publication.\n" +
-                          "\n".join(f"• {e}" for e in errors[:8]))
+                          "\n".join(f"• {e}" for e in result.errors[:8]))
         else:
-            ctx["data_check"] = {"ok": True, "warnings": warns[:30]}
-            promote_publication(staging, APP_FILE.parent, now)
-            log.info("App data: %s (%d checks passed, %d warning(s))", APP_FILE, 1, len(warns))
+            ctx["data_check"] = {"ok": True, "warnings": list(result.warnings[:30])}
+            log.info("App data: %s (validated, %d warning(s))", APP_FILE, len(result.warnings))
     except Exception as exc:  # noqa: BLE001 - never lose the run because of the app export
         log.exception("App data export failed: %s", exc)
-    finally:
-        shutil.rmtree(staging, ignore_errors=True)
     if os.getenv("README_AUTO") == "1":
         update_readme(render_readme_block(ctx, rows, picks, summary, f"reports/{today_str}.md"))
 

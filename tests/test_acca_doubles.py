@@ -11,6 +11,12 @@ from accas import Bet
 NOW = datetime(2026, 10, 3, 12, 0)
 
 
+def _write_manifest(st, run_id="test-run"):
+    (st / "run_manifest.json").write_text(json.dumps({"schema_version": 3, "run_id": run_id,
+        "model_version": "test-model", "config_sha256": "a" * 64, "generated_at": NOW.isoformat(),
+        "feed_health": {}, "counts": {}}), encoding="utf-8")
+
+
 def _bet(i: int) -> Bet:
     return Bet(key=("2026-10-03", "Testland", f"H{i}", f"A{i}"), div="TL", league="Test League",
                home=f"H{i}", away=f"A{i}", kickoff="2026-10-03 16:00", sel="O15",
@@ -44,7 +50,7 @@ def test_doubles_composite_calibration():
 
 
 def test_verify_accepts_clean_doubles(tmp_path):
-    latest = {"version": 3, "meta": {"generated": NOW.strftime("%Y-%m-%d %H:%M")}, "fixtures": [],
+    latest = {"version": 3, "meta": {"generated": NOW.strftime("%Y-%m-%d %H:%M"), "run_id": "test-run"}, "fixtures": [],
               "safe": {"min_p": 0.7, "bets": [], "today": {"bets": []}}, "picks": {},
               "accas": {"target": 3.0, "bets": [], "doubles": {"target": 2.0, "bets": [{
                   "id": "D1", "odds": 2.02, "p": 0.5, "p_market": 0.48, "n_legs": 2,
@@ -59,8 +65,9 @@ def test_verify_accepts_clean_doubles(tmp_path):
     for name in ("meta.json", "alerts.json", "badges.json"):
         (st / name).write_text("{}", encoding="utf-8")
     (st / "latest.json").write_text(json.dumps(latest), encoding="utf-8")
-    errors, _ = verify.check_publication(st, st, tmp_path / "nl.csv", NOW, expect_fixtures=1)
-    assert not [e for e in errors if "doubles" in e.lower()], errors
+    _write_manifest(st)
+    errors, _ = verify.check_publication(st, st, tmp_path / "nl.csv", NOW, expect_fixtures=0)
+    assert not errors, errors
 
 
 def test_verify_rejects_broken_doubles(tmp_path):
@@ -83,7 +90,7 @@ def test_verify_rejects_broken_doubles(tmp_path):
 def _pub_with(odds, target=2.0, n_legs=2):
     legs = [{"fixture": f"f{i}", "country": "C", "home": f"A{i}", "away": f"B{i}", "label": "x", "edge_pp": 7}
             for i in range(n_legs)]
-    return {"version": 3, "meta": {"generated": NOW.strftime("%Y-%m-%d %H:%M")}, "fixtures": [],
+    return {"version": 3, "meta": {"generated": NOW.strftime("%Y-%m-%d %H:%M"), "run_id": "test-run"}, "fixtures": [],
             "safe": {"min_p": 0.7, "bets": [], "today": {"bets": []}}, "picks": {},
             "accas": {"target": 3.0, "bets": [],
                       **({"doubles": {"target": 2.0, "bets": [{"id": "D1", "odds": odds, "p": 0.5, "p_market": 0.48,
@@ -101,6 +108,7 @@ def _errors_for(latest, tmp_path):
     for name in ("meta.json", "alerts.json", "badges.json"):
         (st / name).write_text("{}", encoding="utf-8")
     (st / "latest.json").write_text(json.dumps(latest), encoding="utf-8")
+    _write_manifest(st)
     errors, _ = verify.check_publication(st, st, tmp_path / "nl.csv", NOW, expect_fixtures=1)
     return [e for e in errors if "priced" in e]
 

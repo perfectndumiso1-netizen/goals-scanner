@@ -37,10 +37,10 @@ jobs:
       TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}       # optional
     steps:
       - name: Check out code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v4.4.0
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v5.6.0
         with:
           python-version: "3.12"
           cache: pip
@@ -52,7 +52,7 @@ jobs:
           sudo apt-get update -qq
           sudo apt-get install -y -qq ffmpeg espeak-ng
           for i in 1 2 3; do
-            pip install --only-binary=:all: --retries 10 --timeout 60 -r requirements.txt && break
+            pip install --require-hashes --only-binary=:all: --retries 10 --timeout 60 -r requirements.txt && break
             echo "pip attempt $i failed, retrying"; sleep 20
           done
           python -c "import pandas, numpy, requests, reportlab, PIL; print(pandas.__version__, numpy.__version__)"
@@ -96,16 +96,15 @@ jobs:
     timeout-minutes: 5
     steps:
       - name: Check out code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v4.4.0
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v5.6.0
         with:
           python-version: "3.12"
 
       - name: Unit tests (leagues + world archive)
-        # pytest is a test-time tool for this job only; it is deliberately not added to requirements.txt
+        # the test lock includes the pinned runtime set plus pytest
         run: |
-          pip install --only-binary=:all: --retries 10 --timeout 60 -q -r requirements.txt
-          pip install --only-binary=:all: --retries 10 --timeout 60 -q pytest
+          pip install --require-hashes --only-binary=:all: --retries 10 --timeout 60 -q -r requirements-test.txt
           python -m pytest leagues/tests tests -q

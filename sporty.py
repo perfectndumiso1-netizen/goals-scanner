@@ -16,6 +16,8 @@ from datetime import datetime, timezone
 
 import requests
 
+import feed_health
+
 log = logging.getLogger("sporty")
 
 CC = os.getenv("SPORTY_CC", "za")            # country site: za, ng, gh, ke, ug, tz, zm
@@ -99,14 +101,19 @@ def _get(url: str) -> dict | None:
             mode, _TRANSPORT["mode"] = nxt, nxt
             code, body = _fetch(url, mode)
         if code != 200:
+            feed_health.record("sportybet", "error", f"http_{code or 'transport'}")
             log.warning("Sportybet HTTP %s for %s", code, url[:120])
             return None
         d = json.loads(body)
         if d.get("bizCode") not in (10000, None):
+            feed_health.record("sportybet", "error", "provider_error")
             log.warning("Sportybet bizCode %s: %s", d.get("bizCode"), str(d.get("message"))[:100])
             return None
-        return d.get("data") or {}
+        data = d.get("data") or {}
+        feed_health.record("sportybet", "success" if data else "empty", "valid_response")
+        return data
     except (requests.RequestException, ValueError, subprocess.SubprocessError, OSError) as exc:
+        feed_health.record("sportybet", "error", "request_or_json_error")
         log.warning("Sportybet request failed: %s", exc)
         return None
 

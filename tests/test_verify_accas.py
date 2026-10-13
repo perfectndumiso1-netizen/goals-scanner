@@ -45,7 +45,7 @@ def build(tmp: Path, accas: dict | None = None) -> tuple[Path, Path]:
             encoding="utf-8")
         fixtures.append({"id": f"fx{i}", "d": f"k{i}", "kickoff": "2026-10-03 16:00", "home": f"H{i}",
                          "away": f"A{i}", "p": {"O15": 0.7}, "x12": [0.4, 0.3, 0.3], "xg": [1.4, 1.0]})
-    latest = {"version": 3, "meta": {"generated": NOW.strftime("%Y-%m-%d %H:%M")}, "fixtures": fixtures,
+    latest = {"version": 3, "meta": {"generated": NOW.strftime("%Y-%m-%d %H:%M"), "run_id": "test-run"}, "fixtures": fixtures,
               "safe": {"min_p": 0.7, "bets": [], "today": {"bets": []}}, "picks": {},
               "tracker": {},
               "accas": accas if accas is not None else {"target": 3.0, "pool": 120, "edge_pp": [2.0, 12.0],
@@ -54,6 +54,9 @@ def build(tmp: Path, accas: dict | None = None) -> tuple[Path, Path]:
     (staging / "latest.json").write_text(json.dumps(latest), encoding="utf-8")
     for name in ("meta.json", "alerts.json", "badges.json"):
         (staging / name).write_text(json.dumps({}), encoding="utf-8")
+    (staging / "run_manifest.json").write_text(json.dumps({"schema_version": 3, "run_id": "test-run",
+        "model_version": "test-model", "config_sha256": "a" * 64, "generated_at": NOW.isoformat(),
+        "feed_health": {}, "counts": {}}), encoding="utf-8")
     return staging, live
 
 

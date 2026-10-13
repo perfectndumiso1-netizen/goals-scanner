@@ -316,6 +316,51 @@ def brier(p, y):
     return float(np.mean((np.asarray(p, float) - np.asarray(y, float)) ** 2))
 
 
+def cluster_bootstrap_ci(values, dates, reps: int = 1000, seed: int = 20261013) -> tuple[float, float]:
+    """95% percentile CI for a mean, resampling whole match dates rather than individual matches."""
+    x = np.asarray(values, dtype=float)
+    d = pd.Series(pd.to_datetime(dates, errors="coerce")).to_numpy()
+    valid = np.isfinite(x) & ~pd.isna(d)
+    x, d = x[valid], d[valid]
+    unique_days = pd.unique(d)
+    if len(x) < 2 or len(unique_days) < 2:
+        return float("nan"), float("nan")
+    groups = [x[d == day] for day in unique_days]
+    rng = np.random.default_rng(seed)
+    means = np.empty(reps, dtype=float)
+    for i in range(reps):
+        chosen = rng.integers(0, len(groups), size=len(groups))
+        sample = np.concatenate([groups[j] for j in chosen])
+        means[i] = sample.mean()
+    lo, hi = np.quantile(means, [0.025, 0.975])
+    return float(lo), float(hi)
+
+
+def season_forward_scorecard(res: pd.DataFrame, pcol: str = "fin_O25", ycol: str = "y25") -> pd.DataFrame:
+    """Score fixed chronological replay predictions one July–June season at a time."""
+    if pcol not in res or ycol not in res:
+        return pd.DataFrame()
+    ev = res[(res["date"] > TRAIN_END) & res[pcol].notna() & res[ycol].notna()].copy()
+    if ev.empty:
+        return pd.DataFrame()
+    dates = pd.to_datetime(ev["date"])
+    start_year = dates.dt.year - (dates.dt.month < 7).astype(int)
+    ev["eval_season"] = start_year.map(lambda y: f"{y % 100:02d}/{(y + 1) % 100:02d}")
+    rows = []
+    for index, (season, group) in enumerate(ev.groupby("eval_season", sort=True)):
+        p = np.clip(group[pcol].to_numpy(dtype=float), 1e-6, 1 - 1e-6)
+        y = group[ycol].to_numpy(dtype=float)
+        losses = -(y * np.log(p) + (1 - y) * np.log(1 - p))
+        briers = (p - y) ** 2
+        ll_lo, ll_hi = cluster_bootstrap_ci(losses, group["date"], seed=20261013 + index * 2)
+        br_lo, br_hi = cluster_bootstrap_ci(briers, group["date"], seed=20261014 + index * 2)
+        rows.append({"season": season, "matches": len(group), "log_loss": float(losses.mean()),
+                     "log_loss_ci_low": ll_lo, "log_loss_ci_high": ll_hi,
+                     "brier": float(briers.mean()), "brier_ci_low": br_lo, "brier_ci_high": br_hi,
+                     "predicted": float(p.mean()), "actual": float(y.mean())})
+    return pd.DataFrame(rows)
+
+
 def calibration_table(p, y, edges=(0, .4, .45, .5, .55, .6, .65, .7, .75, .8, 1.01)) -> pd.DataFrame:
     p = np.asarray(p, float)
     y = np.asarray(y, float)
@@ -351,10 +396,24 @@ def pick_stats(c: pd.DataFrame, ycol: str, pcol: str, odds_cols: tuple[str, str]
         m = c[o_open].notna()
         if m.any():
             d["avg_odds"] = c.loc[m, o_open].mean()
-            d["roi_open"] = ((c.loc[m, o_open] * c.loc[m, ycol]).sum() - m.sum()) / m.sum()
+            open_returns = (c.loc[m, o_open].to_numpy(dtype=float) * c.loc[m, ycol].to_numpy(dtype=float)) - 1
+            d["roi_open"] = float(open_returns.mean())
+            d["roi_open_ci_low"], d["roi_open_ci_high"] = cluster_bootstrap_ci(open_returns, c.loc[m, "date"])
         m2 = c[o_close].notna()
         if m2.any():
-            d["roi_close"] = ((c.loc[m2, o_close] * c.loc[m2, ycol]).sum() - m2.sum()) / m2.sum()
+            close_returns = (c.loc[m2, o_close].to_numpy(dtype=float) * c.loc[m2, ycol].to_numpy(dtype=float)) - 1
+            d["roi_close"] = float(close_returns.mean())
+            d["roi_close_ci_low"], d["roi_close_ci_high"] = cluster_bootstrap_ci(close_returns, c.loc[m2, "date"], seed=20261014)
+        if {"ou", "cou"}.issubset(c.columns):
+            p_open = market_probs(c)
+            p_close = market_probs(c, closing=True)
+            valid = p_open.notna() & p_close.notna()
+            if valid.any():
+                # No-vig fair Over 2.5 probability shift from opening to closing average odds.
+                clv = (p_close[valid] - p_open[valid]).to_numpy(dtype=float) * 100.0
+                d["clv_pp"] = float(clv.mean())
+                d["clv_pp_ci_low"], d["clv_pp_ci_high"] = cluster_bootstrap_ci(
+                    clv, c.loc[valid, "date"], seed=20261015)
     return d
 
 
@@ -441,6 +500,23 @@ def evaluate(res: pd.DataFrame, label: str, out: list[str]) -> None:
     t = pd.DataFrame(rows)
     out.append(t.to_markdown(index=False) + "\n")
 
+    # The replay is chronological: each prediction only sees results dated before its match day.
+    if "fin_O25" in ev:
+        wf = season_forward_scorecard(ev, "fin_O25", "y25")
+        if not wf.empty:
+            wf_out = pd.DataFrame({
+                "season": wf["season"], "matches": wf["matches"],
+                "log-loss (95% date-clustered CI)": [f"{r.log_loss:.4f} ({r.log_loss_ci_low:.4f}, {r.log_loss_ci_high:.4f})" for r in wf.itertuples()],
+                "Brier (95% date-clustered CI)": [f"{r.brier:.4f} ({r.brier_ci_low:.4f}, {r.brier_ci_high:.4f})" for r in wf.itertuples()],
+                "predicted": [f"{v:.1%}" for v in wf["predicted"]],
+                "actual": [f"{v:.1%}" for v in wf["actual"]],
+            })
+            out.append("### Season-forward O2.5 scorecard\n\n"
+                       "Post-training test seasons only; fixed-parameter chronological replay, reported by July–June season. "
+                       "Confidence intervals "
+                       "resample whole match dates (1,000 bootstrap replicates).\n\n")
+            out.append(wf_out.to_markdown(index=False) + "\n")
+
     # --- calibration of the current O2.5 final probability, test split
     te = ev[ev["split"].str.startswith("test")]
     out.append("### Calibration — Over 2.5, test seasons\n")
@@ -487,12 +563,16 @@ def threshold_curve(res: pd.DataFrame, pcol: str, ycol: str, hist_cols, hist_flo
         for split_name, g in (("train", ev[ev["date"] <= TRAIN_END]), ("test", ev[ev["date"] > TRAIN_END])):
             c = simulate_picks(g, pcol, ycol, t, hist_floor, hist_cols)
             s = pick_stats(c, ycol, pcol, ("oo", "coo") if odds else None)
-            rows.append({"threshold": f"≥{t:.0%}", "split": split_name, "picks": s.get("picks", 0),
+            row = {"threshold": f"≥{t:.0%}", "split": split_name, "picks": s.get("picks", 0),
                          "per day": f"{s.get('per_day', 0):.1f}", "hit rate": f"{s.get('hit_rate', float('nan')):.1%}",
                          "predicted": f"{s.get('avg_pred', float('nan')):.1%}",
                          **({"avg odds": f"{s.get('avg_odds', float('nan')):.2f}",
                              "ROI open": f"{s.get('roi_open', float('nan')):+.1%}",
-                             "ROI close": f"{s.get('roi_close', float('nan')):+.1%}"} if odds else {})})
+                             "ROI close": f"{s.get('roi_close', float('nan')):+.1%}",
+                             "ROI open 95% CI": f"[{s.get('roi_open_ci_low', float('nan')):+.1%}, {s.get('roi_open_ci_high', float('nan')):+.1%}]",
+                             "CLV (pp)": f"{s.get('clv_pp', float('nan')):+.2f}",
+                             "CLV 95% CI (pp)": f"[{s.get('clv_pp_ci_low', float('nan')):+.2f}, {s.get('clv_pp_ci_high', float('nan')):+.2f}]"} if odds else {})}
+            rows.append(row)
     return pd.DataFrame(rows)
 
 
@@ -563,6 +643,9 @@ def main():
            f"shrinkage K={args.K:g}, venue K={args.KV:g}, Dixon-Coles rho={args.rho_value:g}, market-xG weight={args.w_lambda:g}._\n"]
     evaluate(res, "Model accuracy", out)
     out.append("## Shortlist simulation (current rules, top-15 per day)\n")
+    out.append("For O2.5, CLV is shown as the no-vig average closing implied probability minus the no-vig opening implied probability, in percentage points. "
+               "It is a market line-movement proxy, not an executed-price or individual-ticket measure. ROI uses the historical average bookmaker prices, "
+               "so bookmaker margin is already reflected in the quoted odds. Confidence intervals resample match dates.\n")
     shortlist_report(res, out, {"O15": "pois_O15", "O25": "pois_O25", "BTTS": "pois_BTTS"}, "Poisson only")
     res["cur_O25"] = np.where(res["mkt_o25"].notna(), 0.6 * res["pois_O25"] + 0.4 * res["mkt_o25"].fillna(0), res["pois_O25"])
     shortlist_report(res, out, {"O15": "pois_O15", "O25": "cur_O25", "BTTS": "pois_BTTS"}, "Current production (60/40 market blend for O2.5)")
