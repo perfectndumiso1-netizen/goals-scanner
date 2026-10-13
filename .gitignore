@@ -29,3 +29,4 @@ secrets/
 *.secret
 backtest/cache_boost/
 node_modules/
+tmp/
