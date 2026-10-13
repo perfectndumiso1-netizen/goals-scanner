@@ -355,7 +355,7 @@ def build(rows: list, now: datetime, window_end: datetime | None = None,
                   "max_edge_pp": 100 * MAX_EDGE, "max_per_market": max_per_market,
                   "band": f"{MIN_ODDS:.2f}\u2013{MAX_ODDS:.2f} (odds outside the band are rejected)",
                   "ev": "not a gate — strength and data support decide; value hunting lives on the Positive EV tab",
-                  "diet": "data-rich leagues only (user rule) — top divisions + big-5 second tiers + the big African leagues; no cups, no women/youth/friendlies, no Japan/Australia; both teams need 8+ recent matches with data",
+                  "diet": "data-rich leagues only (user rule) — top divisions + big-5 second tiers + the big African leagues + the UEFA Champions/Europa/Conference League; domestic cups, women/youth/friendlies, Japan/Australia and qualifiers stay out; both teams need 8+ recent matches with data",
                   "unders": "ignored — Overs only (user rule)",
                   "day": "today's matches only (nothing from tomorrow or later)",
                   "implied_method": "de-vigged = Sportybet price with the bookmaker margin removed proportionally "

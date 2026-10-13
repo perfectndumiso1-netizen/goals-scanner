@@ -462,6 +462,9 @@ def export(path: Path, *, ctx: dict, rows: list, all_rows: list | None = None, p
             # per-fixture news (home / away / the fixture itself). Context only — never a model input.
             "news": getattr(r, "news", None) or None,
             "squad": getattr(r, "squad", None) or None,
+            # predicted line-ups (2026-10-12): our projection from archived confirmed XIs, shown when the
+            # official XI is not published yet. Display only — never a model input.
+            "lineup_proj": getattr(r, "lineup_proj", None),
             # ---- live research / context layer (docs/RESEARCH.md): base vs final, the facts behind them, the
             # research grade and any conflict. Present only for researched fixtures; older app builds ignore it.
             "context": (r.audit or {}).get("context"),

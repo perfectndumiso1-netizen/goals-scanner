@@ -20,6 +20,10 @@ ALLOWED = [
     ("USA", "MLS"), ("USA", "Major League Soccer"), ("Mexico", "Liga MX: Apertura"),
     ("South Africa", "Premiership"), ("Nigeria", "NPFL"),
     ("Egypt", "Premier League"), ("Morocco", "Botola Pro"),
+    # UEFA club competitions are IN (user reversal 2026-10-12): Champions / Europa / Conference League
+    ("UEFA", "Champions League"), ("UEFA", "UEFA Champions League"),
+    ("Europe", "Europa League"), ("UEFA", "UEFA Europa League"),
+    ("UEFA", "Conference League"), ("Europe", "UEFA Europa Conference League"),
 ]
 
 BLOCKED = [
@@ -31,7 +35,9 @@ BLOCKED = [
     # cups / knockouts / internationals
     ("England", "FA Cup"), ("Italy", "Coppa Italia"), ("Germany", "DFB Pokal"),
     ("France", "Coupe de France"), ("Spain", "Copa del Rey"), ("England", "Carabao Cup"),
-    ("UEFA", "Champions League"), ("UEFA", "Europa League"), ("Europe", "Conference League"),
+    # UEFA club competitions themselves are allowed now — but their qualifiers / play-off rounds stay out
+    ("UEFA", "Champions League Qualification"), ("Europe", "Europa League Qualification"),
+    ("UEFA", "UEFA Champions League, Play-off round"), ("Europe", "Conference League Play-offs"),
     ("South America", "Copa Libertadores"), ("Europe", "Nations League"),
     ("International", "World Cup Qualifiers"), ("Denmark", "Superliga: Playoffs"),
     # lower tiers and minor competitions (not on the allowlist)

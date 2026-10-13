@@ -132,8 +132,145 @@ def _parse(data: dict) -> dict:
     return out
 
 
+# ------------------------------------------------------------------ the XI archive + our own predictor
+# Third-party "predicted line-ups" sources are all bot-walled from server IPs, so we build our own:
+# every confirmed XI the research layer collects is archived per club, and a club with enough history
+# gets a projection (usual formation + the most-selected available players). Clearly labelled as OUR
+# projection — never official, never "confirmed" (standing user rule).
+
+def _slot_counts(formation: str, fallback: dict[int, int]) -> dict[int, int]:
+    """'4-3-3' -> {2: 4, 3: 3, 4: 3} (+ GK 1 implied). Falls back to the club's actual last XI shape."""
+    try:
+        nums = [int(x) for x in str(formation).replace("-", " ").split() if x.isdigit()]
+    except (ValueError, TypeError):
+        nums = []
+    if len(nums) == 3 and sum(nums) == 10:
+        return {2: nums[0], 3: nums[1], 4: nums[2]}
+    if len(nums) == 4 and sum(nums) == 10:                      # e.g. 4-2-3-1: mid = n2 + n3
+        return {2: nums[0], 3: nums[1] + nums[2], 4: nums[3]}
+    return {k: v for k, v in fallback.items() if k != 1}
+
+
+class XiArchive:
+    """Confirmed XIs per club, harvested from the live feed, and the projection built from them."""
+
+    def __init__(self, path: Path):
+        self.path = Path(path)
+        self.data = {"teams": {}, "eids": {}, "updated": None}
+        try:
+            if self.path.exists():
+                loaded = json.loads(self.path.read_text(encoding="utf-8"))
+                if isinstance(loaded, dict):
+                    self.data = {"teams": loaded.get("teams") or {}, "eids": loaded.get("eids") or {},
+                                 "updated": loaded.get("updated")}
+        except (OSError, ValueError):
+            self.data = {"teams": {}, "eids": {}, "updated": None}
+
+    def save(self) -> None:
+        try:
+            self.path.parent.mkdir(parents=True, exist_ok=True)
+            tmp = Path(tempfile.mkstemp(dir=str(self.path.parent), prefix=".xi-", suffix=".tmp")[1])
+            tmp.write_text(json.dumps(self.data, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
+            os.replace(tmp, self.path)
+        except OSError:
+            pass
+
+    def _key(self, country: str, team: str) -> str:
+        return f"{country}|{team}"
+
+    def harvest(self, eid: str, fx: dict, got: dict, now: datetime) -> None:
+        """Store both confirmed XIs of one fixture (once per eid — re-runs never duplicate)."""
+        if str(eid) in self.data["eids"]:
+            return
+        d = fx["kickoff"].strftime("%Y-%m-%d") if isinstance(fx.get("kickoff"), datetime) else str(fx.get("kickoff", ""))[:10]
+        for side, team in (("home", fx.get("home")), ("away", fx.get("away"))):
+            lx = got.get(side)
+            if not lx or not team:
+                continue
+            starters = [(p["name"], p["position"]) for p in lx["players"] if p.get("starter") and p.get("name")]
+            subs = [p["name"] for p in lx["players"] if p.get("sub") and p.get("name")]
+            if len(starters) < 11:
+                continue
+            key = self._key(str(fx.get("country") or ""), str(team))
+            self.data["teams"].setdefault(key, []).append(
+                {"d": d, "fo": lx.get("formation") or "",
+                 "starters": [[n, pg if isinstance(pg, int) else 0] for n, pg in starters[:11]],
+                 "subs": subs[:9]})
+        self.data["eids"][str(eid)] = now.strftime("%Y-%m-%d %H:%M")
+        if len(self.data["eids"]) > 20000:   # keep the id index bounded (oldest keys are simply dropped)
+            for k in list(self.data["eids"])[:2000]:
+                self.data["eids"].pop(k, None)
+        self.data["updated"] = now.strftime("%Y-%m-%d %H:%M")
+        self.save()
+
+    def predict_team(self, country: str, team: str, min_history: int = 3) -> dict:
+        """Our projection for one club, or an honest collecting/unavailable status. Pure computation."""
+        hist = (self.data["teams"] or {}).get(self._key(country, team)) or []
+        hist = sorted(hist, key=lambda e: str(e.get("d")), reverse=True)
+        have = len(hist)
+        if have < min_history:
+            return {"status": "collecting", "have": have, "need": min_history}
+        window = hist[:8]
+        fo_counts, fo_recent = {}, {}
+        for i, e in enumerate(window):
+            fo = str(e.get("fo") or "")
+            if fo:
+                fo_counts[fo] = fo_counts.get(fo, 0) + (8 - i)
+                fo_recent.setdefault(fo, i)
+        formation = max(fo_counts, key=lambda f: (fo_counts[f], -fo_recent.get(f, 99))) if fo_counts else ""
+        last_groups = {}
+        for _, pg in (window[0].get("starters") or []):
+            last_groups[pg if isinstance(pg, int) else 0] = last_groups.get(pg if isinstance(pg, int) else 0, 0) + 1
+        slots = _slot_counts(formation, last_groups)
+        score: dict[str, list] = {}
+        for i, e in enumerate(window):
+            w = 0.75 ** i
+            for name, pg in (e.get("starters") or []):
+                score.setdefault(str(name), [0.0, pg if isinstance(pg, int) else 0])
+                score[name][0] += w
+        ranked = sorted(score.items(), key=lambda kv: (-kv[1][0], kv[0]))
+        def take(group: int, n: int, used: set) -> list[str]:
+            out = []
+            for name, (sc, pg) in ranked:
+                if len(out) >= n:
+                    break
+                if pg == group and name not in used:
+                    out.append(name)
+                    used.add(name)
+            return out
+        xi, used = [], set()
+        xi += take(1, 1, used)
+        for group in (2, 3, 4):
+            xi += take(group, slots.get(group, 0), used)
+        for name, _sc in ranked:                       # fill any gap with the best remaining players
+            if len(xi) >= 11:
+                break
+            if name not in used:
+                xi.append(name)
+                used.add(name)
+        xi = xi[:11]
+        bench, bused = [], set(used)
+        for e in window[:6]:
+            for name in (e.get("subs") or []):
+                if len(bench) >= 5:
+                    break
+                n = str(name)
+                if n not in bused:
+                    bench.append(n)
+                    bused.add(n)
+        return {"status": "ok", "formation": formation or "N/A", "xi": xi, "bench": bench,
+                "based_on": have, "last": window[0].get("d")}
+
+    def projection(self, country: str, home: str, away: str) -> dict | None:
+        h, a = self.predict_team(country, home), self.predict_team(country, away)
+        if h.get("status") != "ok" and a.get("status") != "ok":
+            return None
+        return {"home": h, "away": a,
+                "note": "Predicted by PlayReport from each club's archived confirmed line-ups — a projection, never official."}
+
+
 def facts_for(fx, now: datetime, client: Client | None, lead_min: float = 120.0, eid: str | None = None,
-              match_started: bool = False) -> list[Fact]:
+              match_started: bool = False, archive: "XiArchive | None" = None) -> list[Fact]:
     """Line-up facts for a fixture, or an honest "not published" fact when the feed has none.
 
     Outside the lead window we do not even call the feed: the data does not exist yet and a request would be
@@ -154,6 +291,11 @@ def facts_for(fx, now: datetime, client: Client | None, lead_min: float = 120.0,
                           f"N/A — the feed has not published line-ups for this fixture (checked {now:%H:%M} UTC, "
                           f"{lead_h:.1f} h to kick-off)", SOURCE, now, confidence="provider",
                           kind="lineup_not_published", value={})]
+    if archive is not None:
+        try:
+            archive.harvest(str(eid), fx, got, now)
+        except Exception:  # noqa: BLE001 - the archive must never break fact collection
+            pass
     out: list[Fact] = []
     for side in ("home", "away"):
         lx = got.get(side)

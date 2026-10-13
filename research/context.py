@@ -140,6 +140,7 @@ class Engine:
         self.news_horizon_h = float(news_horizon_h)
         self.venues = weather.Venues(self.dir / cfg.venues_file, budget=cfg.budget_geocodes)
         self.lineup_client = lineups.Client(self.dir / cfg.lineups_file, budget=cfg.budget_lineups)
+        self.xi_archive = lineups.XiArchive(self.dir / "xi_archive.json")
         self.weather_cache = weather.WeatherCache(self.dir / cfg.weather_file, ttl_h=cfg.ttl_h,
                                                   budget=cfg.budget_weather)
         self.results = None
@@ -171,6 +172,7 @@ class Engine:
         if self.results is not None:
             out += motivation.facts_for(self.results, fx, now, support)
         out += lineups.facts_for(fx, now, self.lineup_client, self.cfg.lineup_lead_min,
+                                 archive=self.xi_archive,
                                  eid=(fx.get("eid") or None),
                                  match_started=bool(F.as_aware(fx["kickoff"], now) <= now))
         in_news_window = (F.as_aware(fx["kickoff"], now) - now) <= timedelta(hours=self.news_horizon_h)

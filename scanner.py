@@ -196,7 +196,7 @@ CONFIG = {
     # to this automatically on every run, so the list only needs a manual entry for a new code.
     # seed stages = the model diet's competitions (user rule 2026-10-11). They get archive-refresh
     # priority; everything else on the day feed is still discovered but (per the diet) not analysed.
-    "SEED_STAGES": os.getenv("SEED_STAGES", "england/premier-league,england/championship,spain/laliga,spain/laliga-2,italy/serie-a,italy/serie-b,germany/bundesliga,germany/2-bundesliga,france/ligue-1,france/ligue-2,netherlands/eredivisie,belgium/belgian-pro-league-2025,portugal/primeira-liga,scotland/scotland-premiership,turkey/super-lig,denmark/superliga,switzerland/super-league,greece/super-league,poland/ekstraklasa,austria/bundesliga,sweden/allsvenskan,norway/eliteserien,croatia/1st-league,ukraine/premier-league,brazil/serie-a,argentina/liga-profesional-clausura,usa/major-league-soccer-2026,mexico/liga-mx-apertura,south-africa/premiership,nigeria/npfl,egypt/premier-league,morocco/botola-pro"),
+    "SEED_STAGES": os.getenv("SEED_STAGES", "england/premier-league,england/championship,spain/laliga,spain/laliga-2,italy/serie-a,italy/serie-b,germany/bundesliga,germany/2-bundesliga,france/ligue-1,france/ligue-2,netherlands/eredivisie,belgium/belgian-pro-league-2025,portugal/primeira-liga,scotland/scotland-premiership,turkey/super-lig,denmark/superliga,switzerland/super-league,greece/super-league,poland/ekstraklasa,austria/bundesliga,sweden/allsvenskan,norway/eliteserien,croatia/1st-league,ukraine/premier-league,brazil/serie-a,argentina/liga-profesional-clausura,usa/major-league-soccer-2026,mexico/liga-mx-apertura,south-africa/premiership,nigeria/npfl,egypt/premier-league,morocco/botola-pro,uefa/champions-league,uefa/europa-league,uefa/conference-league"),
     "STATS_BUDGET_S": _env_float("STATS_BUDGET_S", 75),      # Livescore match statistics per run: time budget
     "STATS_MAX": int(_env_float("STATS_MAX", 400)),          # ... and request cap
     "WORLD_COUNT_MIN_N": int(_env_float("WORLD_COUNT_MIN_N", 5)),  # corners/cards outside the main leagues need this many matches with stats per team
@@ -301,7 +301,7 @@ DIET_BLOCK_RE = re.compile(
     r"|\bu-?1[4-9]\b|\bu-?2[0-3]\b|youth|reserve|primavera|jukuren|devel"
     r"|friendly|japan|australia|\ba-?league\b|\bj[123]\b"
     r"|\bcups?\b|coppa|coupe|pokal|\bcopa\b|kupa|\bkup\b|ta[cčç]a|beker|pokalen|super ?cup|superkupa"
-    r"|play-?offs?\b|qualification|qualifiers|uefa|champions league|europa league|conference league"
+    r"|play-?offs?\b|qualification|qualifiers"
     r"|libertadores|sudamericana|nations league|world cup|concacaf|conmebol|carabao"
     , re.I)
 
@@ -325,6 +325,7 @@ DIET_ALLOW: "list[tuple[re.Pattern, re.Pattern]]" = [
         ("^sweden$", r"allsvenskan$"),
         ("^norway$", r"eliteserien$"),
         ("^croatia$", r"^(1\. )?hnl$"),
+        ("^uefa$|^europe$", r"champions league|europa league|conference league"),   # UEFA club competitions (user rule 2026-10-12); qualifiers & play-offs stay blocked above
         ("^serbia$", r"super liga$"),
         ("^ukraine$", r"premier league$"),
         ("^brazil$", r"serie a$"),
@@ -2880,6 +2881,24 @@ def main() -> None:
                     "doubles_target": 2.00}
     log.info("Accas: %d legs eligible, %d build(s) at %.2f, %d settled so far",
              len(acca_pool), len(acca_ids), acca_mod.TARGET, ctx["accas"]["summary"]["all"].get("n", 0))
+
+    # ---- predicted line-ups (user rule 2026-10-12): when the official XI is not out yet, the app shows a
+    #      projection built from the club's own archived confirmed XIs (never invented, never "official")
+    try:
+        _xi = research_mod.lineups.XiArchive(DATA_DIR / "research" / "xi_archive.json")   # same file the engine harvests
+        _nproj = 0
+        for r in app_rows:
+            try:
+                pj = _xi.projection(str(r.fx["country"]), str(r.fx["home"]), str(r.fx["away"]))
+                if pj:
+                    r.lineup_proj = pj
+                    _nproj += 1
+            except Exception:  # noqa: BLE001
+                continue
+        if _nproj:
+            log.info("Line-up projections: %d fixture(s) carry a predicted XI", _nproj)
+    except Exception as exc:  # noqa: BLE001 - projections are display-only, never fatal
+        log.warning("Line-up projections skipped: %s", exc)
 
     # ---- high-conviction shortlist: a filter over everything above (reads only, changes nothing); a failure
     #      here is logged and the run carries on exactly as before

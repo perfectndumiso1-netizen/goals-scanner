@@ -49,13 +49,34 @@
       return `<div class="statbar"><span class="${a > b ? 'lead' : ''}">${a == null ? '–' : a}${unit || ''}</span><div><div class="k">${k}</div><div class="duo"><span class="l" style="width:${Math.round(wa * 50)}%"></span><span class="r" style="width:${Math.round(wb * 50)}%"></span></div></div><span class="${b > a ? 'lead' : ''}">${b == null ? '–' : b}${unit || ''}</span></div>`; }).join('');
     return rows ? `<div class="card compact"><div class="row"><div class="grow b">${icon('chart', 'sm')} Match statistics</div><span class="tiny muted">${s && isLive(s) ? 'live' : 'full time'}</span></div>${rows}</div>` : '';
   }
-  function lineupsBlock(f, s) {
-    if (!f.livescore_id) return `<div class="card tiny muted">Line-ups are not available for this match.</div>`;
+  function lineupsBlock(f, s, x) {
+    // Predicted XI (2026-10-12): when the official XI is not published yet, show our projection from the
+    // club's archived confirmed line-ups — clearly labelled, never "official", never a model input.
+    const projTeam = (t, name, side) => { if (!t || t.status !== 'ok') return '';
+      const pl = (n, i) => `<div class="pl"><span class="no">${i < 11 ? i + 1 : ''}</span><span class="grow">${esc(n)}</span></div>`;
+      const list = (t.xi || []).map((n, i) => pl(n, i)).join('') + ((t.bench || []).length ? `<h4>Probable subs</h4>${t.bench.map((n) => pl(n, 11)).join('')}` : '');
+      return `<div><div class="b row" style="gap:6px">${fxBadge(f, side).replace('s24', 's20')}${teamSpan(name, f.country, f.div)}</div><div class="tiny muted">${esc(t.formation || '')} · projected from ${t.based_on} archived XI${t.based_on === 1 ? '' : 's'}${t.last ? ` · last ${esc(t.last)}` : ''}</div><h4>Predicted XI</h4>${list}</div>`; };
+    const proj = (x && x.lineup_proj) || null;
+    const projCard = (intro) => `<div class="card">${intro ? `<div class="tiny muted" style="margin-bottom:6px">${intro}</div>` : ''}<div class="lineup">${projTeam(proj.home, f.home, 'home')}${projTeam(proj.away, f.away, 'away')}</div><div class="tiny muted" style="margin-top:8px">${esc((proj && proj.note) || '')}</div></div>`;
+    if (!f.livescore_id) {
+      if (proj) return projCard('');
+      return `<div class="card tiny muted">Line-ups are not available for this match.</div>`;
+    }
     const ko = parseLocal(f.kickoff); const soon = ko && (ko - tzNow()) < 2 * 3600000;
-    if (!soon && !(s && s.hg != null)) return `<div class="card empty">Line-ups are published about an hour before kick-off (${esc(koShort(f.kickoff))}).</div>`;
+    if (!soon && !(s && s.hg != null)) {
+      if (proj) return projCard(`Official line-ups land about an hour before kick-off (${esc(koShort(f.kickoff))}). Until then, our projection:`);
+      return `<div class="card empty">Line-ups are published about an hour before kick-off (${esc(koShort(f.kickoff))}).</div>`;
+    }
     const j = lsx('lineups', f.livescore_id, s && isLive(s) ? 300000 : 1800000);
+    if (j == null && proj) return projCard('');
     if (j == null) return skeleton(6);
-    const lu = (j.Lu || []); if (!lu.length) return `<div class="card empty">Line-ups not published yet — check back closer to kick-off.</div>`;
+    const lu = (j.Lu || []);
+    if (!lu.length) {
+      if (proj) return projCard('Official line-ups not published yet — our projection until they land:');
+      const hp = (proj && proj.home) || {};
+      const collecting = hp.status === 'collecting' ? ` Our projection needs ${hp.need || 3}+ archived line-ups per club (${hp.have || 0} archived so far for ${esc(f.home)}).` : '';
+      return `<div class="card empty">Line-ups not published yet — check back closer to kick-off.${collecting}</div>`;
+    }
     const team = (t, name, side) => { const ps = (t.Ps || []); const xi = ps.filter((p) => p.Pos >= 1 && p.Pos <= 4).sort((a, b) => a.Pos - b.Pos || (a.Fp || '').localeCompare(b.Fp || '')); const subs = ps.filter((p) => p.Pos === 5); const coach = ps.find((p) => p.Pos === 10);
       const pl = (p) => `<div class="pl"><span class="no">${p.Snu != null ? p.Snu : ''}</span><span class="grow">${esc(p.Snm || [p.Fn, p.Ln].filter(Boolean).join(' '))}</span>${p.Mo != null ? `<span class="pos">${p.Pos === 5 ? '▲' : '▼'} ${p.Mo}'</span>` : `<span class="pos">${esc((p.Pon || '').slice(0, 3).toUpperCase())}</span>`}</div>`;
       return `<div><div class="b row" style="gap:6px">${fxBadge(f, side).replace('s24', 's20')}${teamSpan(name, f.country, f.div)}</div>${t.Fo ? `<div class="tiny muted">${t.Fo.join('-')}</div>` : ''}<h4>Starting XI</h4>${xi.map(pl).join('')}${subs.length ? `<h4>Substitutes</h4>${subs.map(pl).join('')}` : ''}${coach ? `<h4>Coach</h4><div class="pl"><span class="no"></span><span>${esc(coach.Snm || [coach.Fn, coach.Ln].filter(Boolean).join(' '))}</span></div>` : ''}</div>`; };
@@ -121,7 +142,7 @@
     const segTabs = [['overview', 'Overview'], ['form', 'Form'], ['markets', 'Markets'], ['trends', 'Trends'], ['stats', 'Stats'],
       ...(fin ? [['report', 'Report']] : []), ['table', 'Table'], ['h2h', 'H2H'], ['news', 'News'], ['data', 'Data'], ['lineups', 'Line-ups']];
     parts.push(`<div class="card compact">${segmented(segTabs, v, 'mv')}</div>`);
-    if (v === 'lineups') parts.push(lineupsBlock(f, s));
+    if (v === 'lineups') parts.push(lineupsBlock(f, s, x));
     else if (v === 'report') matchReport(parts, f, fin, betsOn(f.id));
     else if (!x) parts.push(skeleton(5));
     else if (v === 'overview') matchOverview(parts, x, s);
