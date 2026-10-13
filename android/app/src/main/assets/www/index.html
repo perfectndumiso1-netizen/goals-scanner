@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="color-scheme" content="light dark">
-<meta name="theme-color" content="#070b14">
+<meta name="theme-color" content="#07110e">
 <title>PlayReport</title>
 <link rel="stylesheet" href="app.css">
 <script>try{var t=JSON.parse(localStorage.getItem('pr_settings')||'{}').theme;if(t)document.documentElement.dataset.theme=t;}catch(e){}</script>
@@ -74,15 +74,12 @@
 
 <main id="view"></main>
 
-<nav id="tabs">
-  <button data-tab="home" class="active"><span class="ic-wrap"><svg class="ic"><use href="#i-home"/></svg></span>Home</button>
-  <button data-tab="bets"><span class="ic-wrap"><svg class="ic"><use href="#i-search"/></svg></span>Scan</button>
-  <button data-tab="live"><span class="ic-wrap"><svg class="ic"><use href="#i-live"/></svg><span class="dot" id="live-dot"></span></span>Live</button>
-  <button data-tab="matches"><span class="ic-wrap"><svg class="ic"><use href="#i-calendar"/></svg></span>Matches</button>
-  <button data-tab="lowodds"><span class="ic-wrap"><svg class="ic"><use href="#i-tag"/></svg></span>Low odds</button>
-  <button data-tab="shortlist"><span class="ic-wrap"><svg class="ic"><use href="#i-target"/></svg></span>Shortlist</button>
-  <button data-tab="sequences"><span class="ic-wrap"><svg class="ic"><use href="#i-clock"/></svg></span>Sequences</button>
-  <button data-tab="more"><span class="ic-wrap"><svg class="ic"><use href="#i-more"/></svg></span>More</button>
+<nav id="tabs" aria-label="Primary navigation">
+  <button data-tab="home" class="active" aria-label="Home" aria-current="page"><span class="ic-wrap"><svg class="ic"><use href="#i-home"/></svg></span>Home</button>
+  <button data-tab="bets" aria-label="Scan"><span class="ic-wrap"><svg class="ic"><use href="#i-trend"/></svg></span>Scan</button>
+  <button data-tab="live" aria-label="Live"><span class="ic-wrap"><svg class="ic"><use href="#i-live"/></svg><span class="dot" id="live-dot"></span></span>Live</button>
+  <button data-tab="matches" aria-label="Matches"><span class="ic-wrap"><svg class="ic"><use href="#i-calendar"/></svg></span>Matches</button>
+  <button data-tab="more" aria-label="More"><span class="ic-wrap"><svg class="ic"><use href="#i-more"/></svg></span>More</button>
 </nav>
 
 <div id="slipbar"></div>

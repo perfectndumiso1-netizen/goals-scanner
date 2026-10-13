@@ -82,7 +82,9 @@
       if (j && j.meta && j.meta.sport === 'tennis') { T.data = j; T.loadedAt = Date.now(); (PR.saveAux || (() => false))('pr_tennis_latest', JSON.stringify(j)); }
     } catch (e) { T.error = String(e.message || e); }
     T.loading = false;
-    if (isTennis()) { PR.render(); T.statusLine(); }
+    // The football Home also receives a small tennis strip; redraw it when that independent feed
+    // finishes loading so a fresh install does not need another navigation to reveal the strip.
+    if (isTennis() || state.tab === 'home') { PR.render(); T.statusLine(); }
   };
   T.detail = function (id) {
     const key = String(id);

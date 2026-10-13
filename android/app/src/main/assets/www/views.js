@@ -386,12 +386,14 @@
     const d = state.data, m = d.meta, sf = d.safe || { bets: [] }; const parts = [];
     const inPlay = live.inPlay(); const cov = m.coverage || {};
     const safe = safeList('all').filter(sameDay);   // only matches played on this day — never future fixtures
-    // reference Home: date line + TODAY stats tile row
-    parts.push(`<div class="hero-row"><div><div class="kicker">Football intelligence</div><h1>${esc(String(dayName(m.generated || '')).replace(/^Today · /, ''))}</h1></div><span class="quality">updated ${esc(koTime(m.generated || ''))}</span></div>`);
-    parts.push(`<div class="card hero"><div class="eyebrow">Today</div>
-      <div class="hero-nums"><div><b>${m.fixtures}</b><span>Matches</span></div><div><b>${d.fixtures.filter((f) => f.data_ok).length}</b><span>Analysed</span></div><div><b>${safe.length}</b><span>High confidence</span></div><div><b>${(state.liveAll || []).length || inPlay.length}</b><span>Live</span></div></div>
-      <div class="tiny muted" style="margin-top:8px">Next update ${esc(koTime(m.next_run || ''))} · ${cov.competitions || '–'} competitions worldwide · ${cov.priced || 0} priced by Sportybet${m.odds_asof ? ` · <b>prices from ${esc(koTime(m.odds_asof))}</b> (the book blocked the refresh)` : ''}</div>
-      ${inPlay.length ? `<div class="live-strip" data-tab-go="live"><span class="status-dot live"></span><div class="grow"><b>${inPlay.length} tracked in play</b> · ${inPlay.slice(0, 2).map((f) => { const s = live.for(f); return `${esc(f.home)} ${s.hg}–${s.ag} ${esc(f.away)}`; }).join(' · ')}${inPlay.length > 2 ? ' …' : ''}</div>${icon('next', 'sm')}</div>` : ''}</div>`);
+    const dayLabel = String(dayName(m.generated || '')).replace(/^Today · /, '');
+    const liveN = (state.liveAll || []).length || inPlay.length;
+    parts.push(`<div class="hero-row matchday-head"><div><div class="kicker">${esc(dayLabel)}</div><h1>Matchday</h1></div><span class="quality updated-pill">${icon('refresh', 'sm')} Updated ${esc(koTime(m.generated || ''))}</span></div>`);
+    parts.push(`<section class="card hero matchday-hero">
+      <div class="matchday-heading"><div><div class="eyebrow">Daily overview</div><div class="matchday-intro">Fixtures, coverage &amp; market prices</div></div><span class="coverage-tag">${cov.competitions || '–'} competitions</span></div>
+      <div class="hero-nums matchday-stats"><div><b>${m.fixtures}</b><span>Fixtures</span></div><div><b>${d.fixtures.filter((f) => f.data_ok).length}</b><span>Analysed</span></div><div><b>${safe.length}</b><span>Signals</span></div><div><b>${liveN}</b><span>Live</span></div></div>
+      <div class="matchday-foot"><span>Next update <b>${esc(koTime(m.next_run || ''))}</b></span><span class="coverage-line">${cov.priced || 0} priced${m.odds_asof ? ` · prices from ${esc(koTime(m.odds_asof))} (book refresh blocked)` : ' by Sportybet'}</span></div>
+      ${inPlay.length ? `<div class="live-strip" data-tab-go="live"><span class="status-dot live"></span><div class="grow"><b>${inPlay.length} tracked in play</b> · ${inPlay.slice(0, 2).map((f) => { const s = live.for(f); return `${esc(f.home)} ${s.hg}–${s.ag} ${esc(f.away)}`; }).join(' · ')}${inPlay.length > 2 ? ' …' : ''}</div>${icon('next', 'sm')}</div>` : ''}</section>`);
     // accas stay one tap away at the top (compact summary, user choice 2026-10-09)
     if (((d.accas || {}).bets || []).length) parts.push(`<div class="card compact tap" data-page-go="accas"><div class="row"><span class="ico">${icon('ticket')}</span><div class="grow"><div class="b">Today\u2019s accas · ${(d.accas.bets || []).length} build${(d.accas.bets || []).length === 1 ? '' : 's'} at ~${f2(d.accas.target || 3)}</div><div class="tiny muted">Gated legs, tracked to settlement → tap to open</div></div>${icon('next')}</div></div>`);
     if (PR.APP_VERSION && settings.seenVersion !== PR.APP_VERSION) {
@@ -401,6 +403,9 @@
     const favs = (PR.favList ? PR.favList() : []).map((x) => fx(x.fixture)).filter(Boolean).sort((a, b) => a.kickoff.localeCompare(b.kickoff));
     if (favs.length) parts.push(`<div class="section-head"><h2><span class="ico amber">${icon('star')}</span>Your matches</h2><button class="link" data-tab-go="matches" data-mf-go="fav">All ${favs.length} ${icon('next')}</button></div><div class="card compact">${favs.slice(0, 5).map((f) => { const s = live.for(f); return matchRow(f, { live: s, sub: `${flag(f.country)} ${esc(f.competition)}${f.safe ? ` · 📈 <b>${esc(selShort(f.safe[0]))}</b> ${pct(f.safe[1])}` : ''}`, right: s && s.hg != null ? '' : `<span class="pill ${f.p.O25 >= 0.6 ? 'hi' : ''}">O2.5 ${pct(f.p.O25)}</span>` }); }).join('')}</div>`);
     parts.push(homeBoard(d));
+    // Keep the full first-run release notes accessible, but don't let them push today's board below the opening viewport.
+    const whatsNewIndex = parts.findIndex((html) => html.includes('class="card whatsnew"'));
+    if (whatsNewIndex >= 0) parts.push(parts.splice(whatsNewIndex, 1)[0]);
     if (PR.ticketsCard && PR.tickets().some((t) => t.status === 'pending')) parts.push(PR.ticketsCard(true));
     parts.push(PR.editorCard(true));
     parts.push(contactCard(true));
@@ -812,32 +817,41 @@
   function chipCls(o, k) { const settled = o.n - (o.pending || 0); if (!settled) return ''; const r = o[k] / settled; return r >= 0.6 ? 'good' : r <= 0.35 ? 'bad' : 'warn'; }
   PR.chipCls = chipCls;
 
-  // ------------------------------------------------------------------ MORE (V2 hub: Days / Leagues / Teams / Performance / Tickets / settings)
+  // ------------------------------------------------------------------ MORE (secondary football destinations, insights, activity and app tools)
   PR.views.more = function () {
     const d = state.data;
     const tickets = PR.tickets ? PR.tickets() : [];
     const pendingTickets = tickets.filter((t) => t.status === 'pending').length;
     const parts = [];
     const row = (icn, title, sub, attrs, right) => `<button class="more-row" ${attrs}><span class="tile">${icon(icn)}</span><span class="grow"><span class="b">${title}</span><span class="s">${sub}</span></span>${right || `<span class="chev">${icon('next')}</span>`}</button>`;
-    parts.push(`<div class="more-list">
-      ${row('calendar', 'Days', 'Analysed fixtures · day by day', 'data-tab-go="days"')}
-      ${row('trophy', 'Leagues', 'Worldwide competitions', 'data-tab-go="leagues"')}
-      ${row('target', 'Shortlist', 'Today’s high-conviction picks · grouped by market', 'data-tab-go="shortlist"')}
-      ${row('clock', 'Sequences', 'Your betting windows · today’s matches', 'data-tab-go="sequences"')}
-      ${row('users', 'Teams', 'Stats, form &amp; trends', 'data-page-go="teams"')}
-      ${row('chart', 'Performance', 'Your results &amp; calibration', 'data-page-go="performance"')}
-      ${row('ticket', 'Tickets', pendingTickets ? `${pendingTickets} awaiting result` : 'My selections &amp; history', 'data-page-go="tickets"', pendingTickets ? `<span class="cnt">${pendingTickets}</span>` : undefined)}
-      ${row('shield', 'Bet advisor', 'Today\u2019s advised picks &amp; staking', 'data-page-go="advisor"')}
-      ${row('sparkle', 'Best of the day', 'Grounded daily shortlist', 'data-page-go="best"')}
-      ${row('tag', 'All markets', 'Today · six groups · high to low', 'data-page-go="marketsboard"')}
-      ${row('ticket', 'Today\u2019s accas', `${((d.accas || {}).bets || []).length} build${((d.accas || {}).bets || []).length === 1 ? '' : 's'} at ~3.00 · tracked &amp; settled`, 'data-page-go="accas"')}
-      ${row('info', 'Guide to the markets', 'FAQ &amp; how the model works', 'data-page-go="guide"')}
-      ${row('doc', 'Full analysis', 'The complete daily report', 'data-page-go="analysis"')}
-      ${row('ball', 'Tennis', 'Separate section with live scores', 'data-page-go="tennis"')}
-      ${row('settings', 'Settings', 'App preferences', 'data-page-go="settings"')}
-      ${row('download', 'Download today\u2019s data (CSV)', 'Spreadsheet of the whole window', 'id="more-csv"')}
-      ${row('chat', 'Contact on WhatsApp', 'Questions, feedback &amp; support', 'id="more-contact"')}
-    </div>`);
+    const group = (title, rows) => `<section class="more-group"><h2 class="more-group-title">${title}</h2><div class="more-list">${rows.join('')}</div></section>`;
+    parts.push(`<div class="hero-row more-head"><div><div class="kicker">Tools &amp; insights</div><h1>Explore</h1></div></div>`);
+    parts.push(group('Match centre', [
+      row('calendar', 'Days', 'Analysed fixtures · day by day', 'data-tab-go="days"'),
+      row('trophy', 'Leagues', 'Worldwide competitions', 'data-tab-go="leagues"'),
+      row('tag', 'Low odds', 'Sportybet prices from 1.19 to 1.45', 'data-tab-go="lowodds"'),
+      row('target', 'Shortlist', 'Today’s high-conviction picks · grouped by market', 'data-tab-go="shortlist"'),
+      row('clock', 'Sequences', 'Your betting windows · today’s matches', 'data-tab-go="sequences"'),
+    ]));
+    parts.push(group('Model & results', [
+      row('users', 'Teams', 'Stats, form &amp; trends', 'data-page-go="teams"'),
+      row('chart', 'Performance', 'Your results &amp; calibration', 'data-page-go="performance"'),
+      row('shield', 'Bet advisor', 'Today’s advised picks &amp; staking', 'data-page-go="advisor"'),
+      row('sparkle', 'Best of the day', 'Grounded daily shortlist', 'data-page-go="best"'),
+      row('swap', 'All markets', 'Today · six groups · high to low', 'data-page-go="marketsboard"'),
+      row('info', 'Guide to the markets', 'FAQ &amp; how the model works', 'data-page-go="guide"'),
+      row('doc', 'Full analysis', 'The complete daily report', 'data-page-go="analysis"'),
+    ]));
+    parts.push(group('Your activity', [
+      row('ticket', 'Tickets', pendingTickets ? `${pendingTickets} awaiting result` : 'My selections &amp; history', 'data-page-go="tickets"', pendingTickets ? `<span class="cnt">${pendingTickets}</span>` : undefined),
+      row('ticket', 'Today’s accas', `${((d.accas || {}).bets || []).length} build${((d.accas || {}).bets || []).length === 1 ? '' : 's'} at ~3.00 · tracked &amp; settled`, 'data-page-go="accas"'),
+      row('ball', 'Tennis', 'Separate section with live scores', 'data-page-go="tennis"'),
+    ]));
+    parts.push(group('App & support', [
+      row('settings', 'Settings', 'App preferences', 'data-page-go="settings"'),
+      row('download', 'Download today’s data (CSV)', 'Spreadsheet of the whole window', 'id="more-csv"'),
+      row('chat', 'Contact on WhatsApp', 'Questions, feedback &amp; support', 'id="more-contact"'),
+    ]));
     parts.push(`<div class="card version-card" style="margin-top:12px"><div class="b">PlayReport ${esc(PR.APP_VERSION || '')}</div><div class="tiny muted">Model \u00b7 Data \u00b7 Performance</div></div>`);
     view().innerHTML = parts.join('');
     wireCommon(); if (PR.wireTickets) PR.wireTickets();
