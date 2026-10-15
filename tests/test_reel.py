@@ -181,3 +181,48 @@ def test_short_reel_does_not_add_trailing_silence(monkeypatch, tmp_path):
     expected = reel.frame_hold(5.0) + 3 * reel.frame_hold(1.0 + reel.TAIL)
     assert abs(sum(video_holds) - expected) < 0.01
     assert len(video_holds) == 4
+
+
+def test_workflows_match_actions_lock_and_scan_keeps_male_ci_voice():
+    import re
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parent.parent
+    wf_dir = root / ".github" / "workflows"
+    lock_text = (wf_dir / "actions.lock").read_text(encoding="utf-8")
+
+    # Parse workflow action lists from actions.lock without requiring pyyaml in runtime deps
+    locked: dict[str, set[str]] = {}
+    current_wf = None
+    in_workflows = False
+    for line in lock_text.splitlines():
+        if line.startswith("workflows:"):
+            in_workflows = True
+            continue
+        if in_workflows and not line.startswith(" "):
+            break
+        m_wf = re.match(r"^\s{4}'([^']+)':\s*$", line)
+        if m_wf:
+            current_wf = m_wf.group(1)
+            locked[current_wf] = set()
+            continue
+        m_dep = re.match(r"^\s{8}-\s*'([^']+)'\s*$", line)
+        if m_dep and current_wf:
+            locked[current_wf].add(m_dep.group(1))
+
+    for yml in sorted(wf_dir.glob("*.yml")):
+        rel = f".github/workflows/{yml.name}"
+        assert rel in locked, f"{rel} missing from actions.lock"
+        text = yml.read_text(encoding="utf-8")
+        used = set()
+        for raw in re.findall(r"^\s*(?:-\s*)?uses:\s*([^\s#]+)", text, flags=re.MULTILINE):
+            # Normalize sub-action paths like gradle/actions/setup-gradle@v3.5.0 -> gradle/actions@v3.5.0
+            repo_part, _, ref_part = raw.partition("@")
+            parts = repo_part.split("/")
+            norm = f"{parts[0]}/{parts[1]}@{ref_part}" if len(parts) >= 2 and ref_part else raw
+            used.add(norm)
+        assert used == locked[rel], f"{rel} uses {sorted(used)} != actions.lock {sorted(locked[rel])}"
+
+    scan_text = (wf_dir / "scan.yml").read_text(encoding="utf-8")
+    assert "en_US-amy-medium" not in scan_text
+

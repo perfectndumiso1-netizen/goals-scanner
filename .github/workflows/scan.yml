@@ -57,29 +57,9 @@ jobs:
           python-version: "3.12"
           cache: pip
 
-      - name: Determine whether this scan can send the morning reel
-        id: reel_window
-        shell: bash
-        run: |
-          local_hour="$(TZ=Africa/Johannesburg date +%H)"
-          local_minute="$(TZ=Africa/Johannesburg date +%M)"
-          local_minutes=$((10#$local_hour * 60 + 10#$local_minute))
-          if (( local_minutes >= 300 && local_minutes < 440 )); then
-            echo "enabled=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "enabled=false" >> "$GITHUB_OUTPUT"
-          fi
-
-      - name: Cache Piper Amy voice
-        if: steps.reel_window.outputs.enabled == 'true'
-        uses: actions/cache@v4
-        with:
-          path: ~/.cache/playreport-piper
-          key: ${{ runner.os }}-piper-en-us-amy-medium-v1.0.0
-
       - name: Install dependencies
         # wheels only + retries: a PyPI hiccup once made pip fall back to building pandas from source and the run failed
-        # ffmpeg + Piper neural voice (with eSpeak local fallback): daily 9:16 reel; no bed music.
+        # ffmpeg + espeak-ng: daily 9:16 reel (slides locked to each VO clip; no music; male en-gb voice).
         run: |
           sudo apt-get update -qq
           sudo apt-get install -y -qq ffmpeg espeak-ng
@@ -88,42 +68,6 @@ jobs:
             echo "pip attempt $i failed, retrying"; sleep 20
           done
           python -c "import pandas, numpy, requests, reportlab, PIL; print(pandas.__version__, numpy.__version__)"
-
-      - name: Prepare neural narration voice
-        # Piper is isolated from the scanner's pinned Python dependencies; the voice is cached and checksum-verified.
-        if: steps.reel_window.outputs.enabled == 'true'
-        continue-on-error: true
-        run: |
-          set -euo pipefail
-          python -m venv "$RUNNER_TEMP/piper-venv"
-          "$RUNNER_TEMP/piper-venv/bin/pip" install --disable-pip-version-check --only-binary=:all: --retries 10 --timeout 60 "piper-tts==1.8.0"
-          VOICE_DIR="$HOME/.cache/playreport-piper"
-          mkdir -p "$VOICE_DIR"
-          MODEL="$VOICE_DIR/en_US-amy-medium.onnx"
-          CONFIG="$MODEL.json"
-          fetch_checked() {
-            local url="$1" path="$2" expected="$3" tmp="$2.tmp"
-            if [[ -s "$path" ]] && printf '%s  %s\n' "$expected" "$path" | sha256sum --check --status; then
-              echo "Verified cached voice file: $(basename "$path")"
-              return
-            fi
-            rm -f "$tmp"
-            curl --fail --location --retry 3 --retry-all-errors "$url" --output "$tmp"
-            printf '%s  %s\n' "$expected" "$tmp" | sha256sum --check
-            mv "$tmp" "$path"
-          }
-          fetch_checked \
-            "https://huggingface.co/rhasspy/piper-voices/resolve/v1.0.0/en/en_US/amy/medium/en_US-amy-medium.onnx" \
-            "$MODEL" "b3a6e47b57b8c7fbe6a0ce2518161a50f59a9cdd8a50835c02cb02bdd6206c18"
-          fetch_checked \
-            "https://huggingface.co/rhasspy/piper-voices/resolve/v1.0.0/en/en_US/amy/medium/en_US-amy-medium.onnx.json" \
-            "$CONFIG" "95a23eb4d42909d38df73bb9ac7f45f597dbfcde2d1bf9526fdeaf5466977d77"
-          "$RUNNER_TEMP/piper-venv/bin/python" -m piper -m "$MODEL" -c "$CONFIG" \
-            -f "$RUNNER_TEMP/piper-smoke.wav" -- "Good morning. PlayReport shortlist is ready."
-          test -s "$RUNNER_TEMP/piper-smoke.wav"
-          echo "PIPER_PYTHON=$RUNNER_TEMP/piper-venv/bin/python" >> "$GITHUB_ENV"
-          echo "PIPER_MODEL_PATH=$MODEL" >> "$GITHUB_ENV"
-          echo "PIPER_CONFIG_PATH=$CONFIG" >> "$GITHUB_ENV"
 
       - name: Restore state (data branch)
         run: |
