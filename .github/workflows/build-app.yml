@@ -40,13 +40,22 @@ jobs:
       - name: Restore signing key
         env:
           KS_B64: ${{ secrets.ANDROID_KEYSTORE_B64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
         run: |
-          if [ -n "$KS_B64" ]; then
-            echo "$KS_B64" | base64 -d > "$RUNNER_TEMP/keystore.p12"
-            echo "KEYSTORE_PATH=$RUNNER_TEMP/keystore.p12" >> "$GITHUB_ENV"
-          else
-            echo "No keystore secret - the APK will be debug-signed"
-          fi
+          set -euo pipefail
+          for name in KS_B64 KEYSTORE_PASSWORD KEY_ALIAS KEY_PASSWORD; do
+            if [[ -z "${!name:-}" ]]; then
+              echo "::error::Required Android release-signing secret is missing: $name"
+              exit 1
+            fi
+          done
+          install -m 600 /dev/null "$RUNNER_TEMP/keystore.p12"
+          printf '%s' "$KS_B64" | base64 --decode > "$RUNNER_TEMP/keystore.p12"
+          keytool -list -keystore "$RUNNER_TEMP/keystore.p12" \
+            -storepass "$KEYSTORE_PASSWORD" -alias "$KEY_ALIAS" >/dev/null
+          echo "KEYSTORE_PATH=$RUNNER_TEMP/keystore.p12" >> "$GITHUB_ENV"
 
       - name: Build release APK
         env:

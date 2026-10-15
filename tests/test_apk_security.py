@@ -148,6 +148,24 @@ def test_updater_verifies_the_download_and_lets_android_install():
     assert "PackageInstaller" not in updater.replace("no PackageInstaller session", "")
 
 
+def test_public_android_release_requires_the_configured_release_signing_key():
+    workflow = read(ROOT / ".github" / "workflows" / "build-app.yml")
+    gradle = read(ANDROID / "app" / "build.gradle.kts")
+    for secret in ("KS_B64", "KEYSTORE_PASSWORD", "KEY_ALIAS", "KEY_PASSWORD"):
+        assert secret in workflow, f"the release workflow must provide and require {secret}"
+    assert '"::error::Required Android release-signing secret is missing: $name"' in workflow
+    assert "keytool -list -keystore" in workflow, "the configured keystore and alias must be validated before building"
+    assert 'signingConfig = signingConfigs.getByName("release")' in gradle
+    assert 'signingConfig = signingConfigs.findByName("release") ?: signingConfigs.getByName("debug")' not in gradle
+
+
+def test_python_test_workflow_runs_full_suite_on_push_and_pull_request():
+    workflow = read(ROOT / ".github" / "workflows" / "python-tests.yml")
+    assert "  push:" in workflow
+    assert "  pull_request:" in workflow
+    assert "python -m pytest leagues/tests tests tennis/tests -q" in workflow
+
+
 # ------------------------------------------------------------------ the page and the shell must agree
 def test_update_is_handed_to_the_browser_not_the_blocked_installer():
     """Without REQUEST_INSTALL_PACKAGES (deliberately absent) Android 8+ silently refuses an install the app
