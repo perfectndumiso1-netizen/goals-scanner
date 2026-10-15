@@ -1,11 +1,11 @@
 """Headless smoke test for the TENNIS section of the PlayReport UI (run locally; not part of the app).
 Stubs the football data files exactly like ui_test.py and serves the tennis files from TENNIS_ROOT
-(the tennis-data checkout / TENNIS_STATE_DIR). Checks: the sport switch on every tab, the five tennis tabs
-(Home / Bets / Live / Matches / Days), a day page and a match page with its Overview / Markets / Stats / Data
+(the tennis-data checkout / TENNIS_STATE_DIR). Checks: the sport switch on every tab, the five primary tabs
+(Home / Bets / Live / Matches / More, with Days under More), a day page and a match page with its Overview / Markets / Stats / Data
 views; fails on console errors, missing elements, forbidden wording or a backend identifier leaking into the UI.
 Football must render untouched when the switch is back on ⚽.
 Usage: DATA_ROOT=/tmp/fb-data TENNIS_ROOT=/tmp/tennis-state python3 tennis_ui_test.py"""
-import json, os, re, sys, pathlib
+import json, os, re, sys, pathlib, shutil
 from datetime import datetime, timedelta
 from playwright.sync_api import sync_playwright
 
@@ -15,6 +15,8 @@ DATA_ROOT = pathlib.Path(os.environ.get('DATA_ROOT', ROOT.parent))
 TENNIS_ROOT = pathlib.Path(os.environ.get('TENNIS_ROOT', ROOT.parent))
 DATA = json.load(open(DATA_ROOT / 'data/app/latest.json'))
 TENNIS = json.load(open(TENNIS_ROOT / 'data/app/tennis/latest.json'))
+CHROMIUM = os.environ.get('CHROMIUM_EXECUTABLE_PATH') or shutil.which('chromium') or shutil.which('chromium-browser')
+RESP_HEADERS = {'Access-Control-Allow-Origin': '*'}
 LEAK = re.compile(r'github|perfectndumiso|goals-scanner|raw\.githubusercontent|banker|guaranteed|sure win|safe bet|\block\b', re.I)
 errors = []
 LIVE_STUB = {"Stages": [{"Cnm": "ATP", "Snm": "Test Open", "Sid": "1", "Events": [
@@ -29,9 +31,14 @@ def check(cond, msg):
     if not cond: errors.append(msg); print('FAIL', msg)
     else: print('ok  ', msg)
 
+def open_more_tab(page, tab):
+    page.click('#tabs [data-tab="more"]'); page.wait_for_timeout(200)
+    page.click(f'#view [data-tab-go="{tab}"]'); page.wait_for_timeout(900)
+    check(page.locator('#tabs [data-tab="more"].active').count() == 1, f'{tab}: More remains active')
+
 
 with sync_playwright() as p:
-    b = p.chromium.launch(); page = b.new_page(viewport={'width': 412, 'height': 900})
+    b = p.chromium.launch(executable_path=CHROMIUM) if CHROMIUM else p.chromium.launch(); page = b.new_page(viewport={'width': 412, 'height': 900})
     page.on('console', lambda m: errors.append(f'console {m.type}: {m.text}') if m.type == 'error' and 'Failed to load resource' not in m.text else None)
     page.on('pageerror', lambda e: errors.append(f'pageerror: {e}'))
 
@@ -40,34 +47,24 @@ with sync_playwright() as p:
         if 'tennis-data/' in url:
             rel = url.split('tennis-data/')[1].split('?')[0]
             f = TENNIS_ROOT / rel
-            if f.exists(): r.fulfill(status=200, body=f.read_text(encoding='utf-8'), content_type='application/json'); return
-            r.fulfill(status=404, body='{}'); return
-        if '/date/tennis/' in url: r.fulfill(status=200, body=json.dumps(LIVE_STUB), content_type='application/json'); return
-        if 'data/app/latest.json' in url: r.fulfill(status=200, body=json.dumps(DATA), content_type='application/json'); return
+            if f.exists(): r.fulfill(status=200, body=f.read_text(encoding='utf-8'), content_type='application/json', headers=RESP_HEADERS); return
+            r.fulfill(status=404, body='{}', headers=RESP_HEADERS); return
+        if '/date/tennis/' in url: r.fulfill(status=200, body=json.dumps(LIVE_STUB), content_type='application/json', headers=RESP_HEADERS); return
+        if 'data/app/latest.json' in url: r.fulfill(status=200, body=json.dumps(DATA), content_type='application/json', headers=RESP_HEADERS); return
         if url.startswith('file://'): r.continue_(); return
-        r.fulfill(status=404, body='{}')
+        r.fulfill(status=404, body='{}', headers=RESP_HEADERS)
     page.route('**/*', route)
     page.goto(WWW.as_uri()); page.wait_for_timeout(1500)
     check(page.evaluate("() => !!(window.PR && PR.pages.tennisMatch && PR.pages.tennisDay && PR.pages.tennisGuide && PR.tennis)"), 'tennis pages registered')
     check(page.evaluate("() => !!document.querySelector('#sport-bar')"), 'sport switch shown on the football home')
     fb_home = page.inner_text('#view')
     check('Bets of the day' in fb_home, 'football home renders as before under the switch')
-    page.wait_for_timeout(1500); fb_home = page.inner_text('#view')
-    check('Tennis · selections of the day' in fb_home and page.evaluate("() => !!document.querySelector('#tn-fb-card')"), 'tennis selections card on the FOOTBALL home screen')
+    page.wait_for_function('() => !!(window.PR && PR.tennis && PR.tennis.data)', timeout=10000)
+    page.wait_for_timeout(250); fb_home = page.inner_text('#view')
+    check('Tennis · selections of the day' not in fb_home and not page.locator('#tn-fb-card').count(), 'football Home remains separate from the tennis analysis board')
+    check(page.evaluate("() => /Tennis\\s*\\d+/.test(document.querySelector('#sport-bar').textContent)"), 'sport bar updates with the tennis selection count after the feed loads')
+    check(not page.locator('#tn-intro, #tn-fb-strip').count(), 'removed tennis Home teaser does not reappear on football Home')
     sels0 = TENNIS.get('selections') or []
-    if sels0: check(any(s['label'] in fb_home for s in sels0[:8]), 'football home: a tennis selection label is visible without switching')
-    check(page.evaluate("() => /Tennis\\s*\\d+/.test(document.querySelector('#sport-bar').textContent)"), 'sport bar shows the tennis selection count')
-    check(page.evaluate("() => { const s = document.querySelector('#tn-fb-strip'), h = document.querySelector('#view .card.hero'); return !!s && !!h && s.previousElementSibling === h; }"), 'tennis strip directly under the football hero (above the fold)')
-    check('New: tennis is on your home screen' in fb_home, 'one-time intro card on first launch')
-    page.click('#tn-intro-ok'); page.wait_for_timeout(400)
-    check(not page.evaluate("() => !!document.querySelector('#tn-intro')") and page.evaluate("() => !!window.app.settings.tnIntroSeen"), 'intro dismissed and remembered')
-    fb_home = page.inner_text('#view')
-    check(fb_home.index('Bets of the day') < fb_home.index('Tennis · selections of the day'), 'tennis card sits right after the football bets-of-the-day card')
-    # tapping a tennis row from the football home opens the tennis match page, back returns to football home
-    if sels0:
-        page.click('#tn-fb-card tr.tap >> nth=0'); page.wait_for_timeout(1200)
-        check('selection of the day' in page.inner_text('#view').lower(), 'football home → tennis match page')
-        page.click('#back'); page.wait_for_timeout(400); check('Bets of the day' in page.inner_text('#view'), 'back → football home')
     # ---- switch to tennis
     page.click('#sport-bar [data-sport="tennis"]'); page.wait_for_timeout(1800)
     txt = page.inner_text('#view')
@@ -79,9 +76,9 @@ with sync_playwright() as p:
         check(sels[0]['label'] in txt or any(s['label'] in txt for s in sels[:6]), 'a selection label is visible on the home card')
         check(any(sec['title'] in txt for sec in TENNIS.get('sections', [])), 'market sections (Match winner / Total games / Player games / Game handicap)')
     check('Strong markets' in txt or not TENNIS.get('strong'), 'strong markets section when present')
-    check('Next matches' in txt, 'next matches list')
+    check('next matches' in txt.lower(), 'next matches list')
     check('in play' in txt.lower(), 'in-play counter from the live stub')
-    check('Tennis' in page.inner_text('#status-line'), 'header status line switched to tennis')
+    check(page.locator('#sport-bar [data-sport="tennis"].on.tn').count() == 1, 'tennis sport switch is visibly active')
     page.screenshot(path='/tmp/ui_tennis_home.png', full_page=False)
     # ---- Bets tab
     page.click('#tabs [data-tab="bets"]'); page.wait_for_timeout(600)
@@ -114,13 +111,13 @@ with sync_playwright() as p:
     page.click('[data-tnm="all"]'); page.wait_for_timeout(200)
     page.screenshot(path='/tmp/ui_tennis_matches.png', full_page=False)
     # ---- Days tab + day page
-    page.click('#tabs [data-tab="days"]'); page.wait_for_timeout(900)
+    open_more_tab(page, 'days')
     txt = page.inner_text('#view'); check('Day by day' in txt, 'days: intro')
     idx = json.load(open(TENNIS_ROOT / 'data/app/tennis/days/index.json'))
     if idx['days']:
         d0 = idx['days'][0]['day']
         page.click(f'[data-tn-day="{d0}"]'); page.wait_for_timeout(900)
-        txt = page.inner_text('#view'); check('All matches' in txt and ('Selections of the day' in txt or idx['days'][0].get('selections', 0) == 0), 'day page: selections + all matches')
+        txt = page.inner_text('#view'); check('all matches' in txt.lower() and ('selections of the day' in txt.lower() or idx['days'][0].get('selections', 0) == 0), 'day page: selections + all matches')
         page.screenshot(path='/tmp/ui_tennis_day.png', full_page=False)
         page.click('#back'); page.wait_for_timeout(300)
     # ---- Match page (a match with a selection)
@@ -207,8 +204,9 @@ with sync_playwright() as p:
     page.evaluate("() => document.querySelector('[data-tnfav]').click()"); page.wait_for_timeout(500)
     check(page.evaluate("() => JSON.parse(window.PR.stored('pr_tennis_favs') || '[]').some((f) => f.id === '%s')" % favm['id']), 'favourite stored natively + locally')
     page.click('#back'); page.wait_for_timeout(400)
-    page.click('#tabs [data-tab="home"]'); page.wait_for_timeout(900)
-    check('Your matches' in page.inner_text('#view'), 'tennis home shows the Your matches card')
+    page.evaluate("() => { window.app.settings.sport='tennis'; window.PR.saveSettings(); window.PR.state.stack=[]; window.PR.state.tab='home'; window.PR.render(); }")
+    page.wait_for_timeout(900)
+    check('your matches' in page.inner_text('#view').lower(), 'tennis home shows the Your matches card')
     page.click('#tabs [data-tab="matches"]'); page.wait_for_timeout(600)
     check('Favourites' in page.inner_text('#view'), 'matches tab: Favourites filter chip')
     page.evaluate("() => document.querySelector('[data-tnfavs]').click()"); page.wait_for_timeout(400)

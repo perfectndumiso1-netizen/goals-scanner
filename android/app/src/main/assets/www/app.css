@@ -867,3 +867,143 @@ body { padding-bottom: calc(78px + var(--safe-bottom)); }
 .briefing .brief-bar { display: flex; align-items: center; gap: 10px; margin-top: 10px; }
 .briefing .brief-bar input { flex: 1; }
 .briefing .brief-bar span { font-size: 12px; color: #9fb3c8; min-width: 52px; }
+
+
+/* =====================================================================
+   PlayReport UI refresh — matchday editorial system
+   Five primary destinations, calm surfaces, stronger type hierarchy, and
+   green-on-ink accents. Keep data and navigation behavior unchanged.
+   ===================================================================== */
+:root {
+  --bg: #f3f6f3; --card: #ffffff; --card-2: #f7faf8; --text: #142019; --muted: #65756c;
+  --line: #dee7e1; --line-2: #ebf0ec; --brand: #16744c; --brand-2: #176f4b; --brand-text: #176f4b;
+  --brand-soft: rgba(22,116,76,.10); --accent: #148652; --accent-soft: rgba(20,134,82,.12);
+  --good: #126b42; --warn: #8b5d0a; --warn-soft: rgba(179,119,14,.13); --bad: #b4232f; --bad-soft: rgba(180,35,47,.10);
+  --chip: #eef4f0; --hl: rgba(22,116,76,.06); --live: #d63f50; --neutral-fill: #a6b3aa;
+  --nav: #ffffff; --top: #ffffff; --top-text: #142019; --top-muted: #65756c; --top-line: #e5ece7;
+  --sk: #e5ece7; --sk-2: #f3f7f4; --seg-on: #ffffff; --toast: #17251d;
+  --hero-bg: radial-gradient(220px 150px at 100% 0%, rgba(47,150,94,.12), transparent 75%), linear-gradient(140deg, #e7f3eb, #ffffff 76%);
+  --hero-line: #d7e7db; --r: 20px; --r-s: 14px;
+  --shadow: 0 1px 2px rgba(16,35,24,.04), 0 10px 28px -22px rgba(16,35,24,.2);
+  --shadow-lg: 0 20px 56px -24px rgba(7,17,12,.3);
+}
+[data-theme="light"] { color-scheme: light; }
+[data-theme="dark"] {
+  color-scheme: dark;
+  --bg: #07110e; --card: #0e1a15; --card-2: #14231c; --text: #f1f6f2; --muted: #99a89f;
+  --line: #26372e; --line-2: #1c2b23; --brand: #176f4b; --brand-2: #a9e879; --brand-text: #a9e879;
+  --brand-soft: rgba(169,232,121,.12); --accent: #5dd995; --accent-soft: rgba(93,217,149,.14);
+  --good: #5dd995; --warn: #f3c262; --warn-soft: rgba(243,194,98,.14); --bad: #ff7c7c; --bad-soft: rgba(255,124,124,.14);
+  --chip: #1b2b23; --hl: rgba(169,232,121,.08); --live: #ff687a; --neutral-fill: #64736b;
+  --nav: #09140f; --top: #09140f; --top-text: #f1f6f2; --top-muted: #99a89f; --top-line: #1b2b22;
+  --sk: #1b2b23; --sk-2: #26372e; --seg-on: #1b2b23; --toast: #122019;
+  --hero-bg: radial-gradient(240px 170px at 100% 0%, rgba(169,232,121,.13), transparent 76%), linear-gradient(145deg, #14281e, #0e1a15 78%);
+  --hero-line: #2b4434; --shadow: 0 1px 0 rgba(255,255,255,.025) inset, 0 12px 28px -22px rgba(0,0,0,.65);
+  --shadow-lg: 0 24px 60px -22px rgba(0,0,0,.85);
+}
+@media (prefers-color-scheme: dark) {
+  [data-theme="system"] {
+    --bg: #07110e; --card: #0e1a15; --card-2: #14231c; --text: #f1f6f2; --muted: #99a89f;
+    --line: #26372e; --line-2: #1c2b23; --brand: #176f4b; --brand-2: #a9e879; --brand-text: #a9e879;
+    --brand-soft: rgba(169,232,121,.12); --accent: #5dd995; --accent-soft: rgba(93,217,149,.14);
+    --good: #5dd995; --warn: #f3c262; --warn-soft: rgba(243,194,98,.14); --bad: #ff7c7c; --bad-soft: rgba(255,124,124,.14);
+    --chip: #1b2b23; --hl: rgba(169,232,121,.08); --live: #ff687a; --neutral-fill: #64736b;
+    --nav: #09140f; --top: #09140f; --top-text: #f1f6f2; --top-muted: #99a89f; --top-line: #1b2b22;
+    --sk: #1b2b23; --sk-2: #26372e; --seg-on: #1b2b23; --toast: #122019;
+    --hero-bg: radial-gradient(240px 170px at 100% 0%, rgba(169,232,121,.13), transparent 76%), linear-gradient(145deg, #14281e, #0e1a15 78%);
+    --hero-line: #2b4434; --shadow: 0 1px 0 rgba(255,255,255,.025) inset, 0 12px 28px -22px rgba(0,0,0,.65);
+    --shadow-lg: 0 24px 60px -22px rgba(0,0,0,.85);
+  }
+}
+
+html, body { font-size: 15.5px; }
+body { padding-bottom: calc(84px + var(--safe-bottom)); background: var(--bg); }
+body::before { content: ''; position: fixed; inset: 0; z-index: -1; pointer-events: none; background: radial-gradient(900px 360px at 50% -220px, rgba(54,145,93,.08), transparent 75%); }
+#view { padding: 12px 14px 16px; }
+#top { background: var(--top); color: var(--top-text); border-bottom: 1px solid var(--top-line); }
+#top .title { font-size: 17px; font-weight: 800; letter-spacing: -.02em; }
+#top .sub { color: var(--top-muted); font-size: 10px; font-weight: 700; letter-spacing: .07em; text-transform: uppercase; }
+#top .icon-btn { width: 40px; height: 40px; border-radius: 13px; color: var(--top-text); }
+#top .icon-btn:active { background: var(--brand-soft); }
+
+#tabs { height: calc(76px + var(--safe-bottom)); padding: 6px 8px calc(6px + var(--safe-bottom)); gap: 4px; background: var(--nav); border-top: 1px solid var(--line); box-shadow: 0 -8px 24px rgba(0,0,0,.06); }
+#tabs button { min-width: 0; gap: 2px; border-radius: 14px; padding: 4px 1px; font-size: 10px; font-weight: 700; letter-spacing: .01em; }
+#tabs .ic-wrap { width: 44px; height: 30px; border-radius: 11px; }
+#tabs .ic { width: 21px; height: 21px; }
+#tabs button.active { color: var(--brand-text); }
+#tabs button.active .ic-wrap { background: var(--brand-soft); }
+#tabs button.active .ic-wrap .ic { stroke-width: 2.2; }
+#tabs .dot { top: 1px; right: 8px; box-shadow: 0 0 0 2px var(--nav); }
+#slipbar { bottom: calc(82px + var(--safe-bottom)); }
+#toast { bottom: calc(96px + var(--safe-bottom)); }
+
+.hero-row { margin: 8px 3px 14px; align-items: flex-end; }
+.hero-row h1 { margin-top: 4px; font-size: 30px; line-height: 1.04; letter-spacing: -.045em; font-weight: 850; }
+.hero-row .kicker { color: var(--brand-text); font-size: 10px; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; }
+.hero-row .quality { border: 1px solid var(--line); background: var(--card); color: var(--muted); border-radius: 999px; padding: 6px 10px; font-size: 10px; font-weight: 750; letter-spacing: .01em; white-space: nowrap; }
+.hero-row .quality::before { display: none; }
+.updated-pill { display: inline-flex; align-items: center; gap: 5px; }
+.updated-pill .ic { color: var(--brand-text); }
+.card { border: 1px solid var(--line); border-radius: var(--r); background: var(--card); box-shadow: var(--shadow); padding: 14px 16px; }
+.card.compact { padding: 10px 14px; border-radius: 17px; }
+.card.empty { border-style: dashed; box-shadow: none; }
+.card.tap:active, .list-item.tap:active, .more-row:active, tr.tap:active { background: var(--card-2); }
+.section-head { margin-top: 20px; }
+.section-head h2, h2.section { font-size: 16px; font-weight: 800; letter-spacing: -.025em; }
+.tiny { font-size: 12px; line-height: 1.5; }
+
+.matchday-head { margin-bottom: 13px; }
+.matchday-hero { position: relative; overflow: hidden; isolation: isolate; padding: 17px 16px 14px; border-color: var(--hero-line); background: var(--hero-bg); }
+.matchday-hero::after { content: ''; position: absolute; z-index: -1; width: 180px; height: 180px; right: -112px; top: -94px; border: 1px solid var(--hero-line); border-radius: 50%; box-shadow: 0 0 0 22px rgba(122,190,134,.035), 0 0 0 46px rgba(122,190,134,.025); pointer-events: none; }
+.matchday-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
+.matchday-heading .eyebrow { color: var(--brand-text); font-size: 10px; letter-spacing: .12em; }
+.matchday-intro { color: var(--muted); font-size: 12px; margin-top: 3px; }
+.coverage-tag { padding: 5px 9px; border: 1px solid var(--hero-line); border-radius: 999px; color: var(--muted); background: var(--card); font-size: 9px; font-weight: 750; white-space: nowrap; }
+.matchday-stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 7px; margin-top: 15px; }
+.matchday-stats > div { min-width: 0; padding: 10px 4px 8px; border: 1px solid var(--line); border-radius: 13px; background: var(--card); text-align: center; }
+.matchday-stats b { display: block; color: var(--text); font-size: 27px; font-weight: 850; line-height: 1; letter-spacing: -.055em; }
+.matchday-stats span { display: block; margin-top: 5px; color: var(--muted); font-size: 8.5px; line-height: 1.15; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; }
+.matchday-foot { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 4px 10px; margin-top: 11px; color: var(--muted); font-size: 10.5px; }
+.matchday-foot b { color: var(--text); }
+.matchday-foot .coverage-line { text-align: right; }
+.live-strip { border-radius: 12px; background: var(--card); border-color: var(--line); }
+
+.signal, .live-card, .scan-stat, .more-row { border: 1px solid var(--line); border-radius: 17px; background: var(--card); box-shadow: var(--shadow); }
+.signal { padding: 14px; }
+.model-box, .market-strip, .hero-nums > div, .cell { border-color: var(--line); background: var(--card-2); }
+.market-strip { border-radius: 13px; }
+.model-box { border-radius: 13px; }
+.more-head { margin-bottom: 8px; }
+.more-group { margin-top: 17px; }
+.more-group-title { margin: 0 4px 8px; color: var(--muted); font-size: 10px; font-weight: 850; letter-spacing: .13em; text-transform: uppercase; }
+.more-list { display: grid; gap: 8px; }
+.more-row { padding: 10px 12px; border-radius: 16px; }
+.more-row .tile { width: 40px; height: 40px; border-radius: 12px; background: var(--brand-soft); color: var(--brand-text); }
+.more-row .b { font-size: 13px; font-weight: 800; }
+.more-row .s { color: var(--muted); font-size: 10.5px; line-height: 1.35; margin-top: 2px; }
+.version-card { margin-top: 16px !important; }
+
+.btn { border-radius: 13px; font-weight: 750; }
+.btn.primary, .btn.wide.primary { background: var(--brand); border-color: var(--brand); color: #fff; box-shadow: 0 5px 16px -9px rgba(15,100,65,.65); }
+.seg { border-radius: 14px; background: var(--card-2); }
+.seg button { border-radius: 10px; }
+.seg button.on { background: var(--brand); color: #fff; }
+.tapchip.on { background: var(--brand); color: #fff; border-color: var(--brand); }
+.tapchip.on b, .tapchip.on .ic { color: #fff; }
+.pill { border-radius: 8px; font-weight: 800; }
+.pill.hi { background: var(--brand); color: #fff; }
+.tbl td, .tbl th { border-color: var(--line-2); }
+.searchbar.gs .field { border-radius: 15px; }
+.searchbar.gs .field:focus-within { box-shadow: 0 0 0 3px var(--brand-soft); }
+
+@media (max-width: 380px) {
+  #view { padding-right: 11px; padding-left: 11px; }
+  .hero-row h1 { font-size: 28px; }
+  .matchday-stats { gap: 5px; }
+  .matchday-stats b { font-size: 24px; }
+  .matchday-stats span { font-size: 8px; letter-spacing: .035em; }
+  .coverage-tag { font-size: 8px; padding: 5px 7px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  #view.enter > *, #tabs button, .btn, .tap { animation: none !important; transition: none !important; }
+}

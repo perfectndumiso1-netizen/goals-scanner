@@ -522,8 +522,8 @@ window.PR = (function () {
     try { const j = await getJson(rawUrl('data/app/badges.json') + '?t=' + Math.floor(Date.now() / 86400000)); if (j && typeof j === 'object') { state.badges = j; saveAux('pr_badges', JSON.stringify(j)); } } catch (e) { /* offline: keep cache */ }
   }
 
-  // ------------------------------------------------------------------ navigation (shell: Home / Scan / Live / Matches / Low odds / More —
-  // Days and Leagues stay valid tabs, reached from the More page)
+  // ------------------------------------------------------------------ navigation (primary shell: Home / Scan / Live / Matches / More —
+  // Low odds, Shortlist, Sequences, Days and Leagues remain valid secondary destinations under More)
   const TABS = ['home', 'bets', 'live', 'matches', 'lowodds', 'shortlist', 'sequences', 'days', 'leagues', 'more'];
   function render() {
     if (!state.data && !(state.stack.length && state.stack[state.stack.length - 1].type === 'settings')) return;
@@ -543,9 +543,13 @@ window.PR = (function () {
     if (tab === 'today') tab = 'home';
     if (!TABS.includes(tab)) tab = 'home';
     state.tab = tab; state.stack = [];
-    const navTab = (tab === 'days' || tab === 'leagues') ? 'more' : tab;   // sub-tabs live under More in the V2 nav
+    const navTab = ['lowodds', 'shortlist', 'sequences', 'days', 'leagues'].includes(tab) ? 'more' : tab;
     const ttl = $('#top .title'); if (ttl) ttl.textContent = TAB_TITLE[tab] || 'PlayReport';
-    $$('#tabs button').forEach((b) => b.classList.toggle('active', b.dataset.tab === navTab));
+    $$('#tabs button').forEach((b) => {
+      const active = b.dataset.tab === navTab;
+      b.classList.toggle('active', active);
+      if (active) b.setAttribute('aria-current', 'page'); else b.removeAttribute('aria-current');
+    });
     render(); window.scrollTo(0, 0);
     if (tab === 'live' && state.data && Date.now() - state.lastLive > 15000) PR.live.refresh(false);
   }
