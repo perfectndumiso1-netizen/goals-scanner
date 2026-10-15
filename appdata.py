@@ -566,6 +566,8 @@ def export(path: Path, *, ctx: dict, rows: list, all_rows: list | None = None, p
         # the app labels them with this timestamp instead of pretending they are live
         "odds_asof": ctx.get("sb_asof"),
         "coverage": coverage or {},
+        "feed_health": ctx.get("feed_health") or {},
+        "health_alerts": ctx.get("health_alerts") or [],
         # research layer summary for this run: how many fixtures were researched, how many facts were stored,
         # how many fixtures carried a (bounded) context adjustment and the research-quality mix
         "research": ctx.get("research") or {},

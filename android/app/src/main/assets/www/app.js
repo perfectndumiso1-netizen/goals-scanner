@@ -111,12 +111,12 @@
   };
 
   // boot: cached first, then network
-  const cached = localStorage.getItem('pr_latest');
+  const cached = PR.stored ? PR.stored('pr_latest') : localStorage.getItem('pr_latest');
   if (cached) { try { state.data = PR.indexData(JSON.parse(cached)); PR.statusLine(); PR.render(); } catch (e) { /* ignore */ } }
   PR.loadBadges().then(() => { if (state.data) PR.render(); });
   PR.loadData(false).then(() => { if (state.data) { PR.live.refresh(false); setTimeout(() => PR.prefetchDetails(), 1500); } });
   PR.live.schedule();
-  if (PR.native && PR.native.setPref) { try { PR.native.setPref('goals', !!settings.goalAlerts); PR.native.setPref('ht', !!settings.htAlerts); PR.native.setPref('ft', settings.ftAlerts !== false); PR.native.setPref('ko', settings.koAlerts !== false); if (PR.saveFavs) PR.saveFavs(); PR.native.setPref('bets', settings.betAlerts !== false); PR.native.setPref('reports', settings.reportAlerts !== false); } catch (e) { /* ignore */ } }
+  if (PR.native && PR.native.setPref) { try { PR.native.setPref('goals', !!settings.goalAlerts); PR.native.setPref('ht', !!settings.htAlerts); PR.native.setPref('ft', settings.ftAlerts !== false); PR.native.setPref('ko', settings.koAlerts !== false); if (PR.saveFavs) PR.saveFavs(); PR.native.setPref('bets', settings.betAlerts !== false); PR.native.setPref('reports', settings.reportAlerts !== false); PR.native.setPref('tennis', false); } catch (e) { /* ignore */ } }
   if (PR.reconcileTickets) setTimeout(() => PR.reconcileTickets(), 2500);
   updateCheck(); // instant — no startup delay
 })(window.PR);

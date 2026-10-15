@@ -666,3 +666,29 @@ def test_store_prunes_old_records_and_survives_corruption(tmp_path):
     p.write_text("{not json", encoding="utf-8")
     s3 = Store(p, keep_days=5)
     assert s3.records == {} and "recovered_from_error" in s3.meta
+
+
+def test_referee_context_fact_and_na_gap():
+    from research import referee
+
+    # No referee appointed -> no fact emitted
+    assert referee.facts_for(results_frame(), fixture(), NOW) == []
+
+    # Appointed referee with < 5 historical card rows -> explicit N/A gap fact
+    fx = fixture(referee="M. Oliver")
+    gap = referee.facts_for(results_frame(), fx, NOW)
+    assert len(gap) == 1 and F.is_na(gap[0]) and gap[0].kind == "referee_unavailable"
+
+    # Appointed referee with >= 5 tracked matches -> factual provider-tier context note
+    rows = [
+        {"date": pd.Timestamp((NOW - timedelta(days=d)).date()), "country": "Testland", "div": "TL1",
+         "league": "Test League", "home": "A", "away": "B", "hg": 1, "ag": 1,
+         "referee": "M. Oliver", "hy": 2, "ay": 2, "hr": 0, "ar": 0, "hf": 11, "af": 12}
+        for d in (5, 12, 19, 26, 33, 40)
+    ]
+    facts = referee.facts_for(pd.DataFrame(rows), fx, NOW)
+    assert len(facts) == 1 and not F.is_na(facts[0])
+    assert facts[0].category == "referee"
+    assert facts[0].value["cards_pg"] == 4.0
+    assert facts[0].value["fouls_pg"] == 23.0
+

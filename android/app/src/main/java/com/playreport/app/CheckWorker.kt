@@ -119,10 +119,9 @@ class CheckWorker(ctx: Context, params: WorkerParameters) : Worker(ctx, params) 
         val wantGoals = prefs.getBoolean("pref_goals", true)
         val wantHt = prefs.getBoolean("pref_ht", false)
         val wantFt = prefs.getBoolean("pref_ft", true)
-        val wantTennis = prefs.getBoolean("pref_tennis", true)
+        val wantTennis = false  // tennis paused per user rule (2026-10-15)
         val tickets = try { JSONArray(prefs.getString("str_tickets", "[]") ?: "[]") } catch (e: Exception) { JSONArray() }
         val favs = try { JSONArray(prefs.getString("str_favs", "[]") ?: "[]") } catch (e: Exception) { JSONArray() }
-        val tnFavs = try { JSONArray(prefs.getString("str_tennis_favs", "[]") ?: "[]") } catch (e: Exception) { JSONArray() }
         val want = HashSet<String>()
         val tnWant = HashSet<String>()
         meta.optJSONArray("tracked_eids")?.let { for (i in 0 until it.length()) want.add(it.getString(i)) }
@@ -131,11 +130,10 @@ class CheckWorker(ctx: Context, params: WorkerParameters) : Worker(ctx, params) 
             val legs = tickets.getJSONObject(i).optJSONArray("legs") ?: continue
             for (j in 0 until legs.length()) {
                 val l = legs.getJSONObject(j); val e = l.optString("eid")
-                if (e.isNotEmpty() && e != "null") { if (l.optString("sport", "football") == "tennis") tnWant.add(e) else want.add(e); mine.add(l) }
+                if (e.isNotEmpty() && e != "null" && l.optString("sport", "football") != "tennis") { want.add(e); mine.add(l) }
             }
         }
         for (i in 0 until favs.length()) { val f = favs.getJSONObject(i); val e = f.optString("eid"); if (e.isNotEmpty() && e != "null") { want.add(e); mine.add(f) } }
-        for (i in 0 until tnFavs.length()) { val f = tnFavs.getJSONObject(i); val e = f.optString("eid"); if (e.isNotEmpty() && e != "null") { tnWant.add(e); mine.add(f) } }
         val zone = java.time.ZoneId.of("Africa/Johannesburg")
         val today = java.time.LocalDate.now(zone)
         // kick-off reminders (15-20 min before) for the user's own matches

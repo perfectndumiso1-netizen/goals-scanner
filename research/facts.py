@@ -40,13 +40,14 @@ TTL_H = {
     "fatigue": 24.0,
     "motivation": 24.0,
     "availability": 72.0,
+    "referee": 24.0,    # display-only historical referee card/foul context
 }
 CATEGORIES = tuple(TTL_H)
 
 # Facts that record a *gap* rather than information ("N/A — the feed has not published line-ups").  They are
 # shown, they explain why an adjustment is zero, and they must never count as evidence for the research grade.
 NA_KINDS = {"no_history", "stakes_unavailable", "coverage_none", "news_unavailable", "lineup_not_published",
-            "lineup_partial", "lineup_unavailable", "weather_unavailable"}
+            "lineup_partial", "lineup_unavailable", "weather_unavailable", "referee_unavailable"}
 
 
 def is_na(fact: "Fact") -> bool:

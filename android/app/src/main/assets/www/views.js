@@ -233,10 +233,14 @@
     const d = state.data; const sl = d.shortlist || {}; const c = sl.counts || {}; const R = sl.rules || {};
     const parts = [];
     const np = (sl.primary || []).length;
+    const yr = sl.yesterday_results || {};
     parts.push(`<div class="hero-row"><div><div class="kicker">High-conviction shortlist</div><h1>Shortlist</h1></div><span class="quality">today only</span></div>`);
+    if (yr && yr.settled) {
+      parts.push(`<div class="card compact"><div class="row"><div class="grow"><div class="b">📋 Yesterday’s shortlist (${esc(yr.day || '')})</div><div class="tiny muted">${yr.hits} of ${yr.settled} settled selection${yr.settled === 1 ? '' : 's'} won (${pct(yr.hit_rate)})</div></div><span class="pill ${yr.hit_rate >= 0.7 ? 'hi' : 'mid'}">${yr.hits}/${yr.settled}</span></div></div>`);
+    }
     if (np) {
-      parts.push(`<div class="card compact briefing-cta"><div class="row"><div class="grow"><div class="b">${icon('sparkle', 'sm')} Tonight's briefing</div><div class="tiny muted">The shortlist as a video you can watch and download on your phone. Male voiceover, kick-off times in SAST. A shortlist for your review — never an instruction to bet.</div></div></div>
-        <div class="row" style="gap:8px;margin-top:8px"><button class="btn" id="btn-briefing">${icon('live', 'sm')} Watch briefing</button><button class="btn" id="btn-briefing-dl">${icon('download', 'sm')} Download video</button></div></div>`);
+      parts.push(`<div class="card compact briefing-cta"><div class="row"><div class="grow"><div class="b">${icon('sparkle', 'sm')} Tonight's 16:9 briefing</div><div class="tiny muted">Starts with yesterday’s shortlist results, then proceeds to today’s selections. Male voiceover, kick-off times in SAST. A shortlist for your review — never an instruction to bet.</div></div></div>
+        <div class="row" style="gap:8px;margin-top:8px"><button class="btn" id="btn-briefing">${icon('live', 'sm')} Watch briefing</button><button class="btn" id="btn-briefing-dl">${icon('download', 'sm')} Download 16:9 video</button></div></div>`);
     }
     if (!sl.counts) {
       parts.push(`<div class="card empty">The high-conviction shortlist appears after the next analysis run (every 30 minutes).</div>`);
@@ -388,7 +392,12 @@
     const safe = safeList('all').filter(sameDay);   // only matches played on this day — never future fixtures
     const dayLabel = String(dayName(m.generated || '')).replace(/^Today · /, '');
     const liveN = (state.liveAll || []).length || inPlay.length;
-    parts.push(`<div class="hero-row matchday-head"><div><div class="kicker">${esc(dayLabel)}</div><h1>Matchday</h1></div><span class="quality updated-pill">${icon('refresh', 'sm')} Updated ${esc(koTime(m.generated || ''))}</span></div>`);
+    const genDt = parseLocal(m.generated || '');
+    const ageMin = genDt ? Math.max(0, Math.round((tzNow() - genDt) / 60000)) : null;
+    const hAlerts = Array.isArray(m.health_alerts) ? m.health_alerts : [];
+    const feedWarn = !!(m.odds_asof || hAlerts.length || (ageMin != null && ageMin > 65));
+    const feedBadge = `<span class="tiny ${feedWarn ? 'warn' : 'good'}" style="margin-left:6px">● ${m.odds_asof ? 'Cached prices' : feedWarn ? 'Degraded feed' : 'Feed live'}</span>`;
+    parts.push(`<div class="hero-row matchday-head"><div><div class="kicker">${esc(dayLabel)}</div><h1>Matchday</h1></div><span class="quality updated-pill">${icon('refresh', 'sm')} Updated ${esc(koTime(m.generated || ''))}${feedBadge}</span></div>`);
     parts.push(`<section class="card hero matchday-hero">
       <div class="matchday-heading"><div><div class="eyebrow">Daily overview</div><div class="matchday-intro">Fixtures, coverage &amp; market prices</div></div><span class="coverage-tag">${cov.competitions || '–'} competitions</span></div>
       <div class="hero-nums matchday-stats"><div><b>${m.fixtures}</b><span>Fixtures</span></div><div><b>${d.fixtures.filter((f) => f.data_ok).length}</b><span>Analysed</span></div><div><b>${safe.length}</b><span>Signals</span></div><div><b>${liveN}</b><span>Live</span></div></div>
@@ -845,7 +854,6 @@
     parts.push(group('Your activity', [
       row('ticket', 'Tickets', pendingTickets ? `${pendingTickets} awaiting result` : 'My selections &amp; history', 'data-page-go="tickets"', pendingTickets ? `<span class="cnt">${pendingTickets}</span>` : undefined),
       row('ticket', 'Today’s accas', `${((d.accas || {}).bets || []).length} build${((d.accas || {}).bets || []).length === 1 ? '' : 's'} at ~3.00 · tracked &amp; settled`, 'data-page-go="accas"'),
-      row('ball', 'Tennis', 'Separate section with live scores', 'data-page-go="tennis"'),
     ]));
     parts.push(group('App & support', [
       row('settings', 'Settings', 'App preferences', 'data-page-go="settings"'),

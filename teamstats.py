@@ -80,16 +80,20 @@ def _rate(mask: pd.Series):
 
 def _long(df: pd.DataFrame) -> pd.DataFrame:
     """One row per team per match."""
+    hy = pd.to_numeric(df["hy"], errors="coerce").fillna(0.0) if "hy" in df else None
+    hr = pd.to_numeric(df["hr"], errors="coerce").fillna(0.0) if "hr" in df else 0.0
+    ay = pd.to_numeric(df["ay"], errors="coerce").fillna(0.0) if "ay" in df else None
+    ar = pd.to_numeric(df["ar"], errors="coerce").fillna(0.0) if "ar" in df else 0.0
     h = pd.DataFrame({"date": df["date"], "league": df["league"], "div": df["div"], "team": df["home"], "opp": df["away"],
                       "venue": "H", "gf": df["hg"], "ga": df["ag"], "xgf": df.get("hxg"), "xga": df.get("axg"),
                       "sotf": df.get("hst"), "sota": df.get("ast"), "cf": df.get("hc"), "ca": df.get("ac"),
-                      "kf": df.get("hy", 0).fillna(0) + df.get("hr", 0).fillna(0) if "hy" in df else None,
-                      "ka": df.get("ay", 0).fillna(0) + df.get("ar", 0).fillna(0) if "ay" in df else None})
+                      "kf": hy + hr if hy is not None else None,
+                      "ka": ay + ar if ay is not None else None})
     a = pd.DataFrame({"date": df["date"], "league": df["league"], "div": df["div"], "team": df["away"], "opp": df["home"],
                       "venue": "A", "gf": df["ag"], "ga": df["hg"], "xgf": df.get("axg"), "xga": df.get("hxg"),
                       "sotf": df.get("ast"), "sota": df.get("hst"), "cf": df.get("ac"), "ca": df.get("hc"),
-                      "kf": df.get("ay", 0).fillna(0) + df.get("ar", 0).fillna(0) if "ay" in df else None,
-                      "ka": df.get("hy", 0).fillna(0) + df.get("hr", 0).fillna(0) if "hy" in df else None})
+                      "kf": ay + ar if ay is not None else None,
+                      "ka": hy + hr if hy is not None else None})
     if "hy" in df:   # cards unknown where yellow cards are not published
         h.loc[df["hy"].isna().to_numpy(), ["kf", "ka"]] = float("nan")
         a.loc[df["ay"].isna().to_numpy(), ["kf", "ka"]] = float("nan")

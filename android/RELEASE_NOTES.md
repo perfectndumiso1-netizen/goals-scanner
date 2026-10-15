@@ -1,3 +1,9 @@
+## What's new — 16:9 widescreen video (yesterday's results first), football-only app & live feed health
+- 🎬 **16:9 widescreen shortlist video (`1920×1080`)**: starts with the **settled results of yesterday's shortlist selections** (won/lost, final score, hit rate), then proceeds to **today's shortlist selections** with recent W/D/L form pills, SAST kick-off badges, and an ultra-realistic British male neural voiceover (`en-GB-RyanNeural` / `en_GB-alan-medium`).
+- ⚽ **Football-only focus**: Tennis has been removed from the app navigation, menu, More screen, and background polling, and the scheduled Tennis workflow is paused so the app is 100% focused on football intelligence.
+- 🟢 **Live feed health & instant cold-start cache**: the Matchday header now shows a real-time feed health indicator (`● Feed live` / `● Cached prices`), and the latest analysis is mirrored to native phone storage so cold starts are instant even if Android clears the WebView cache.
+- 🟨 **Referee historical card & foul context**: when a fixture has an appointed referee with 5+ tracked matches in the archive, the research layer records their historical cards/game and over-3.5-cards rate (display-only; N/A when fewer than 5 matches exist).
+
 ## What's new — Sportybet names no longer mix matches + shortlist briefing video
 - 📬 **Briefing videos go to Telegram, then the file is deleted** — never kept on GitHub or Drive after a successful send.
 - 🐛 **Fixed: many match pages showed another club's name** (Kaizer Chiefs on Bristol City, and the same shift across the list). Cause: Sportybet events were attached by list position, so a skipped fixture slid every later price onto the wrong match. The matcher now looks up by club identity, refuses a name that is not the same club, and never reuses one event on two fixtures. The app also ignores a long name / Sportybet link that does not belong to the match you opened — so today's already-published file stops lying the moment you update.

@@ -1,12 +1,8 @@
-name: Tennis scan (4x daily)
+name: Tennis scan (paused)
 
-# Independent of the football workflow (scan.yml): own schedule, own state branch (tennis-data),
-# own Telegram messages ("🎾 TENNIS SCANNER"). It never reads or writes football data.
+# Independent of the football workflow (scan.yml): own state branch (tennis-data),
+# own Telegram messages ("🎾 TENNIS SCANNER"). Scheduled runs are paused (2026-10-15).
 on:
-  schedule:
-    # GitHub cron is UTC. 08:00 / 12:00 / 18:00 / 22:00 SAST. The 08:00 and 18:00 SAST runs send the Telegram report;
-    # the others refresh prices, settle results and update the JSON for the app.
-    - cron: "0 6,10,16,20 * * *"
   workflow_dispatch:
     inputs:
       report:

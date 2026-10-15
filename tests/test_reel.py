@@ -73,6 +73,7 @@ def test_raw_shortlist_key_resolves_both_club_badges():
 def test_espeak_fallback_uses_male_voice(monkeypatch, tmp_path):
     captured = {}
 
+    monkeypatch.delenv("EDGE_TTS_PYTHON", raising=False)
     monkeypatch.delenv("PIPER_MODEL_PATH", raising=False)
     monkeypatch.delenv("PIPER_CONFIG_PATH", raising=False)
 
@@ -100,6 +101,7 @@ def test_piper_neural_voice_is_used_when_configured(monkeypatch, tmp_path):
     config = tmp_path / "voice.onnx.json"
     model.write_bytes(b"model")
     config.write_text("{}", encoding="utf-8")
+    monkeypatch.delenv("EDGE_TTS_PYTHON", raising=False)
     monkeypatch.setenv("PIPER_PYTHON", "/tmp/piper-venv/bin/python")
     monkeypatch.setenv("PIPER_MODEL_PATH", str(model))
     monkeypatch.setenv("PIPER_CONFIG_PATH", str(config))
@@ -225,4 +227,125 @@ def test_workflows_match_actions_lock_and_scan_keeps_male_ci_voice():
 
     scan_text = (wf_dir / "scan.yml").read_text(encoding="utf-8")
     assert "en_US-amy-medium" not in scan_text
+    assert "en_GB-alan-medium.onnx" in scan_text
+    assert "en-GB-RyanNeural" in scan_text
+
+
+def test_widescreen_16x9_dimensions_and_slide_renders(tmp_path):
+    from PIL import Image
+
+    assert (reel.W, reel.H) == (1920, 1080)
+    assert reel.W * 9 == reel.H * 16
+
+    logo = tmp_path / "logo.png"
+    bg = tmp_path / "bg.jpg"
+    Image.new("RGBA", (256, 256), (0, 200, 111, 255)).save(logo)
+    Image.new("RGB", (640, 360), (7, 17, 29)).save(bg)
+
+    intro = tmp_path / "intro.jpg"
+    disc = tmp_path / "disclaimer.jpg"
+    res = tmp_path / "results.jpg"
+    pick = tmp_path / "pick.jpg"
+    closer = tmp_path / "closer.jpg"
+
+    reel.render_intro(logo, bg, intro)
+    reel.render_disclaimer(logo, bg, disc)
+    reel.render_results(
+        [{"home": "Arsenal", "away": "Chelsea", "country": "England", "league": "Premier League",
+          "label": "Over 1.5 goals", "odds": 1.24, "result": "hit", "score": "2-1"}],
+        logo, bg, res, day_label="2026-10-14",
+    )
+    reel.render_pick(
+        {"home": "Lyon", "away": "Crystal Palace", "country": "Europa League", "league": "League Stage",
+         "label": "Over 1.5 goals", "odds": 1.25, "kickoff": "2026-10-15 18:45", "form_h": "WWDWL", "form_a": "WDWLW"},
+        1, 3, bg, logo, logo, pick,
+    )
+    reel.render_closer(logo, bg, closer)
+
+    for p in (intro, disc, res, pick, closer):
+        with Image.open(p) as im:
+            assert im.size == (1920, 1080)
+
+
+def test_yesterday_results_recap_starts_before_todays_selections(monkeypatch, tmp_path):
+    from pathlib import Path
+
+    assets = tmp_path / "assets"
+    assets.mkdir()
+    (assets / "logo.png").write_bytes(b"logo")
+    for name in ("bg_stadium.jpg", "bg_pitch.jpg", "bg_lights.jpg"):
+        (assets / name).write_bytes(b"background")
+
+    slide_order = []
+
+    def rec_render(tag):
+        def _fn(*args, **_kwargs):
+            slide_order.append(tag)
+            dest = args[-1]
+            dest.parent.mkdir(parents=True, exist_ok=True)
+            dest.write_bytes(b"image")
+        return _fn
+
+    monkeypatch.setattr(reel, "render_intro", rec_render("intro"))
+    monkeypatch.setattr(reel, "render_disclaimer", rec_render("disclaimer"))
+    monkeypatch.setattr(reel, "render_results", rec_render("results"))
+    monkeypatch.setattr(reel, "render_pick", rec_render("pick"))
+    monkeypatch.setattr(reel, "render_closer", rec_render("closer"))
+
+    spoken_scripts = []
+    monkeypatch.setattr(reel, "synthesize_speech", lambda text, wav: (spoken_scripts.append(text), wav.write_bytes(b"audio")))
+    monkeypatch.setattr(reel, "_probe", lambda _path, _ff: 1.0)
+    monkeypatch.setattr(reel, "pad_audio", lambda _src, dest, _dur, _ff: dest.write_bytes(b"audio"))
+    monkeypatch.setattr(reel, "still_clip", lambda _img, dest, _dur, _ff: dest.write_bytes(b"video"))
+    monkeypatch.setattr(reel, "_run", lambda cmd, _label: Path(cmd[-1]).write_bytes(b"video"))
+    monkeypatch.setattr(reel, "_ffmpeg", lambda: "/usr/bin/ffmpeg")
+
+    yres = {
+        "day": "2026-10-14",
+        "items": [
+            {"home": "Flamengo", "away": "Botafogo", "label": "Over 1.5 goals", "market": "goals", "odds": 1.28, "result": "hit", "score": "2-1"},
+            {"home": "Santos", "away": "Corinthians", "label": "Over 8.5 corners", "market": "corners", "odds": 1.35, "result": "miss", "score": "0-0"},
+        ],
+    }
+    outfile = tmp_path / "briefing-16x9.mp4"
+    reel.build(
+        [{"home": "Lyon", "away": "Crystal Palace", "label": "Over 1.5 goals", "odds": 1.25, "kickoff": "2026-10-15 18:45"}],
+        outfile,
+        assets=assets,
+        work=tmp_path / "work",
+        fixtures=[],
+        yesterday_results=yres,
+    )
+
+    assert slide_order == ["intro", "disclaimer", "results", "pick", "closer"]
+    assert len(spoken_scripts) == 5
+    assert "Yesterday's shortlist results. 1 of 2 selections won." in spoken_scripts[2]
+    assert "Flamengo versus Botafogo, Over 1.5 goals, won, 2 to 1." in spoken_scripts[2]
+    assert "Now, today's shortlist." in spoken_scripts[2]
+    assert "percent" not in spoken_scripts[2].lower()
+    assert "Lyon versus Crystal Palace" in spoken_scripts[3]
+
+
+def test_shortlist_yesterday_results_extraction():
+    from datetime import datetime
+    import pandas as pd
+    import shortlist
+
+    df = pd.DataFrame([
+        {"day": "2026-10-14", "kickoff": "2026-10-14 20:00", "country": "Brazil", "league": "Serie A",
+         "home": "Flamengo", "away": "Botafogo", "sel": "O15", "label": "Over 1.5 goals", "market": "goals",
+         "odds": "1.28", "status": "primary", "result": "hit", "score": "2-1"},
+        {"day": "2026-10-14", "kickoff": "2026-10-14 21:00", "country": "Brazil", "league": "Serie A",
+         "home": "Santos", "away": "Corinthians", "sel": "CO85", "label": "Over 8.5 corners", "market": "corners",
+         "odds": "1.35", "status": "primary", "result": "miss", "score": "0-0"},
+    ])
+    res = shortlist.yesterday_results(df, datetime(2026, 10, 15, 7, 0))
+    assert res["day"] == "2026-10-14"
+    assert res["total"] == 2
+    assert res["settled"] == 2
+    assert res["hits"] == 1
+    assert res["misses"] == 1
+    assert res["hit_rate"] == 0.5
+    assert len(res["items"]) == 2
+
 

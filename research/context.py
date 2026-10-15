@@ -22,7 +22,7 @@ from datetime import datetime, timedelta
 from pathlib import Path
 
 from . import facts as F
-from . import fatigue, lineups, motivation, rules, teamnews, weather
+from . import fatigue, lineups, motivation, referee, rules, teamnews, weather
 from .store import Store
 
 log = logging.getLogger("research.context")
@@ -171,6 +171,7 @@ class Engine:
             out += fatigue.facts_for(self.index, fx, now)
         if self.results is not None:
             out += motivation.facts_for(self.results, fx, now, support)
+            out += referee.facts_for(self.results, fx, now)
         out += lineups.facts_for(fx, now, self.lineup_client, self.cfg.lineup_lead_min,
                                  archive=self.xi_archive,
                                  eid=(fx.get("eid") or None),

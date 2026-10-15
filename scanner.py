@@ -2384,34 +2384,35 @@ def _telegram_state(now: datetime) -> tuple[Path, dict]:
     except (OSError, ValueError):
         st = {}
     if st.get("day") != today:
-        st = {"day": today, "sent": []}
+        hist = st.get("briefing_history") if isinstance(st.get("briefing_history"), dict) else {}
+        cut = (now.date() - timedelta(days=7)).strftime("%Y-%m-%d")
+        hist = {k: v for k, v in hist.items() if str(k) >= cut}
+        st = {"day": today, "sent": [], "briefing_history": hist}
     return path, st
 
 
 def maybe_send_daily_reel(sl_pub: dict, now: datetime) -> None:
-    """9:16 shortlist reel to Telegram once a day, before 07:00 SAST.
+    """16:9 shortlist video to Telegram once a day (05:00–07:19 SAST, or on manual FORCE_DAILY_REEL).
 
-    Window is 05:00–06:59 local. If that slot missed, the 07:00 report run still
-    sends (fallback). 12:00 / 17:00 never send a second copy. Video is deleted
-    after a successful send — never git, never Drive, never the data branch.
-
-    GitHub Actions cannot run the Arena session voice. The morning reel uses a
-    pinned local Piper voice (eSpeak fallback) and holds each slide to its clip.
+    Starts with the settled results of yesterday's shortlist selections, then proceeds to
+    today's shortlist selections. Video is deleted after a successful send — never git,
+    never Drive, never the data branch.
     """
     if reel_mod is None:
         return
     if not (os.getenv("TELEGRAM_BOT_TOKEN") and os.getenv("TELEGRAM_CHAT_ID")):
         return
+    force = os.getenv("FORCE_DAILY_REEL", "").strip().lower() in ("1", "true", "yes")
     hour, minute = now.hour, now.minute
     morning = hour in (5, 6) or (hour == 7 and minute < 20)
-    if not morning:
+    if not morning and not force:
         return
     prim = reel_mod.overs_only((sl_pub or {}).get("primary") or [])
     if not prim:
         return
     path, st = _telegram_state(now)
     today = now.strftime("%Y-%m-%d")
-    if st.get("briefing") == today:
+    if st.get("briefing") == today and not force:
         return
     assets = ROOT / "assets" / "reel"
     if not (assets / "logo.png").exists():
@@ -2422,17 +2423,51 @@ def maybe_send_daily_reel(sl_pub: dict, now: datetime) -> None:
         fixtures = json.loads(APP_FILE.read_text(encoding="utf-8")).get("fixtures") or []
     except (OSError, ValueError):
         pass
+
+    # Enrich picks with recent 5-match W/D/L form from shortlist articles when available
+    art_by_id = {
+        str(a.get("id") or ""): a
+        for a in (((sl_pub or {}).get("article") or {}).get("items") or [])
+        if isinstance(a, dict)
+    }
+    prim_enriched = []
+    for p in prim:
+        pc = dict(p)
+        aid = f"{pc.get('home')}|{pc.get('away')}|{pc.get('kickoff')}"
+        form = (art_by_id.get(aid) or {}).get("form") or {}
+        if form.get("h") and not pc.get("form_h"):
+            pc["form_h"] = form["h"]
+        if form.get("a") and not pc.get("form_a"):
+            pc["form_a"] = form["a"]
+        prim_enriched.append(pc)
+
+    # Resolve yesterday's settled selections (preferring exact picks shown in yesterday's video when recorded)
+    yres = (sl_pub or {}).get("yesterday_results")
+    yday = (now.date() - timedelta(days=1)).strftime("%Y-%m-%d")
+    hist = st.get("briefing_history") if isinstance(st.get("briefing_history"), dict) else {}
+    prev_keys = {( str(x.get("home") or ""), str(x.get("away") or "")) for x in (hist.get(yday) or []) if isinstance(x, dict)}
+    if isinstance(yres, dict) and prev_keys and isinstance(yres.get("items"), list):
+        matched = [x for x in yres["items"] if (str(x.get("home") or ""), str(x.get("away") or "")) in prev_keys]
+        if matched:
+            yres = {**yres, "items": matched}
+
     work = Path(os.getenv("TMPDIR") or "/tmp") / "playreport-reel"
     out = work / "briefing.mp4"
-    log.info("Building daily reel (%d Overs, CI voice = espeak-ng, no music)", len(prim))
-    reel_mod.build(prim, out, assets=assets, work=work, fixtures=fixtures)
+    recap_rows = reel_mod.reel_results(yres)
+    log.info("Building daily 16:9 video (%d yesterday results, %d today Overs picks, no music)", len(recap_rows), len(prim_enriched))
+    reel_mod.build(prim_enriched, out, assets=assets, work=work, fixtures=fixtures, yesterday_results=yres)
+    settled_recap = [r for r in recap_rows if r.get("result") in ("hit", "miss")]
+    hits_recap = sum(1 for r in settled_recap if r.get("result") == "hit")
+    recap_caption = f"Yesterday: {hits_recap}/{len(settled_recap)} won · " if settled_recap else ""
     ok = send_telegram_video(
         out,
-        f"🎬 PlayReport shortlist — {now:%a %d %b}. Voice-over per pick, no music. "
+        f"🎬 PlayReport 16:9 shortlist — {now:%a %d %b}. {recap_caption}Today: {len(prim_enriched)} selection(s). "
         f"A shortlist for your review, not an instruction to bet. 18+.",
     )
     if ok:
         st["briefing"] = today
+        hist[today] = [{"home": p.get("home"), "away": p.get("away"), "sel": p.get("sel")} for p in prim_enriched]
+        st["briefing_history"] = hist
         try:
             path.parent.mkdir(parents=True, exist_ok=True)
             path.write_text(json.dumps(st, ensure_ascii=False), encoding="utf-8")
@@ -3095,6 +3130,7 @@ def main() -> None:
         sl_book.to_csv(SHORTLIST_FILE, index=False)
         sl_pub = shortlist_mod.public(sl_board)
         sl_pub["track"] = shortlist_mod.track_record(sl_book)
+        sl_pub["yesterday_results"] = shortlist_mod.yesterday_results(sl_book, now)
         ctx["shortlist"] = sl_pub
         ctx["accas"]["cal"] = cal_map
         c = sl_board["counts"]

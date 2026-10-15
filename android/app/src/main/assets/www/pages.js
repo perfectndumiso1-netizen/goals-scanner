@@ -1270,9 +1270,8 @@ view().innerHTML = parts.join('');
       <label class="row" style="margin-top:6px"><input type="checkbox" id="s-goals" ${settings.goalAlerts ? 'checked' : ''}> <span class="grow">⚽ Score changes (goals with the scorer) in tracked matches — bets of the day, high-probability selections, shortlist and your tickets</span></label>
       <label class="row" style="margin-top:6px"><input type="checkbox" id="s-ht" ${settings.htAlerts ? 'checked' : ''}> <span class="grow">⏸ Half-time results of tracked matches</span></label>
       <label class="row" style="margin-top:6px"><input type="checkbox" id="s-ft" ${settings.ftAlerts !== false ? 'checked' : ''}> <span class="grow">🏁 Full-time results of tracked matches · tickets won / lost</span></label>
-      <label class="row" style="margin-top:6px"><input type="checkbox" id="s-ko" ${settings.koAlerts !== false ? 'checked' : ''}> <span class="grow">⏰ Kick-off reminders (15 min before) for favourites and ticket matches</span></label>
-      <label class="row" style="margin-top:6px"><input type="checkbox" id="s-tennis" ${settings.tennisAlerts !== false ? 'checked' : ''}> <span class="grow">🎾 Tennis favourites — finished matches with the set score</span></label></div>`);
-    const SOUNDS = [['goals', 'goal', '⚽ Goal (crowd & horn)'], ['tennis', 'tennis', '🎾 Tennis — finished match'], ['tickets', 'tickets', '🎫 Ticket won / lost'], ['kickoff', 'kickoff', '⏰ Kick-off'], ['match', 'fulltime', '🏁 Half / full time'], ['bets', 'selection', '📈 New selection'], ['reports', 'report', '📊 Report published'], ['', 'card', '🟨 Referee whistle (gallery)']];
+      <label class="row" style="margin-top:6px"><input type="checkbox" id="s-ko" ${settings.koAlerts !== false ? 'checked' : ''}> <span class="grow">⏰ Kick-off reminders (15 min before) for favourites and ticket matches</span></label></div>`);
+    const SOUNDS = [['goals', 'goal', '⚽ Goal (crowd & horn)'], ['tickets', 'tickets', '🎫 Ticket won / lost'], ['kickoff', 'kickoff', '⏰ Kick-off'], ['match', 'fulltime', '🏁 Half / full time'], ['bets', 'selection', '📈 New selection'], ['reports', 'report', '📊 Report published'], ['', 'card', '🟨 Referee whistle (gallery)']];
     parts.push(`<div class="card settings"><h2>${icon('bell')} Notification sounds</h2>
       <div class="small muted">Each alert type has its own short sound so you know what arrived without looking. Tap ▶ to preview; the gear opens Android's settings for that alert (sound, vibration, silent).</div>
       <div class="sounds">${SOUNDS.map(([ch, file, label]) => `<div class="row snd"><button class="btn sm" data-play="${file}">▶</button><span class="grow">${label}</span>${ch && PR.native && PR.native.openChannelSettings ? `<button class="btn sm" data-chan="${ch}" title="Android settings">${icon('settings', 'sm')}</button>` : ''}</div>`).join('')}</div></div>`);
@@ -1303,7 +1302,6 @@ view().innerHTML = parts.join('');
     $('#s-reports').onchange = (e) => { settings.reportAlerts = e.target.checked; PR.saveSettings(); pref('reports', settings.reportAlerts); };
     $('#s-ht').onchange = (e) => { settings.htAlerts = e.target.checked; PR.saveSettings(); pref('ht', settings.htAlerts); };
     $('#s-ko').onchange = (e) => { settings.koAlerts = e.target.checked; PR.saveSettings(); pref('ko', settings.koAlerts); };
-    $('#s-tennis').onchange = (e) => { settings.tennisAlerts = e.target.checked; PR.saveSettings(); pref('tennis', settings.tennisAlerts); };
     $('#s-ft').onchange = (e) => { settings.ftAlerts = e.target.checked; PR.saveSettings(); pref('ft', settings.ftAlerts); };
     $$('[data-th]').forEach((b) => { b.onclick = () => { settings.theme = b.dataset.th; PR.saveSettings(); PR.applyTheme(); PR.render(); }; });
     $$('[data-lgs]').forEach((b) => { b.onclick = () => { settings.leagues = b.dataset.lgs; PR.saveSettings(); PR.render(); }; });
@@ -1409,40 +1407,66 @@ view().innerHTML = parts.join('');
     const bb = $('#adv-best'); if (bb) bb.onclick = () => PR.push({ type: 'best' });
   };
 
-  // ------------------------------------------------------------------ SHORTLIST BRIEFING (video-style player + download)
+  // ------------------------------------------------------------------ SHORTLIST BRIEFING (16:9 video-style player + download)
   function briefingPicks() {
     const sl = (state.data && state.data.shortlist) || {};
-    return (sl.primary || []).slice(0, 12);
+    return (sl.primary || []).slice(0, 7);
   }
   function briefingSlides() {
     const picks = briefingPicks();
+    const sl = (state.data && state.data.shortlist) || {};
+    const yr = sl.yesterday_results || {};
+    const yItems = Array.isArray(yr.items) ? yr.items.filter((r) => r && ['hit', 'miss', 'void'].includes(r.result)).slice(0, 7) : [];
     const meta = (state.data && state.data.meta) || {};
     const when = meta.generated || '';
-    const slides = [{
-      kicker: 'PlayReport',
-      title: 'Tonight’s shortlist',
-      sub: `${picks.length} selection${picks.length === 1 ? '' : 's'} · ${esc(when)} SAST`,
-      line: 'A shortlist for your review. Never an instruction to bet. 18+.',
-      speak: `PlayReport shortlist. ${picks.length} selections for today. Kick-off times are South African Standard Time. This is a shortlist for your review, never an instruction to bet.`,
-    }];
+    const slides = [
+      {
+        kicker: 'PlayReport · 16:9 Briefing',
+        title: 'Today’s shortlist',
+        sub: `${picks.length} selection${picks.length === 1 ? '' : 's'} · ${esc(when)} SAST`,
+        line: 'Results recap & today’s selections · SAST',
+        speak: 'PlayReport. Today’s shortlist.',
+      },
+      {
+        kicker: 'Please bet responsibly · 18+',
+        title: 'Disclaimer',
+        sub: 'Statistical information, not betting advice.',
+        line: 'Not for persons under the age of 18. Do not bet with money you cannot afford to lose. There is no such thing as a sure bet.',
+        speak: 'Statistical information, not betting advice. Bet responsibly. Not for persons under the age of 18. Do not bet with money you cannot afford to lose. There is no such thing as a sure bet.',
+      },
+    ];
+    if (yItems.length) {
+      const settled = yItems.filter((r) => r.result === 'hit' || r.result === 'miss');
+      const hits = settled.filter((r) => r.result === 'hit').length;
+      const linesTxt = yItems.map((r) => `${r.home} v ${r.away}: ${r.label || r.sel} (${r.result === 'hit' ? 'WON' : r.result === 'miss' ? 'LOST' : 'VOID'}${r.score ? ' ' + r.score : ''})`).join(' · ');
+      const speakParts = yItems.map((r) => `${r.home} versus ${r.away}, ${r.label || r.sel}, ${r.result === 'hit' ? 'won' : r.result === 'miss' ? 'lost' : 'void'}${r.score ? ', ' + String(r.score).replace('-', ' to ') : ''}.`).join(' ');
+      slides.push({
+        kicker: `Yesterday’s shortlist results · ${yr.day || ''}`,
+        title: settled.length ? `${hits} of ${settled.length} selections won` : 'Yesterday’s results recap',
+        sub: settled.length ? `Hit rate ${Math.round((100 * hits) / settled.length)}% across settled shortlist selections` : 'Settled selections recap',
+        line: linesTxt,
+        speak: `Yesterday's shortlist results. ${settled.length ? `${hits} of ${settled.length} selections won. ` : ''}${speakParts} Now, today's shortlist.`,
+      });
+    }
     picks.forEach((x, i) => {
       const odds = x.odds ? f2(x.odds) : 'N/A';
-      const prb = x.p != null ? Math.round(x.p * 100) + ' percent' : 'N/A';
+      const comp = [x.country, x.league].filter(Boolean).join(' · ');
+      const compSpoken = [x.country, x.league].filter(Boolean).join(', ');
       slides.push({
-        kicker: `Pick ${i + 1} of ${picks.length}`,
+        kicker: `Pick ${i + 1} of ${picks.length}${comp ? ' · ' + comp : ''}`,
         title: `${x.home} v ${x.away}`,
-        sub: `${x.label || ''} @ ${odds} · ${esc(koShort(x.kickoff))}`,
-        line: `Model ${x.p != null ? pct(x.p) : 'N/A'} · ${esc(x.quality || '')} data`,
-        speak: `Pick ${i + 1}. ${x.home} versus ${x.away}. ${x.label || 'the selection'}, at ${odds}. Model probability ${prb}. Kick-off ${koShort(x.kickoff)}.`,
+        sub: `${x.label || ''} @ ${odds} · Kick-off ${esc(koTime(x.kickoff))} SAST`,
+        line: `Sportybet price ${odds} · Qualified selection`,
+        speak: `${compSpoken ? compSpoken + '. ' : ''}${x.home} versus ${x.away}. ${x.label || 'the selection'}, at ${odds}. Kick-off, ${koTime(x.kickoff)}.`,
         pick: x,
       });
     });
     slides.push({
       kicker: 'PlayReport',
       title: 'That’s the list',
-      sub: 'Open any pick on the Shortlist tab for the full analysis.',
-      line: 'Statistical information, not betting advice. Never stake money you cannot afford to lose.',
-      speak: 'That’s the shortlist. Open any pick in the app for the full analysis. Statistical information, not betting advice.',
+      sub: 'Like, share or subscribe if this helped — no pressure.',
+      line: 'Statistical information, not betting advice. 18+. © PlayReport. All rights reserved.',
+      speak: 'If this helped, like, share, or subscribe for tomorrow’s list. PlayReport. All rights reserved.',
     });
     return slides;
   }

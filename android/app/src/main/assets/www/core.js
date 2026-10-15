@@ -33,8 +33,8 @@ window.PR = (function () {
   }
   let savedSettings = {};
   try { savedSettings = JSON.parse(stored('pr_settings') || '{}'); } catch (e) { savedSettings = {}; }
-  const settings = Object.assign({ liveEvery: 60, tzOffset: 2, goalAlerts: true, htAlerts: false, ftAlerts: true, betAlerts: true, reportAlerts: true, minP: 0.70, hiP: 0.70, theme: 'dark', seenVersion: '', leagues: 'all' },
-    savedSettings);
+  const settings = Object.assign({ liveEvery: 60, tzOffset: 2, goalAlerts: true, htAlerts: false, ftAlerts: true, betAlerts: true, reportAlerts: true, minP: 0.70, hiP: 0.70, theme: 'dark', seenVersion: '', leagues: 'all', sport: 'football' },
+    savedSettings, { sport: 'football', tennisAlerts: false });
   const state = { data: null, tab: 'home', stack: [], live: {}, incidents: {}, liveTimer: null, lastLive: 0, loading: false, q: '',
     update: null, updateStage: null, days: {}, teams: {}, reports: {}, details: {}, betsView: 'today', search: '', sort: 'ko', matchFilter: 'all',
     liveView: 'tracked', liveAll: null, lastLiveAll: 0, dayView: 'results', matchView: 'overview', teamView: 'overview', menuOpen: false, expanded: {}, badges: {}, dark: false,
@@ -399,7 +399,13 @@ window.PR = (function () {
    *  stays in memory for this session. Returns whether a saved copy exists. */
   function saveLatest(d) {
     const strip = (o) => JSON.stringify(o, (k, v) => (k === '_byId' ? undefined : v));   // _byId is derived: rebuilt by indexData()
-    const tryWrite = (body) => { try { localStorage.setItem('pr_latest', body); return true; } catch (e) { return false; } };
+    const tryWrite = (body) => {
+      try {
+        localStorage.setItem('pr_latest', body);
+        if (native && native.setString && body.length < 300000) { try { native.setString('latest', body); } catch (e0) { /* ignore */ } }
+        return true;
+      } catch (e) { return false; }
+    };
     let body = strip(d);
     if (tryWrite(body)) return true;
     cache.prune(true);                                     // the cache is expendable, the analysis is not
@@ -690,7 +696,7 @@ window.PR = (function () {
     { label: 'Tickets', icn: 'ticket', go: { page: 'tickets' } }, { label: 'Teams', icn: 'users', go: { page: 'teams' } },
     { label: 'Performance', icn: 'chart', go: { page: 'performance' } }, { label: 'Bet advisor', icn: 'shield', go: { page: 'advisor' } },
     { label: 'All markets', icn: 'swap', go: { page: 'marketsboard' } }, { label: 'Guide to the markets', icn: 'info', go: { page: 'guide' } },
-    { label: 'Full analysis', icn: 'doc', go: { page: 'analysis' } }, { label: 'Tennis', icn: 'ball', go: { page: 'tennis' } },
+    { label: 'Full analysis', icn: 'doc', go: { page: 'analysis' } },
     { label: 'Settings', icn: 'settings', go: { page: 'settings' } },
   ];
   function searchResults(qs) {

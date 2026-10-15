@@ -18,6 +18,12 @@ on:
     # (07:00 / 12:00 / 17:00 SAST) are the full-report runs, the others refresh prices / results and alert new bets.
     - cron: "*/30 * * * *"
   workflow_dispatch:        # run it manually from the Actions tab at any time
+    inputs:
+      send_reel:
+        description: "Build and send the 16:9 shortlist video to Telegram on this run"
+        required: false
+        default: false
+        type: boolean
 
 permissions:
   contents: write           # push the state branch
@@ -47,6 +53,7 @@ jobs:
       STATE_URL: https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git
       TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}   # optional
       TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}       # optional
+      FORCE_DAILY_REEL: ${{ github.event.inputs.send_reel || 'false' }}
     steps:
       - name: Check out code
         uses: actions/checkout@v4.4.0
@@ -59,7 +66,7 @@ jobs:
 
       - name: Install dependencies
         # wheels only + retries: a PyPI hiccup once made pip fall back to building pandas from source and the run failed
-        # ffmpeg + espeak-ng: daily 9:16 reel (slides locked to each VO clip; no music; male en-gb voice).
+        # ffmpeg + espeak-ng: daily 16:9 video (slides locked to each VO clip; no music; male en-gb voice).
         run: |
           sudo apt-get update -qq
           sudo apt-get install -y -qq ffmpeg espeak-ng
@@ -68,6 +75,44 @@ jobs:
             echo "pip attempt $i failed, retrying"; sleep 20
           done
           python -c "import pandas, numpy, requests, reportlab, PIL; print(pandas.__version__, numpy.__version__)"
+
+      - name: Determine whether this scan can send the morning reel
+        id: reel_window
+        run: |
+          python - <<'PY'
+          from datetime import datetime
+          import os
+          from zoneinfo import ZoneInfo
+
+          now = datetime.now(ZoneInfo(os.environ["TIMEZONE"]))
+          morning = now.hour in (5, 6) or (now.hour == 7 and now.minute < 20)
+          force = os.environ.get("FORCE_DAILY_REEL", "").strip().lower() in ("1", "true", "yes")
+          configured = bool(os.environ.get("TELEGRAM_BOT_TOKEN") and os.environ.get("TELEGRAM_CHAT_ID"))
+          with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as fh:
+              fh.write(f"can_send_reel={'true' if ((morning or force) and configured) else 'false'}\n")
+          PY
+
+      - name: Prepare neural narration voice
+        if: steps.reel_window.outputs.can_send_reel == 'true'
+        run: |
+          set -e
+          python -m venv "$RUNNER_TEMP/piper-venv"
+          "$RUNNER_TEMP/piper-venv/bin/pip" install --only-binary=:all: --retries 10 --timeout 60 -q edge-tts piper-tts==1.8.0
+          mkdir -p "$RUNNER_TEMP/piper-voices"
+          MODEL="$RUNNER_TEMP/piper-voices/en_GB-alan-medium.onnx"
+          CONFIG="$RUNNER_TEMP/piper-voices/en_GB-alan-medium.onnx.json"
+          if [ ! -f "$MODEL" ] || [ ! -f "$CONFIG" ]; then
+            curl -fsSL -o "$MODEL" https://huggingface.co/rhasspy/piper-voices/resolve/v1.0.0/en/en_GB/alan/medium/en_GB-alan-medium.onnx
+            curl -fsSL -o "$CONFIG" https://huggingface.co/rhasspy/piper-voices/resolve/v1.0.0/en/en_GB/alan/medium/en_GB-alan-medium.onnx.json
+          fi
+          printf '%s  %s\n' \
+            "0a309668932205e762801f1efc2736cd4b0120329622adf62be09e56339d3330" "$MODEL" \
+            "c0f0d124e5895c00e7c03b35dcc8287f319a6998a365b182deb5c8e752ee8c1e" "$CONFIG" | sha256sum -c -
+          echo "EDGE_TTS_PYTHON=$RUNNER_TEMP/piper-venv/bin/python" >> "$GITHUB_ENV"
+          echo "EDGE_TTS_VOICE=en-GB-RyanNeural" >> "$GITHUB_ENV"
+          echo "PIPER_PYTHON=$RUNNER_TEMP/piper-venv/bin/python" >> "$GITHUB_ENV"
+          echo "PIPER_MODEL_PATH=$MODEL" >> "$GITHUB_ENV"
+          echo "PIPER_CONFIG_PATH=$CONFIG" >> "$GITHUB_ENV"
 
       - name: Restore state (data branch)
         run: |

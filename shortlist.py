@@ -512,6 +512,63 @@ def track_record(df: pd.DataFrame) -> dict:
     return out
 
 
+def yesterday_results(df: pd.DataFrame, now: datetime) -> dict:
+    """Settled results of yesterday's primary shortlist selections (for the daily 16:9 video & app briefing)."""
+    today_s = now.strftime("%Y-%m-%d")
+    yday_s = (now.date() - timedelta(days=1)).strftime("%Y-%m-%d")
+    if df is None or df.empty or "status" not in df.columns:
+        return {"day": yday_s, "total": 0, "settled": 0, "hits": 0, "misses": 0, "voids": 0, "pending": 0, "hit_rate": None, "items": []}
+    prim = df[df["status"] == STATUS_PRIMARY].copy()
+    if prim.empty:
+        return {"day": yday_s, "total": 0, "settled": 0, "hits": 0, "misses": 0, "voids": 0, "pending": 0, "hit_rate": None, "items": []}
+    day_df = prim[prim["day"] == yday_s]
+    target_day = yday_s
+    if day_df.empty:
+        # Fall back to the most recent prior shortlist day within 7 days that has settled primary rows
+        min_day = (now.date() - timedelta(days=7)).strftime("%Y-%m-%d")
+        prior = prim[(prim["day"] < today_s) & (prim["day"] >= min_day) & prim["result"].isin(["hit", "miss", "void"])]
+        if not prior.empty:
+            target_day = str(prior["day"].max())
+            day_df = prim[prim["day"] == target_day]
+    items = []
+    for _, r in day_df.iterrows():
+        odds_raw = str(r.get("odds", "")).strip()
+        try:
+            odds_val = round(float(odds_raw), 2) if odds_raw else None
+        except ValueError:
+            odds_val = None
+        items.append({
+            "day": str(r.get("day", target_day)),
+            "kickoff": str(r.get("kickoff", "")),
+            "country": str(r.get("country", "")),
+            "league": str(r.get("league", "")),
+            "home": str(r.get("home", "")),
+            "away": str(r.get("away", "")),
+            "sel": str(r.get("sel", "")),
+            "label": str(r.get("label", "")),
+            "market": str(r.get("market", "")),
+            "odds": odds_val,
+            "result": str(r.get("result", "pending")),
+            "score": str(r.get("score", "")),
+        })
+    hits = sum(1 for x in items if x["result"] == "hit")
+    misses = sum(1 for x in items if x["result"] == "miss")
+    voids = sum(1 for x in items if x["result"] == "void")
+    pending = sum(1 for x in items if x["result"] == "pending")
+    settled = hits + misses
+    return {
+        "day": target_day,
+        "total": len(items),
+        "settled": settled,
+        "hits": hits,
+        "misses": misses,
+        "voids": voids,
+        "pending": pending,
+        "hit_rate": round(hits / settled, 3) if settled else None,
+        "items": items,
+    }
+
+
 def markdown(board: dict) -> list[str]:
     """Compact report section."""
     c = board["counts"]
