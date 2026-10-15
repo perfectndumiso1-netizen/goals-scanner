@@ -2395,8 +2395,8 @@ def maybe_send_daily_reel(sl_pub: dict, now: datetime) -> None:
     sends (fallback). 12:00 / 17:00 never send a second copy. Video is deleted
     after a successful send — never git, never Drive, never the data branch.
 
-    GitHub Actions cannot run the Arena session voice. CI uses espeak-ng and
-    holds each slide until that clip ends (no background music).
+    GitHub Actions cannot run the Arena session voice. The morning reel uses a
+    pinned local Piper voice (eSpeak fallback) and holds each slide to its clip.
     """
     if reel_mod is None:
         return
@@ -2546,9 +2546,11 @@ def send_telegram(text: str) -> None:
 
 
 def strong_signal(r: MatchRow, sel: str) -> bool:
-    """Form backing required before 1X2 / BTTS / Over 2.5 enter the bets-of-the-day card (the probabilities alone are
-    not enough for these markets). Over 1.5 and team goals need no extra signal."""
+    """Additional form support for selected markets; probabilities remain the model's unchanged outputs."""
     H, A = r.home, r.away
+
+    if sel in safe_mod.TEAM_GOAL_MARKETS:
+        return safe_mod.team_goal_form_ok(r, sel)
 
     def wins(p):
         return sum(1 for m in (p.last5 or []) if m["gf"] > m["ga"]), sum(1 for m in (p.last5 or []) if m["gf"] < m["ga"]), len(p.last5 or [])
@@ -3216,7 +3218,7 @@ def main() -> None:
         def build_staged_app() -> None:
             appdata.export(staging / APP_FILE.name, ctx=ctx, rows=app_rows, all_rows=rows, picks=picks, tracker_summary=summary, notes=notes, ls_map=ls_map,
                            helpers={"render_details": render_details, "stars": stars, "comp": comp, "sb_price": sb_price,
-                                    "selections": all_sels},
+                                    "selections": all_sels, "team_goal_form_ok": safe_mod.team_goal_form_ok},
                            reports_dir=REPORTS_DIR, tz_label=TZL, thresholds=CONFIG["THRESHOLDS"],
                            backtest=CONFIG["BACKTEST"], bench=CONFIG["BENCH"], bias=CONFIG["BIAS"],
                            repo=os.getenv("GITHUB_REPOSITORY", "perfectndumiso1-netizen/goals-scanner"),

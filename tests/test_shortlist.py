@@ -153,12 +153,12 @@ def test_unders_are_ignored_overs_only(monkeypatch):
     assert b["counts"]["candidates"] == 1 and b["counts"]["primary"] == 1
 
 
-def test_shortlist_covers_today_only():
+def test_shortlist_covers_today_only(monkeypatch):
     """User rule (2026-10-10): matches from tomorrow or later never enter the day's shortlist."""
     r_today = row(home="T1", away="T2", ko_h=5)
     r_tomorrow = row(home="T3", away="T4", ko_h=24 + 5)
     table = {id(r_today): [Sel("O25", 0.74, 0.68, 1.45)], id(r_tomorrow): [Sel("O25", 0.74, 0.68, 1.45)]}
-    sl.safe_mod.selections = lambda r: table[id(r)]
+    monkeypatch.setattr(sl.safe_mod, "selections", lambda r: table[id(r)])
     end_of_day = datetime.combine(NOW.date(), datetime.min.time()).replace(hour=23, minute=59)
     b = sl.build([r_today, r_tomorrow], NOW, end_of_day)
     assert b["counts"]["analysed"] == 1

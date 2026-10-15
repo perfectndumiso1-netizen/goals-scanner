@@ -1,4 +1,4 @@
-"""PlayReport shortlist reel — 9:16, 5s logo intro, 1–2 min, no bed music.
+"""PlayReport shortlist reel — 9:16, narrated slides, no bed music or artificial trailing silence.
 
 Each slide lasts exactly as long as its own voice clip (plus a short tail),
 so the next match never appears while the previous one is still being read.
@@ -12,6 +12,7 @@ import os
 import re
 import shutil
 import subprocess
+import sys
 import tempfile
 import urllib.request
 from pathlib import Path
@@ -28,8 +29,10 @@ BADGE_BASE = "https://lsm-static-prod.livescore.com/medium/"
 TAIL = 0.45          # silence after each line so the cut is never early
 INTRO_MIN = 5.0      # logo sting, seconds
 MAX_PICKS = 7
-MIN_TOTAL = 60.0
 MAX_TOTAL = 120.0
+ESPEAK_VOICE = "en-gb+f3"
+ESPEAK_SPEED = 170
+ESPEAK_PITCH = 72
 
 
 def hold_seconds(index: int, speech: float) -> float:
@@ -146,7 +149,7 @@ def render_intro(logo: Path, bg: Path, dest: Path) -> None:
     d = ImageDraw.Draw(im)
     _wordmark(d, 180)
     sub = _font(28, True)
-    s = "TONIGHT'S SHORTLIST"
+    s = "TODAY'S SHORTLIST"
     d.text(((W - _tw(d, s, sub)) // 2, 1120), s, fill=GREEN, font=sub)
     tiny = _font(22, False)
     t = "Football intelligence  ·  SAST"
@@ -234,13 +237,60 @@ def fetch_badge(rel: str, dest: Path, fallback: Path) -> Path:
     return dest
 
 
-def speak_espeak(text: str, wav: Path) -> None:
-    """Male English narrator for the daily CI reel (not the Arena session voice)."""
+def _fixture_key(values) -> tuple[str, str, str, str] | None:
+    if not isinstance(values, (list, tuple)) or len(values) < 4:
+        return None
+    return (str(values[0] or "")[:10], str(values[1] or ""), str(values[2] or ""), str(values[3] or ""))
+
+
+def fixture_for_pick(pick: dict, fixtures: list | None) -> dict | None:
+    """Resolve either the published fixture ID or shortlist's raw (date, country, home, away) key."""
+    by_id, by_key, by_teams = {}, {}, {}
+    for fixture in fixtures or []:
+        fid = str(fixture.get("id") or "")
+        if fid:
+            by_id[fid] = fixture
+        key = _fixture_key((fixture.get("date"), fixture.get("country"), fixture.get("home"), fixture.get("away")))
+        if key:
+            by_key[key] = fixture
+            by_teams[(key[0], key[2], key[3])] = fixture
+    fid = str(pick.get("fixture") or "")
+    if fid and fid in by_id:
+        return by_id[fid]
+    key = _fixture_key(pick.get("key"))
+    if key and key in by_key:
+        return by_key[key]
+    if not key:
+        key = _fixture_key((pick.get("date"), pick.get("country"), pick.get("home"), pick.get("away")))
+    if key:
+        return by_teams.get((key[0], key[2], key[3]))
+    return None
+
+
+def badges_for_pick(pick: dict, fixtures: list | None) -> dict:
+    fixture = fixture_for_pick(pick, fixtures) or {}
+    return pick.get("badges") or fixture.get("badges") or {}
+
+
+def synthesize_speech(text: str, wav: Path) -> None:
+    """Use local neural Piper narration when configured, with eSpeak as a local fallback."""
+    wav.parent.mkdir(parents=True, exist_ok=True)
+    model = os.environ.get("PIPER_MODEL_PATH")
+    config = os.environ.get("PIPER_CONFIG_PATH")
+    if model or config:
+        if not model or not config or not Path(model).is_file() or not Path(config).is_file():
+            raise RuntimeError("Piper voice is configured but its model or config file is missing")
+        python = os.environ.get("PIPER_PYTHON") or sys.executable
+        cmd = [python, "-m", "piper", "-m", model, "-c", config, "-f", str(wav), "--", text]
+        r = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+        if r.returncode != 0 or not wav.exists():
+            raise RuntimeError(f"Piper TTS failed: {r.stdout[-400:]}")
+        return
+
     exe = shutil.which("espeak-ng") or shutil.which("espeak")
     if not exe:
-        raise RuntimeError("espeak-ng is not installed")
-    wav.parent.mkdir(parents=True, exist_ok=True)
-    cmd = [exe, "-v", "en-gb", "-s", "150", "-p", "35", "-a", "140", "-w", str(wav), text]
+        raise RuntimeError("Piper is not configured and espeak-ng is not installed")
+    cmd = [exe, "-v", ESPEAK_VOICE, "-s", str(ESPEAK_SPEED), "-p", str(ESPEAK_PITCH), "-a", "150", "-w", str(wav), text]
     r = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
     if r.returncode != 0 or not wav.exists():
         raise RuntimeError(f"espeak failed: {r.stdout[-400:]}")
@@ -273,7 +323,7 @@ def pick_script(p: dict) -> str:
     if ko.endswith(":00"):
         h = int(ko[:2])
         spoken_ko = f"{h if h <= 12 else h - 12} PM" if h >= 12 else f"{h} AM"
-    return f"{home} versus {away}. {label}, at {od}. Model, {pct}. Kick-off, {spoken_ko}."
+    return f"{home} versus {away}. Selection: {label}. Price: {od}. The model estimates a {pct} chance. Kick-off: {spoken_ko}."
 
 
 def overs_only(picks: list) -> list:
@@ -301,7 +351,7 @@ def build(picks: list, outfile: Path, *, assets: Path, work: Path | None = None,
     assets = Path(assets)
     logo = assets / "logo.png"
     bgs = [assets / "bg_stadium.jpg", assets / "bg_pitch.jpg", assets / "bg_lights.jpg"]
-    fx_by_id = {str(f.get("id")): f for f in (fixtures or [])}
+    fixtures = fixtures or []
 
     work = Path(work) if work else Path(tempfile.mkdtemp(prefix="pr-reel-"))
     work.mkdir(parents=True, exist_ok=True)
@@ -315,14 +365,18 @@ def build(picks: list, outfile: Path, *, assets: Path, work: Path | None = None,
     n = len(picks)
     render_intro(logo, bgs[0], slides_dir / "intro.jpg")
     for i, p in enumerate(picks, 1):
-        fx = fx_by_id.get(str(p.get("fixture") or "")) or {}
-        badges = fx.get("badges") or {}
+        fx = fixture_for_pick(p, fixtures) or {}
+        badges = p.get("badges") or fx.get("badges") or {}
+        if not fx:
+            log.warning("no fixture match for shortlist badges: %s v %s", p.get("home"), p.get("away"))
+        if not badges.get("home") or not badges.get("away"):
+            log.warning("club badge metadata missing for %s v %s", p.get("home"), p.get("away"))
         hb = fetch_badge(badges.get("home"), crests / f"h{i}.png", logo)
         ab = fetch_badge(badges.get("away"), crests / f"a{i}.png", logo)
         render_pick(p, i, n, bgs[i % 3], hb, ab, slides_dir / f"p{i:02d}.jpg")
     render_closer(logo, bgs[2], slides_dir / "closer.jpg")
 
-    texts = ["PlayReport. Tonight's shortlist."] + [pick_script(p) for p in picks] + [
+    texts = ["Good morning. Here's today's shortlist from PlayReport."] + [pick_script(p) for p in picks] + [
         "That's PlayReport. Open the app for the full analysis. Not betting advice. Eighteen plus."
     ]
     images = [slides_dir / "intro.jpg"] + [slides_dir / f"p{i:02d}.jpg" for i in range(1, n + 1)] + [slides_dir / "closer.jpg"]
@@ -338,7 +392,7 @@ def build(picks: list, outfile: Path, *, assets: Path, work: Path | None = None,
             # convert whatever we were given (mp3/wav) to wav
             _run([ff, "-y", "-i", str(voice_clips[i]), str(raw)], f"decode {i}")
         else:
-            speak_espeak(text, raw)
+            synthesize_speech(text, raw)
         d = _probe(raw, ff)
         hold = hold_seconds(i, d)
         padded = audio_dir / f"a{i:02d}.wav"
@@ -347,17 +401,11 @@ def build(picks: list, outfile: Path, *, assets: Path, work: Path | None = None,
         durations.append(hold)
 
     total = sum(durations)
-    # keep 1–2 min: drop trailing picks if over, never go under 60 by shortening speech
+    # Keep it under two minutes by dropping trailing picks if needed; never trim speech or pad the ending with silence.
     if total > MAX_TOTAL and len(picks) > 3:
         log.info("reel %.1fs > 2 min — dropping last pick", total)
         vc = None if voice_clips is None else list(voice_clips[:-2]) + [voice_clips[-1]]
         return build(picks[:-1], outfile, assets=assets, work=work, voice_clips=vc, fixtures=fixtures)
-    if total < MIN_TOTAL:
-        extra = MIN_TOTAL - total
-        durations[-1] += extra
-        pad_audio(wavs[-1], wavs[-1], durations[-1], ff)
-        total = sum(durations)
-
     clips = []
     for i, (img, dur) in enumerate(zip(images, durations)):
         clip = work / f"v{i:02d}.mp4"

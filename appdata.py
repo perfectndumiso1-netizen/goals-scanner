@@ -192,6 +192,13 @@ def _best(sels: list[dict], groups: tuple | None, min_p: float) -> list | None:
     return best
 
 
+def _recommended_selections(r, sels: list[dict], team_goal_form_ok=None) -> list[dict]:
+    """Hide only team-to-score recommendations that fail the evidence gate; raw model markets remain available."""
+    if team_goal_form_ok is None:
+        return sels
+    return [d for d in sels if team_goal_form_ok(r, d.get("sel"))]
+
+
 def carry_over(prev: dict | None, index: list, bets: list, tracked: set, now: datetime, hours: float = 3.0) -> int:
     """Fixtures of the previous publication that kicked off in the last `hours` and are no longer in the scan window
     are appended unchanged ("frozen"), together with their safest bets and tracked flags; returns how many."""
@@ -388,12 +395,13 @@ def export(path: Path, *, ctx: dict, rows: list, all_rows: list | None = None, p
         ls = ls_map.get(fx.name)
         x12 = r.extra.x12 or {}
         sels = selections(r)
-        top = _best(sels, None, 0.0)
-        hi = sorted([[d["sel"], round(d["p"], 3), round(d["odds"], 2) if d.get("odds") else None] for d in sels
+        recommended_sels = _recommended_selections(r, sels, helpers.get("team_goal_form_ok"))
+        top = _best(recommended_sels, None, 0.0)
+        hi = sorted([[d["sel"], round(d["p"], 3), round(d["odds"], 2) if d.get("odds") else None] for d in recommended_sels
                      if d.get("p") is not None and d["p"] >= 0.70 and d["group"] in ("goals", "btts", "team", "corners", "cards")],
                     key=lambda x: -x[1])[:12]
         _qo = _q.get("overall")
-        for d in sels:
+        for d in recommended_sels:
             # selections(r) yields plain dicts (safe.sel_dict): {sel, group, p, odds, diff, ev, ...}
             try:
                 p = float(d.get("p"))
@@ -413,7 +421,7 @@ def export(path: Path, *, ctx: dict, rows: list, all_rows: list | None = None, p
             _ev = d.get("ev")
             if d.get("odds") and _ev is not None and _ev >= 0.08 and p >= 0.60 and _qo != "Low":
                 value_picks.append({**base, "ev": round(float(_ev), 3)})
-        safe_best = _best(sels, safe_groups or None, min_p) if r.data_ok else None
+        safe_best = _best(recommended_sels, safe_groups or None, min_p) if r.data_ok else None
         eid = (ls or {}).get("eid")
         slim = {
             "id": fid, "d": key, "date": date, "kickoff": fx["kickoff"].strftime("%Y-%m-%d %H:%M"),

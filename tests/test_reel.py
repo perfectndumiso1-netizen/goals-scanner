@@ -34,6 +34,126 @@ def test_pick_script_is_spoken_not_dumped():
         "odds": 1.2, "p": 0.91, "kickoff": "2026-10-13 20:45",
     })
     assert "Cardiff versus Watford" in s
+    assert "Selection: Cardiff or draw" in s
     assert "1.20" in s
-    assert "91 percent" in s
+    assert "model estimates a 91 percent chance" in s
     assert "Kick-off" in s
+
+
+def test_raw_shortlist_key_resolves_both_club_badges():
+    fixture = {
+        "id": "fixture-id", "date": "2026-10-15", "country": "USA",
+        "home": "CF Montreal", "away": "Atlanta United",
+        "badges": {"home": "team/cf-montreal.png", "away": "team/atlanta.png"},
+    }
+    pick = {"key": ("2026-10-15", "USA", "CF Montreal", "Atlanta United"),
+            "home": "CF Montreal", "away": "Atlanta United"}
+    assert reel.fixture_for_pick(pick, [fixture]) == fixture
+    assert reel.badges_for_pick(pick, [fixture]) == fixture["badges"]
+
+
+def test_espeak_fallback_uses_brighter_voice_and_higher_pitch(monkeypatch, tmp_path):
+    captured = {}
+
+    monkeypatch.delenv("PIPER_MODEL_PATH", raising=False)
+    monkeypatch.delenv("PIPER_CONFIG_PATH", raising=False)
+
+    def fake_run(cmd, **_kwargs):
+        captured["cmd"] = cmd
+        with open(cmd[cmd.index("-w") + 1], "wb") as wav:
+            wav.write(b"RIFF test")
+        return type("Result", (), {"returncode": 0, "stdout": ""})()
+
+    monkeypatch.setattr(reel.shutil, "which", lambda _name: "/usr/bin/espeak-ng")
+    monkeypatch.setattr(reel.subprocess, "run", fake_run)
+    reel.synthesize_speech("Good morning.", tmp_path / "voice.wav")
+    cmd = captured["cmd"]
+    assert cmd[cmd.index("-v") + 1] == "en-gb+f3"
+    assert cmd[cmd.index("-s") + 1] == str(reel.ESPEAK_SPEED)
+    assert cmd[cmd.index("-p") + 1] == str(reel.ESPEAK_PITCH)
+    assert reel.ESPEAK_PITCH >= 70
+
+
+def test_piper_neural_voice_is_used_when_configured(monkeypatch, tmp_path):
+    from pathlib import Path
+
+    model = tmp_path / "voice.onnx"
+    config = tmp_path / "voice.onnx.json"
+    model.write_bytes(b"model")
+    config.write_text("{}", encoding="utf-8")
+    monkeypatch.setenv("PIPER_PYTHON", "/tmp/piper-venv/bin/python")
+    monkeypatch.setenv("PIPER_MODEL_PATH", str(model))
+    monkeypatch.setenv("PIPER_CONFIG_PATH", str(config))
+    captured = {}
+
+    def fake_run(cmd, **_kwargs):
+        captured["cmd"] = cmd
+        Path(cmd[cmd.index("-f") + 1]).write_bytes(b"wav")
+        return type("Result", (), {"returncode": 0, "stdout": ""})()
+
+    monkeypatch.setattr(reel.subprocess, "run", fake_run)
+    out = tmp_path / "neural.wav"
+    reel.synthesize_speech("Good morning.", out)
+
+    cmd = captured["cmd"]
+    assert cmd[0] == "/tmp/piper-venv/bin/python"
+    assert cmd[cmd.index("-m", 2) + 1] == str(model)
+    assert cmd[cmd.index("-c") + 1] == str(config)
+    assert cmd[cmd.index("-f") + 1] == str(out)
+    assert cmd[-2:] == ["--", "Good morning."]
+    assert out.exists()
+
+
+def test_short_reel_does_not_add_trailing_silence(monkeypatch, tmp_path):
+    from pathlib import Path
+
+    assets = tmp_path / "assets"
+    assets.mkdir()
+    (assets / "logo.png").write_bytes(b"logo")
+    for name in ("bg_stadium.jpg", "bg_pitch.jpg", "bg_lights.jpg"):
+        (assets / name).write_bytes(b"background")
+
+    def touch_render(*args):
+        args[-1].parent.mkdir(parents=True, exist_ok=True)
+        args[-1].write_bytes(b"image")
+
+    monkeypatch.setattr(reel, "render_intro", touch_render)
+    monkeypatch.setattr(reel, "render_pick", touch_render)
+    monkeypatch.setattr(reel, "render_closer", touch_render)
+    monkeypatch.setattr(reel, "synthesize_speech", lambda _text, wav: wav.write_bytes(b"audio"))
+    monkeypatch.setattr(reel, "_probe", lambda _path, _ff: 1.0)
+    padded_calls = []
+
+    def pad(src, dest, _duration, _ff):
+        assert src != dest, "FFmpeg must never pad a WAV file in place"
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        dest.write_bytes(b"audio")
+        padded_calls.append((src, dest))
+
+    monkeypatch.setattr(reel, "pad_audio", pad)
+    video_holds = []
+
+    def touch_still(_img, dest, _duration, _ff):
+        video_holds.append(_duration)
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        dest.write_bytes(b"video")
+
+    monkeypatch.setattr(reel, "still_clip", touch_still)
+
+    def fake_run(cmd, _label):
+        Path(cmd[-1]).parent.mkdir(parents=True, exist_ok=True)
+        Path(cmd[-1]).write_bytes(b"video")
+
+    monkeypatch.setattr(reel, "_run", fake_run)
+    outfile = tmp_path / "short-reel.mp4"
+    reel.build(
+        [{"home": "Home FC", "away": "Away FC", "label": "Over 1.5 goals", "odds": 1.5, "p": 0.7}],
+        outfile,
+        assets=assets,
+        work=tmp_path / "work",
+        fixtures=[],
+    )
+
+    assert outfile.exists()
+    assert not any(dest.name == "a-final-padded.wav" for _, dest in padded_calls)
+    assert abs(sum(video_holds) - 7.9) < 0.01
