@@ -42,9 +42,87 @@ SAFE_GROUPS = ("goals", "btts", "team", "corners", "cards")
 # v5: overs only — no "under x goals / corners / cards", no "team under", no "no BTTS" (user decision)
 OVERS_ONLY = True
 
+# A team-to-score recommendation must have recent scoring support, including at its actual venue.
+# This is an eligibility filter only; it never changes the probability produced by the model.
+TEAM_GOAL_MARKETS = frozenset(("HO05", "AO05"))
+TEAM_GOAL_LAST_N = 5
+TEAM_GOAL_MIN_SCORED = 4
+TEAM_GOAL_VENUE_N = 3
+TEAM_GOAL_MIN_VENUE_SCORED = 2
+TEAM_GOAL_MIN_OPP_CONCEDED = 2
+
 
 def is_under(sel: str) -> bool:
     return sel == "NBTTS" or bool(re.match(r"^(U\d+|[HA]U\d+|CU\d+|KU\d+)$", sel))
+
+
+def _recent(profile, field: str) -> list:
+    try:
+        return list(getattr(profile, field, None) or [])
+    except TypeError:
+        return []
+
+
+def _positive_goal_count(matches: list, field: str, required: int) -> int | None:
+    sample = matches[:required]
+    if len(sample) < required:
+        return None
+    count = 0
+    for match in sample:
+        try:
+            count += float(match.get(field) or 0) > 0
+        except (AttributeError, TypeError, ValueError):
+            continue
+    return count
+
+
+def team_goal_form_evidence(r, sel: str) -> dict | None:
+    """Return pre-match form counts for a team-to-score market, or None for other markets."""
+    if sel not in TEAM_GOAL_MARKETS:
+        return None
+    home_pick = sel == "HO05"
+    scorer = getattr(r, "home" if home_pick else "away", None)
+    opponent = getattr(r, "away" if home_pick else "home", None)
+    attack = _recent(scorer, "last5")
+    venue = _recent(scorer, "venue_last5")
+    defense = _recent(opponent, "last5")
+    return {
+        "attack_scored": _positive_goal_count(attack, "gf", TEAM_GOAL_LAST_N),
+        "attack_n": min(len(attack), TEAM_GOAL_LAST_N),
+        "venue_scored": _positive_goal_count(venue, "gf", TEAM_GOAL_VENUE_N),
+        "venue_n": min(len(venue), TEAM_GOAL_VENUE_N),
+        "opponent_conceded": _positive_goal_count(defense, "ga", TEAM_GOAL_LAST_N),
+        "opponent_n": min(len(defense), TEAM_GOAL_LAST_N),
+        "venue": "home" if home_pick else "away",
+    }
+
+
+def team_goal_form_status(r, sel: str) -> tuple[bool, str]:
+    """Fail closed on weak or insufficient recent scoring evidence for HO05/AO05 picks."""
+    evidence = team_goal_form_evidence(r, sel)
+    if evidence is None:
+        return True, ""
+    if evidence["attack_scored"] is None:
+        return False, f"recent-form gate: only {evidence['attack_n']}/5 team matches available; need 5/5"
+    if evidence["attack_scored"] < TEAM_GOAL_MIN_SCORED:
+        return False, (f"recent-form gate: team scored in {evidence['attack_scored']}/5 recent matches; "
+                       f"need at least {TEAM_GOAL_MIN_SCORED}/5")
+    if evidence["venue_scored"] is None:
+        return False, (f"recent-form gate: only {evidence['venue_n']}/3 recent {evidence['venue']} matches available; "
+                       "need 3/3")
+    if evidence["venue_scored"] < TEAM_GOAL_MIN_VENUE_SCORED:
+        return False, (f"recent-form gate: team scored in {evidence['venue_scored']}/3 recent {evidence['venue']} matches; "
+                       f"need at least {TEAM_GOAL_MIN_VENUE_SCORED}/3")
+    if evidence["opponent_conceded"] is None:
+        return False, f"recent-form gate: only {evidence['opponent_n']}/5 opponent matches available; need 5/5"
+    if evidence["opponent_conceded"] < TEAM_GOAL_MIN_OPP_CONCEDED:
+        return False, (f"recent-form gate: opponent conceded in {evidence['opponent_conceded']}/5 recent matches; "
+                       f"need at least {TEAM_GOAL_MIN_OPP_CONCEDED}/5")
+    return True, ""
+
+
+def team_goal_form_ok(r, sel: str) -> bool:
+    return team_goal_form_status(r, sel)[0]
 
 
 # bets-of-the-day card: one section per market family, up to BOTD_PER_GROUP picks each, distinct matches per section
@@ -337,6 +415,8 @@ def safest(rows: list, now: datetime, window_end: datetime, min_p: float = MIN_P
                 continue
             if OVERS_ONLY and is_under(s.sel):
                 continue
+            if s.sel in TEAM_GOAL_MARKETS and not team_goal_form_ok(r, s.sel):
+                continue
             bets.append(Bet(key, fx["div"], fx["league"], fx["home"], fx["away"], fx["kickoff"].strftime("%Y-%m-%d %H:%M"),
                             s.sel, s.p, s.p_model, s.p_sb, s.odds))
     bets.sort(key=lambda b: (-b.p, -b.odds))
@@ -431,7 +511,7 @@ def bet_id(match_date: str, home: str, away: str, sel: str) -> str:
 def botd_candidates(rows: list, now: datetime, signal=None) -> list[Bet]:
     """Selections eligible for the day card: priced, overs only, model probability at or above the section
     threshold — odds never filter (no minimum price, market disagreements included; user decision 2026-10-01).
-    1X2 / BTTS / Over 2.5 additionally need `signal(r, sel)` to be true (form backing)."""
+    Team-to-score picks need the shared recent-form gate; 1X2 / BTTS / Over 2.5 need `signal(r, sel)`."""
     start = now + timedelta(minutes=10)
     out: list[Bet] = []
     for r in rows:
@@ -441,6 +521,8 @@ def botd_candidates(rows: list, now: datetime, signal=None) -> list[Bet]:
         key = (fx["date"].strftime("%Y-%m-%d"), fx["country"], fx["home"], fx["away"])
         for s in selections(r):
             if not s.priced or is_under(s.sel):
+                continue
+            if s.sel in TEAM_GOAL_MARKETS and not team_goal_form_ok(r, s.sel):
                 continue
             for gkey, _title, match, thr, _cap in BOTD_GROUPS:
                 if not match(s.sel) or s.p < thr:

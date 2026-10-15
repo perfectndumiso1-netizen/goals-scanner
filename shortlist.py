@@ -14,6 +14,7 @@ whatever the market (1X2, double chance, goals, BTTS, team goals, corners, booki
     H4  model probability clears the bar for that market (stated explicitly in BARS)
     H5  the model/market gap is believable: <= MAX_EDGE over the de-vigged market (or the raw price when
         no de-vigged view exists). A much wider gap is the signature of a data fault, not strength
+    H6  HO05/AO05 also need 4/5 recent scoring, 2/3 at the relevant venue, and 2/5 opponent concessions
 
   soft gates (fail one = WATCHLIST, with the exact reason)
     S1  data quality High or Medium (the audit's own grade)
@@ -133,6 +134,10 @@ def evaluate(r, s) -> dict:
         hard.append(f"odds {odds:.2f} above the {MAX_ODDS:.2f} ceiling (band {MIN_ODDS:.2f}\u2013{MAX_ODDS:.2f})")
     if s.p_model < bar:
         hard.append(f"probability {100 * s.p_model:.0f}% below the {100 * bar:.0f}% bar for {group}")
+    if s.sel in safe_mod.TEAM_GOAL_MARKETS:
+        form_ok, form_reason = safe_mod.team_goal_form_status(r, s.sel)
+        if not form_ok:
+            hard.append(form_reason)
     if edge is not None and edge > MAX_EDGE:
         hard.append(f"model {100 * edge:.0f} pp above the market — data fault, not edge")
     elif edge is None and implied is not None and s.p_model - implied > MAX_RAW_EDGE:
@@ -213,6 +218,15 @@ def match_article(r, x: dict) -> dict:
     p1 = (f"Data and form. {H.name} arrive with {H.n} tracked matches, scoring "
           f"{_num(H.gf)} and conceding {_num(H.ga)} per match; last five: {_form_str(H) or 'N/A'} (newest first). "
           f"{A.name}: {A.n} tracked matches, {_num(A.gf)}–{_num(A.ga)} per match, last five {_form_str(A) or 'N/A'}.")
+    if x.get("sel") in safe_mod.TEAM_GOAL_MARKETS:
+        evidence = safe_mod.team_goal_form_evidence(r, x["sel"])
+        if evidence and all(evidence.get(k) is not None for k in
+                            ("attack_scored", "venue_scored", "opponent_conceded")):
+            scorer = H.name if x["sel"] == "HO05" else A.name
+            opponent = A.name if x["sel"] == "HO05" else H.name
+            p1 += (f" Team-to-score evidence: {scorer} scored in {evidence['attack_scored']}/5 recent matches "
+                   f"and {evidence['venue_scored']}/3 at {evidence['venue']}; {opponent} conceded in "
+                   f"{evidence['opponent_conceded']}/5.")
     if not _nan(getattr(H, "venue_gf", float("nan"))) and (getattr(H, "venue_n", 0) or 0) >= 4 \
             and (getattr(A, "venue_n", 0) or 0) >= 4:
         p1 += (f" Venue split: {H.name} at home {_num(H.venue_gf)}–{_num(H.venue_ga)}; "
