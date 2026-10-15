@@ -544,6 +544,8 @@ def export(path: Path, *, ctx: dict, rows: list, all_rows: list | None = None, p
     reports = sorted({p.stem for p in reports_dir.glob("20??-??-??.md")}, reverse=True)   # permanent archive
     meta = {
         "generated": now.strftime("%Y-%m-%d %H:%M"), "tz": tz_label, "run": ctx["run"], "report_run": bool(report_run),
+        "schema_version": VERSION, "run_id": ctx.get("run_id"), "model_version": ctx.get("model_version"),
+        "code_revision": ctx.get("revision"), "config_sha256": ctx.get("config_sha256"),
         "window_start": (ctx.get("app_start") or ctx["start"]).strftime("%Y-%m-%d %H:%M"),
         "window_end": (ctx.get("app_end") or ctx["end"]).strftime("%Y-%m-%d %H:%M"),
         "fixtures": len(rows), "notes": notes,
@@ -575,9 +577,23 @@ def export(path: Path, *, ctx: dict, rows: list, all_rows: list | None = None, p
     alerts = alerts or []
     _write(app_dir / "alerts.json", alerts[-50:])
     _write(app_dir / "meta.json", {
-        "version": VERSION, "generated": meta["generated"], "run": meta["run"], "report_run": bool(report_run),
+        "version": VERSION, "schema_version": VERSION, "generated": meta["generated"], "run": meta["run"],
+        "run_id": meta["run_id"], "model_version": meta["model_version"],
+        "code_revision": meta["code_revision"], "config_sha256": meta["config_sha256"],
+        "report_run": bool(report_run),
         "next_run": meta["next_run"], "fixtures": len(rows), "safe_bets": len(safe_out["bets"]),
+        "coverage": coverage or {}, "counts_shortlist": meta["counts_shortlist"],
+        "feed_health": ctx.get("feed_health") or {}, "health_alerts": ctx.get("health_alerts") or [],
         "botd": [b["id"] for b in safe_out["today"]["bets"]],
         "alerts": [a["id"] for a in alerts[-30:]], "tracked_eids": sorted(set(live_eids)),
+    })
+    _write(app_dir / "run_manifest.json", {
+        "schema_version": VERSION, "model_version": meta["model_version"],
+        "code_revision": meta["code_revision"], "config_sha256": meta["config_sha256"],
+        "run_id": meta["run_id"], "generated_at": now.isoformat(), "timezone": tz_label,
+        "feed_health": ctx.get("feed_health") or {}, "health_alerts": ctx.get("health_alerts") or [],
+        "counts": {"fixtures": len(rows), "all_coverage_fixtures": (coverage or {}).get("fixtures", 0),
+                   "priced": (coverage or {}).get("priced", 0), "shortlist": meta["counts_shortlist"],
+                   "safe_bets": len(safe_out["bets"]), "botd": len(safe_out["today"]["bets"])},
     })
     return path

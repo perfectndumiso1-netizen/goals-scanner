@@ -11,6 +11,7 @@ from datetime import datetime, timedelta
 import pandas as pd
 import requests
 
+import feed_health
 import sporty  # name normalisation / similarity (same rules as the Sportybet matcher)
 
 log = logging.getLogger("livescore")
@@ -28,9 +29,13 @@ def _get(url: str, quiet: bool = False) -> dict | None:
     try:
         r = requests.get(url, headers={"User-Agent": UA, "Accept": "application/json"}, timeout=TIMEOUT)
         if r.status_code == 200:
-            return r.json()
+            data = r.json()
+            feed_health.record("livescore", "success" if data else "empty", "valid_json")
+            return data
+        feed_health.record("livescore", "error", f"http_{r.status_code}")
         (log.debug if quiet else log.warning)("Livescore HTTP %s for %s", r.status_code, url[:100])
     except (requests.RequestException, ValueError) as exc:
+        feed_health.record("livescore", "error", "request_or_json_error")
         log.warning("Livescore request failed: %s", exc)
     return None
 

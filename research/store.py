@@ -15,6 +15,23 @@ from pathlib import Path
 
 log = logging.getLogger("research.store")
 VERSION = 1
+RECORD_SCHEMA_VERSION = 1
+
+
+def _migrate_record(record: dict) -> dict | None:
+    """Normalize legacy versionless v1 records and reject unsupported future schemas."""
+    if not isinstance(record, dict):
+        return None
+    version = record.get("schema_version", 1)  # all records before this change had the v1 shape
+    if version != RECORD_SCHEMA_VERSION:
+        return None
+    migrated = dict(record)
+    migrated["schema_version"] = RECORD_SCHEMA_VERSION
+    migrated.setdefault("facts", [])
+    migrated.setdefault("conflicts", [])
+    migrated.setdefault("adjustments", [])
+    migrated.setdefault("notes", [])
+    return migrated
 
 
 class Store:
@@ -37,7 +54,13 @@ class Store:
         try:
             d = json.loads(self.path.read_text(encoding="utf-8"))
             if isinstance(d, dict) and isinstance(d.get("records"), dict):
-                self.records = d["records"]
+                self.records = {}
+                for fid, record in d["records"].items():
+                    migrated = _migrate_record(record)
+                    if migrated is None:
+                        log.warning("Skipping research record %s with unsupported schema", str(fid)[:80])
+                        continue
+                    self.records[str(fid)] = migrated
                 self.meta = d.get("meta") or {}
         except (OSError, ValueError) as exc:  # noqa: BLE001
             log.warning("Research store unreadable (%s) — starting a fresh one", exc)
@@ -117,7 +140,10 @@ class Store:
         return self.records.get(fid)
 
     def put(self, record: dict) -> None:
-        self.records[str(record["fid"])] = record
+        migrated = _migrate_record(record)
+        if migrated is None:
+            raise ValueError("unsupported research record schema")
+        self.records[str(migrated["fid"])] = migrated
         self._dirty = True
 
     def size_bytes(self) -> int:

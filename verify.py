@@ -99,6 +99,26 @@ def check_publication(staging: Path, live: Path, ledger: Path, now: datetime, ex
     meta = d.get("meta") or {}
     if meta.get("generated") != now.strftime("%Y-%m-%d %H:%M"):
         errors.append(f"meta.generated {meta.get('generated')!r} != run time")
+    manifest_p = staging / "run_manifest.json"
+    if not manifest_p.exists():
+        errors.append("run_manifest.json missing")
+    else:
+        try:
+            manifest = json.loads(manifest_p.read_text(encoding="utf-8"))
+            if manifest.get("schema_version") != d.get("version"):
+                errors.append(f"run manifest schema version {manifest.get('schema_version')!r} does not match app version {d.get('version')!r}")
+            if meta.get("run_id") and manifest.get("run_id") != meta.get("run_id"):
+                errors.append("run manifest run_id does not match latest.json meta.run_id")
+            for field in ("run_id", "model_version", "config_sha256", "generated_at", "feed_health", "counts"):
+                if field not in manifest:
+                    errors.append(f"run manifest missing {field}")
+            digest = manifest.get("config_sha256")
+            if not isinstance(digest, str) or len(digest) != 64 or any(c not in "0123456789abcdef" for c in digest):
+                errors.append("run manifest config_sha256 is not a lowercase SHA-256 hex digest")
+            if not isinstance(manifest.get("feed_health"), dict) or not isinstance(manifest.get("counts"), dict):
+                errors.append("run manifest feed_health and counts must be objects")
+        except (OSError, ValueError, AttributeError) as exc:
+            errors.append(f"run_manifest.json is not valid JSON: {exc}")
     fixtures = d.get("fixtures") or []
     if expect_fixtures and not fixtures:
         errors.append("no fixtures in the publication although the scan had rows")

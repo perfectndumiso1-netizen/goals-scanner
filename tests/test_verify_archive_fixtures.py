@@ -21,7 +21,7 @@ def _build(tmp: Path) -> tuple[Path, Path]:
     (staging / "fx" / "k1.json").write_text(json.dumps(detail), encoding="utf-8")
     latest = {
         "version": 3,
-        "meta": {"generated": NOW.strftime("%Y-%m-%d %H:%M")},
+        "meta": {"generated": NOW.strftime("%Y-%m-%d %H:%M"), "run_id": "test-run"},
         "fixtures": [
             {"id": "f1", "d": "k1", "kickoff": "2026-09-30 14:00", "home": "A", "away": "B",
              "p": {"O15": 0.8, "O25": 0.6, "BTTS": 0.5}, "x12": [0.4, 0.3, 0.3], "xg": [1.4, 1.0]},
@@ -35,6 +35,9 @@ def _build(tmp: Path) -> tuple[Path, Path]:
     (staging / "latest.json").write_text(json.dumps(latest), encoding="utf-8")
     for name in ("meta.json", "alerts.json", "badges.json"):
         (staging / name).write_text(json.dumps({}), encoding="utf-8")
+    (staging / "run_manifest.json").write_text(json.dumps({"schema_version": 3, "run_id": "test-run",
+        "model_version": "test-model", "config_sha256": "a" * 64, "generated_at": NOW.isoformat(),
+        "feed_health": {}, "counts": {}}), encoding="utf-8")
     (tmp / "app" / "days" / "2026-10-20.json").write_text(
         json.dumps({"date": "2026-10-20", "fixtures": [{"id": "archived-fixture-1"}]}), encoding="utf-8")
     return staging, live

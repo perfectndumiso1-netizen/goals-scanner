@@ -14,6 +14,8 @@ from pathlib import Path
 
 import requests
 
+import feed_health
+
 log = logging.getLogger("news")
 SESSION = requests.Session()
 SESSION.headers.update({"User-Agent": "Mozilla/5.0 (compatible; GoalsScanner/3.0)"})
@@ -265,8 +267,10 @@ class Cache:
         rec = self.data.get(key)
         fresh = rec and (time.time() - rec.get("ts", 0)) < self.ttl
         if fresh:
+            feed_health.record("news", "cache")
             return rec["items"], "cached"
         if budget and budget[0] <= 0:
+            feed_health.record("news", "stale")
             return (rec["items"] if rec else []), "stale"
         if budget:
             budget[0] -= 1
@@ -274,11 +278,14 @@ class Cache:
         try:
             raw = fetch_fn() or []
         except Exception as exc:  # noqa: BLE001 — one failed query must never kill the scan
+            feed_health.record("news", "error", "fetch_error")
+            feed_health.record("news", "stale")
             log.info("news fetch failed for %s: %s", key, exc)
             # keep whatever was cached before (stale) so the next run can retry
             return (rec["items"] if rec else []), "stale"
         items = [_ser(x) for x in raw]
         self.data[key] = {"ts": time.time(), "items": items}
+        feed_health.record("news", "success" if items else "empty", "query_complete")
         return items, "fetched"
 
     def save(self) -> None:

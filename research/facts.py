@@ -254,7 +254,7 @@ class ResearchRecord:
     notes: list[str] = field(default_factory=list)
 
     def to_dict(self) -> dict:
-        return {"fid": self.fid, "kickoff": self.kickoff, "updated": self.updated, "stage": self.stage,
+        return {"schema_version": 1, "fid": self.fid, "kickoff": self.kickoff, "updated": self.updated, "stage": self.stage,
                 "quality": self.quality, "quality_reasons": self.quality_reasons, "support": self.support,
                 "facts": [f.to_dict() for f in self.facts], "conflicts": self.conflicts,
                 "base": self.base, "final": self.final, "adjustments": self.adjustments, "totals": self.totals,
