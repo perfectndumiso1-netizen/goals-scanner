@@ -33,10 +33,10 @@ jobs:
       TENNIS_BACKFILL_DAYS: "200"   # Livescore result days fetched per run (the gap after the archive snapshot closes in the first run)
     steps:
       - name: Check out code
-        uses: actions/checkout@v4.4.0
+        uses: actions/checkout@v7.0.1
 
       - name: Set up Python
-        uses: actions/setup-python@v5.6.0
+        uses: actions/setup-python@v7.0.0
         with:
           python-version: "3.12"
           cache: pip
