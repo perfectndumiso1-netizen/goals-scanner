@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import json
 import logging
+import math
 import os
 import re
 import shutil
@@ -26,13 +27,25 @@ MUTED = (170, 190, 210)
 GOLD = (251, 191, 36)
 NAVY = (7, 17, 29)
 BADGE_BASE = "https://lsm-static-prod.livescore.com/medium/"
-TAIL = 0.45          # silence after each line so the cut is never early
+TAIL = 0.70          # extra hold after speech so the next match never appears mid-sentence
 INTRO_MIN = 5.0      # logo sting, seconds
 MAX_PICKS = 7
 MAX_TOTAL = 120.0
-ESPEAK_VOICE = "en-gb+f3"
-ESPEAK_SPEED = 170
-ESPEAK_PITCH = 72
+# CI fallback only (Arena voice-01 cannot run in Actions). Male English, not the bright female voice.
+ESPEAK_VOICE = "en-gb"
+ESPEAK_SPEED = 150
+ESPEAK_PITCH = 40
+
+INTRO_SCRIPT = "PlayReport. Today's shortlist."
+DISCLAIMER_SCRIPT = (
+    "Statistical information, not betting advice. Bet responsibly. "
+    "Not for persons under the age of 18. Do not bet with money you cannot afford to lose. "
+    "There is no such thing as a sure bet."
+)
+CLOSER_SCRIPT = (
+    "If this helped, like, share, or subscribe for tomorrow's list. "
+    "PlayReport. All rights reserved."
+)
 
 
 def hold_seconds(index: int, speech: float) -> float:
@@ -41,6 +54,11 @@ def hold_seconds(index: int, speech: float) -> float:
     if index == 0:
         return max(INTRO_MIN, speech + TAIL)
     return speech + TAIL
+
+
+def frame_hold(seconds: float) -> float:
+    """Round duration up to a whole video frame so the picture outlasts the voice."""
+    return math.ceil(max(0.0, float(seconds)) * FPS) / FPS
 
 
 def _ffmpeg() -> str:
@@ -157,13 +175,42 @@ def render_intro(logo: Path, bg: Path, dest: Path) -> None:
     im.convert("RGB").save(dest, quality=92)
 
 
+def render_disclaimer(logo: Path, bg: Path, dest: Path) -> None:
+    from PIL import Image, ImageDraw
+    im = _cover(bg, 0.62)
+    L = Image.open(logo).convert("RGBA").resize((180, 180), Image.Resampling.LANCZOS)
+    im.paste(L, ((W - 180) // 2, 160), L)
+    d = ImageDraw.Draw(im)
+    _wordmark(d, 360)
+    title = "PLEASE BET RESPONSIBLY"
+    d.text(((W - _tw(d, title, _font(36, True))) // 2, 460), title, fill=GREEN, font=_font(36, True))
+    lines = [
+        "Statistical information, not betting advice.",
+        "Not for persons under the age of 18.",
+        "Do not bet with money you cannot afford to lose.",
+        "There is no such thing as a sure bet.",
+    ]
+    y = 560
+    for ln in lines:
+        for wrapped in _wrap(d, ln, _font(28, False), W - 160, 3):
+            d.text(((W - _tw(d, wrapped, _font(28, False))) // 2, y), wrapped, fill=WHITE, font=_font(28, False))
+            y += 48
+        y += 18
+    foot = "PlayReport  ·  18+"
+    d.text(((W - _tw(d, foot, _font(22, True))) // 2, 1780), foot, fill=MUTED, font=_font(22, True))
+    im.convert("RGB").save(dest, quality=92)
+
+
 def render_pick(pick: dict, i: int, n: int, bg: Path, home_b: Path, away_b: Path, dest: Path) -> None:
     from PIL import ImageDraw
     im = _cover(bg, 0.58)
     d = ImageDraw.Draw(im)
     _wordmark(d, 64)
     k = f"PICK {i} OF {n}"
-    d.text(((W - _tw(d, k, _font(22, True))) // 2, 150), k, fill=GREEN, font=_font(22, True))
+    d.text(((W - _tw(d, k, _font(22, True))) // 2, 140), k, fill=GREEN, font=_font(22, True))
+    comp = competition_line(pick)
+    if comp:
+        d.text(((W - _tw(d, comp, _font(22, False))) // 2, 178), comp, fill=MUTED, font=_font(22, False))
     size, gap = 200, 90
     hb = _circle_badge(home_b, size)
     ab = _circle_badge(away_b, size)
@@ -191,13 +238,9 @@ def render_pick(pick: dict, i: int, n: int, bg: Path, home_b: Path, away_b: Path
     d.text(((W - _tw(d, od, of)) // 2, y + 8), od, fill=GREEN, font=of)
     cap = "SPORTYBET PRICE"
     d.text(((W - _tw(d, cap, _font(18, True))) // 2, y + 118), cap, fill=MUTED, font=_font(18, True))
-    p = pick.get("p")
-    pct = f"{round(p * 100)}%" if p is not None else "N/A"
-    row = f"MODEL  {pct}"
-    d.text(((W - _tw(d, row, _font(48, True))) // 2, 1270), row, fill=GOLD, font=_font(48, True))
     ko = str(pick.get("kickoff") or "")[11:16]
     kt = f"KICK-OFF  {ko} SAST" if ko else ""
-    d.text(((W - _tw(d, kt, _font(26, True))) // 2, 1350), kt, fill=MUTED, font=_font(26, True))
+    d.text(((W - _tw(d, kt, _font(26, True))) // 2, 1280), kt, fill=GOLD, font=_font(32, True))
     d.rectangle((80, 1780, W - 80, 1790), fill=(20, 48, 74))
     d.rectangle((80, 1780, 80 + int(i / max(n, 1) * (W - 160)), 1790), fill=GREEN)
     foot = "PlayReport  ·  not betting advice  ·  18+"
@@ -213,11 +256,15 @@ def render_closer(logo: Path, bg: Path, dest: Path) -> None:
     d = ImageDraw.Draw(im)
     _wordmark(d, 180)
     t = "THAT'S THE LIST"
-    d.text(((W - _tw(d, t, _font(48, True))) // 2, 860), t, fill=WHITE, font=_font(48, True))
-    s = "Open the app for the full analysis"
-    d.text(((W - _tw(d, s, _font(28, False))) // 2, 940), s, fill=MUTED, font=_font(28, False))
+    d.text(((W - _tw(d, t, _font(48, True))) // 2, 840), t, fill=WHITE, font=_font(48, True))
+    s = "Like, share or subscribe if this helped — no pressure."
+    d.text(((W - _tw(d, s, _font(26, False))) // 2, 920), s, fill=MUTED, font=_font(26, False))
     n = "Statistical information, not betting advice. 18+."
-    d.text(((W - _tw(d, n, _font(22, False))) // 2, 1180), n, fill=MUTED, font=_font(22, False))
+    d.text(((W - _tw(d, n, _font(22, False))) // 2, 1120), n, fill=MUTED, font=_font(22, False))
+    c = "© PlayReport. All rights reserved."
+    d.text(((W - _tw(d, c, _font(22, True))) // 2, 1280), c, fill=WHITE, font=_font(22, True))
+    p = "Unauthorised copying or re-upload is prohibited."
+    d.text(((W - _tw(d, p, _font(20, False))) // 2, 1330), p, fill=MUTED, font=_font(20, False))
     im.convert("RGB").save(dest, quality=92)
 
 
@@ -312,29 +359,62 @@ def still_clip(img: Path, dest: Path, duration: float, ff: str) -> None:
     ], "still")
 
 
+def competition_line(p: dict) -> str:
+    country = str(p.get("country") or "").strip()
+    league = str(p.get("league") or "").strip()
+    if country and league and country.lower() != league.lower():
+        return f"{country}  ·  {league}"
+    return country or league
+
+
+def spoken_kickoff(p: dict) -> str:
+    ko = str(p.get("kickoff") or "")[11:16]
+    if ko.endswith(":00"):
+        h = int(ko[:2])
+        if h == 0:
+            return "12 AM"
+        if h == 12:
+            return "12 PM"
+        return f"{h if h < 12 else h - 12} PM" if h >= 12 else f"{h} AM"
+    return ko
+
+
 def pick_script(p: dict) -> str:
     home, away = p.get("home") or "", p.get("away") or ""
     label = p.get("label") or "the selection"
     odds = p.get("odds")
     od = f"{odds:.2f}" if isinstance(odds, (int, float)) else "N/A"
-    pct = f"{round(p['p'] * 100)} percent" if p.get("p") is not None else "N/A"
-    ko = str(p.get("kickoff") or "")[11:16]
-    spoken_ko = ko
-    if ko.endswith(":00"):
-        h = int(ko[:2])
-        spoken_ko = f"{h if h <= 12 else h - 12} PM" if h >= 12 else f"{h} AM"
-    return f"{home} versus {away}. Selection: {label}. Price: {od}. The model estimates a {pct} chance. Kick-off: {spoken_ko}."
+    comp = ", ".join(x for x in (str(p.get("country") or "").strip(), str(p.get("league") or "").strip()) if x)
+    head = f"{comp}. " if comp else ""
+    return f"{head}{home} versus {away}. {label}, at {od}. Kick-off, {spoken_kickoff(p)}."
 
 
-def overs_only(picks: list) -> list:
+def is_reel_market(p: dict) -> bool:
+    """Goals, corners and bookings only. Unders stay out of the video."""
+    blob = " ".join(str(p.get(k) or "") for k in ("label", "sel", "market", "group")).lower()
+    if "under" in blob:
+        return False
+    if any(w in blob for w in ("corner", "card", "booking", "yellow")):
+        return True
+    if any(w in blob for w in ("over", "btts", "both teams", "to score", "team goal", "goals")):
+        return True
+    return False
+
+
+def reel_picks(picks: list) -> list:
     out = []
     for p in picks or []:
-        if "under" in str(p.get("label") or "").lower() or "under" in str(p.get("sel") or "").lower():
+        if not is_reel_market(p):
             continue
         out.append(p)
         if len(out) >= MAX_PICKS:
             break
     return out
+
+
+def overs_only(picks: list) -> list:
+    """Kept name for scanner.py: video markets are goals / corners / bookings, Overs-side only."""
+    return reel_picks(picks)
 
 
 def build(picks: list, outfile: Path, *, assets: Path, work: Path | None = None,
@@ -345,7 +425,7 @@ def build(picks: list, outfile: Path, *, assets: Path, work: Path | None = None,
     from PIL import Image  # noqa: F401  — imported for a clear error if missing
 
     ff = _ffmpeg()
-    picks = overs_only(picks)
+    picks = reel_picks(picks)
     if not picks:
         raise ValueError("no shortlist picks for the reel")
     assets = Path(assets)
@@ -364,6 +444,7 @@ def build(picks: list, outfile: Path, *, assets: Path, work: Path | None = None,
 
     n = len(picks)
     render_intro(logo, bgs[0], slides_dir / "intro.jpg")
+    render_disclaimer(logo, bgs[1], slides_dir / "disclaimer.jpg")
     for i, p in enumerate(picks, 1):
         fx = fixture_for_pick(p, fixtures) or {}
         badges = p.get("badges") or fx.get("badges") or {}
@@ -376,10 +457,12 @@ def build(picks: list, outfile: Path, *, assets: Path, work: Path | None = None,
         render_pick(p, i, n, bgs[i % 3], hb, ab, slides_dir / f"p{i:02d}.jpg")
     render_closer(logo, bgs[2], slides_dir / "closer.jpg")
 
-    texts = ["Good morning. Here's today's shortlist from PlayReport."] + [pick_script(p) for p in picks] + [
-        "That's PlayReport. Open the app for the full analysis. Not betting advice. Eighteen plus."
-    ]
-    images = [slides_dir / "intro.jpg"] + [slides_dir / f"p{i:02d}.jpg" for i in range(1, n + 1)] + [slides_dir / "closer.jpg"]
+    texts = [INTRO_SCRIPT, DISCLAIMER_SCRIPT] + [pick_script(p) for p in picks] + [CLOSER_SCRIPT]
+    images = (
+        [slides_dir / "intro.jpg", slides_dir / "disclaimer.jpg"]
+        + [slides_dir / f"p{i:02d}.jpg" for i in range(1, n + 1)]
+        + [slides_dir / "closer.jpg"]
+    )
 
     if voice_clips is not None and len(voice_clips) != len(images):
         raise ValueError(f"voice_clips ({len(voice_clips)}) must match slides ({len(images)})")
@@ -394,7 +477,7 @@ def build(picks: list, outfile: Path, *, assets: Path, work: Path | None = None,
         else:
             synthesize_speech(text, raw)
         d = _probe(raw, ff)
-        hold = hold_seconds(i, d)
+        hold = frame_hold(hold_seconds(i, d))
         padded = audio_dir / f"a{i:02d}.wav"
         pad_audio(raw, padded, hold, ff)
         wavs.append(padded)
@@ -404,6 +487,7 @@ def build(picks: list, outfile: Path, *, assets: Path, work: Path | None = None,
     # Keep it under two minutes by dropping trailing picks if needed; never trim speech or pad the ending with silence.
     if total > MAX_TOTAL and len(picks) > 3:
         log.info("reel %.1fs > 2 min — dropping last pick", total)
+        # [intro, disclaimer, *picks, closer] — drop last pick, keep closer
         vc = None if voice_clips is None else list(voice_clips[:-2]) + [voice_clips[-1]]
         return build(picks[:-1], outfile, assets=assets, work=work, voice_clips=vc, fixtures=fixtures)
     clips = []
@@ -428,7 +512,7 @@ def build(picks: list, outfile: Path, *, assets: Path, work: Path | None = None,
     _run([
         ff, "-y", "-i", str(silent), "-i", str(voice),
         "-map", "0:v", "-map", "1:a",
-        "-c:v", "copy", "-c:a", "aac", "-b:a", "192k", "-shortest", str(outfile),
+        "-c:v", "copy", "-c:a", "aac", "-b:a", "192k", str(outfile),
     ], "mux")
     log.info("reel built %s (%.1fs, %d KB)", outfile.name, total, outfile.stat().st_size // 1024)
     return outfile

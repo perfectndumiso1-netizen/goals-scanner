@@ -1,43 +1,61 @@
-"""Reel timing: one voice clip per slide, no music, Overs only."""
+"""Reel timing: one voice clip per slide, no music, goals/corners/bookings only."""
 from __future__ import annotations
 
 import shortlist_reel as reel
 
 
-def test_overs_only_drops_unders_and_caps():
+def test_reel_picks_goals_corners_bookings_only():
     picks = [
         {"label": "Over 1.5 goals", "home": "A"},
         {"label": "Under 2.5 cards", "home": "B"},
         {"label": "Home or draw", "home": "C", "sel": "1X"},
+        {"label": "Over 10.5 corners", "home": "E"},
+        {"label": "Over 3.5 cards", "home": "F"},
         {"label": "Away under 1.5", "home": "D"},
     ] + [{"label": "Over 1.5 goals", "home": f"X{i}"} for i in range(10)]
-    out = reel.overs_only(picks)
+    out = reel.reel_picks(picks)
+    assert all(reel.is_reel_market(p) for p in out)
     assert all("under" not in (p.get("label") or "").lower() for p in out)
+    assert [p["home"] for p in out[:3]] == ["A", "E", "F"]
     assert len(out) == reel.MAX_PICKS
-    assert out[0]["home"] == "A"
-    assert out[1]["home"] == "C"
 
 
 def test_hold_never_cuts_speech_and_intro_is_five_seconds():
-    # intro: 3s of speech still holds 5s (logo sting)
     assert reel.hold_seconds(0, 3.0) == 5.0
-    # intro longer than 5s: wait for the line to finish
     assert reel.hold_seconds(0, 6.2) == 6.2 + reel.TAIL
-    # pick: duration is exactly that clip + tail — next match cannot appear mid-sentence
     assert reel.hold_seconds(1, 9.81) == 9.81 + reel.TAIL
     assert reel.hold_seconds(7, 12.4) == 12.4 + reel.TAIL
 
 
-def test_pick_script_is_spoken_not_dumped():
+def test_frame_hold_rounds_up_so_video_is_never_shorter_than_voice():
+    assert reel.frame_hold(5.0) == 5.0
+    # 9.81 + 0.70 = 10.51; 10.51 * 30 = 315.3 frames → 316/30
+    h = reel.frame_hold(9.81 + reel.TAIL)
+    assert h >= 9.81 + reel.TAIL
+    assert abs(h * reel.FPS - round(h * reel.FPS)) < 1e-6
+
+
+def test_pick_script_has_competition_not_model():
     s = reel.pick_script({
-        "home": "Cardiff", "away": "Watford", "label": "Cardiff or draw",
-        "odds": 1.2, "p": 0.91, "kickoff": "2026-10-13 20:45",
+        "home": "Lyon", "away": "Crystal Palace", "label": "Lyon over 0.5 goals",
+        "odds": 1.2, "p": 0.91, "kickoff": "2026-10-15 18:45",
+        "country": "Europa League", "league": "League Stage",
     })
-    assert "Cardiff versus Watford" in s
-    assert "Selection: Cardiff or draw" in s
+    assert "Europa League, League Stage" in s
+    assert "Lyon versus Crystal Palace" in s
     assert "1.20" in s
-    assert "model estimates a 91 percent chance" in s
     assert "Kick-off" in s
+    assert "percent" not in s.lower()
+    assert "model" not in s.lower()
+
+
+def test_disclaimer_and_closer_scripts():
+    assert "18" in reel.DISCLAIMER_SCRIPT
+    assert "sure bet" in reel.DISCLAIMER_SCRIPT.lower()
+    assert "afford to lose" in reel.DISCLAIMER_SCRIPT
+    assert "like" in reel.CLOSER_SCRIPT.lower()
+    assert "subscribe" in reel.CLOSER_SCRIPT.lower()
+    assert "All rights reserved" in reel.CLOSER_SCRIPT
 
 
 def test_raw_shortlist_key_resolves_both_club_badges():
@@ -52,7 +70,7 @@ def test_raw_shortlist_key_resolves_both_club_badges():
     assert reel.badges_for_pick(pick, [fixture]) == fixture["badges"]
 
 
-def test_espeak_fallback_uses_brighter_voice_and_higher_pitch(monkeypatch, tmp_path):
+def test_espeak_fallback_uses_male_voice(monkeypatch, tmp_path):
     captured = {}
 
     monkeypatch.delenv("PIPER_MODEL_PATH", raising=False)
@@ -68,10 +86,11 @@ def test_espeak_fallback_uses_brighter_voice_and_higher_pitch(monkeypatch, tmp_p
     monkeypatch.setattr(reel.subprocess, "run", fake_run)
     reel.synthesize_speech("Good morning.", tmp_path / "voice.wav")
     cmd = captured["cmd"]
-    assert cmd[cmd.index("-v") + 1] == "en-gb+f3"
+    assert cmd[cmd.index("-v") + 1] == "en-gb"
+    assert "f3" not in cmd[cmd.index("-v") + 1]
     assert cmd[cmd.index("-s") + 1] == str(reel.ESPEAK_SPEED)
     assert cmd[cmd.index("-p") + 1] == str(reel.ESPEAK_PITCH)
-    assert reel.ESPEAK_PITCH >= 70
+    assert reel.ESPEAK_PITCH <= 50
 
 
 def test_piper_neural_voice_is_used_when_configured(monkeypatch, tmp_path):
@@ -118,6 +137,7 @@ def test_short_reel_does_not_add_trailing_silence(monkeypatch, tmp_path):
         args[-1].write_bytes(b"image")
 
     monkeypatch.setattr(reel, "render_intro", touch_render)
+    monkeypatch.setattr(reel, "render_disclaimer", touch_render)
     monkeypatch.setattr(reel, "render_pick", touch_render)
     monkeypatch.setattr(reel, "render_closer", touch_render)
     monkeypatch.setattr(reel, "synthesize_speech", lambda _text, wav: wav.write_bytes(b"audio"))
@@ -145,6 +165,7 @@ def test_short_reel_does_not_add_trailing_silence(monkeypatch, tmp_path):
         Path(cmd[-1]).write_bytes(b"video")
 
     monkeypatch.setattr(reel, "_run", fake_run)
+    monkeypatch.setattr(reel, "_ffmpeg", lambda: "/usr/bin/ffmpeg")
     outfile = tmp_path / "short-reel.mp4"
     reel.build(
         [{"home": "Home FC", "away": "Away FC", "label": "Over 1.5 goals", "odds": 1.5, "p": 0.7}],
@@ -156,4 +177,7 @@ def test_short_reel_does_not_add_trailing_silence(monkeypatch, tmp_path):
 
     assert outfile.exists()
     assert not any(dest.name == "a-final-padded.wav" for _, dest in padded_calls)
-    assert abs(sum(video_holds) - 7.9) < 0.01
+    # intro 5s + disclaimer/pick/closer each 1s speech + 0.70 tail
+    expected = reel.frame_hold(5.0) + 3 * reel.frame_hold(1.0 + reel.TAIL)
+    assert abs(sum(video_holds) - expected) < 0.01
+    assert len(video_holds) == 4
