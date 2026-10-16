@@ -2341,7 +2341,14 @@ def send_telegram_document(path: Path, caption: str) -> bool:
         return False
 
 
-def send_telegram_video(path: Path, caption: str, *, delete_after: bool = True) -> bool:
+def send_telegram_video(
+    path: Path,
+    caption: str,
+    *,
+    delete_after: bool = True,
+    width: int | None = None,
+    height: int | None = None,
+) -> bool:
     """Send a shortlist briefing video to Telegram, then delete the local file.
 
     Videos are never written to git, Drive, or the data branch. After a successful
@@ -2353,11 +2360,15 @@ def send_telegram_video(path: Path, caption: str, *, delete_after: bool = True) 
     if not token or not chat or path is None or not path.exists():
         return False
     ok = False
+    payload = {"chat_id": chat, "caption": (caption or "")[:1024], "supports_streaming": "true"}
+    if width and height:
+        payload["width"] = str(int(width))
+        payload["height"] = str(int(height))
     try:
         with path.open("rb") as fh:
             r = SESSION.post(
                 f"https://api.telegram.org/bot{token}/sendVideo",
-                data={"chat_id": chat, "caption": (caption or "")[:1024], "supports_streaming": "true"},
+                data=payload,
                 files={"video": (path.name, fh, "video/mp4")},
                 timeout=120,
             )
@@ -2520,19 +2531,40 @@ def maybe_send_daily_reel(sl_pub: dict, now: datetime) -> None:
         yres = _filter_yres_to_video_picks(yres, yday_video_picks)
 
     work = Path(os.getenv("TMPDIR") or "/tmp") / "playreport-reel"
-    out = work / "briefing.mp4"
+    out_16x9 = work / "briefing-16x9.mp4"
+    out_9x16 = work / "briefing-9x16-reel.mp4"
     recap_rows = reel_mod.reel_results(yres)
-    log.info("Building daily 16:9 video (%d yesterday results, %d today Overs picks, no music)", len(recap_rows), len(prim_enriched))
-    reel_mod.build(prim_enriched, out, assets=assets, work=work, fixtures=fixtures, yesterday_results=yres)
+    log.info(
+        "Building daily 16:9 widescreen & 9:16 vertical reel videos with shared voice (%d yesterday results, %d today Overs picks, no music)",
+        len(recap_rows),
+        len(prim_enriched),
+    )
+    if hasattr(reel_mod, "build_both"):
+        reel_mod.build_both(
+            prim_enriched, out_16x9, out_9x16, assets=assets, work=work, fixtures=fixtures, yesterday_results=yres
+        )
+    else:
+        reel_mod.build(prim_enriched, out_16x9, assets=assets, work=work, fixtures=fixtures, yesterday_results=yres)
     settled_recap = [r for r in recap_rows if r.get("result") in ("hit", "miss")]
     hits_recap = sum(1 for r in settled_recap if r.get("result") == "hit")
     recap_caption = f"Yesterday: {hits_recap}/{len(settled_recap)} won · " if settled_recap else ""
-    ok = send_telegram_video(
-        out,
-        f"🎬 PlayReport 16:9 shortlist — {now:%a %d %b}. {recap_caption}Today: {len(prim_enriched)} selection(s). "
+    ok_16x9 = send_telegram_video(
+        out_16x9,
+        f"🎬 PlayReport 16:9 widescreen shortlist — {now:%a %d %b}. {recap_caption}Today: {len(prim_enriched)} selection(s). "
         f"A shortlist for your review, not an instruction to bet. 18+.",
+        width=1920,
+        height=1080,
     )
-    if ok:
+    ok_9x16 = False
+    if out_9x16.exists():
+        ok_9x16 = send_telegram_video(
+            out_9x16,
+            f"📱 PlayReport 9:16 vertical reel — {now:%a %d %b}. {recap_caption}Today: {len(prim_enriched)} selection(s). "
+            f"A shortlist for your review, not an instruction to bet. 18+.",
+            width=1080,
+            height=1920,
+        )
+    if ok_16x9 or ok_9x16:
         st["briefing"] = today
         st["briefing_history"] = record_briefing_picks(hist, today, prim_enriched)
         try:

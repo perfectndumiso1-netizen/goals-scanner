@@ -428,4 +428,68 @@ def test_spoken_kickoff_and_spoken_text_naturalness():
     assert "Kick-off at 7 PM." in clean
 
 
+def test_dual_resolutions_16x9_and_9x16_share_single_consistent_voice(monkeypatch, tmp_path):
+    from pathlib import Path
+    from PIL import Image
+
+    logo = tmp_path / "logo.png"
+    bg = tmp_path / "bg.jpg"
+    Image.new("RGBA", (256, 256), (0, 200, 111, 255)).save(logo)
+    Image.new("RGB", (640, 360), (7, 17, 29)).save(bg)
+
+    # Verify 9:16 (1080x1920) vertical reel slide dimensions
+    intro9 = tmp_path / "intro9.jpg"
+    disc9 = tmp_path / "disc9.jpg"
+    res9 = tmp_path / "res9.jpg"
+    pick9 = tmp_path / "pick9.jpg"
+    closer9 = tmp_path / "closer9.jpg"
+    reel.render_intro(logo, bg, intro9, aspect="9:16")
+    reel.render_disclaimer(logo, bg, disc9, aspect="9:16")
+    reel.render_results(
+        [{"home": "Hearts", "away": "FC Nordsjaelland", "country": "Conference League", "league": "League Stage",
+          "label": "Hearts over 0.5 goals", "odds": 1.25, "result": "hit", "score": "1-1"}],
+        logo, bg, res9, day_label="2026-10-15", aspect="9:16",
+    )
+    reel.render_pick(
+        {"home": "Deportivo A Coruna", "away": "Levante", "country": "Spain", "league": "LaLiga",
+         "label": "Deportivo A Coruna over 0.5 goals", "odds": 1.24, "kickoff": "2026-10-16 21:00",
+         "form_h": "LDLDW", "form_a": "DLLDW"},
+        1, 7, bg, logo, logo, pick9, aspect="9:16",
+    )
+    reel.render_closer(logo, bg, closer9, aspect="9:16")
+    for p in (intro9, disc9, res9, pick9, closer9):
+        with Image.open(p) as im:
+            assert im.size == (1080, 1920)
+
+    # Verify build_both synthesizes speech ONCE and reuses the exact audio for the 9:16 reel
+    assets = tmp_path / "assets"
+    assets.mkdir()
+    Image.new("RGBA", (256, 256), (0, 200, 111, 255)).save(assets / "logo.png")
+    for name in ("bg_stadium.jpg", "bg_pitch.jpg", "bg_lights.jpg"):
+        Image.new("RGB", (640, 360), (7, 17, 29)).save(assets / name)
+
+    synth_calls = []
+    monkeypatch.setattr(reel, "synthesize_speech", lambda text, wav: (synth_calls.append(text), wav.write_bytes(b"RIFFvoice")))
+    monkeypatch.setattr(reel, "_probe", lambda _path, _ff: 1.0)
+    monkeypatch.setattr(reel, "pad_audio", lambda _src, dest, _dur, _ff: dest.write_bytes(b"audio"))
+    monkeypatch.setattr(reel, "still_clip", lambda _img, dest, _dur, _ff: dest.write_bytes(b"video"))
+    monkeypatch.setattr(reel, "_run", lambda cmd, _label: Path(cmd[-1]).write_bytes(b"out"))
+    monkeypatch.setattr(reel, "_ffmpeg", lambda: "/usr/bin/ffmpeg")
+
+    out16 = tmp_path / "out-16x9.mp4"
+    out9 = tmp_path / "out-9x16.mp4"
+    reel.build_both(
+        [{"home": "Lyon", "away": "Crystal Palace", "label": "Over 1.5 goals", "odds": 1.20, "kickoff": "2026-10-15 18:45"}],
+        out16,
+        out9,
+        assets=assets,
+        work=tmp_path / "dual_work",
+        fixtures=[],
+    )
+    assert out16.exists() and out9.exists()
+    # Intro + Disclaimer + 1 Pick + Closer = 4 slides; synthesized ONCE for 16:9 and reused for 9:16
+    assert len(synth_calls) == 4
+
+
+
 

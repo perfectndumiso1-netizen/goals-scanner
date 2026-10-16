@@ -18,47 +18,54 @@ jobs:
           python3 - <<'PY'
           import os, sys, pathlib, urllib.request, json
           token, chat = os.getenv("TELEGRAM_BOT_TOKEN"), os.getenv("TELEGRAM_CHAT_ID")
-          path = pathlib.Path("tmp/briefing.mp4")
+          path_16x9 = pathlib.Path("tmp/briefing.mp4")
+          path_9x16 = pathlib.Path("tmp/briefing-reel.mp4")
           if not token or not chat:
               print("Telegram secrets missing"); sys.exit(1)
-          if not path.exists():
-              print("no tmp/briefing.mp4"); sys.exit(1)
-          boundary = "----PlayReportBriefing"
+          if not path_16x9.exists() and not path_9x16.exists():
+              print("no tmp/briefing.mp4 or tmp/briefing-reel.mp4"); sys.exit(1)
           cap_file = pathlib.Path("tmp/briefing_caption.txt")
-          caption = (
+          base_caption = (
               cap_file.read_text(encoding="utf-8").strip()
               if cap_file.exists()
-              else "🎬 PlayReport 16:9 shortlist — A shortlist for your review, not an instruction to bet. 18+."
+              else "🎬 PlayReport shortlist — A shortlist for your review, not an instruction to bet. 18+."
           )
-          data = path.read_bytes()
-          parts = []
-          def field(name, value):
-              parts.append(f"--{boundary}\r\nContent-Disposition: form-data; name=\"{name}\"\r\n\r\n{value}\r\n".encode())
-          field("chat_id", chat)
-          field("caption", caption)
-          field("width", "1920")
-          field("height", "1080")
-          field("supports_streaming", "true")
-          parts.append(
-              f"--{boundary}\r\nContent-Disposition: form-data; name=\"video\"; filename=\"PlayReport-shortlist.mp4\"\r\nContent-Type: video/mp4\r\n\r\n".encode()
-              + data + b"\r\n" + f"--{boundary}--\r\n".encode()
-          )
-          body = b"".join(parts)
-          req = urllib.request.Request(
-              f"https://api.telegram.org/bot{token}/sendVideo",
-              data=body,
-              method="POST",
-              headers={"Content-Type": f"multipart/form-data; boundary={boundary}"},
-          )
-          try:
-              with urllib.request.urlopen(req, timeout=120) as r:
-                  j = json.loads(r.read().decode())
-          except Exception as e:
-              print("send failed", e)
-              sys.exit(1)
-          if not j.get("ok"):
-              print("telegram", j)
-              sys.exit(1)
-          print("sent", j.get("result", {}).get("message_id"))
-          path.unlink(missing_ok=True)
+          def send_one(vpath, fname, cap, w, h):
+              boundary = "----PlayReportBriefing"
+              data = vpath.read_bytes()
+              parts = []
+              def field(name, value):
+                  parts.append(f"--{boundary}\r\nContent-Disposition: form-data; name=\"{name}\"\r\n\r\n{value}\r\n".encode())
+              field("chat_id", chat)
+              field("caption", cap)
+              field("width", str(w))
+              field("height", str(h))
+              field("supports_streaming", "true")
+              parts.append(
+                  f"--{boundary}\r\nContent-Disposition: form-data; name=\"video\"; filename=\"{fname}\"\r\nContent-Type: video/mp4\r\n\r\n".encode()
+                  + data + b"\r\n" + f"--{boundary}--\r\n".encode()
+              )
+              body = b"".join(parts)
+              req = urllib.request.Request(
+                  f"https://api.telegram.org/bot{token}/sendVideo",
+                  data=body,
+                  method="POST",
+                  headers={"Content-Type": f"multipart/form-data; boundary={boundary}"},
+              )
+              try:
+                  with urllib.request.urlopen(req, timeout=120) as r:
+                      j = json.loads(r.read().decode())
+              except Exception as e:
+                  print("send failed", e)
+                  sys.exit(1)
+              if not j.get("ok"):
+                  print("telegram", j)
+                  sys.exit(1)
+              print("sent", fname, j.get("result", {}).get("message_id"))
+              vpath.unlink(missing_ok=True)
+          if path_16x9.exists():
+              send_one(path_16x9, "PlayReport-shortlist-16x9.mp4", base_caption, 1920, 1080)
+          if path_9x16.exists():
+              reel_cap = base_caption.replace("16:9", "9:16 reel").replace("🎬", "📱")
+              send_one(path_9x16, "PlayReport-shortlist-9x16-reel.mp4", reel_cap, 1080, 1920)
           PY
