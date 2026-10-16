@@ -2573,6 +2573,44 @@ def maybe_send_daily_reel(sl_pub: dict, now: datetime) -> None:
         except OSError:
             pass
 
+    # Also build & send the daily TV-style 4-match big-league analysis show (16:9 YouTube + 9:16 TikTok)
+    if st.get("tv_analysis") != today:
+        try:
+            import tv_analysis as tv_mod
+            fx_dir = APP_FILE.parent / "fx"
+            dossiers = []
+            if fx_dir.exists():
+                for fp in sorted(fx_dir.glob("*.json")):
+                    try:
+                        dossiers.append(json.loads(fp.read_text(encoding="utf-8")))
+                    except (OSError, ValueError):
+                        pass
+            featured = tv_mod.select_featured_matches(dossiers, prim_enriched, limit=4)
+            if featured:
+                tv_work = Path(os.getenv("TMPDIR") or "/tmp") / "playreport-tv"
+                tv_16x9 = tv_work / "tv-analysis-16x9.mp4"
+                tv_9x16 = tv_work / "tv-analysis-9x16.mp4"
+                tv_mod.build_show_both(featured, tv_16x9, tv_9x16, assets=assets, work=tv_work)
+                ok_tv16 = send_telegram_video(
+                    tv_16x9,
+                    f"📺 PlayReport Matchday Deep Dive (16:9 YouTube) — {now:%a %d %b} ({len(featured)} big-league matches). "
+                    "Form · Venue splits · H2H · Team news · Best market. 18+.",
+                    width=1920,
+                    height=1080,
+                )
+                ok_tv9 = send_telegram_video(
+                    tv_9x16,
+                    f"📱 PlayReport Matchday Deep Dive (9:16 TikTok) — {now:%a %d %b} ({len(featured)} big-league matches). "
+                    "Form · Venue splits · H2H · Team news · Best market. 18+.",
+                    width=1080,
+                    height=1920,
+                )
+                if ok_tv16 or ok_tv9:
+                    st["tv_analysis"] = today
+                    path.write_text(json.dumps(st, ensure_ascii=False), encoding="utf-8")
+        except Exception as e:
+            log.warning("TV analysis show skipped: %s", e)
+
 
 def telegram_shortlist(sl_pub: dict, now: datetime) -> None:
     """Push the day's shortlist picks to Telegram — the strongest market per match only (user rule).
