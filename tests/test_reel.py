@@ -349,3 +349,83 @@ def test_shortlist_yesterday_results_extraction():
     assert len(res["items"]) == 2
 
 
+def test_yesterday_results_strictly_matches_yesterdays_video_picks():
+    from datetime import datetime
+    import pandas as pd
+    import scanner
+    import shortlist
+
+    # Simulate 2026-10-15 ledger with early-morning MLS rows (not in video) + the 7 UEFA video rows + trailing rows
+    rows = [
+        {"day": "2026-10-15", "kickoff": "2026-10-15 02:30", "country": "USA", "league": "MLS",
+         "home": "St. Louis City", "away": "Vancouver Whitecaps", "sel": "O15", "label": "Over 1.5 goals",
+         "market": "goals", "odds": "1.16", "status": "primary", "result": "miss", "score": "0-0"},
+        {"day": "2026-10-15", "kickoff": "2026-10-15 02:30", "country": "USA", "league": "MLS",
+         "home": "FC Dallas", "away": "Seattle Sounders FC", "sel": "HO05", "label": "FC Dallas over 0.5 goals",
+         "market": "team_goals", "odds": "1.16", "status": "primary", "result": "hit", "score": "1-0"},
+        {"day": "2026-10-15", "kickoff": "2026-10-15 01:30", "country": "USA", "league": "MLS",
+         "home": "CF Montreal", "away": "Atlanta United", "sel": "HO05", "label": "CF Montreal over 0.5 goals",
+         "market": "team_goals", "odds": "1.20", "status": "primary", "result": "miss", "score": "0-3"},
+        {"day": "2026-10-15", "kickoff": "2026-10-15 21:00", "country": "Conference League", "league": "League Stage",
+         "home": "Hearts", "away": "FC Nordsjaelland", "sel": "HO05", "label": "Hearts over 0.5 goals",
+         "market": "team_goals", "odds": "1.25", "status": "primary", "result": "hit", "score": "1-1"},
+        {"day": "2026-10-15", "kickoff": "2026-10-15 18:45", "country": "Europa League", "league": "League Stage",
+         "home": "Lyon", "away": "Crystal Palace", "sel": "HO05", "label": "Lyon over 0.5 goals",
+         "market": "team_goals", "odds": "1.20", "status": "primary", "result": "hit", "score": "3-2"},
+        {"day": "2026-10-15", "kickoff": "2026-10-15 18:45", "country": "Europa League", "league": "League Stage",
+         "home": "Union St.Gilloise", "away": "Real Sociedad", "sel": "O15", "label": "Over 1.5 goals",
+         "market": "goals", "odds": "1.21", "status": "primary", "result": "hit", "score": "1-1"},
+        {"day": "2026-10-15", "kickoff": "2026-10-15 21:00", "country": "Europa League", "league": "League Stage",
+         "home": "Ferencvaros", "away": "Viktoria Plzen", "sel": "HO05", "label": "Ferencvaros over 0.5 goals",
+         "market": "team_goals", "odds": "1.18", "status": "primary", "result": "hit", "score": "2-1"},
+        {"day": "2026-10-15", "kickoff": "2026-10-15 18:45", "country": "Conference League", "league": "League Stage",
+         "home": "Riga FC", "away": "Kairat Almaty", "sel": "HO05", "label": "Riga FC over 0.5 goals",
+         "market": "team_goals", "odds": "1.23", "status": "primary", "result": "hit", "score": "1-1"},
+        {"day": "2026-10-15", "kickoff": "2026-10-15 18:45", "country": "Europa League", "league": "League Stage",
+         "home": "FC Salzburg", "away": "AC Milan", "sel": "HO05", "label": "FC Salzburg over 0.5 goals",
+         "market": "team_goals", "odds": "1.31", "status": "primary", "result": "miss", "score": "0-4"},
+        {"day": "2026-10-15", "kickoff": "2026-10-15 18:45", "country": "Conference League", "league": "League Stage",
+         "home": "PFC CSKA Sofia", "away": "AS Monaco", "sel": "O15", "label": "Over 1.5 goals",
+         "market": "goals", "odds": "1.22", "status": "primary", "result": "hit", "score": "1-2"},
+        {"day": "2026-10-15", "kickoff": "2026-10-15 18:45", "country": "Europa League", "league": "League Stage",
+         "home": "Sparta Prague", "away": "Lillestroem", "sel": "O15", "label": "Over 1.5 goals",
+         "market": "goals", "odds": "1.18", "status": "primary", "result": "hit", "score": "1-1"},
+    ]
+    df = pd.DataFrame(rows)
+    res = shortlist.yesterday_results(df, datetime(2026, 10, 16, 6, 0))
+    assert res["day"] == "2026-10-15"
+    assert [x["home"] for x in res["items"]] == [
+        "Hearts", "Lyon", "Union St.Gilloise", "Ferencvaros", "Riga FC", "FC Salzburg", "PFC CSKA Sofia"
+    ]
+    assert res["total"] == 7
+    assert res["settled"] == 7
+    assert res["hits"] == 6
+    assert res["misses"] == 1
+
+    # Also verify multi-video day merging in record_briefing_picks
+    hist = scanner.record_briefing_picks({}, "2026-10-16", [{"home": "A", "away": "B", "sel": "O15"}])
+    hist = scanner.record_briefing_picks(hist, "2026-10-16", [
+        {"home": "A", "away": "B", "sel": "O15"},
+        {"home": "C", "away": "D", "sel": "HO05"},
+    ])
+    assert hist["2026-10-16"] == [
+        {"home": "A", "away": "B", "sel": "O15"},
+        {"home": "C", "away": "D", "sel": "HO05"},
+    ]
+
+
+def test_spoken_kickoff_and_spoken_text_naturalness():
+    assert reel.spoken_kickoff({"kickoff": "2026-10-16 18:45"}) == "6:45 PM"
+    assert reel.spoken_kickoff({"kickoff": "2026-10-16 20:45"}) == "8:45 PM"
+    assert reel.spoken_kickoff({"kickoff": "2026-10-16 21:00"}) == "9 PM"
+    clean = reel.spoken_text(
+        "Union St.Gilloise versus Real Sociedad, Over 1.5 goals, won, 1 to 1. "
+        "Turkiye, Süper Lig. Kick-off, 7 PM."
+    )
+    assert "Union Saint Gilloise" in clean
+    assert "landed, finishing 1 to 1." in clean
+    assert "Turkey, Super Lig." in clean
+    assert "Kick-off at 7 PM." in clean
+
+
+

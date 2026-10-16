@@ -512,8 +512,36 @@ def track_record(df: pd.DataFrame) -> dict:
     return out
 
 
-def yesterday_results(df: pd.DataFrame, now: datetime) -> dict:
-    """Settled results of yesterday's primary shortlist selections (for the daily 16:9 video & app briefing)."""
+VIDEO_HISTORY_BACKFILL: dict[str, list[dict[str, str]]] = {
+    # 2026-10-15 morning video was sent via one-shot workflow before briefing_history
+    # was added to telegram_state.json; lock in the exact 7 matches featured in that video.
+    "2026-10-15": [
+        {"home": "Hearts", "away": "FC Nordsjaelland", "sel": "HO05"},
+        {"home": "Lyon", "away": "Crystal Palace", "sel": "HO05"},
+        {"home": "Union St.Gilloise", "away": "Real Sociedad", "sel": "O15"},
+        {"home": "Ferencvaros", "away": "Viktoria Plzen", "sel": "HO05"},
+        {"home": "Riga FC", "away": "Kairat Almaty", "sel": "HO05"},
+        {"home": "FC Salzburg", "away": "AC Milan", "sel": "HO05"},
+        {"home": "PFC CSKA Sofia", "away": "AS Monaco", "sel": "O15"},
+    ],
+}
+
+
+def _is_video_market_row(r: dict) -> bool:
+    label = str(r.get("label") or "").lower()
+    if "under" in label:
+        return False
+    sel = str(r.get("sel") or "").upper()
+    if sel.startswith(("O", "HO", "AO", "CO", "BO")):
+        return True
+    mkt = str(r.get("market") or "").lower()
+    if mkt in ("goals", "corners", "cards", "bookings") and "over" in label:
+        return True
+    return any(k in label for k in ("over", "goal", "corner", "card", "booking"))
+
+
+def yesterday_results(df: pd.DataFrame, now: datetime, video_picks: list | dict | None = None) -> dict:
+    """Settled results of yesterday's video shortlist selections (strictly matches included in yesterday's video)."""
     today_s = now.strftime("%Y-%m-%d")
     yday_s = (now.date() - timedelta(days=1)).strftime("%Y-%m-%d")
     if df is None or df.empty or "status" not in df.columns:
@@ -551,6 +579,44 @@ def yesterday_results(df: pd.DataFrame, now: datetime) -> dict:
             "result": str(r.get("result", "pending")),
             "score": str(r.get("score", "")),
         })
+
+    resolved_vp = None
+    if isinstance(video_picks, dict):
+        resolved_vp = video_picks.get(target_day) or VIDEO_HISTORY_BACKFILL.get(target_day)
+    elif isinstance(video_picks, list):
+        resolved_vp = video_picks
+    else:
+        resolved_vp = VIDEO_HISTORY_BACKFILL.get(target_day)
+
+    if resolved_vp is not None:
+        by_exact = {(x["home"], x["away"], x["sel"]): x for x in items if x.get("sel")}
+        by_pair = {(x["home"], x["away"]): x for x in items}
+        ordered = []
+        seen_pairs = set()
+        for vp in resolved_vp:
+            if not isinstance(vp, dict):
+                continue
+            h = str(vp.get("home") or "")
+            a = str(vp.get("away") or "")
+            s = str(vp.get("sel") or "")
+            if not h or not a or (h, a) in seen_pairs:
+                continue
+            matched = (by_exact.get((h, a, s)) if s else None) or by_pair.get((h, a))
+            if matched is not None:
+                ordered.append(matched)
+                seen_pairs.add((h, a))
+        items = ordered
+    else:
+        # When no explicit video history exists for that day, exclude pre-05:00 overnight games
+        # that kicked off before the morning briefing window and restrict to video-eligible overs markets.
+        morning_cut = f"{target_day} 05:00"
+        morning_items = [x for x in items if not x.get("kickoff") or str(x["kickoff"]) >= morning_cut]
+        if morning_items:
+            items = morning_items
+        reel_eligible = [x for x in items if _is_video_market_row(x)]
+        if reel_eligible:
+            items = reel_eligible[:7]
+
     hits = sum(1 for x in items if x["result"] == "hit")
     misses = sum(1 for x in items if x["result"] == "miss")
     voids = sum(1 for x in items if x["result"] == "void")

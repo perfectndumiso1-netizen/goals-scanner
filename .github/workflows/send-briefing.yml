@@ -24,13 +24,20 @@ jobs:
           if not path.exists():
               print("no tmp/briefing.mp4"); sys.exit(1)
           boundary = "----PlayReportBriefing"
-          caption = "PlayReport shortlist reel — no music, one voice-over per pick. A shortlist for your review, not an instruction to bet. 18+"
+          cap_file = pathlib.Path("tmp/briefing_caption.txt")
+          caption = (
+              cap_file.read_text(encoding="utf-8").strip()
+              if cap_file.exists()
+              else "🎬 PlayReport 16:9 shortlist — A shortlist for your review, not an instruction to bet. 18+."
+          )
           data = path.read_bytes()
           parts = []
           def field(name, value):
               parts.append(f"--{boundary}\r\nContent-Disposition: form-data; name=\"{name}\"\r\n\r\n{value}\r\n".encode())
           field("chat_id", chat)
           field("caption", caption)
+          field("width", "1920")
+          field("height", "1080")
           field("supports_streaming", "true")
           parts.append(
               f"--{boundary}\r\nContent-Disposition: form-data; name=\"video\"; filename=\"PlayReport-shortlist.mp4\"\r\nContent-Type: video/mp4\r\n\r\n".encode()

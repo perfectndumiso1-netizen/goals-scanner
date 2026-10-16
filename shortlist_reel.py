@@ -34,6 +34,8 @@ MAX_PICKS = 7
 MAX_TOTAL = 120.0
 # Ultra-realistic neural British male voices (CI/local), with male eSpeak-NG as emergency fallback.
 EDGE_TTS_VOICE = "en-GB-RyanNeural"
+EDGE_TTS_RATE = "-4%"
+EDGE_TTS_PITCH = "-2Hz"
 PIPER_VOICE_MODEL = "en_GB-alan-medium.onnx"
 ESPEAK_VOICE = "en-gb"
 ESPEAK_SPEED = 150
@@ -422,10 +424,22 @@ def badges_for_pick(pick: dict, fixtures: list | None) -> dict:
 
 
 def spoken_text(text: str) -> str:
-    """Normalise football abbreviations for natural speech while keeping plain sentences unchanged."""
+    """Normalise football abbreviations and telegraphic punctuation for natural broadcast speech."""
     out = str(text or "")
     out = re.sub(r"\bUtd\b\.?", "United", out)
-    out = re.sub(r"\bSt\.\s+(?=[A-Z])", "Saint ", out)
+    out = re.sub(r"\bSt\.\s*(?=[A-Z])", "Saint ", out)
+    out = re.sub(r"\bTurkiye\b", "Turkey", out)
+    out = out.replace("Süper Lig", "Super Lig")
+    out = re.sub(r"\bDjurgaarden\b", "Djurgarden", out)
+    out = re.sub(r"\bMjaellby\b", "Mjallby", out)
+    out = re.sub(r"\bLillestroem\b", "Lillestrom", out)
+    out = re.sub(r"\bDeportivo A Coruna\b", "Deportivo La Coruna", out)
+    out = re.sub(r"\bPFC CSKA\b", "CSKA", out)
+    out = re.sub(r"\b1\.\s*FC\b", "FC", out)
+    out = re.sub(r",\s*won,\s*(\d+)\s+to\s+(\d+)\.", r" landed, finishing \1 to \2.", out)
+    out = re.sub(r",\s*lost,\s*(\d+)\s+to\s+(\d+)\.", r" missed, finishing \1 to \2.", out)
+    out = re.sub(r",\s*at\s+(\d+\.\d+)\.", r" at \1.", out)
+    out = out.replace("Kick-off, ", "Kick-off at ")
     return out
 
 
@@ -437,13 +451,22 @@ def synthesize_speech(text: str, wav: Path) -> None:
     edge_py = os.environ.get("EDGE_TTS_PYTHON")
     if edge_py and Path(edge_py).is_file():
         voice = os.environ.get("EDGE_TTS_VOICE") or EDGE_TTS_VOICE
+        rate = os.environ.get("EDGE_TTS_RATE") or EDGE_TTS_RATE
+        pitch = os.environ.get("EDGE_TTS_PITCH") or EDGE_TTS_PITCH
         mp3 = wav.with_suffix(".edge.mp3")
         try:
-            cmd = [edge_py, "-m", "edge_tts", "--voice", voice, "--text", clean, "--write-media", str(mp3)]
+            cmd = [
+                edge_py, "-m", "edge_tts",
+                "--voice", voice,
+                f"--rate={rate}",
+                f"--pitch={pitch}",
+                "--text", clean,
+                "--write-media", str(mp3),
+            ]
             r = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, timeout=30)
             if r.returncode == 0 and mp3.exists() and mp3.stat().st_size > 200:
                 ff = _ffmpeg()
-                _run([ff, "-y", "-i", str(mp3), "-ac", "1", "-ar", "22050", str(wav)], "edge_tts decode")
+                _run([ff, "-y", "-i", str(mp3), "-ac", "1", "-ar", "44100", str(wav)], "edge_tts decode")
                 mp3.unlink(missing_ok=True)
                 if wav.exists():
                     return
@@ -499,13 +522,14 @@ def competition_line(p: dict) -> str:
 
 def spoken_kickoff(p: dict) -> str:
     ko = str(p.get("kickoff") or "")[11:16]
-    if ko.endswith(":00"):
-        h = int(ko[:2])
-        if h == 0:
-            return "12 AM"
-        if h == 12:
-            return "12 PM"
-        return f"{h if h < 12 else h - 12} PM" if h >= 12 else f"{h} AM"
+    m = re.match(r"^(\d{1,2}):(\d{2})$", ko)
+    if m:
+        h, mins = int(m.group(1)), m.group(2)
+        ampm = "PM" if h >= 12 else "AM"
+        h12 = 12 if h % 12 == 0 else h % 12
+        if mins == "00":
+            return f"{h12} {ampm}"
+        return f"{h12}:{mins} {ampm}"
     return ko
 
 
@@ -652,7 +676,7 @@ def build(picks: list, outfile: Path, *, assets: Path, work: Path | None = None,
     for i, (img, text) in enumerate(zip(images, texts)):
         raw = audio_dir / f"raw{i:02d}.wav"
         if voice_clips is not None:
-            _run([ff, "-y", "-i", str(voice_clips[i]), str(raw)], f"decode {i}")
+            _run([ff, "-y", "-i", str(voice_clips[i]), "-ac", "1", "-ar", "44100", str(raw)], f"decode {i}")
         else:
             synthesize_speech(text, raw)
         d = _probe(raw, ff)
@@ -663,7 +687,7 @@ def build(picks: list, outfile: Path, *, assets: Path, work: Path | None = None,
         durations.append(hold)
 
     total = sum(durations)
-    max_allowed = MAX_TOTAL + (30.0 if recap else 0.0)
+    max_allowed = MAX_TOTAL + (60.0 if recap else 0.0)
     if total > max_allowed and len(picks) > 3:
         log.info("reel %.1fs > %.0fs — dropping last pick", total, max_allowed)
         vc = None if voice_clips is None else list(voice_clips[:-2]) + [voice_clips[-1]]

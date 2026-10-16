@@ -2376,6 +2376,76 @@ def send_telegram_video(path: Path, caption: str, *, delete_after: bool = True) 
     return ok
 
 
+def _seed_briefing_history(hist: dict | None, now: datetime) -> dict:
+    out = dict(hist) if isinstance(hist, dict) else {}
+    for bday, bpicks in getattr(shortlist_mod, "VIDEO_HISTORY_BACKFILL", {}).items():
+        if bday not in out:
+            out[bday] = [dict(x) for x in bpicks]
+    cut = (now.date() - timedelta(days=7)).strftime("%Y-%m-%d")
+    return {k: v for k, v in out.items() if str(k) >= cut and isinstance(v, list)}
+
+
+def record_briefing_picks(hist: dict | None, day: str, picks: list, *, replace: bool = False) -> dict:
+    """Persist the exact selections shown in a day's video(s), preserving order and merging multiple videos."""
+    out = dict(hist) if isinstance(hist, dict) else {}
+    existing = [] if replace else list(out.get(day) or [])
+    merged = []
+    seen = set()
+    for item in existing + list(picks or []):
+        if not isinstance(item, dict):
+            continue
+        h = str(item.get("home") or "").strip()
+        a = str(item.get("away") or "").strip()
+        s = str(item.get("sel") or "").strip()
+        if not h or not a:
+            continue
+        key = (h, a, s) if s else (h, a, "")
+        if key in seen or (h, a) in {(x["home"], x["away"]) for x in merged}:
+            continue
+        seen.add(key)
+        merged.append({"home": h, "away": a, "sel": s})
+    out[day] = merged
+    return out
+
+
+def _filter_yres_to_video_picks(yres: dict | None, video_picks: list | None) -> dict | None:
+    if not isinstance(yres, dict) or not isinstance(yres.get("items"), list) or not video_picks:
+        return yres
+    items = yres["items"]
+    by_exact = {(str(x.get("home") or ""), str(x.get("away") or ""), str(x.get("sel") or "")): x for x in items}
+    by_pair = {(str(x.get("home") or ""), str(x.get("away") or "")): x for x in items}
+    ordered = []
+    seen = set()
+    for vp in video_picks:
+        if not isinstance(vp, dict):
+            continue
+        h = str(vp.get("home") or "")
+        a = str(vp.get("away") or "")
+        s = str(vp.get("sel") or "")
+        if not h or not a or (h, a) in seen:
+            continue
+        m = (by_exact.get((h, a, s)) if s else None) or by_pair.get((h, a))
+        if m is not None:
+            ordered.append(m)
+            seen.add((h, a))
+    hits = sum(1 for x in ordered if x.get("result") == "hit")
+    misses = sum(1 for x in ordered if x.get("result") == "miss")
+    voids = sum(1 for x in ordered if x.get("result") == "void")
+    pending = sum(1 for x in ordered if x.get("result") == "pending")
+    settled = hits + misses
+    return {
+        **yres,
+        "total": len(ordered),
+        "settled": settled,
+        "hits": hits,
+        "misses": misses,
+        "voids": voids,
+        "pending": pending,
+        "hit_rate": round(hits / settled, 3) if settled else None,
+        "items": ordered,
+    }
+
+
 def _telegram_state(now: datetime) -> tuple[Path, dict]:
     today = now.strftime("%Y-%m-%d")
     path = DATA_DIR / "app" / "telegram_state.json"
@@ -2383,20 +2453,20 @@ def _telegram_state(now: datetime) -> tuple[Path, dict]:
         st = json.loads(path.read_text(encoding="utf-8"))
     except (OSError, ValueError):
         st = {}
+    hist = _seed_briefing_history(st.get("briefing_history"), now)
     if st.get("day") != today:
-        hist = st.get("briefing_history") if isinstance(st.get("briefing_history"), dict) else {}
-        cut = (now.date() - timedelta(days=7)).strftime("%Y-%m-%d")
-        hist = {k: v for k, v in hist.items() if str(k) >= cut}
         st = {"day": today, "sent": [], "briefing_history": hist}
+    else:
+        st["briefing_history"] = hist
     return path, st
 
 
 def maybe_send_daily_reel(sl_pub: dict, now: datetime) -> None:
     """16:9 shortlist video to Telegram once a day (05:00–07:19 SAST, or on manual FORCE_DAILY_REEL).
 
-    Starts with the settled results of yesterday's shortlist selections, then proceeds to
-    today's shortlist selections. Video is deleted after a successful send — never git,
-    never Drive, never the data branch.
+    Starts with the settled results of ONLY the matches included in yesterday's video(s),
+    then proceeds to today's shortlist selections. Video is deleted after a successful send —
+    never git, never Drive, never the data branch.
     """
     if reel_mod is None:
         return
@@ -2441,15 +2511,13 @@ def maybe_send_daily_reel(sl_pub: dict, now: datetime) -> None:
             pc["form_a"] = form["a"]
         prim_enriched.append(pc)
 
-    # Resolve yesterday's settled selections (preferring exact picks shown in yesterday's video when recorded)
+    # Resolve yesterday's settled selections strictly to the matches included in yesterday's video(s)
     yres = (sl_pub or {}).get("yesterday_results")
     yday = (now.date() - timedelta(days=1)).strftime("%Y-%m-%d")
     hist = st.get("briefing_history") if isinstance(st.get("briefing_history"), dict) else {}
-    prev_keys = {( str(x.get("home") or ""), str(x.get("away") or "")) for x in (hist.get(yday) or []) if isinstance(x, dict)}
-    if isinstance(yres, dict) and prev_keys and isinstance(yres.get("items"), list):
-        matched = [x for x in yres["items"] if (str(x.get("home") or ""), str(x.get("away") or "")) in prev_keys]
-        if matched:
-            yres = {**yres, "items": matched}
+    yday_video_picks = hist.get(yday)
+    if yday_video_picks:
+        yres = _filter_yres_to_video_picks(yres, yday_video_picks)
 
     work = Path(os.getenv("TMPDIR") or "/tmp") / "playreport-reel"
     out = work / "briefing.mp4"
@@ -2466,8 +2534,7 @@ def maybe_send_daily_reel(sl_pub: dict, now: datetime) -> None:
     )
     if ok:
         st["briefing"] = today
-        hist[today] = [{"home": p.get("home"), "away": p.get("away"), "sel": p.get("sel")} for p in prim_enriched]
-        st["briefing_history"] = hist
+        st["briefing_history"] = record_briefing_picks(hist, today, prim_enriched)
         try:
             path.parent.mkdir(parents=True, exist_ok=True)
             path.write_text(json.dumps(st, ensure_ascii=False), encoding="utf-8")
@@ -3130,7 +3197,10 @@ def main() -> None:
         sl_book.to_csv(SHORTLIST_FILE, index=False)
         sl_pub = shortlist_mod.public(sl_board)
         sl_pub["track"] = shortlist_mod.track_record(sl_book)
-        sl_pub["yesterday_results"] = shortlist_mod.yesterday_results(sl_book, now)
+        _, _tg_st = _telegram_state(now)
+        sl_pub["yesterday_results"] = shortlist_mod.yesterday_results(
+            sl_book, now, video_picks=_tg_st.get("briefing_history")
+        )
         ctx["shortlist"] = sl_pub
         ctx["accas"]["cal"] = cal_map
         c = sl_board["counts"]
