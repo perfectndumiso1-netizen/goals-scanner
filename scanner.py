@@ -83,6 +83,11 @@ try:
 except Exception:  # noqa: BLE001 - pillow / ffmpeg missing: scan still publishes
     reel_mod = None
 
+try:
+    import match_breakdown as breakdown_mod
+except Exception:  # noqa: BLE001 - pillow / ffmpeg missing: scan still publishes
+    breakdown_mod = None
+
 # ----------------------------------------------------------------------------- paths
 ROOT = Path(__file__).resolve().parent
 # machine-written state (ledgers, archives, app data, reports) lives in STATE_DIR — on GitHub that is the `data`
@@ -2573,43 +2578,63 @@ def maybe_send_daily_reel(sl_pub: dict, now: datetime) -> None:
         except OSError:
             pass
 
-    # Also build & send the daily TV-style 4-match big-league analysis show (16:9 YouTube + 9:16 TikTok)
-    if st.get("tv_analysis") != today:
+
+def maybe_send_daily_breakdown(sl_pub: dict, now: datetime) -> None:
+    """Daily match breakdown (5-7 matches, 16:9 YouTube + 9:16 TikTok) to Telegram, once a day.
+
+    Same morning window as the shortlist video (05:00-07:19 SAST) or a manual FORCE_DAILY_BREAKDOWN. It has its own
+    once-a-day marker, so a failed build is retried on the next scan instead of being skipped. One shared voice
+    track feeds both aspect ratios. Files are deleted after a successful send, never git, never Drive, never the
+    data branch.
+    """
+    if breakdown_mod is None or reel_mod is None:
+        return
+    if not (os.getenv("TELEGRAM_BOT_TOKEN") and os.getenv("TELEGRAM_CHAT_ID")):
+        return
+    force = os.getenv("FORCE_DAILY_BREAKDOWN", "").strip().lower() in ("1", "true", "yes")
+    morning = now.hour in (5, 6) or (now.hour == 7 and now.minute < 20)
+    if not morning and not force:
+        return
+    path, st = _telegram_state(now)
+    today = now.strftime("%Y-%m-%d")
+    if (st.get("breakdown") == today or st.get("tv_analysis") == today) and not force:
+        return
+    assets = ROOT / "assets" / "reel"
+    if not (assets / "logo.png").exists():
+        log.warning("Match breakdown skipped: assets/reel missing")
+        return
+    dossiers = []
+    fx_dir = APP_FILE.parent / "fx"
+    if fx_dir.exists():
+        for fp in sorted(fx_dir.glob("*.json")):
+            try:
+                dossiers.append(json.loads(fp.read_text(encoding="utf-8")))
+            except (OSError, ValueError):
+                pass
+    prim = reel_mod.overs_only((sl_pub or {}).get("primary") or [])
+    featured = breakdown_mod.select_featured_matches(dossiers, prim, limit=breakdown_mod.DEFAULT_MATCHES, day=today)
+    if len(featured) < 3:
+        log.info("Match breakdown skipped: only %d qualifying match(es) today", len(featured))
+        return
+    work = Path(os.getenv("TMPDIR") or "/tmp") / "playreport-breakdown"
+    out16, out9, prep = breakdown_mod.build_show_both(
+        featured, work / "match-breakdown-16x9.mp4", work / "match-breakdown-9x16.mp4",
+        assets=assets, work=work, day=today,
+    )
+    tail = (f"{now:%a %d %b} · {len(prep.matches)} matches. Recent form, home and away splits, head to head, "
+            f"team news and my pick for each. 18+.")
+    ok16 = send_telegram_video(out16, f"🎬 PlayReport match breakdowns (16:9) — {tail}", width=1920, height=1080)
+    ok9 = send_telegram_video(out9, f"📱 PlayReport match breakdowns (9:16) — {tail}", width=1080, height=1920)
+    if ok16 or ok9:
+        credits = breakdown_mod.credits_text(prep)
+        if credits:
+            send_telegram(credits)
+        st["breakdown"] = today
         try:
-            import tv_analysis as tv_mod
-            fx_dir = APP_FILE.parent / "fx"
-            dossiers = []
-            if fx_dir.exists():
-                for fp in sorted(fx_dir.glob("*.json")):
-                    try:
-                        dossiers.append(json.loads(fp.read_text(encoding="utf-8")))
-                    except (OSError, ValueError):
-                        pass
-            featured = tv_mod.select_featured_matches(dossiers, prim_enriched, limit=4)
-            if featured:
-                tv_work = Path(os.getenv("TMPDIR") or "/tmp") / "playreport-tv"
-                tv_16x9 = tv_work / "tv-analysis-16x9.mp4"
-                tv_9x16 = tv_work / "tv-analysis-9x16.mp4"
-                tv_mod.build_show_both(featured, tv_16x9, tv_9x16, assets=assets, work=tv_work)
-                ok_tv16 = send_telegram_video(
-                    tv_16x9,
-                    f"📺 PlayReport Matchday Deep Dive (16:9 YouTube) — {now:%a %d %b} ({len(featured)} big-league matches). "
-                    "Form · Venue splits · H2H · Team news · Best market. 18+.",
-                    width=1920,
-                    height=1080,
-                )
-                ok_tv9 = send_telegram_video(
-                    tv_9x16,
-                    f"📱 PlayReport Matchday Deep Dive (9:16 TikTok) — {now:%a %d %b} ({len(featured)} big-league matches). "
-                    "Form · Venue splits · H2H · Team news · Best market. 18+.",
-                    width=1080,
-                    height=1920,
-                )
-                if ok_tv16 or ok_tv9:
-                    st["tv_analysis"] = today
-                    path.write_text(json.dumps(st, ensure_ascii=False), encoding="utf-8")
-        except Exception as e:
-            log.warning("TV analysis show skipped: %s", e)
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text(json.dumps(st, ensure_ascii=False), encoding="utf-8")
+        except OSError:
+            pass
 
 
 def telegram_shortlist(sl_pub: dict, now: datetime) -> None:
@@ -3465,6 +3490,10 @@ def main() -> None:
         maybe_send_daily_reel(ctx.get("shortlist") or {}, now)
     except Exception as exc:  # noqa: BLE001 - the reel must never break the scan
         log.warning("Daily reel failed: %s", exc)
+    try:
+        maybe_send_daily_breakdown(ctx.get("shortlist") or {}, now)
+    except Exception as exc:  # noqa: BLE001 - the breakdown must never break the scan
+        log.warning("Match breakdown failed: %s", exc)
     if digest_lines:
         send_telegram(digest_text(digest_lines))
 
