@@ -12,6 +12,7 @@ import math
 from datetime import datetime
 from pathlib import Path
 
+import policy
 import safe
 
 MAX_LATEST_MB = 4.0
@@ -201,10 +202,16 @@ def check_publication(staging: Path, live: Path, ledger: Path, now: datetime, ex
         if b.get("fixture") not in known:
             errors.append(f"safest bet on unknown fixture {b.get('fixture')}")
         if not b.get("live"):
-            if not _num(b.get("p")) or b["p"] < min_p - 1e-6:
+            # Over 2.5 and BTTS START from 55% (policy.py, user rule 2026-10-17): the rule is per selection
+            floor = policy.min_p(str(b.get("sel", "")), min_p)
+            if not _num(b.get("p")) or b["p"] < floor - 1e-6:
                 errors.append(f"safest bet below the probability rule: {b.get('label')} {b.get('p')}")
-        if safe.OVERS_ONLY and safe.is_under(str(b.get("sel", ""))):
-            errors.append(f"under selection in safest bets: {b.get('sel')}")
+            # a live (carried-over) bet is frozen from the previous publication and may pre-date the policy,
+            # so only this run's own bets are held to it
+            if not policy.allowed(str(b.get("sel", ""))):
+                errors.append(f"selection the market policy dropped in safest bets: {b.get('sel')}")
+            if safe.OVERS_ONLY and safe.is_under(str(b.get("sel", ""))):
+                errors.append(f"under selection in safest bets: {b.get('sel')}")
     seen_match = set()
     for b in (sf.get("bets") or []):
         if b.get("live"):

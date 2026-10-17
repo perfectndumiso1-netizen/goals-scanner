@@ -1,13 +1,15 @@
 """High-probability selections (internal name kept: "safe" bets) and the day card.
 
-Every fixture gets a list of *selections* across all modelled markets (match result, double chance, goals lines,
-BTTS, team goals, corners, cards) with two separate views: the football-data MODEL probability and the probability
+Every fixture gets a list of *selections* across the modelled markets (match result, Over goals lines, BTTS,
+corners and cards overs — team goals, double chance and every under were dropped on 2026-10-17, see policy.py) with
+two separate views: the football-data MODEL probability and the probability
 IMPLIED by the Sportybet price (de-margined). Data-first engine (2026-09-28): the probability used for ranking and
 thresholds is the model probability alone (Sel.p == Sel.p_model). The market view is a comparison layer only:
 a disagreement of more than DIFF_FLAG is shown on the match page but never excludes a selection — odds never
 filter which matches can be bet (user decision 2026-10-01). The market never changes a model probability.
 
-"High-probability selections" = priced selections with model probability >= MIN_P, ranked by model probability
+"High-probability selections" = priced selections with model probability >= MIN_P (Over 2.5 and BTTS start from
+55%), ranked by model probability
 (ledger data/safe_bets.csv, auto-settled from results). There is no minimum-odds floor and no market-contradiction
 hold-back: the price is displayed, never used to filter (user decision 2026-10-01). Trebles are legacy code, no
 longer produced.
@@ -25,8 +27,10 @@ from pathlib import Path
 import pandas as pd
 
 import markets
+import policy
 
-MIN_P = 0.70         # probability at least 70% — the only bar (odds never filter, user decision 2026-10-01)
+MIN_P = 0.70         # probability at least 70% — the only bar (odds never filter, user decision 2026-10-01);
+                     # Over 2.5 and BTTS START from 55% (user rule 2026-10-17, see policy.SEL_MIN_P)
 TREBLES = 3
 LEGS = 3
 MAX_BETS = 40
@@ -38,7 +42,8 @@ GROUPS = {"result": "Match result", "dc": "Double chance", "goals": "Total goals
 SAFE_BET_COLS = ["match_date", "kickoff", "country", "div", "league", "home", "away", "sel", "label", "p", "p_model",
                  "p_sb", "odds", "status", "score", "settled_on", "run", "report_date", "botd", "kind"]
 # v4: safest bets specialise in goals, corners and cards (match-result / double-chance stay on the match page only)
-SAFE_GROUPS = ("goals", "btts", "team", "corners", "cards")
+# 2026-10-17: team goals are dropped altogether (policy.py); the group stays in GROUPS so old rows still label
+SAFE_GROUPS = ("goals", "btts", "corners", "cards")
 # v5: overs only — no "under x goals / corners / cards", no "team under", no "no BTTS" (user decision)
 OVERS_ONLY = True
 
@@ -53,7 +58,8 @@ TEAM_GOAL_MIN_OPP_CONCEDED = 2
 
 
 def is_under(sel: str) -> bool:
-    return sel == "NBTTS" or bool(re.match(r"^(U\d+|[HA]U\d+|CU\d+|KU\d+)$", sel))
+    """Any under-style selection in any market (policy.py): total, team, corner and card unders and 'no BTTS'."""
+    return policy.is_under(sel)
 
 
 def _recent(profile, field: str) -> list:
@@ -126,19 +132,31 @@ def team_goal_form_ok(r, sel: str) -> bool:
 
 
 # bets-of-the-day card: one section per market family, up to BOTD_PER_GROUP picks each, distinct matches per section
-# (key, title, selection filter, minimum probability, picks per section). The card is strong on Over 1.5 & team goals;
-# 1X2 / BTTS / Over 2.5 only enter with a strong signal (model >= 70%, market view not below 70%, AND recent form backing it —
-# see scanner.strong_signal). One market per match across the whole card.
+# (key, title, selection filter, minimum probability, picks per section). The card focuses on Over 1.5, Over 2.5, BTTS
+# and bookings (user rule 2026-10-17: no team goals, no double chance, no unders). 1X2 / BTTS / Over 2.5 only enter
+# with a strong signal (model at or above the section floor — 70%, or 55% for Over 2.5 and BTTS — AND recent form
+# backing it — see scanner.strong_signal). One market per match across the whole card.
 # Blocks of the "Bets of the day" card, in display order. A block shows only the bets that meet its
 # threshold that day (1-2 is fine, never padded); a block that has no qualifying bet is hidden.
+# `thr` is the section's default floor; a selection the policy names (Over 2.5, BTTS: 55%) starts from its own floor
+# (policy.min_p). 2026-10-17: team goals left the Over 1.5 section; unders no longer exist upstream (policy.py).
 BOTD_GROUPS = [
-    ("o15", "Goals · Over 1.5 & team goals", lambda sel: sel in ("O15", "HO05", "AO05", "HO15", "AO15"), 0.70, 7),
+    ("o15", "Goals · Over 1.5", lambda sel: sel == "O15", 0.70, 7),
     ("o25", "Over 2.5 goals", lambda sel: sel in ("O25", "O35"), 0.70, 7),
     ("btts", "Both teams to score", lambda sel: sel == "BTTS", 0.70, 7),
     ("result", "1X2", lambda sel: sel in ("H", "A"), 0.70, 5),   # five 1X2 picks a day (user request)
     ("corners", "Corners", lambda sel: sel.startswith(("CO", "CH", "CA")), 0.65, 7),
     ("cards", "Bookings", lambda sel: sel.startswith(("KO", "KH", "KA")), 0.65, 7),
 ]
+
+
+def botd_floor(gkey: str) -> float:
+    """The lowest probability a section accepts (what the card shows as the section's minimum)."""
+    for key, _title, match, thr, _cap in BOTD_GROUPS:
+        if key == gkey:
+            named = [f for code, f in policy.SEL_MIN_P.items() if match(code)]
+            return min([thr] + named)
+    return MIN_P
 SIGNAL_SECTIONS = ("result", "btts", "o25")
 BOTD_PER_GROUP = 3
 ACCA_COLS = ["acca_id", "created", "run", "window_end", "n_legs", "legs", "odds", "p", "status", "settled_on", "note"]
@@ -281,6 +299,8 @@ def selections(r) -> list[Sel]:
     out: list[Sel] = []
 
     def add(code, p_model, p_sb=None, odds=None):
+        if not policy.allowed(code):
+            return      # market policy (2026-10-17): no team goals, no double chance, no unders in any market
         if not _valid(p_model):
             return
         price = float(odds) if odds and odds > 1 else None
@@ -411,7 +431,7 @@ def safest(rows: list, now: datetime, window_end: datetime, min_p: float = MIN_P
         for s in selections(r):
             if s.sel in ("O05", "U55"):
                 continue  # user decision 2026-10-01: Over 0.5 / Under 5.5 add no value on the safest board
-            if not s.priced or s.p < min_p or s.group not in groups:
+            if not s.priced or s.p < policy.min_p(s.sel, min_p) or s.group not in groups:
                 continue
             if OVERS_ONLY and is_under(s.sel):
                 continue
@@ -450,7 +470,8 @@ def safest(rows: list, now: datetime, window_end: datetime, min_p: float = MIN_P
             if len(chunk) < LEGS:
                 break
             out_trebles.append(sorted(chunk, key=lambda b: b.kickoff))
-    return {"bets": bets, "trebles": out_trebles, "extended": extended, "min_p": min_p}
+    return {"bets": bets, "trebles": out_trebles, "extended": extended, "min_p": min_p,
+            "floors": dict(policy.SEL_MIN_P)}
 
 
 def acca_odds(legs: list[Bet]) -> float:
@@ -483,7 +504,10 @@ def add_bets(df: pd.DataFrame, bets: list[Bet], now: datetime, run: str, kind: s
     if "kind" not in df.columns:
         df["kind"] = "safe"
     existing = set(zip(df["match_date"], df["home"], df["away"], df["sel"]))
-    matches = set(zip(df["match_date"], df["home"], df["away"]))
+    # one market per match, whichever came first — but a row for a market the policy has since dropped (2026-10-17)
+    # is history, not a rival: it must not stop the match from getting its new pick on the day the rule landed
+    live_rows = df[df["sel"].astype(str).map(policy.allowed)] if not df.empty else df
+    matches = set(zip(live_rows["match_date"], live_rows["home"], live_rows["away"]))
     new, added = [], []
     for b in bets:
         k = (b.key[0], b.home, b.away, b.sel)
@@ -525,6 +549,7 @@ def botd_candidates(rows: list, now: datetime, signal=None) -> list[Bet]:
             if s.sel in TEAM_GOAL_MARKETS and not team_goal_form_ok(r, s.sel):
                 continue
             for gkey, _title, match, thr, _cap in BOTD_GROUPS:
+                thr = policy.min_p(s.sel, thr)      # Over 2.5 / BTTS start from 55%, the rest keep the section floor
                 if not match(s.sel) or s.p < thr:
                     continue
                 if gkey in SIGNAL_SECTIONS:
@@ -560,6 +585,17 @@ def pick_bets_of_the_day(df: pd.DataFrame, now: datetime, n: int = BOTD_PER_GROU
         if col not in df.columns:
             df[col] = default
     df["botd"] = df["botd"].replace({"1": "o15"})           # v4 cards were goals-only
+    # market policy (2026-10-17): a PENDING pick made earlier under the old rules that the policy no longer allows
+    # (team goals, double chance, unders) leaves today's card. Settled picks stay — they are history. A row that was
+    # added only for the card is removed (no board shows it); one that also belongs to the safest record just loses
+    # the card flag. Without this the sticky card would keep showing dropped markets until midnight.
+    if not df.empty and "sel" in df.columns:
+        stale = ((df["match_date"] == today) & (df["botd"].astype(str) != "") & (df["status"] == "pending")
+                 & ~df["sel"].astype(str).map(policy.allowed))
+        if stale.any():
+            only_card = stale & (df["kind"].fillna("safe").replace("", "safe") == "botd")
+            df.loc[stale & ~only_card, "botd"] = ""
+            df = df[~only_card].reset_index(drop=True)
     # candidates from this run's rows (today only), most probable first
     cands = [b for b in (candidates or []) if b.key[0] == today]
     cands.sort(key=lambda b: (-b.p, -b.odds))
@@ -587,8 +623,9 @@ def pick_bets_of_the_day(df: pd.DataFrame, now: datetime, n: int = BOTD_PER_GROU
                 if df.loc[idx, "status"] != "pending" or df.loc[idx, "botd"]:
                     continue
                 df.loc[idx, "botd"] = gkey
-            elif same_match.any():
+            elif (same_match & df["sel"].astype(str).map(policy.allowed)).any():
                 # the match already carries another market in the ledger: keep one market per match
+                # (ledger rows for markets the policy has since dropped do not count — they are history, not rivals)
                 continue
             else:
                 df, _ = add_bets(df, [b], now, run, kind="botd")
@@ -616,7 +653,7 @@ def bets_of_the_day(df: pd.DataFrame, now: datetime) -> dict:
     for gkey, title, _match, thr, _cap in BOTD_GROUPS:
         bets = [b for b in flat if b["section"] == gkey]
         if bets:
-            out["groups"].append({"key": gkey, "title": title, "min_p": thr, "bets": bets})
+            out["groups"].append({"key": gkey, "title": title, "min_p": botd_floor(gkey), "bets": bets})
     out["bets"] = flat
     return out
 

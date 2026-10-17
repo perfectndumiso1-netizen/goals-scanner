@@ -83,8 +83,9 @@ def _sels(r):
 def test_total_corner_and_card_prices_come_from_the_list_feed(tmp_path=None):
     s = _sels(_count_row())
     assert "CO85" in s and s["CO85"].odds == 1.90      # priced although sb_full is EMPTY (list-level lines)
-    assert "CU85" in s and s["CU85"].odds == 1.95
     assert "KO35" in s and s["KO35"].odds == 1.53
+    # user rule 2026-10-17: no unders in any market — the under side of a priced line is no longer offered
+    assert "CU85" not in s and "KU35" not in s
 
 
 def test_team_corner_and_card_selections_with_prices():
@@ -92,8 +93,9 @@ def test_team_corner_and_card_selections_with_prices():
     r.sb_full = {"CORNH": {3.5: (2.10, 1.70)}, "CARDSA": {1.5: (2.40, 1.55)}}
     s = _sels(r)
     assert "CHO35" in s and s["CHO35"].odds == 2.10    # home corners over 3.5
-    assert "CHU35" in s and s["CHU35"].odds == 1.70
+    assert "CHU35" not in s                             # no unders, team-level included (2026-10-17)
     assert "KAO15" in s and s["KAO15"].odds == 2.40    # away cards over 1.5
+    assert "KAU15" not in s
     assert safe.label("CHO35", "Alpha", "Beta") == "Alpha over 3.5 corners"
     assert safe.label("CAU45", "Alpha", "Beta") == "Beta under 4.5 corners"
     assert safe.label("KHO15", "Alpha", "Beta") == "Alpha over 1.5 cards"

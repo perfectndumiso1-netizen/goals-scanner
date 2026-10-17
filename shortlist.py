@@ -5,7 +5,9 @@ the Sportybet prices, the de-vigged market view, the data-quality audit, the aut
 research context; it never changes any of them and it never adds a probability of its own.
 
 Every priced selection of every analysed match in the window the user sees goes through the same gate,
-whatever the market (1X2, double chance, goals, BTTS, team goals, corners, bookings):
+whatever the market. Market policy (user rules 2026-10-17, policy.py): the focus is Over 1.5, Over 2.5, BTTS and
+bookings (1X2 and corners overs stay available); team goals, double chance and every under are dropped, and
+Over 2.5 and BTTS START from a 55% model probability instead of 70%:
 
   hard gates (fail one = REJECTED)
     H1  the match passed the pipeline's own data checks (data_ok)
@@ -56,16 +58,20 @@ import pandas as pd
 
 import safe as safe_mod
 import calibration as calib
+import policy
 
 # ------------------------------------------------------------------ the rules (stated, applied consistently)
 MIN_ODDS = float(os.getenv("SHORTLIST_MIN_ODDS", "1.15"))     # band floor: odds below this are rejected
 MAX_ODDS = float(os.getenv("SHORTLIST_MAX_ODDS", "1.90"))     # band ceiling: odds above this are rejected
-BARS = {"result": 0.60, "dc": 0.70, "goals": 0.70, "btts": 0.70, "team": 0.70, "corners": 0.65, "cards": 0.65}
+# Probability bar per market group. A selection the policy names starts from its own floor instead:
+# Over 2.5 and BTTS at 55% (policy.SEL_MIN_P, user rule 2026-10-17); Over 1.5 and the other goals lines stay at 70%.
+# ("dc" and "team" are gone — double chance and team goals are no longer offered.)
+BARS = {"result": 0.60, "goals": 0.70, "btts": policy.SEL_MIN_P["BTTS"], "corners": 0.65, "cards": 0.65}
 MAX_EDGE = 0.12          # more than 12 pp over the de-vigged market = data fault, not edge
 MAX_RAW_EDGE = 0.25      # no de-vigged view: gap over the raw implied price above this = data fault
 MAX_PER_MARKET = int(os.getenv("SHORTLIST_MAX_PER_MARKET", "10"))  # best picks kept PER MARKET GROUP
 IGNORE_UNDER = os.getenv("SHORTLIST_IGNORE_UNDER", "1") != "0"   # user rule: Overs only — Under selections are never candidates
-UNDER_RE = None if not IGNORE_UNDER else __import__("re").compile(r"^U\d|^[HACK]U")
+UNDER_RE = None if not IGNORE_UNDER else policy.UNDER_RE      # every under in every market (incl. team corners / cards, no-BTTS)
 MAX_WATCH = 10
 KEEP_DAYS = 120
 
@@ -121,7 +127,7 @@ def evaluate(r, s) -> dict:
     carried = getattr(r, "sb_asof", None)
     cx = audit.get("context") or {}
     conflicts = cx.get("conflicts") or []
-    bar = BARS.get(group, 0.70)
+    bar = policy.min_p(s.sel, BARS.get(group, 0.70))
 
     hard, soft = [], []
     if not r.data_ok:
@@ -365,12 +371,14 @@ def build(rows: list, now: datetime, window_end: datetime | None = None,
 
     return {
         "generated": now.strftime("%Y-%m-%d %H:%M"),
-        "rules": {"min_odds": MIN_ODDS, "max_odds": MAX_ODDS, "bars": BARS,
+        "rules": {"min_odds": MIN_ODDS, "max_odds": MAX_ODDS, "bars": BARS, "bars_by_selection": dict(policy.SEL_MIN_P),
+                  "market_policy": policy.describe(),
                   "max_edge_pp": 100 * MAX_EDGE, "max_per_market": max_per_market,
                   "band": f"{MIN_ODDS:.2f}\u2013{MAX_ODDS:.2f} (odds outside the band are rejected)",
                   "ev": "not a gate — strength and data support decide; value hunting lives on the Positive EV tab",
-                  "diet": "data-rich leagues only (user rule) — top divisions + big-5 second tiers + the big African leagues + the UEFA Champions/Europa/Conference League; domestic cups, women/youth/friendlies, Japan/Australia and qualifiers stay out; both teams need 8+ recent matches with data",
-                  "unders": "ignored — Overs only (user rule)",
+                  "diet": "every league the archive has enough data on (user rule 2026-10-17) — deep results history, 8+ teams, match statistics or a full-division table; plus the top divisions, the 22 main European divisions, the big African leagues and the UEFA Champions/Europa/Conference League; domestic cups, women/youth/friendlies, Japan/Australia and qualifiers stay out; both teams need 8+ recent matches with data",
+                  "unders": "none in any market — Overs only (user rule)",
+                  "dropped_markets": "team goals and double chance (user rule 2026-10-17)",
                   "day": "today's matches only (nothing from tomorrow or later)",
                   "implied_method": "de-vigged = Sportybet price with the bookmaker margin removed proportionally "
                                     "across the market's outcomes; raw = 1 / decimal odds",

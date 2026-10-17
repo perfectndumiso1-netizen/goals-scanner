@@ -4,6 +4,8 @@ _Generated 2026-09-29 (SAST). This document is the final report of the data-cove
 more competitions, more data quality, more on-screen context — with the prediction model
 **frozen and byte-identical for the same input**._
 
+> **Update 2026-10-17.** This is the 2026-09-29 report. The *model diet* (2026-10-11) narrowed what is analysed and published; on 2026-10-17 it was widened again to every league the archive has enough data on (165 stages, including the Chinese Super League) — see README › *Model diet* and *Market policy*.
+
 ## 1. What changed (and what did not)
 
 | Layer | Before | Now |

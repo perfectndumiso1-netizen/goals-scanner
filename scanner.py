@@ -5,7 +5,8 @@ PlayReport scanner (v4)
 ==================
 Automated football scanner, three times a day (07:00 / 12:00 / 17:00 SAST):
   * goals shortlists  – Over 1.5, Over 2.5, Both Teams To Score (backtested, calibrated model v2)
-  * extra markets     – 1X2 / double chance, team goals, corners and cards (markets.py, backtested)
+  * extra markets     – 1X2, corners and cards (markets.py, backtested); double chance and team goals are still
+                        computed internally but no longer offered anywhere (policy.py, 2026-10-17)
   * Sportybet prices  – real prices for the user's bookmaker (sporty.py), value check vs fair price
   * parlays           – 3 per run inside the 2.70-3.50 odds band, built from priced legs only (parlays.py),
                         recorded in data/parlays.csv and auto-graded
@@ -219,6 +220,7 @@ CONFIG = {
     # Fixtures outside the diet (see DIET_ALLOW below) are never analysed; every app surface
     # (shortlist, sequences, Positive EV tab, accas, bets of the day) inherits the filter.
     "MODEL_DIET": os.getenv("MODEL_DIET", "1") != "0",
+    "DIET_EXTRA_DAYS": int(_env_float("DIET_EXTRA_DAYS", 14)),   # leagues in through the archive rule only: analysed this many days ahead
     "MIN_TEAM_MATCHES": int(_env_float("MIN_TEAM_MATCHES", 8)),  # depth gate: skip a fixture when either team has fewer recent matches with data
     # per-fixture news for the app's Match Center (context only — never a model input):
     # distinct headline queries fetched per run (the rest is served from the 6 h TTL cache)
@@ -301,7 +303,13 @@ EXTRA_LEAGUES = {
     "Russia": "RUS", "Sweden": "SWE", "Switzerland": "SWZ", "USA": "USA",
 }
 
-# ----------------------------------------------------------------------------- model diet (user rule, 2026-10-11)
+# ----------------------------------------------------------------------------- model diet (user rules 2026-10-11, widened 2026-10-17)
+# 2026-10-17: "add every league we have enough data on, including the Chinese Super League". The diet is now
+# the curated list below PLUS every competition the Livescore stage archive can support (see
+# data_rich_from_facts: league-shaped table, deep results history, a recent result, and match statistics —
+# or, for national leagues that publish none, a table that is not a regional / amateur tier). The 22 football-data
+# divisions are all in. The hard blocks below are unchanged: Japan and Australia (explicit user rule of
+# 2026-10-11), cups, women's, youth, friendlies and qualifiers stay out.
 # "Prioritise data-rich leagues." A fixture outside the diet is never analysed, so the shortlist,
 # sequences, the Positive EV tab, accas and bets of the day all inherit the filter (they are all
 # built from the analysed rows). History collection is deliberately untouched: cup / international
@@ -312,9 +320,9 @@ EXTRA_LEAGUES = {
 # international competition. National teams play in no league, so competitive internationals and
 # everything unlisted (lower divisions, minor countries) drop out through the allowlist.
 DIET_BLOCK_RE = re.compile(
-    r"women|femini|damall|femeni|kvinner"
-    r"|\bu-?1[4-9]\b|\bu-?2[0-3]\b|youth|reserve|primavera|jukuren|devel"
-    r"|friendly|japan|australia|\ba-?league\b|\bj[123]\b"
+    r"women|femini|femmin|damall|femeni|kvinner|kvinde|toppserien|frauen|\bliga f\b|nwsl"
+    r"|\bu-?1[4-9]\b|\bu-?2[0-3]\b|youth|reserve|primavera|jukuren|devel|premier league 2\b|baller league"
+    r"|friendl|japan|australia|\ba-?league\b|\bj[123]\b"
     r"|\bcups?\b|coppa|coupe|pokal|\bcopa\b|kupa|\bkup\b|ta[cčç]a|beker|pokalen|super ?cup|superkupa"
     r"|play-?offs?\b|qualif\w*"
     r"|libertadores|sudamericana|nations league|world cup|concacaf|conmebol|carabao"
@@ -322,7 +330,7 @@ DIET_BLOCK_RE = re.compile(
 
 DIET_ALLOW: "list[tuple[re.Pattern, re.Pattern]]" = [
     (re.compile(c, re.I), re.compile(l, re.I)) for c, l in [
-        ("^england$", r"premier league$|championship$"),
+        ("^england$", r"^premier league$|^championship$"),      # anchored 2026-10-17: "Northern Premier League" (step 4) slipped through
         ("^spain$", r"la ?liga( |$)|laliga( |$)|^segunda divisi[oó]n$"),   # exact = kills RFEF 3rd-tier groups
         ("^italy$", r"serie a$|serie b$"),
         ("^germany$", r"^(2\.? )?bundesliga$"),
@@ -355,12 +363,111 @@ DIET_ALLOW: "list[tuple[re.Pattern, re.Pattern]]" = [
     ]]
 
 
+# ---- "enough data" (user rule 2026-10-17): the archive decides, not a hand-kept list -----------------------------------
+# A competition is in when ALL of these hold (facts come from coverage.stage_facts, i.e. the Livescore stage archive):
+#   * a league-shaped table: DIET_MIN_TEAMS..DIET_MAX_TEAMS clubs in the archive;
+#   * the registry's own `eligible` flag (most teams have a moderate-or-better sample) and not UPCOMING / DATA_ERROR;
+#   * depth: the median club has DIET_MIN_PER_TEAM archived finished matches, and the newest result is inside the
+#     model's own history window;
+#   * data support: >= DIET_STATS_PCT of the most recent matches carry match statistics (shots / corners / cards) —
+#     OR the provider publishes none for a national league, in which case the table must not be a regional /
+#     amateur tier (AMATEUR_TIER_RE). Goals markets run on results alone; bookings and corners stay N/A where there
+#     are no statistics (the model never zero-fills).
+# The curated list (DIET_ALLOW) and the 22 football-data divisions always stay in, whatever the archive says.
+DIET_MIN_TEAMS, DIET_MAX_TEAMS = 8, 45
+DIET_MIN_PER_TEAM = float(os.getenv("DIET_MIN_PER_TEAM", "15"))
+DIET_MAX_AGE_DAYS = 400
+DIET_STATS_PCT = float(os.getenv("DIET_STATS_PCT", "0.5"))
+AMATEUR_TIER_RE = re.compile(
+    r"\bgroups?\b"
+    r"|\b(?:north|south|east|west|central|norra|soedra|vaestra|nord|sued|oriental|occidental|metropolitana|northern|southern)\b"
+    r"|oberliga|regionalliga|landesliga|verbandsliga|serie d\b|rfef|liga 3\b|isthmian|promotion league|tweede divisie"
+    r"|primera c\b|danmarksserien|\b3\.? ?(?:division|liga|lig)\b|\b3rd\b|\bdivision [23]\b|\b2nd lig\b"
+    r"|liga premier|\bk3\b", re.I)
+_COUNTRY_ALIAS = {"turkey": "turkiye", "united states": "usa", "south korea": "republic of korea",
+                  "korea republic": "republic of korea", "czechia": "czech republic"}
+DATA_RICH: "dict[tuple[str, str], str]" = {}     # (country, league) key -> why it is in; refreshed once per run
+
+
+def _diet_key(country: str, league: str) -> "tuple[str, str]":
+    import unicodedata
+
+    def norm(x: str) -> str:
+        x = unicodedata.normalize("NFKD", str(x or "")).encode("ascii", "ignore").decode("ascii")
+        return re.sub(r"\s+", " ", x.casefold()).strip()
+    c = norm(country)
+    return _COUNTRY_ALIAS.get(c, c), norm(league)
+
+
+def data_rich_from_facts(facts: list, now: datetime) -> "dict[tuple[str, str], str]":
+    """Pure: coverage.stage_facts(...) -> {key: reason} of the competitions with enough data."""
+    out: dict = {}
+    for f in facts:
+        c, l = f.get("country") or "", f.get("competition") or ""
+        if not c or not l or DIET_BLOCK_RE.search(f"{c} {l}"):
+            continue
+        teams = f.get("teams") or 0
+        last = f.get("last_result")
+        if not (f.get("eligible") and f.get("status") in ("ACTIVE", "FINISHED")
+                and DIET_MIN_TEAMS <= teams <= DIET_MAX_TEAMS
+                and (f.get("median_per_team") or 0) >= DIET_MIN_PER_TEAM
+                and last is not None and (now.replace(tzinfo=None) - last).days <= DIET_MAX_AGE_DAYS):
+            continue
+        sq = (f.get("stats_quality") or {}).get("pct") or 0
+        if sq >= DIET_STATS_PCT:
+            why = f"{int(f['median_per_team'])} matches/club, {teams} clubs, {int(100 * sq)}% with statistics"
+        elif not AMATEUR_TIER_RE.search(l):
+            why = f"{int(f['median_per_team'])} matches/club, {teams} clubs, results only (no statistics published)"
+        else:
+            continue
+        out[_diet_key(c, l)] = why
+    return out
+
+
+def refresh_data_rich(stages_dir: Path, now: datetime) -> int:
+    """Rebuild DATA_RICH from the stage archive on disk (about 1.5 s for ~600 stages). Never raises: with no
+    archive the diet is simply the curated list, exactly as before."""
+    global DATA_RICH
+    try:
+        import coverage
+        DATA_RICH = data_rich_from_facts(coverage.stage_facts(stages_dir, now), now)
+    except Exception as exc:  # noqa: BLE001
+        log.warning("Data-rich league scan failed (diet falls back to the curated list): %s", exc)
+        DATA_RICH = {}
+    return len(DATA_RICH)
+
+
+def _curated_allowed(c: str, l: str) -> bool:
+    return any(cp.search(c) and lp.search(l) for cp, lp in DIET_ALLOW)
+
+
 def league_allowed(country: str, league: str) -> bool:
     """Model diet: is this competition analysed? (pure function - see block comment above)."""
     c, l = str(country or ""), str(league or "")
     if DIET_BLOCK_RE.search(f"{c} {l}"):
         return False
-    return any(cp.search(c) and lp.search(l) for cp, lp in DIET_ALLOW)
+    return _curated_allowed(c, l) or _diet_key(c, l) in DATA_RICH
+
+
+def fixture_allowed(country: str, league: str, kickoff=None, now=None, div_code: str | None = None) -> bool:
+    """league_allowed + the fixture-level rules: a football-data main division is always in; a competition
+    that is in only through the archive rule (not the curated list) is analysed DIET_EXTRA_DAYS ahead — the app
+    lists ten days of fixtures, so the far end of the 60-day window would only cost scan time."""
+    c, l = str(country or ""), str(league or "")
+    if DIET_BLOCK_RE.search(f"{c} {l}"):
+        return False
+    if div_code and div_code in MAIN_LEAGUES:
+        return True
+    if _curated_allowed(c, l):
+        return True
+    if _diet_key(c, l) not in DATA_RICH:
+        return False
+    if kickoff is None or now is None:
+        return True
+    try:
+        return (kickoff - now).total_seconds() <= CONFIG["DIET_EXTRA_DAYS"] * 86400
+    except TypeError:
+        return True
 
 
 log = logging.getLogger("scanner")
@@ -688,7 +795,9 @@ def load_fixtures(tz: ZoneInfo) -> pd.DataFrame:
         fx = fx[fx["code"].isin(CONFIG["LEAGUES"])]
     if not fx.empty and CONFIG["MODEL_DIET"]:
         n0 = len(fx)
-        fx = fx[fx.apply(lambda r: league_allowed(r["country"], r["league"]), axis=1)]
+        _now = datetime.now(tz)
+        fx = fx[fx.apply(lambda r: fixture_allowed(r["country"], r["league"], r["kickoff"], _now,
+                                                   r["code"] if r["source"] == "main" else None), axis=1)]
         if len(fx) < n0:
             log.info("Model diet: %d of %d feed fixtures outside data-rich leagues — not analysed", n0 - len(fx), n0)
     return fx.sort_values(["kickoff", "country", "league"]).reset_index(drop=True)
@@ -1698,13 +1807,10 @@ def render_extra_lines(r: MatchRow) -> list[str]:
     L = []
     if ex.x12:
         x = ex.x12
+        # 2026-10-17: double chance and team goals are dropped altogether (policy.py) — the model still computes
+        # them internally for 1X2, but they are no longer shown or recommended anywhere
         L.append(f"* **1X2** (fair, {x.get('source', 'model')}): home {pct(x['H'])} · draw {pct(x['D'])} · away {pct(x['A'])} → "
-                 f"fair odds {1 / x['H']:.2f} / {1 / x['D']:.2f} / {1 / x['A']:.2f} · "
-                 f"**Double chance** 1X {pct(x['1X'])} · 12 {pct(x['12'])} · X2 {pct(x['X2'])}")
-    if ex.tg:
-        t = ex.tg
-        L.append(f"* **Team goals:** {r.fx['home']} to score {pct(t['H_o05'])} (2+ {pct(t['H_o15'])}) · "
-                 f"{r.fx['away']} to score {pct(t['A_o05'])} (2+ {pct(t['A_o15'])})")
+                 f"fair odds {1 / x['H']:.2f} / {1 / x['D']:.2f} / {1 / x['A']:.2f}")
     if ex.corners is not None:
         c, cp = ex.corners, ex.corner_p
         tot = " · ".join(f"O{l:g} **{pct(p)}**" for l, p in cp["total"].items())
@@ -1727,8 +1833,6 @@ def render_extra_lines(r: MatchRow) -> list[str]:
         parts = []
         if sb.get("1X2") and any(sb["1X2"]):
             parts.append("1X2 " + " / ".join(fmt_odds(o) for o in sb["1X2"]))
-        if sb.get("DC"):
-            parts.append("DC 1X/12/X2 " + " / ".join(fmt_odds(sb["DC"].get(k)) for k in ("1X", "12", "X2")))
         if sb.get("OU"):
             parts.append("goals " + sb_line_str(sb["OU"], (1.5, 2.5, 3.5)))
         if sb.get("BTTS"):
@@ -1820,8 +1924,8 @@ def render_safest(ctx: dict) -> list[str]:
     if groups:
         L.append(f"### ⭐ Bets of the day — {ctx['now']:%A %d %B}")
         L.append("")
-        L.append("_Strong on Over 1.5 & team goals (up to five picks); 1X2, Both teams to score and Over 2.5 only with strong "
-                 "supporting form (model ≥70%, up to two each); Bookings and Corners ≥65%. Overs only, prices shown "
+        L.append("_Built on Over 1.5, Over 2.5, BTTS and bookings (no team goals, no double chance, no unders). 1X2, BTTS and "
+                 "Over 2.5 only with strong supporting form (model ≥70% — Over 2.5 and BTTS from 55%); Bookings and Corners ≥65%. Overs only, prices shown "
                  "but never used to filter, one market per match on the whole card. "
                  "Probabilities are model probabilities (football data only); each pick shows its data quality._")
         L.append("")
@@ -1937,23 +2041,22 @@ def render_value_check(picks: dict, sb_ok: bool) -> list[str]:
 
 
 def render_other_markets(rows: list[MatchRow]) -> list[str]:
-    L = ["## 🧾 Other markets — 1X2, double chance, team goals, corners, cards", ""]
+    L = ["## 🧾 Other markets — 1X2, corners, cards", ""]
     if not rows:
         return L + ["_No fixtures._", ""]
-    L.append("_Probabilities are model + sharp-market blends (1X2, team goals) or the backtested count models "
+    L.append("_Probabilities are model + sharp-market blends (1X2) or the backtested count models "
              "(corners / cards, main leagues only). Sportybet column = 1X2 prices where the match was found._")
     L.append("")
-    L.append(f"| Kick-off ({TZL}) | Match | Competition | Home / Draw / Away | 1X / X2 | Home to score / 2+ | "
-             f"Away to score / 2+ | Corners exp. (O9.5 · O10.5) | Cards exp. (O3.5 · O4.5) | Sportybet 1X2 |")
-    L.append("|---|---|---|---|---|---|---|---|---|---|")
+    L.append(f"| Kick-off ({TZL}) | Match | Competition | Home / Draw / Away | "
+             f"Corners exp. (O9.5 · O10.5) | Cards exp. (O3.5 · O4.5) | Sportybet 1X2 |")
+    L.append("|---|---|---|---|---|---|---|")
     for r in sorted(rows, key=lambda r: (r.fx["kickoff"], comp(r))):
-        x, t, c, k = r.extra.x12, r.extra.tg, r.extra.corners, r.extra.cards
+        x, c, k = r.extra.x12, r.extra.corners, r.extra.cards
         cp, kp = r.extra.corner_p, r.extra.card_p
         corners = f"{c.total:.1f} ({pct(cp['total'][9.5])} · {pct(cp['total'][10.5])})" if c is not None else "–"
         cards = f"{k.total:.1f} ({pct(kp['total'][3.5])} · {pct(kp['total'][4.5])})" if k is not None else "–"
         sb = " / ".join(fmt_odds(o) for o in r.sb["1X2"]) if r.sb and r.sb.get("1X2") and any(r.sb["1X2"]) else "–"
         L.append(f"| {ko(r)} | **{r.label}** | {comp(r)} | {pct(x['H'])} / {pct(x['D'])} / {pct(x['A'])} | "
-                 f"{pct(x['1X'])} / {pct(x['X2'])} | {pct(t['H_o05'])} / {pct(t['H_o15'])} | {pct(t['A_o05'])} / {pct(t['A_o15'])} | "
                  f"{corners} | {cards} | {sb} |")
     L.append("")
     return L
@@ -2090,7 +2193,7 @@ def render_report(ctx: dict, rows: list[MatchRow], picks: dict, summary: dict, n
         "* **Backtest (52,000 matches, 2023-26, no look-ahead):** model probabilities are calibrated to within ±2 points on the "
         "goals markets and the match result; the model beats league averages but not the market, and model-v-market "
         "disagreement is not a reliable value signal. Full results: `backtest/RESULTS.md`.",
-        "* **Extra markets:** 1X2 / double chance and team goals = the same model score matrix. "
+        "* **Extra markets:** 1X2 = the same model score matrix (double chance and team goals are no longer offered, 2026-10-17). "
         "Corners and cards = team for/against rates, league-normalised and shrunk (K=40 / K=20), negative binomial "
         "totals; cards include a referee factor where the referee is published (UK leagues). Both are calibrated "
         "within ~2 points on the standard lines (`backtest/MARKETS_RESULTS.md`). Half-time corners have no free data "
@@ -2098,10 +2201,11 @@ def render_report(ctx: dict, rows: list[MatchRow], picks: dict, summary: dict, n
         "* **World coverage (v4):** every competition on Livescore.com that Sportybet prices is analysed with the same "
         "team-form model from Livescore's season results (goals markets only; corners and cards need the richer "
         "football-data feed of the 22 main European leagues). Sportybet's de-margined prices are the market view there.",
-        "* **High-probability selections** = goals, corners and cards selections with model probability ≥70% "
-        "(odds never filter — the price is shown for comparison), **overs only** (no unders / no-BTTS); parlays and accumulators are no longer produced "
-        "(the backtest showed they lose money). **Bets of the day** = strong on Over 1.5 & team goals (≥70%, up to five); "
-        "1X2, BTTS and Over 2.5 only with strong supporting form (model ≥70% plus recent-form backing, up to two each); "
+        "* **High-probability selections** = Over-goals, BTTS, corners and bookings selections with model probability ≥70% "
+        "(Over 2.5 and BTTS from 55%; odds never filter — the price is shown for comparison), **overs only** (no unders / no-BTTS), "
+        "no team goals, no double chance; parlays and accumulators are no longer produced "
+        "(the backtest showed they lose money). **Bets of the day** = built on Over 1.5, Over 2.5, BTTS and bookings (≥70%, up to five); "
+        "1X2, BTTS and Over 2.5 only with strong supporting form (model ≥70% — Over 2.5 and BTTS ≥55% — plus recent-form backing, up to two each); "
         "bookings and corners ≥65% (up to two each); one market per match; graded separately. The tracked record keeps one "
         "market per match so markets can be compared.",
         "* **Sportybet prices** never enter the probability model; they are the market view shown next to it.",
@@ -2684,7 +2788,10 @@ def telegram_text(ctx: dict, rows: list[MatchRow], picks: dict, report_url: str 
     sf = ctx.get("safe") or {}
     bets = sf.get("bets") or []
     L.append("")
-    L.append(f"📈 <b>High-probability selections</b> (model ≥{pct(sf.get('min_p', 0.7))}) — {len(bets)}")
+    _fl = sf.get("floors") or {}
+    _lo = min(_fl.values()) if _fl else None
+    L.append(f"📈 <b>High-probability selections</b> (model ≥{pct(sf.get('min_p', 0.7))}"
+             + (f"; Over 2.5 & BTTS ≥{pct(_lo)}" if _lo is not None and _lo < sf.get("min_p", 0.7) else "") + f") — {len(bets)}")
     if not bets:
         L.append("nothing priced met the rules in this window")
     for b in bets[:12]:
@@ -2877,6 +2984,11 @@ def main() -> None:
     REPORTS_DIR.mkdir(parents=True, exist_ok=True)
     DATA_DIR.mkdir(parents=True, exist_ok=True)
     PDF_DIR.mkdir(parents=True, exist_ok=True)
+    if CONFIG["MODEL_DIET"]:
+        # user rule 2026-10-17: every league the archive has enough data on is analysed — learn which ones
+        # (from the stage archive already on disk) before any fixture is filtered
+        n_rich = refresh_data_rich(LS_DIR / "stages", now)
+        log.info("Model diet: %d competitions have enough data on top of the curated list (archive rule)", n_rich)
 
     fixtures = load_fixtures(tz)
     todays = fixtures[(fixtures["kickoff"] >= start) & (fixtures["kickoff"] <= end)] if not fixtures.empty else fixtures
@@ -2901,7 +3013,7 @@ def main() -> None:
         world_fx = worldfeed.fixtures_frame(world_events, tz)
         if CONFIG["MODEL_DIET"] and not world_fx.empty:
             n0 = len(world_fx)
-            keep = world_fx.apply(lambda r: league_allowed(r["country"], r["league"]), axis=1)
+            keep = world_fx.apply(lambda r: fixture_allowed(r["country"], r["league"], r["kickoff"], now), axis=1)
             world_fx = world_fx[keep]
             if len(world_fx) < n0:
                 log.info("Model diet: %d of %d world fixtures outside data-rich leagues — not analysed",

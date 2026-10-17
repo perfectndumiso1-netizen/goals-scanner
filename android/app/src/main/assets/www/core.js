@@ -188,8 +188,14 @@ window.PR = (function () {
   const GROUPS = { result: 'Match result', dc: 'Double chance', goals: 'Total goals', btts: 'Both teams to score', team: 'Team goals', corners: 'Corners', cards: 'Cards' };
   const GROUP_ICON = { result: '🏆', dc: '🛡️', goals: '⚽', btts: '🔁', team: '🎯', corners: '🚩', cards: '🟨' };
   const line = (code) => parseInt(code.replace(/\D/g, ''), 10) / 10;
-  /** user rule (2026-10-10): Unders are ignored everywhere — Overs only. Under codes: U25, HU05/AU15 (team), CU85 (corners), KU35 (cards). */
-  const isUnder = (sel) => /^U\d/.test(sel || '') || /^[HACK]U/.test(sel || '');
+  /** user rule: Unders are ignored everywhere — Overs only. Under codes: U25, HU05/AU15 (team), CU85 / CHU35 / CAU55 (corners),
+   *  KU35 / KHU25 / KAU25 (cards) and NBTTS (no BTTS). The old pattern let the team-level corner and card unders through. */
+  const isUnder = (sel) => /^(?:NBTTS|(?:[HA]|C[HA]?|K[HA]?)?U\d+)$/.test(sel || '');
+  /** user rules 2026-10-17: team goals (HO05, AU15 …) and double chance (1X, 12, X2) are dropped altogether, and
+   *  Over 2.5 and BTTS START from a 55% model probability (everything else keeps its own bar). The server applies the
+   *  same policy (policy.py); the app repeats it so a payload published before the change cannot show them either. */
+  const isDropped = (sel) => isUnder(sel) || /^[HA][OU]\d+$/.test(sel || '') || sel === '1X' || sel === '12' || sel === 'X2';
+  const SEL_FLOOR = { O25: 0.55, BTTS: 0.55 };
   function selGroup(sel) {
     if (sel === 'H' || sel === 'D' || sel === 'A') return 'result';
     if (sel === '1X' || sel === '12' || sel === 'X2') return 'dc';
@@ -717,7 +723,7 @@ window.PR = (function () {
       for (const f of (d.fixtures || [])) {
         if (!Array.isArray(f.sels) || seenFx.has(f.id)) continue;
         for (const s of f.sels) {
-          if (!s || !s.sel || isUnder(s.sel)) continue;
+          if (!s || !s.sel || isDropped(s.sel)) continue;
           const lbl = selLabel(s.sel, f.home, f.away);
           if (lbl && hit(lbl) && s.odds) {
             seenFx.add(f.id);   // one market per match here too
@@ -782,7 +788,7 @@ window.PR = (function () {
   }
 
   return { native, settings, state, $, $$, saveSettings, nfetch, getJson, rawUrl, esc, pct, f1, f2, signed, DAYS, MONTHS, parseLocal, tzNow, ymd, stored, persist, cache, prefetchDetails, pubStamp,
-    dayName, niceDate, koTime, koShort, toast, pill, bar, wdl, formBadges, md, GROUPS, GROUP_ICON, selGroup, isUnder, selLabel, selShort, settleSel,
+    dayName, niceDate, koTime, koShort, toast, pill, bar, wdl, formBadges, md, GROUPS, GROUP_ICON, selGroup, isUnder, isDropped, SEL_FLOOR, selLabel, selShort, settleSel,
     liveVerdict, isLive, isFT, indexData, fx, loadDetail, detailCached, detailKey, loadData, saveLatest, saveAux, statusLine, isOutlier, loadDay, dayRecord, finalFor, storedIncidents, loadTeams, teamsCached, loadTeamIndex, realTable, slug, TABS, render, setTab, push, replace,
     sbEventUrl, sbShareUrl, openSportybet, openBookingCode, openExternal, copyText, namesAgree, displayName, fittedSbEvent,
     back, openMatch, openTeam, toggleMenu, closeMenu, contactCard, editorCard, teamLink, teamSpan, matchLine, matchRow, segmented, select, scoreBox, statusIcon, CONTACT, APP_VERSION,

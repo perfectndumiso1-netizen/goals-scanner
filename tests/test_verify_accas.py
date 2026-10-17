@@ -123,3 +123,33 @@ def test_a_build_missing_its_market_probability_is_refused(tmp_path):
     accas = {"target": 3.0, "edge_pp": [2.0, 12.0], "ids": ["A20261003-01"], "bets": [_acca(1)], "recent": [], "summary": {}}
     del accas["bets"][0]["p_market"]
     assert any("market probability" in e for e in errors_for(tmp_path, accas))
+
+
+# ---------------------------------------------------------------- market policy on the publication gate (2026-10-17)
+def _safe_errors(tmp: Path, bets: list) -> list[str]:
+    staging, live = build(tmp, None)
+    d = json.loads((staging / "latest.json").read_text(encoding="utf-8"))
+    d["safe"]["bets"] = bets
+    (staging / "latest.json").write_text(json.dumps(d), encoding="utf-8")
+    errors, _ = verify.check_publication(staging, live, tmp / "no-ledger.csv", NOW, expect_fixtures=1)
+    return errors
+
+
+def _bet(sel: str, p: float, **kw) -> dict:
+    return {"id": f"2026-10-03|H0|A0|{sel}", "fixture": "fx0", "home": "H0", "away": "A0", "sel": sel, "label": sel, "p": p, **kw}
+
+
+def test_over25_and_btts_may_be_published_from_55_percent(tmp_path):
+    # the old gate refused every safest bet under 70% — it would have blocked the whole publication
+    assert _safe_errors(tmp_path, [_bet("O25", 0.58)]) == []
+    assert _safe_errors(tmp_path / "b", [_bet("BTTS", 0.55)]) == []
+    assert any("below the probability rule" in e for e in _safe_errors(tmp_path / "c", [_bet("O25", 0.50)]))
+    assert any("below the probability rule" in e for e in _safe_errors(tmp_path / "d", [_bet("O15", 0.66)]))   # goals lines keep 70%
+
+
+def test_a_dropped_market_is_refused_but_a_frozen_live_bet_from_before_the_change_is_not(tmp_path):
+    assert any("market policy dropped" in e for e in _safe_errors(tmp_path, [_bet("HO05", 0.85)]))
+    assert any("market policy dropped" in e for e in _safe_errors(tmp_path / "b", [_bet("1X", 0.85)]))
+    assert any("under selection" in e for e in _safe_errors(tmp_path / "c", [_bet("KHU25", 0.85)]))
+    # carried over unchanged from the previous publication (kicked off in the last 3 h): never blocks the first run
+    assert _safe_errors(tmp_path / "d", [_bet("HO05", 0.85, live=True), _bet("CAU55", 0.80, live=True)]) == []

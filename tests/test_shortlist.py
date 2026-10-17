@@ -58,8 +58,22 @@ def test_negative_ev_is_not_a_gate_but_data_faults_still_are():
 
 def test_market_bars_are_per_market():
     assert sl.evaluate(row(), Sel("H", 0.62, 0.58, 1.70))["status"] == "primary"           # 1X2 bar 60 %
-    assert sl.evaluate(row(), Sel("O25", 0.66, 0.62, 1.60))["status"] == "rejected"        # goals bar 70 %
+    assert sl.evaluate(row(), Sel("O15", 0.66, 0.62, 1.60))["status"] == "rejected"        # goals lines other than Over 2.5: 70 %
     assert sl.evaluate(row(), Sel("CO85", 0.67, 0.63, 1.58))["status"] == "primary"        # corners bar 65 %
+
+
+def test_over_25_and_btts_start_from_55_percent():
+    """User rule 2026-10-17: Over 2.5 and BTTS start from a 55% model probability (was 70%)."""
+    for code in ("O25", "BTTS"):
+        ok = sl.evaluate(row(), Sel(code, 0.56, 0.54, 1.75))
+        assert ok["status"] == "primary", (code, ok["reasons"])
+        assert ok["bar"] == 0.55                                   # the bar shown with the pick is the real one
+        no = sl.evaluate(row(), Sel(code, 0.54, 0.52, 1.80))
+        assert no["status"] == "rejected" and "below the 55% bar" in no["reasons"][0]
+    # the stricter bars did not move
+    assert sl.evaluate(row(), Sel("O15", 0.69, 0.66, 1.40))["status"] == "rejected"
+    assert sl.evaluate(row(), Sel("O35", 0.60, 0.57, 1.70))["status"] == "rejected"
+    assert sl.BARS["goals"] == 0.70 and sl.BARS["corners"] == 0.65 and sl.BARS["cards"] == 0.65
 
 
 def test_weak_data_warnings_and_conflicts_send_it_to_the_watchlist_with_a_reason():
@@ -147,7 +161,7 @@ def test_unders_are_ignored_overs_only(monkeypatch):
     """User rule (2026-10-10): Under selections are never candidates in any market."""
     rows, b = _board(monkeypatch, [[Sel("U25", 0.80, 0.72, 1.30)], [Sel("CU85", 0.75, 0.70, 1.35)]])
     assert b["counts"]["candidates"] == 0 and b["counts"]["primary"] == 0
-    assert b["rules"]["unders"].startswith("ignored")
+    assert b["rules"]["unders"].startswith("none in any market")
     overs = [[Sel("O25", 0.74, 0.68, 1.45)]]
     rows, b = _board(monkeypatch, overs)
     assert b["counts"]["candidates"] == 1 and b["counts"]["primary"] == 1

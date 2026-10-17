@@ -19,6 +19,8 @@ from pathlib import Path
 
 import pandas as pd
 
+import policy
+
 log = logging.getLogger("scanner")
 
 VERSION = 3
@@ -183,7 +185,7 @@ def _best(sels: list[dict], groups: tuple | None, min_p: float) -> list | None:
     for d in sels:
         if not d.get("odds") or d["odds"] <= 1 or d.get("p") is None:
             continue
-        if d["p"] < min_p:
+        if min_p > 0 and d["p"] < policy.min_p(d["sel"], min_p):     # Over 2.5 / BTTS start from 55% (policy.py)
             continue
         if groups is not None and d["group"] not in groups:
             continue
@@ -398,7 +400,8 @@ def export(path: Path, *, ctx: dict, rows: list, all_rows: list | None = None, p
         recommended_sels = _recommended_selections(r, sels, helpers.get("team_goal_form_ok"))
         top = _best(recommended_sels, None, 0.0)
         hi = sorted([[d["sel"], round(d["p"], 3), round(d["odds"], 2) if d.get("odds") else None] for d in recommended_sels
-                     if d.get("p") is not None and d["p"] >= 0.70 and d["group"] in ("goals", "btts", "team", "corners", "cards")],
+                     if d.get("p") is not None and d["p"] >= policy.min_p(d.get("sel"), 0.70)
+                     and d["group"] in ("goals", "btts", "corners", "cards")],
                     key=lambda x: -x[1])[:12]
         _qo = _q.get("overall")
         for d in recommended_sels:
@@ -411,12 +414,12 @@ def export(path: Path, *, ctx: dict, rows: list, all_rows: list | None = None, p
                 continue
             base = {"id": fid, "sel": d.get("sel"), "p": round(p, 3),
                     "odds": d.get("odds"), "g": d.get("group"), "q": _qo}
-            # strong: model probability ≥ 0.70, decent data — odds never filter (user decision 2026-10-01)
+            # strong: model probability ≥ 0.70 (Over 2.5 and BTTS: ≥ 0.55), decent data — odds never filter (user decision 2026-10-01)
             # value: Sportybet prices it, the model beats that price by ≥ 8 points of expected value at p ≥ 0.60
             # both boards are titled "Today", so only this day's matches qualify
             if date != _today:
                 continue
-            if p >= 0.70 and _qo != "Low":
+            if p >= policy.min_p(d.get("sel"), 0.70) and _qo != "Low":
                 strong_picks.append(base)
             _ev = d.get("ev")
             if d.get("odds") and _ev is not None and _ev >= 0.08 and p >= 0.60 and _qo != "Low":
@@ -519,6 +522,7 @@ def export(path: Path, *, ctx: dict, rows: list, all_rows: list | None = None, p
                                    "sportybet": _f(helpers["sb_price"](r, mkt), 2)})
     # safest bets of this run + bets of the day
     safe_out = {"min_p": sf.get("min_p"), "groups": list(safe_groups),
+                "floors": dict(policy.SEL_MIN_P),        # selections that START below min_p (Over 2.5, BTTS: 55%)
                 "bets": [], "today": {"date": now.strftime("%Y-%m-%d"), "bets": []}, "summary": safe_summary or {}}
     for b in sf.get("bets") or []:
         fid = ids_by_key.get(b.key) or fixture_id(*b.key)

@@ -142,6 +142,32 @@ def assess_stage(d: dict, now: datetime, n_fix: int, next_fixture: str | None) -
     }
 
 
+def stage_facts(stages_dir: Path, now: datetime) -> list[dict]:
+    """assess_stage() for every archived stage, plus the two numbers the registry does not publish: the median
+    number of archived finished matches per club and the date of the newest result. This is what the model diet
+    reads to decide which competitions have "enough data" (scanner.data_rich_from_facts). Read-only, no
+    network; about 1.5 s for ~600 stages. A stage file that cannot be read is skipped, never fatal."""
+    from statistics import median
+    if now.tzinfo is not None:          # the scanner's clock is timezone-aware; the archive's timestamps are naive local time
+        now = now.replace(tzinfo=None)
+    out: list[dict] = []
+    for f in sorted(Path(stages_dir).glob("*.json")):
+        try:
+            d = json.loads(f.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            continue
+        a = assess_stage(d, now, 0, None)
+        finished = [e for _eid, e in _events(d) if e["hg"] is not None and e["ag"] is not None]
+        per_team: Counter = Counter()
+        for e in finished:
+            per_team[e["home"]] += 1
+            per_team[e["away"]] += 1
+        a["median_per_team"] = float(median(per_team.values())) if per_team else 0.0
+        a["last_result"] = finished[0]["ko"] if finished else None      # _events() is newest first
+        out.append(a)
+    return out
+
+
 def football_data_rows() -> list[dict]:
     """The football-data.co.uk side of the registry (hard-coded model feeds, stable IDs)."""
     import scanner  # local import: keeps this module importable standalone
