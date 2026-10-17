@@ -74,6 +74,18 @@ IGNORE_UNDER = os.getenv("SHORTLIST_IGNORE_UNDER", "1") != "0"   # user rule: Ov
 UNDER_RE = None if not IGNORE_UNDER else policy.UNDER_RE      # every under in every market (incl. team corners / cards, no-BTTS)
 MAX_WATCH = 10
 KEEP_DAYS = 120
+# Lanes (2026-10-17). One selection per match stays the rule, but "the best-scored candidate wins the match" meant Over 1.5
+# won 286 of 303 matches (it is always the likelier of Over 1.5 / Over 2.5 / BTTS), so Over 2.5 could never appear whatever
+# its floor and the 'goals' cap filled with Over 1.5. As in Bets of the Day, each market now CLAIMS its own matches, rarest
+# first, and Over 1.5 (and the other goals lines) takes what is left; each lane keeps its best `max_per_market`.
+# A match cut from one lane can still be claimed by a later one (its Over 1.5), and nothing is padded.
+LANES = os.getenv("SHORTLIST_LANES", "1") != "0"
+LANE_ORDER = ("o25", "btts", "cards", "corners", "result", "goals")
+
+
+def lane_of(x: dict) -> str:
+    """The lane a evaluated selection competes in: Over 2.5 on its own, every other goals line together."""
+    return "o25" if x.get("sel") == "O25" else x["market"]
 
 COLS = ["day", "decided", "match_date", "kickoff", "country", "league", "home", "away", "sel", "label", "market",
         "odds", "p", "p_sb", "implied_raw", "edge_pp", "ev", "quality", "confidence", "status", "reasons",
@@ -327,6 +339,27 @@ def build(rows: list, now: datetime, window_end: datetime | None = None,
         best["correlated"] = [x["label"] for x in recs[1:] if x["status"] == best["status"] != STATUS_REJECT][:3]
         per_match.append({"best": best, "all": recs})
 
+    if LANES:
+        # lane claiming: each market takes its best `max_per_market` matches in turn (see LANES above); the match's
+        # selection becomes the claimed one, the rest of its candidates are listed as correlated
+        claimed: dict = {}
+        for lane in LANE_ORDER:
+            pool = []
+            for m in per_match:
+                if m["best"]["key"] in claimed:
+                    continue
+                cands = [x for x in m["all"] if x["status"] == STATUS_PRIMARY and lane_of(x) == lane]
+                if cands:
+                    pool.append(max(cands, key=lambda x: x["score"]))
+            pool.sort(key=lambda x: -x["score"])
+            for x in pool[:max_per_market]:
+                claimed[x["key"]] = x
+        for m in per_match:
+            x = claimed.get(m["best"]["key"])
+            if x is not None and x is not m["best"]:
+                x["correlated"] = [y["label"] for y in m["all"] if y is not x and y["status"] == STATUS_PRIMARY][:3]
+                m["best"] = x
+        by_market_cap = {id(x) for x in claimed.values()}
     qual_all = sorted((m["best"] for m in per_match if m["best"]["status"] == STATUS_PRIMARY), key=lambda x: -x["score"])
     watch = sorted((m["best"] for m in per_match if m["best"]["status"] == STATUS_WATCH), key=lambda x: -x["score"])
     # per-market cap: each market group keeps its best max_per_market — bests, never padding
@@ -334,9 +367,14 @@ def build(rows: list, now: datetime, window_end: datetime | None = None,
     for x in qual_all:
         by_market.setdefault(x["market"], []).append(x)
     prim, over = [], []
-    for g, items in by_market.items():
-        prim.extend(items[:max_per_market])
-        over.extend(items[max_per_market:])
+    if LANES:
+        # the lanes already applied the cap: a primary-status match that no lane claimed is beyond its market's cap
+        for x in qual_all:
+            (prim if id(x) in by_market_cap else over).append(x)
+    else:
+        for g, items in by_market.items():
+            prim.extend(items[:max_per_market])
+            over.extend(items[max_per_market:])
     prim.sort(key=lambda x: -x["score"])
     for x in over:                     # qualified but beyond its market's cap: watchlist, saying so
         x["status"] = STATUS_WATCH

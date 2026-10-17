@@ -17,7 +17,8 @@ Switches (rollback without a code change):
     MODEL_MARKETS=all                      restore every market the model ever offered
     MODEL_MARKETS=unders,team,dc           allow just those families back (comma list; any of: unders, team, dc)
     MODEL_DROP=corners,result              OPTIONAL: also drop corners and/or 1X2 (not asked for — both stay on by default)
-    MIN_P_O25 / MIN_P_BTTS                 override the 0.55 starting floors
+    POLICY_MIN_P_O25 / POLICY_MIN_P_BTTS   override the 0.55 starting floors (NOT MIN_P_O25 / MIN_P_BTTS: scan.yml already
+                                           uses those names, at 0.60, for the older "Goals shortlists" star thresholds)
 """
 from __future__ import annotations
 
@@ -94,7 +95,9 @@ def _env_float(name: str, default: float) -> float:
 
 # Over 2.5 and BTTS start from 55% (user rule 2026-10-17). Every other selection keeps the floor of the
 # board that asks (70% for goals lines, 65% for corners and bookings in the shortlist, 60% for 1X2 ...).
-SEL_MIN_P = {"O25": _env_float("MIN_P_O25", 0.55), "BTTS": _env_float("MIN_P_BTTS", 0.55)}
+# The env names carry a POLICY_ prefix on purpose: scan.yml already sets MIN_P_O25 / MIN_P_BTTS (0.60) for the older "Goals
+# shortlists" star thresholds, and reusing those names silently moved this floor to 60% in production on 2026-10-17.
+SEL_MIN_P = {"O25": _env_float("POLICY_MIN_P_O25", 0.55), "BTTS": _env_float("POLICY_MIN_P_BTTS", 0.55)}
 
 
 def min_p(sel: str, default: float) -> float:

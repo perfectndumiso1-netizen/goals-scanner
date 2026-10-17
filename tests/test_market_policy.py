@@ -218,3 +218,71 @@ def test_the_apps_dropped_set_and_floors_match_the_python_policy():
         assert f"sel === '{dc}'" in js
     floors = re.search(r"const SEL_FLOOR = \{ O25: ([0-9.]+), BTTS: ([0-9.]+) \};", js)
     assert floors and float(floors.group(1)) == policy.SEL_MIN_P["O25"] and float(floors.group(2)) == policy.SEL_MIN_P["BTTS"]
+
+
+def test_the_55_floor_ignores_the_scan_workflows_older_min_p_variables(monkeypatch):
+    """Regression (2026-10-17): scan.yml sets MIN_P_O25 / MIN_P_BTTS = 0.60 for the older Goals-shortlist star
+    thresholds. The first version of the policy read the same names, so production quietly ran at 60%, not 55%
+    (local tests passed because the variables are not set locally)."""
+    import importlib
+    monkeypatch.setenv("MIN_P_O25", "0.60")
+    monkeypatch.setenv("MIN_P_BTTS", "0.60")
+    monkeypatch.setenv("MIN_P_O15", "0.84")
+    try:
+        importlib.reload(policy)
+        assert policy.SEL_MIN_P == {"O25": 0.55, "BTTS": 0.55}
+        monkeypatch.setenv("POLICY_MIN_P_O25", "0.58")
+        importlib.reload(policy)
+        assert policy.SEL_MIN_P == {"O25": 0.58, "BTTS": 0.55}          # the policy's own lever still works
+    finally:
+        monkeypatch.undo()
+        importlib.reload(policy)
+    assert policy.SEL_MIN_P == {"O25": 0.55, "BTTS": 0.55}
+
+
+def test_no_workflow_sets_the_policy_levers_by_accident():
+    from pathlib import Path
+    for wf in (Path(__file__).resolve().parents[1] / ".github/workflows").glob("*.yml"):
+        text = wf.read_text(encoding="utf-8")
+        assert "POLICY_MIN_P" not in text and "MODEL_MARKETS" not in text and "MODEL_DROP" not in text, wf.name
+
+
+# ---------------------------------------------------------------- Safest lanes: every market gets its own slots
+def _match(i, o15, o25=None, btts=None):
+    r = _full_row()
+    r.fx = dict(r.fx, home=f"H{i}", away=f"A{i}")
+    r.extra.corner_p = None
+    r.extra.card_p = None
+    r.sb_full = {}
+    r.p_final = {"O05": 0.97, "O15": o15, "O25": o25 if o25 is not None else 0.30, "O35": 0.10, "O45": 0.05, "O55": 0.02,
+                 "BTTS": btts if btts is not None else 0.30}
+    return r
+
+
+def _safest(rows, **kw):
+    now = datetime(2026, 10, 17, 12, 0)
+    return safe.safest(rows, now, now + timedelta(days=1), **kw)["bets"]
+
+
+def test_safest_gives_over25_and_btts_their_own_slots_one_market_per_match():
+    rows = [_match(i, 0.88, 0.70, 0.66) for i in range(14)] + [_match(20 + i, 0.88) for i in range(8)]
+    bets = _safest(rows)
+    mix = {k: sum(1 for b in bets if b.sel == k) for k in ("O25", "BTTS", "O15")}
+    assert mix["O25"] == 10 and mix["BTTS"] == 4 and mix["O15"] == 8, mix       # O2.5 claims 10, BTTS the next 4, O1.5 the rest
+    assert len({b.key for b in bets}) == len(bets)                                # ONE market per match, still
+    assert bets == sorted(bets, key=lambda b: (-b.p, -b.odds))                    # displayed by probability, as before
+
+
+def test_safest_without_lanes_is_the_old_most_probable_per_match(monkeypatch):
+    monkeypatch.setattr(safe, "SAFE_LANES", False)
+    rows = [_match(i, 0.88, 0.70, 0.66) for i in range(14)]
+    assert {b.sel for b in _safest(rows)} == {"O15"}                              # Over 1.5 always wins on probability
+
+
+def test_safest_lane_caps_hold_and_the_total_is_bounded():
+    rows = [_match(i, 0.88, 0.70, 0.66) for i in range(80)]
+    bets = _safest(rows)
+    assert len(bets) <= safe.MAX_BETS
+    assert sum(1 for b in bets if b.sel == "O25") == safe.SAFE_LANE_CAP["o25"]
+    assert sum(1 for b in bets if b.sel == "BTTS") == safe.SAFE_LANE_CAP["btts"]
+    assert sum(1 for b in bets if b.sel == "O15") == safe.MAX_BETS - 20           # the rest of the board

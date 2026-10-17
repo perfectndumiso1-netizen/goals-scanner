@@ -99,16 +99,53 @@ def _board(monkeypatch, rows_sels, cap=3):
 
 def test_cap_is_per_market_and_correlated_are_named(monkeypatch):
     good = [Sel("O25", 0.74, 0.68, 1.45), Sel("BTTS", 0.72, 0.66, 1.50)]
-    rows, b = _board(monkeypatch, [good] * 5)
-    assert b["counts"]["primary"] == 3 and len(b["primary"]) == 3          # one per match first, then cap 3
-    assert len({(x["home"], x["away"]) for x in b["primary"]}) == 3
+    rows, b = _board(monkeypatch, [good] * 8)                               # lanes: Over 2.5 claims 3, BTTS claims 3 of the rest
+    assert b["counts"]["primary"] == 6 and len(b["primary"]) == 6
+    assert len({(x["home"], x["away"]) for x in b["primary"]}) == 6          # still ONE selection per match
+    assert sorted(x["sel"] for x in b["primary"]) == ["BTTS"] * 3 + ["O25"] * 3
     assert all(x["status"] == "primary" for x in b["primary"])
     assert b["primary"][0]["correlated"], "the second selection of the match is named as correlated"
-    assert any("outside the top 3" in x["reasons"][0] for x in b["watchlist"])
+    assert sum("outside the top 3" in x["reasons"][0] for x in b["watchlist"]) == 2
     assert all(x["rank"] in (1, 2, 3) for x in b["primary"])
     assert b["rules"]["band"].startswith("1.15")
 
 
+def test_the_old_one_best_per_match_behaviour_is_one_switch_away(monkeypatch):
+    monkeypatch.setattr(sl, "LANES", False)
+    good = [Sel("O25", 0.74, 0.68, 1.45), Sel("BTTS", 0.72, 0.66, 1.50)]
+    rows, b = _board(monkeypatch, [good] * 5)
+    assert b["counts"]["primary"] == 3 and len(b["primary"]) == 3          # one per match first, then cap 3
+    assert any("outside the top 3" in x["reasons"][0] for x in b["watchlist"])
+
+
+# ---------------------------------------------------------------- lanes (2026-10-17): every market gets its own slots
+def _o15(): return Sel("O15", 0.86, 0.84, 1.18)
+def _o25(): return Sel("O25", 0.70, 0.66, 1.55)
+def _btts(): return Sel("BTTS", 0.66, 0.62, 1.60)
+
+
+def test_over25_and_btts_claim_their_own_matches_instead_of_losing_every_match_to_over15(monkeypatch):
+    """Over 1.5 is always the likelier of the three, so 'the best-scored candidate wins the match' gave it 286 of 303
+    matches and Over 2.5 could never appear whatever its floor. Each market now claims its own, Over 1.5 takes the rest."""
+    rows, b = _board(monkeypatch, [[_o15(), _o25(), _btts()]] * 4 + [[_o15()]] * 4 + [[_o15(), _btts()]] * 2, cap=10)
+    mix = {k: sum(1 for x in b["primary"] if x["sel"] == k) for k in ("O25", "BTTS", "O15")}
+    assert mix == {"O25": 4, "BTTS": 2, "O15": 4}, mix                       # 10 matches, 10 primaries, one selection each
+    assert len({(x["home"], x["away"]) for x in b["primary"]}) == len(b["primary"]) == 10
+    assert b["counts"]["watchlist"] == 0
+
+
+def test_a_match_cut_from_one_lane_can_still_be_claimed_by_a_later_one(monkeypatch):
+    rows, b = _board(monkeypatch, [[_o15(), _o25()]] * 4, cap=2)           # Over 2.5 takes 2; the other two matches go to Over 1.5
+    mix = sorted(x["sel"] for x in b["primary"])
+    assert mix == ["O15", "O15", "O25", "O25"] and b["counts"]["watchlist"] == 0
+
+
+def test_a_lane_never_pads_and_the_cap_still_applies_per_lane(monkeypatch):
+    rows, b = _board(monkeypatch, [[_o15(), _o25()]] * 30, cap=10)          # 10 Over 2.5 + 10 Over 1.5, ten matches left over
+    assert sorted({x["sel"] for x in b["primary"]}) == ["O15", "O25"] and b["counts"]["primary"] == 20
+    assert sum("outside the top 10" in x["reasons"][0] for x in b["_watch_all"]) == 10
+    rows, b = _board(monkeypatch, [[_o15()]] * 3, cap=10)
+    assert b["counts"]["primary"] == 3                                      # nothing padded to fill a lane
 def test_per_market_cap_keeps_the_best_ten(monkeypatch):
     rows, b = _board(monkeypatch, [[Sel("O25", 0.74, 0.68, 1.45)]] * 13, cap=10)
     assert b["counts"]["primary"] == 10

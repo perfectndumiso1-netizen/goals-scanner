@@ -18,6 +18,7 @@ No selection is ever labelled safe, guaranteed or a banker in user-facing text.
 from __future__ import annotations
 
 import json
+import os
 import re
 import math
 from dataclasses import dataclass
@@ -33,7 +34,26 @@ MIN_P = 0.70         # probability at least 70% — the only bar (odds never fil
                      # Over 2.5 and BTTS START from 55% (user rule 2026-10-17, see policy.SEL_MIN_P)
 TREBLES = 3
 LEGS = 3
-MAX_BETS = 40
+MAX_BETS = 50
+# Lanes (2026-10-17). The board keeps ONE market per match (user rule), but "the most probable market wins the match"
+# meant Over 1.5 — always the likeliest of Over 1.5 / Over 2.5 / BTTS — took every match and the cap, so Over 2.5 and BTTS
+# (now from 55%) and bookings never appeared. As on the bets-of-the-day card, each market now CLAIMS its own matches,
+# rarest first, and Over 1.5 (with the other goals lines) takes what is left, up to MAX_BETS in total.
+SAFE_LANES = os.getenv("SAFE_LANES", "1") != "0"
+SAFE_LANE_ORDER = ("cards", "corners", "o25", "btts", "goals")
+SAFE_LANE_CAP = {"cards": 6, "corners": 4, "o25": 10, "btts": 10, "goals": MAX_BETS}
+
+
+def safe_lane(sel: str) -> str:
+    if sel == "O25":
+        return "o25"
+    if sel == "BTTS":
+        return "btts"
+    if sel[:1] == "K":
+        return "cards"
+    if sel[:1] == "C":
+        return "corners"
+    return "goals"
 DIFF_FLAG = 0.12     # model and Sportybet views differ by more than this -> flag
 
 GROUPS = {"result": "Match result", "dc": "Double chance", "goals": "Total goals", "btts": "Both teams to score",
@@ -440,15 +460,32 @@ def safest(rows: list, now: datetime, window_end: datetime, min_p: float = MIN_P
             bets.append(Bet(key, fx["div"], fx["league"], fx["home"], fx["away"], fx["kickoff"].strftime("%Y-%m-%d %H:%M"),
                             s.sel, s.p, s.p_model, s.p_sb, s.odds))
     bets.sort(key=lambda b: (-b.p, -b.odds))
-    # one market per match (the most probable): a clean record of which markets perform
-    seen_match: set[tuple] = set()
-    one = []
-    for b in bets:
-        if b.key in seen_match:
-            continue
-        seen_match.add(b.key)
-        one.append(b)
-    bets = one[:MAX_BETS]
+    if SAFE_LANES:
+        # one market per match, claimed lane by lane (rarest first); within a lane the most probable matches win
+        taken: set[tuple] = set()
+        picked: list[Bet] = []
+        for lane in SAFE_LANE_ORDER:
+            n, seen = 0, set()
+            for b in bets:                      # already sorted by probability
+                if safe_lane(b.sel) != lane or b.key in taken or b.key in seen:
+                    continue
+                seen.add(b.key)
+                if n >= SAFE_LANE_CAP[lane] or len(picked) >= MAX_BETS:
+                    break
+                picked.append(b)
+                taken.add(b.key)
+                n += 1
+        bets = sorted(picked, key=lambda b: (-b.p, -b.odds))
+    else:
+        # one market per match (the most probable): a clean record of which markets perform
+        seen_match: set[tuple] = set()
+        one = []
+        for b in bets:
+            if b.key in seen_match:
+                continue
+            seen_match.add(b.key)
+            one.append(b)
+        bets = one[:MAX_BETS]
 
     def pool_for(cands):
         best: dict[tuple, Bet] = {}
