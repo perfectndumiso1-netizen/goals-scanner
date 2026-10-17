@@ -85,3 +85,47 @@ def test_archival_black_and_white_scans_are_skipped(tmp_path: Path):
 def test_no_ground_found_means_no_photos_not_a_wrong_one(monkeypatch, tmp_path):
     monkeypatch.setattr(vp, "venue_info", lambda team: None)
     assert vp.venue_photos("Nobody FC", tmp_path) == []
+
+
+def _jpg(path: Path, rgb, size=(400, 225)):
+    path.parent.mkdir(parents=True, exist_ok=True)
+    Image.new("RGB", size, rgb).save(path, quality=90)
+
+
+def test_a_photo_that_shows_the_pitch_beats_one_that_is_mostly_sky(monkeypatch, tmp_path: Path):
+    green, grey = (40, 150, 60), (150, 160, 170)
+    _jpg(tmp_path / "g.jpg", green)
+    _jpg(tmp_path / "s.jpg", grey)
+    assert vp._pitch_share(tmp_path / "g.jpg") > 0.9 and vp._pitch_share(tmp_path / "s.jpg") < 0.05
+    assert vp._pitch_share(tmp_path / "missing.jpg") == 0.0                       # never raises
+
+    monkeypatch.setattr(vp, "venue_info", lambda team: {"name": "Test Ground", "qid": "Q1", "category": "Test_Ground", "image": "Lead.jpg"})
+    cand = lambda t, w=1900: {"title": t, "url": "https://x/" + t, "width": w, "height": 1000, "license": "CC BY-SA 4.0", "artist": "A", "page": "", "lead": False}
+    monkeypatch.setattr(vp, "_lead_candidate", lambda fn: cand("File:Lead sky.jpg"))
+    monkeypatch.setattr(vp, "_category_candidates", lambda c, limit=60: [cand("File:Pitch one.jpg"), cand("File:Pitch two.jpg", 1800)])
+    monkeypatch.setattr(vp, "_download", lambda url, dest: (_jpg(dest, grey if "sky" in url else green), True)[1])
+    out = vp.venue_photos("Test FC", tmp_path / "out", n=2)
+    assert [p["title"] for p in out] == ["File:Pitch one.jpg", "File:Pitch two.jpg"]        # the sky shot is dropped, not used as padding
+    assert all(Path(p["path"]).exists() for p in out)
+
+
+def test_sensitive_event_photos_are_never_used():
+    for bad in ("File:Allianz Field, National Guard (1).jpg", "File:Stadium during riot.jpg", "File:Police outside ground.jpg",
+                "File:Ground covid lockdown.jpg"):
+        assert vp._candidate_from_page(page(title=bad)) is None
+        assert vp._candidate_from_page(page(title=bad), lead=True) is None                 # even the curated lead image
+
+
+def test_a_wide_crop_slides_down_to_the_pitch_when_the_middle_is_all_sky(tmp_path: Path):
+    # tall photo: grey sky on top, grass only in the bottom 30 %
+    im = Image.new("RGB", (400, 400), (150, 160, 170))
+    im.paste(Image.new("RGB", (400, 120), (40, 150, 60)), (0, 280))
+    cx, cy = vp.pitch_centering(im, 300, 80)             # a wide card: the window is 400 x 107 pixels of the source
+    assert cx == 0.5 and cy > 0.8                        # window moved to the bottom, where the pitch is
+    # already a good crop (grass in the middle): keep the default
+    mid = Image.new("RGB", (400, 400), (150, 160, 170))
+    mid.paste(Image.new("RGB", (400, 200), (40, 150, 60)), (0, 100))
+    assert vp.pitch_centering(mid, 300, 80) == (0.5, 0.5)
+    # nothing to crop vertically: default; garbage in: default
+    assert vp.pitch_centering(Image.new("RGB", (400, 100), (0, 150, 0)), 300, 200) == (0.5, 0.5)
+    assert vp.pitch_centering(object(), 300, 80) == (0.5, 0.5)

@@ -25,7 +25,9 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
 
+import breakdown_script as bs
 import shortlist_reel as reel
+import spoken as sp
 import venue_photos as vphotos
 
 log = logging.getLogger("scanner")
@@ -67,7 +69,7 @@ _REPUTABLE = (
 _JUNK_TITLE = re.compile(
     r"predict|tips?\b|odds|betting|\bbet\b|spread|live ?stream|where to watch|tv channel|line-?ups?|"
     r"how to watch|live text|stats & head|head-to-head|preview:|tickets|prediction|live score|live blog|"
-    r"highlights|box score|full match|replay|what time|channel", re.I)
+    r"highlights|box score|full match|replay|what time|channel|stream|matchday #|watch live|kick-?off time", re.I)
 _NEWS_KEYWORDS = re.compile(
     r"injur|ruled out|rules? out|\bmiss|doubt|suspen|return|back from|fitness|\bfit\b|squad|sidelin|absen|boost|"
     r"blow|knock|setback|hamstring|knee|ankle|illness|concussion|sacked|appoint|press conference|pick of the stats",
@@ -78,10 +80,7 @@ _NEWS_KEYWORDS = re.compile(
 
 def say(name: str) -> str:
     """How a presenter would say a club name."""
-    n = str(name or "").strip()
-    n = _SAY_MAP.get(n, n)
-    n = re.sub(r"^(1\.\s*)?(FC|SC)\s+", "", n)
-    return _SAY_MAP.get(n, n)
+    return sp.team(name)
 
 
 def sentences(text: str) -> list[str]:
@@ -122,16 +121,6 @@ def _num(v, digits: int = 2) -> str:
     return f"{float(v):.{digits}f}" if isinstance(v, (int, float)) else "N/A"
 
 
-def _src_phrase(source: str) -> str:
-    s = str(source or "").strip()
-    low = s.lower()
-    if low.startswith("bbc"):
-        return "the BBC"
-    if low in ("guardian", "the guardian"):
-        return "the Guardian"
-    return s or "reports"
-
-
 _ORD_WORDS = {1: "first", 2: "second", 3: "third", 4: "fourth", 5: "fifth", 6: "sixth", 7: "seventh", 8: "eighth", 9: "ninth",
               10: "tenth", 11: "eleventh", 12: "twelfth", 13: "thirteenth", 14: "fourteenth", 15: "fifteenth", 16: "sixteenth",
               17: "seventeenth", 18: "eighteenth", 19: "nineteenth", 20: "twentieth", 21: "twenty-first", 22: "twenty-second",
@@ -152,9 +141,8 @@ def _day_label(day: str | None, now: datetime | None = None, *, spoken: bool = F
 # ============================================================================ dossier facts
 
 def _l5(dos: dict, side: str) -> list[dict]:
-    t = ((dos.get("teams") or {}).get(side)) or {}
-    return [m for m in (t.get("last5") or []) if isinstance(m, dict) and isinstance(m.get("gf"), (int, float))
-            and isinstance(m.get("ga"), (int, float))]
+    """Newest-first results with the same match never counted twice (see breakdown_script.last_results)."""
+    return bs.last_results(dos, side)
 
 
 def _letters(l5: list[dict]) -> str:
@@ -168,35 +156,6 @@ def _lead(letters: str, pred) -> int:
             break
         k += 1
     return k
-
-
-def _recent_phrase(m: dict) -> str:
-    opp, gf, ga, home = say(m.get("opp") or "their opponents"), int(m["gf"]), int(m["ga"]), m.get("venue") == "H"
-    if gf > ga:
-        return f"beating {opp} {gf}-{ga} at home" if home else f"winning {gf}-{ga} at {opp}"
-    if gf == ga:
-        return f"drawing {gf}-{ga} at home to {opp}" if home else f"drawing {gf}-{ga} away at {opp}"
-    return f"losing {ga}-{gf} at home to {opp}" if home else f"losing {ga}-{gf} at {opp}"
-
-
-def _form_sentence(team: str, l5: list[dict], verb: str = "come in") -> str | None:
-    if len(l5) < 3:
-        return None
-    lt = _letters(l5)
-    unbeaten, winless = _lead(lt, lambda c: c != "L"), _lead(lt, lambda c: c != "W")
-    wins_run, loss_run = _lead(lt, lambda c: c == "W"), _lead(lt, lambda c: c == "L")
-    if wins_run >= 2:
-        ph = f"on a run of {_w(wins_run)} wins"
-    elif loss_run >= 2:
-        ph = f"on a run of {_w(loss_run)} defeats"
-    elif unbeaten >= 4:
-        ph = f"unbeaten in their last {_w(unbeaten)}"
-    elif winless >= 3:
-        ph = f"winless in their last {_w(winless)}"
-    else:
-        w = lt.count("W")
-        ph = f"with {_w(w)} win{'s' if w != 1 else ''} from their last five"
-    return f"{say(team)} {verb} {ph}, most recently {_recent_phrase(l5[0])}."
 
 
 def _rest_days(dos: dict) -> tuple[str | None, str | None]:
@@ -227,68 +186,7 @@ def _weather(dos: dict) -> tuple[str, str] | None:
 
 
 def _h2h(dos: dict) -> tuple[list[dict], dict]:
-    return [m for m in (dos.get("h2h") or []) if isinstance(m, dict)], (dos.get("h2h_meta") or {})
-
-
-def _h2h_sentence(dos: dict) -> str | None:
-    rows, meta = _h2h(dos)
-    if not rows:
-        return None
-    m0 = rows[0]
-    try:
-        when = datetime.strptime(str(m0.get("date"))[:10], "%Y-%m-%d").strftime("%B %Y")
-    except ValueError:
-        when = "recently"
-    score = f"{say(m0.get('home'))} {m0.get('hg')}, {say(m0.get('away'))} {m0.get('ag')}"
-    if len(rows) == 1:
-        return f"They last met in {when}: {score}."
-    both = ", with both teams scoring every time" if meta.get("btts") == len(rows) and len(rows) >= 2 else ""
-    return (f"Head to head, their last {len(rows)} meetings averaged {_num(meta.get('avg_goals'), 1)} goals{both}. "
-            f"The most recent was in {when}: {score}.")
-
-
-def _trend_speech(t: str) -> str | None:
-    t = str(t or "")
-    if "…" in t or "corner" in t.lower() or "card" in t.lower():
-        return None
-    def tidy(sp: str) -> str:
-        sp = re.sub(r"in (\d+) of their last (\d+)", lambda m: f"in all of their last {_w(m.group(2))}" if m.group(1) == m.group(2)
-                    else f"in {_w(m.group(1))} of their last {_w(m.group(2))}", sp)
-        return re.sub(r"in (\d+) matches in a row", lambda m: f"in {_w(m.group(1))} matches in a row", sp)
-
-    for pat, fmt in (
-        (r"^(.+?) scored in (\d+) consecutive matches$", r"\1 have scored in \2 matches in a row"),
-        (r"^(.+?) conceded in (\d+) of (\d+)$", r"\1 have conceded in \2 of their last \3"),
-        (r"^(.+?) scored in (\d+) of (\d+)( home| away)? games?$", r"\1 have scored in \2 of their last \3\4 games"),
-        (r"^(.+?) scored in (\d+) of (\d+)$", r"\1 have scored in \2 of their last \3"),
-        (r"^(.+?) conceded in (\d+) of (\d+)( home| away)? games?$", r"\1 have conceded in \2 of their last \3\4 games"),
-        (r"^Over (\d\.\d) goals in (\d+) of (\d+)( home| away)? games?$", r"Over \1 goals has landed in \2 of their last \3\4 games"),
-        (r"^Over (\d\.\d) goals in (\d+) of (\d+)$", r"Over \1 goals has landed in \2 of their last \3"),
-        (r"^Both teams scored in (\d+) of (\d+)( home| away)? games?$", r"Both teams have scored in \1 of their last \2\3 games"),
-        (r"^Both teams scored in (\d+) of (\d+)$", r"Both teams have scored in \1 of their last \2"),
-    ):
-        if re.match(pat, t):
-            return tidy(re.sub(pat, fmt, t).replace("  ", " "))
-    return None
-
-
-def _best_trend(dos: dict, side: str, *, scoring_only: bool = False) -> str | None:
-    tr = ((dos.get("trends") or {}).get(side)) or {}
-    pool = [x for x in ((tr.get("venue") or []) + (tr.get("all") or [])) if isinstance(x, dict)
-            and x.get("kind") == "goals" and float(x.get("r") or 0) >= 0.8 and int(x.get("k") or 0) >= 6]
-    if scoring_only:
-        pool = [x for x in pool if re.search(r"\bscored\b", str(x.get("t")), re.I) and not re.search(r"both teams", str(x.get("t")), re.I)]
-    else:   # team-agnostic lines ("Over 1.5 goals in 8 of 10") are unclear without a subject
-        pool = [x for x in pool if re.match(r"^(?!over |both teams)", str(x.get("t")), re.I)]
-    pool.sort(key=lambda x: -float(x.get("s") or 0))
-    for x in pool:
-        sp = _trend_speech(x.get("t"))
-        if sp:
-            for nm in (dos.get("home"), dos.get("away")):
-                if nm:
-                    sp = sp.replace(str(nm), say(nm))
-            return sp[0].upper() + sp[1:] + "."
-    return None
+    return bs.meetings(dos), (dos.get("h2h_meta") or {})
 
 
 def _first_word(name) -> str:
@@ -341,93 +239,17 @@ def reputable_headlines(dos: dict, limit: int = 2) -> list[dict]:
 
 # ============================================================================ pick wording
 
-def _team_over05(label: str, dos: dict) -> str | None:
-    m = re.match(r"^(.+?)\s+over\s+0\.5\s+goals$", str(label or "").strip(), re.I)
-    if not m:
-        return None
-    t = m.group(1).strip().lower()
-    if t == str(dos.get("home") or "").strip().lower():
-        return "home"
-    if t == str(dos.get("away") or "").strip().lower():
-        return "away"
-    return None
-
-
-def spoken_market(best: dict, dos: dict) -> str:
-    label = str(best.get("label") or "the selection")
-    side = _team_over05(label, dos)
-    if side:
-        team = say(dos.get(side))
-        return f"{team} to score at least once, that's over 0.5 goals"
-    return reel.spoken_text(label)
-
-
-def _count_scored(l5: list[dict]) -> int:
-    return sum(1 for m in l5[:5] if m["gf"] > 0)
-
-
-def _count_conceded(l5: list[dict]) -> int:
-    return sum(1 for m in l5[:5] if m["ga"] > 0)
-
-
-def _reasons(dos: dict, best: dict) -> tuple[str, list[str]]:
-    """(spoken reason sentence, up to two short on-screen bullets). Data-backed only, never repeating a point."""
-    label = str(best.get("label") or "")
-    th, ta = ((dos.get("teams") or {}).get("home")) or {}, ((dos.get("teams") or {}).get("away")) or {}
-    lh, la = _l5(dos, "home"), _l5(dos, "away")
-    side = _team_over05(label, dos)
-    pieces: list[tuple[float, str, str, str]] = []   # (strength, spoken, bullet, topic)
-    if side:
-        me, opp = ("home", "away") if side == "home" else ("away", "home")
-        l_me, l_opp = (lh, la) if side == "home" else (la, lh)
-        t_me = th if side == "home" else ta
-        me_n, opp_n = say(dos.get(me)), say(dos.get(opp))
-        k = _count_scored(l_me)
-        if len(l_me) >= 5 and k >= 4:
-            sp = f"{me_n} have scored in all of their last five" if k == 5 else f"{me_n} have scored in {_w(k)} of their last five"
-            pieces.append((k, sp, f"{me_n} scored in {k} of last 5", "me_score"))
-        tr = _best_trend(dos, me, scoring_only=True)
-        if tr:
-            pieces.append((5.5, tr.rstrip("."), tr.rstrip("."), "me_score"))
-        vg = t_me.get("venue_gf")
-        if isinstance(vg, (int, float)) and vg >= 1.4:
-            where = "at home" if side == "home" else "away from home"
-            pieces.append((4.5, f"{me_n} are scoring {_num(vg)} a game {where}", f"{_num(vg)} goals/game {where}", "me_score"))
-        k2 = _count_conceded(l_opp)
-        if len(l_opp) >= 5 and k2 >= 4:
-            sp = f"{opp_n} have conceded in all of their last five" if k2 == 5 else f"{opp_n} have conceded in {_w(k2)} of their last five"
-            pieces.append((k2 - 0.1, sp, f"{opp_n} conceded in {k2} of last 5", "opp_concede"))
-    else:
-        o15 = re.search(r"over\s*1\.5", label, re.I)
-        o25 = re.search(r"over\s*2\.5", label, re.I)
-        key = "venue_o15" if o15 else "venue_o25" if o25 else None
-        line = "1.5" if o15 else "2.5"
-        if key and isinstance(th.get(key), (int, float)) and isinstance(ta.get(key), (int, float)):
-            pieces.append((6, f"over {line} has landed in {_pct(th[key])} of {_poss(say(dos.get('home')))} home games and "
-                              f"{_pct(ta[key])} of {_poss(say(dos.get('away')))} away games",
-                           f"Over {line}: {_pct(th[key])} at home · {_pct(ta[key])} away", "rate"))
-        for sd in ("home", "away"):
-            tr = _best_trend(dos, sd, scoring_only=True)
-            if tr:
-                pieces.append((5, tr.rstrip("."), tr.rstrip("."), f"trend_{sd}"))
-    pieces.sort(key=lambda p: -p[0])
-    top, seen = [], set()
-    for pc in pieces:
-        if pc[3] not in seen and len(top) < 2:
-            top.append(pc)
-            seen.add(pc[3])
-    if not top:
-        return "The numbers from both sides point the same way.", ["Form and venue numbers agree"]
-    spoken = top[0][1] if len(top) == 1 else f"{top[0][1]}, and {top[1][1]}"
-    return spoken[0].upper() + spoken[1:] + ".", [p[2] for p in top]
-
-
 # ============================================================================ selection
 
+def _league_key(x) -> str:
+    return re.sub(r"[^a-z0-9]", "", sp.ascii_fold(str(x or "")).lower())
+
+
 def _league_rank(country: str, league: str) -> int:
-    c, l = (country or "").strip().lower(), (league or "").strip().lower()
+    """Prestige order; spelling-proof ("La Liga" and "LaLiga" are the same league)."""
+    c, l = _league_key(country), _league_key(league)
     for i, (bc, bl) in enumerate(BIG_LEAGUE_PRIORITY):
-        if c == bc.lower() and (not bl or l == bl.lower()):
+        if c == _league_key(bc) and (not bl or l == _league_key(bl)):
             return i
     return len(BIG_LEAGUE_PRIORITY) + 10
 
@@ -490,169 +312,91 @@ def part_budgets(n_matches: int, cps: float = CHARS_PER_SEC) -> tuple[int, int, 
     slides = 2 + 3 * max(1, n_matches)
     speech_s = MAX_SECONDS - slides * reel.TAIL - 4.0
     per_match = (speech_s * cps - INTRO_CHARS - CLOSER_CHARS) / max(1, n_matches)
-    return int(per_match * 0.42), int(per_match * 0.34), int(per_match * 0.24)
+    return int(per_match * 0.35), int(per_match * 0.36), int(per_match * 0.29)
 
 
-def _assemble(items: list[tuple[int, str]], budget: int) -> str:
-    """items = [(priority, sentence)] in reading order. Keep the most important that fit; priority 0 is always kept."""
-    keep = {i for i, (p, _) in enumerate(items) if p == 0}
-    used = sum(len(items[i][1]) + 1 for i in keep)
-    for pr in (1, 2, 3):
-        for i, (p, s) in enumerate(items):
-            if p == pr and used + len(s) + 1 <= budget:
-                keep.add(i)
-                used += len(s) + 1
-    return " ".join(items[i][1] for i in sorted(keep))
+def spoken_market(best: dict, dos: dict) -> str:
+    return bs.spoken_market(best, dos)
 
 
-def _venue_sentence(team: str, t: dict, where: str) -> str | None:
-    if not isinstance(t.get("venue_gf"), (int, float)) or not isinstance(t.get("venue_ga"), (int, float)):
-        return None
-    tail = f", with over 1.5 goals in {_pct(t['venue_o15'])} of those games" if isinstance(t.get("venue_o15"), (int, float)) else ""
-    return f"{where}, it's {_num(t['venue_gf'])} scored and {_num(t['venue_ga'])} conceded per game{tail}."
+def _chooser(day: str | None, key: str) -> sp.Chooser:
+    return sp.Chooser(sp.seed_for(day or "", key))
 
 
-_POSS = {"Netherlands": "the Netherlands'", "United States": "the United States'", "Turkiye": "Turkey's"}
+def _a_text(dos: dict, idx: int, total: int, budget: int, ch: sp.Chooser | None = None, table: dict | None = None,
+            rot: int = 0) -> str:
+    ch = ch or _chooser(None, f"{dos.get('home')}|{dos.get('away')}")
+    return bs.assemble(bs.a_units(dos, idx, total, ch, table, rot), budget)
 
 
-def _country_phrase(country: str, league: str) -> str:
-    c, lg = str(country or "").strip(), reel.spoken_text(str(league or "").strip())
-    if not c or c.lower() == lg.lower():
-        return f"the {lg}"
-    poss = _POSS.get(c) or (f"{c}'" if c.endswith("s") else f"{c}'s")
-    the = "the " if lg in ("Bundesliga", "Eredivisie", "Championship", "Premier League", "Primeira Liga") else ""
-    return f"{poss} {the}{lg}".replace("' the ", "' ").replace("'s the ", "'s ")
+def _b_text(dos: dict, cards: list[dict] | None, table: dict | None, budget: int, ch: sp.Chooser | None = None,
+            facts: list[dict] | None = None) -> str:
+    ch = ch or _chooser(None, f"{dos.get('home')}|{dos.get('away')}")
+    structured = [c for c in (cards or []) if any(c.get(k) for k in ("out", "doubt", "susp", "back", "clear", "spoken"))]
+    heads = [] if structured else reputable_headlines(dos, limit=2)
+    return bs.assemble(bs.b_units(dos, structured, ch, headlines=heads, rest=_rest_days(dos), facts=facts), budget)
 
 
-def _opener(idx: int, total: int) -> str:
-    if idx == 1:
-        return "First up"
-    if idx == total:
-        return "And last up"
-    return ("Next", "Moving on", "Then", "Now to")[(idx - 2) % 4]
-
-
-_COME = ("come in", "arrive", "head into this one")
-
-
-def _a_text(dos: dict, idx: int, total: int, budget: int) -> str:
-    h, a = str(dos.get("home")), str(dos.get("away"))
-    th, ta = ((dos.get("teams") or {}).get("home")) or {}, ((dos.get("teams") or {}).get("away")) or {}
-    items: list[tuple[int, str]] = [(0, f"{_opener(idx, total)}, {_country_phrase(dos.get('country'), dos.get('league'))}: "
-                                       f"{say(h)} host {say(a)}, kicking off at {reel.spoken_kickoff(dos)}.")]
-    fh = _form_sentence(h, _l5(dos, "home"), _COME[idx % 3])
-    if fh:
-        items.append((1, fh))
-    vh = _venue_sentence(h, th, "At home")
-    if vh:
-        items.append((1, vh))
-    fa = _form_sentence(a, _l5(dos, "away"), _COME[(idx + 1) % 3])
-    if fa:
-        items.append((1, fa))
-    va = _venue_sentence(a, ta, "On the road")
-    if va:
-        items.append((1, va))
-    tr = _best_trend(dos, "away", scoring_only=True) or _best_trend(dos, "home", scoring_only=True)
-    if tr:
-        items.append((2, tr))
-    return _assemble(items, budget)
-
-
-def _b_text(dos: dict, cards: list[dict], table: dict | None, budget: int) -> str:
-    items: list[tuple[int, str]] = []
-    hs = _h2h_sentence(dos)
-    if hs:
-        items.append((1, hs))
-    else:
-        items.append((2, "These two haven't met in our recent archive."))
-    real = [c for c in cards if c.get("spoken")]
-    for c in real[:3]:
-        items.append((1, c["spoken"]))
-    if not real:
-        items.append((1, "There's no confirmed team news yet, and line-ups usually come about an hour before kick-off."))
-    if table and table.get("spoken"):
-        items.append((2, table["spoken"]))
-    rh, ra = _rest_days(dos)
-    if rh and ra:
-        h, a = say(dos.get("home")), say(dos.get("away"))
-        items.append((2, f"Both sides had {_w(rh)} days since their last game." if rh == ra else
-                      f"{h} have had {_w(rh)} days since their last game, {a} {_w(ra)}."))
-    w = _weather(dos)
-    if w:
-        items.append((3, w[1]))
-    return _assemble(items, budget)
-
-
-def _v_text(dos: dict, budget: int) -> tuple[str, list[str]]:
-    best = dos.get("_best_market") or {}
-    odds = best.get("odds")
-    od = f"{float(odds):.2f}" if isinstance(odds, (int, float)) else "N/A"
-    reason, bullets = _reasons(dos, best)
-    items = [(0, f"So, my pick for this one: {spoken_market(best, dos)}, at {od}."), (1, reason)]
-    return _assemble(items, budget), bullets
+def _v_text(dos: dict, budget: int, ch: sp.Chooser | None = None, idx: int = 1, reasons: list | None = None,
+            rot: int = 0) -> tuple[str, list[str]]:
+    ch = ch or _chooser(None, f"{dos.get('home')}|{dos.get('away')}")
+    items, bullets = bs.v_units(dos, ch, reasons, idx=idx, rot=rot)
+    return bs.assemble(items, budget), bullets
 
 
 def intro_text(matches: list[dict], day: str | None = None) -> str:
-    leagues: list[str] = []
-    for m in matches:
-        lg = reel.spoken_text(str(m.get("league") or ""))
-        lg = ("the " + lg) if lg in ("Bundesliga", "Eredivisie", "Championship", "Premier League", "Primeira Liga") else lg
-        if lg and lg not in leagues:
-            leagues.append(lg)
-    if len(leagues) > 1:
-        lst = ", ".join(leagues[:-1]) + " and " + leagues[-1]
-    else:
-        lst = leagues[0] if leagues else "tonight's games"
-    n = len(matches)
-    words = {3: "three", 4: "four", 5: "five", 6: "six", 7: "seven"}.get(n, str(n))
-    wk = _day_label(day, spoken=True)
-    return (
-        f"Hello and welcome back to PlayReport. It's {wk}, and we've got {words} matches to go through: {lst}. "
-        "For each one, it's recent form, the home and away numbers, head to head and the team news, and then I'll give you my pick. "
-        "Kick-off times are South African time. "
-        "First, the small print. This is statistical information, not betting advice. Bet responsibly. "
-        "Not for anyone under eighteen. Never bet money you can't afford to lose, and there's no such thing as a sure bet. "
-        "Right, let's get into it."
-    )
+    return bs.intro_text(matches, _day_label(day, spoken=True), _chooser(day, "intro"))
 
 
-def closer_text(matches: list[dict]) -> str:
-    n = len(matches)
-    words = {3: "three", 4: "four", 5: "five", 6: "six", 7: "seven"}.get(n, str(n))
-    return (
-        f"And that's the lot for tonight. All {words} picks are on your screen now, so grab a screenshot if you want them. "
-        "If you enjoyed this, give it a like, share it with a mate, and subscribe so you don't miss tomorrow's games. "
-        "A final reminder: this is statistical information, not betting advice. "
-        "Bet responsibly, eighteen plus only, and never bet more than you can afford to lose. "
-        "PlayReport. All rights reserved."
-    )
+def closer_text(matches: list[dict], day: str | None = None) -> str:
+    return bs.closer_text(matches, _chooser(day, "closer"))
+
+
+def _card_screen_text(c: dict) -> str:
+    """On-screen line for a structured team-news card (it says what the narration says)."""
+    parts = []
+    if not any(c.get(k) for k in ("out", "susp", "doubt")):
+        parts.append("No fresh injury concerns.")
+    for key, label in (("out", "Out"), ("susp", "Suspended"), ("doubt", "Doubtful"), ("back", "Back")):
+        if c.get(key):
+            parts.append(f"{label}: {', '.join(str(x) for x in c[key])}.")
+    return " ".join(parts) or str(c.get("note") or "No fresh injury concerns.")
 
 
 def _cards_from_headlines(dos: dict) -> list[dict]:
-    cards = []
-    for h in reputable_headlines(dos, limit=2):
-        title = h["text"]
-        who = h["team"] or "Match"
-        cards.append({"team": who, "text": title, "source": h["source"],
-                      "spoken": f"{_src_phrase(h['_src'])[0].upper() + _src_phrase(h['_src'])[1:]} headline: {title}."})
-    return cards
+    """On-screen cards for fresh headlines from reputable outlets (what is said comes from breakdown_script)."""
+    return [{"team": h["team"] or "Match", "text": h["text"], "source": h["source"]} for h in reputable_headlines(dos, limit=2)]
 
 
-def auto_pack(matches: list[dict], *, day: str | None = None, cps: float = CHARS_PER_SEC) -> dict:
-    """Default narration + on-screen text for every slide, generated from the data alone."""
+def auto_pack(matches: list[dict], *, day: str | None = None, cps: float = CHARS_PER_SEC, extras: dict | None = None) -> dict:
+    """Narration + on-screen text for every slide, written from the data alone.
+
+    `extras` (optional, keyed "Home|Away") carries sourced material found by hand: structured team-news `cards`
+    ({team, out[], doubt[], susp[], back[], source}), `table` ({home: "8th · 10 pts", away, source}), `facts`
+    ([{text, source, spoken}]), `reasons`, `stadium`, `photos`. Everything is still spoken in the same natural voice.
+    """
     n = len(matches)
     ba, bb, bv = part_budgets(n, cps)
-    pack = {"intro": intro_text(matches, day), "closer": closer_text(matches), "matches": []}
+    pack = {"intro": intro_text(matches, day), "closer": closer_text(matches, day), "matches": []}
+    rot = sp.seed_for(day or "", "rot") % 60
     for i, m in enumerate(matches, 1):
-        cards = _cards_from_headlines(m)
-        v, why = _v_text(m, bv)
+        key = f"{m.get('home')}|{m.get('away')}"
+        ex = (extras or {}).get(key) or {}
+        ch = _chooser(day, key)
+        cards = [dict(c) for c in (ex.get("cards") or [])]
+        for c in cards:
+            c.setdefault("text", _card_screen_text(c))
+        screen_cards = cards or _cards_from_headlines(m)
+        table = ex.get("table")
+        v, why = _v_text(m, bv, ch, i, ex.get("reasons"), rot)
         w = _weather(m)
         pack["matches"].append({
-            "key": f"{m.get('home')}|{m.get('away')}",
-            "a": _a_text(m, i, n, ba),
-            "b": _b_text(m, cards, None, bb),
-            "v": v, "why": why, "cards": cards, "table": None, "facts": [],
-            "weather": w[0] if w else None, "photos": [],
+            "key": key,
+            "a": _a_text(m, i, n, ba, ch, table, rot),
+            "b": _b_text(m, cards, table, bb, ch, ex.get("facts")),
+            "v": v, "why": ex.get("why") or why, "cards": screen_cards, "table": table,
+            "facts": [{k: f[k] for k in ("text", "source") if k in f} for f in (ex.get("facts") or [])],
+            "weather": w[0] if w else None, "photos": ex.get("photos") or [], "stadium": ex.get("stadium"),
         })
     return pack
 
@@ -791,12 +535,13 @@ def _crest(im, path: Path, dpx: int, x: int, y: int) -> None:
 
 
 def _photo(im, path: Path | None, box, *, caption: str = "", credit: str = "", r: int = 20, outline=CYAN) -> None:
-    """Framed, rounded, centre-cropped photo with an optional caption + credit strip."""
+    """Framed, rounded photo (cropped around the pitch when the centre would be mostly sky) with a caption + credit strip."""
     from PIL import Image, ImageDraw, ImageOps
     x0, y0, x1, y1 = box
     pw, ph = x1 - x0, y1 - y0
     try:
-        crop = ImageOps.fit(Image.open(path).convert("RGB"), (pw, ph), Image.Resampling.LANCZOS)
+        src = Image.open(path).convert("RGB")
+        crop = ImageOps.fit(src, (pw, ph), Image.Resampling.LANCZOS, centering=vphotos.pitch_centering(src, pw, ph))
     except Exception:  # noqa: BLE001
         crop = Image.new("RGB", (pw, ph), PANEL_BG)
     if caption or credit:
@@ -839,6 +584,11 @@ def _ko(m: dict) -> str:
 
 # ============================================================================ slides
 
+def _today_word(matches: list[dict]) -> str:
+    """"TONIGHT'S" only when every kick-off is in the evening, otherwise "TODAY'S" (the narration says the same)."""
+    return "TONIGHT'S" if sp.all_evening(str(m.get("kickoff") or "")[11:16] for m in matches) else "TODAY'S"
+
+
 def render_intro(matches, pk_matches, logo: Path, bg: Path, dest: Path, *, crests, photos, day_text: str, aspect="16:9") -> None:
     from PIL import Image, ImageDraw, ImageFilter
     cw, ch = reel._resolve_size(aspect)
@@ -852,7 +602,7 @@ def render_intro(matches, pk_matches, logo: Path, bg: Path, dest: Path, *, crest
         im.paste(Lz.filter(ImageFilter.GaussianBlur(12)), ((cw - 150) // 2, 128), Lz.filter(ImageFilter.GaussianBlur(12)))
         im.paste(Lz, ((cw - 150) // 2, 128), Lz)
         d = ImageDraw.Draw(im)
-        _ctext(d, cw // 2, 300, "TONIGHT'S MATCHES", _font(54), GREEN)
+        _ctext(d, cw // 2, 300, f"{_today_word(matches)} MATCHES", _font(54), GREEN)
         _ctext(d, cw // 2, 372, f"{day_text}  ·  {n} matches  ·  kick-offs in SAST", _font(24), GOLD, cw - 100)
         _ctext(d, cw // 2, 414, "Form  ·  Home & away  ·  Head to head  ·  Team news", _font(21, False), MUTED, cw - 100)
         card_h, gap, y = 192, 12, 470
@@ -875,7 +625,7 @@ def render_intro(matches, pk_matches, logo: Path, bg: Path, dest: Path, *, crest
         im.paste(Lz.filter(ImageFilter.GaussianBlur(12)), (90, 86), Lz.filter(ImageFilter.GaussianBlur(12)))
         im.paste(Lz, (90, 86), Lz)
         d = ImageDraw.Draw(im)
-        d.text((258, 92), "TONIGHT'S MATCHES", fill=GREEN, font=_font(54))
+        d.text((258, 92), f"{_today_word(matches)} MATCHES", fill=GREEN, font=_font(54))
         d.text((258, 160), f"{day_text}  ·  {n} matches  ·  kick-offs in SAST", fill=GOLD, font=_font(25))
         d.text((258, 198), "Form  ·  Home & away numbers  ·  Head to head  ·  Team news  ·  my pick at the end of every match", fill=MUTED, font=_font(20, False))
         cols = 3 if n <= 6 else 4
@@ -911,6 +661,14 @@ def render_intro(matches, pk_matches, logo: Path, bg: Path, dest: Path, *, crest
 def _table_str(pm: dict, side: str) -> str:
     t = (pm or {}).get("table") or {}
     return str(t.get(side) or "")
+
+
+def _form_title(lh: list[dict], la: list[dict]) -> str:
+    """"RECENT FORM · LAST FIVE", or the real number when the de-duplicated form lists are shorter."""
+    n = min(len(lh[:5]), len(la[:5]))
+    if len(lh[:5]) == len(la[:5]) and n:
+        return f"RECENT FORM  ·  LAST {sp.words(n).upper()}"
+    return "RECENT FORM"
 
 
 def render_board_a(m: dict, pm: dict, idx: int, total: int, bgp: Path, hb: Path, ab: Path, dest: Path, *,
@@ -959,7 +717,7 @@ def render_board_a(m: dict, pm: dict, idx: int, total: int, bgp: Path, hb: Path,
             if tb:
                 _ctext(d, cx, 398, tb, _font(18), GOLD, 320)
         _panel(d, (50, 462, cw - 50, 1010), outline=GREEN)
-        _ctext(d, cw // 2, 482, "RECENT FORM  ·  LAST FIVE", _font(23), GREEN)
+        _ctext(d, cw // 2, 482, _form_title(lh, la), _font(23), GREEN)
         d.rectangle((cw // 2 - 1, 530, cw // 2 + 1, 980), fill=BORDER_DIM)
         for x0, nm, lst, tt in ((82, h, lh, th), (cw // 2 + 28, a, la, ta)):
             d.text((x0, 526), _ellipsize(d, nm, _font(21), 400), fill=GOLD, font=_font(21))
@@ -1005,7 +763,7 @@ def render_board_a(m: dict, pm: dict, idx: int, total: int, bgp: Path, hb: Path,
             sf = _font(18, False)
             d.text((x0 if not right else x0 - _tw(d, sub, sf), 254), sub, fill=GOLD if tb else MUTED, font=sf)
         _panel(d, (80, 322, 935, 1000), outline=GREEN)
-        d.text((112, 344), "RECENT FORM  ·  LAST FIVE", fill=GREEN, font=_font(24))
+        d.text((112, 344), _form_title(lh, la), fill=GREEN, font=_font(24))
         d.rectangle((507, 392, 509, 972), fill=BORDER_DIM)
         for x0, nm, lst in ((112, h, lh), (534, a, la)):
             d.text((x0, 392), _ellipsize(d, nm, _font(22), 360), fill=GOLD, font=_font(22))
@@ -1056,12 +814,19 @@ def render_board_b(m: dict, pm: dict, idx: int, total: int, bgp: Path, hb: Path,
     p_use = p_img if p_img else bgp
 
     def h2h_block(x, y, w, max_h):
+        y_top = y
         f_s, f_m = _font(20), _font(21)
         if rows:
-            summ = f"{len(rows)} meeting{'s' if len(rows) != 1 else ''}  ·  avg {_num(meta.get('avg_goals'), 1)} goals  ·  BTTS {meta.get('btts', 0)}/{len(rows)}  ·  Over 1.5 {meta.get('o15', 0)}/{len(rows)}"
+            goals = [int(r["hg"]) + int(r["ag"]) for r in rows]
+            btts = sum(1 for r in rows if int(r["hg"]) > 0 and int(r["ag"]) > 0)
+            o15 = sum(1 for g in goals if g >= 2)
+            summ = (f"{len(rows)} meeting{'s' if len(rows) != 1 else ''}  ·  avg {sum(goals) / len(goals):.1f} goals  ·  "
+                    f"BTTS {btts}/{len(rows)}  ·  Over 1.5 {o15}/{len(rows)}")
             d.text((x, y), _ellipsize(d, summ, f_s, w), fill=GOLD, font=f_s)
             y += 38
-            for r in rows[:3]:
+            fact_h = 34 if facts else 0
+            n_rows = 3 if not facts else max(1, (max_h - 38 - fact_h) // 58)
+            for r in rows[:n_rows]:
                 line = f"{str(r.get('date'))[:10]}   {r.get('home')} {r.get('hg')}-{r.get('ag')} {r.get('away')}"
                 d.rounded_rectangle((x, y, x + w, y + 50), 11, fill=PANEL_BG)
                 d.text((x + 16, y + 12), _ellipsize(d, line, f_m, w - 32), fill=WHITE, font=f_m)
@@ -1069,10 +834,11 @@ def render_board_b(m: dict, pm: dict, idx: int, total: int, bgp: Path, hb: Path,
         else:
             d.text((x, y), "No meetings in the last 400 days  (N/A)", fill=WHITE, font=f_m)
             y += 40
+        y_end = y_top + max_h
         for fct in facts[:2]:
-            if y + 34 > y + max_h:
+            if y + 34 > y_end:                          # never let a line spill over the panel border
                 break
-            y = _para(d, x, y + 6, f"{fct['text']}  ({fct.get('source', '')})".replace("  ()", ""), 18, MUTED, w, 56, bold=False)
+            y = _para(d, x, y + 6, f"{fct['text']}  ({fct.get('source', '')})".replace("  ()", ""), 18, MUTED, w, min(56, y_end - y - 6), bold=False)
         return y
 
     def news_block(x, y, w, max_h, size=24):
@@ -1234,7 +1000,7 @@ def render_closer(matches, pack_matches, logo: Path, bg: Path, dest: Path, *, cr
     n = len(matches)
     if cw < ch:
         reel._wordmark(d, 52, width=cw)
-        _ctext(d, cw // 2, 130, f"TONIGHT'S {n} PICKS", _font(46), GREEN)
+        _ctext(d, cw // 2, 130, f"{_today_word(matches)} {n} PICKS", _font(46), GREEN)
         y, card_h, gap = 210, 200, 12
         for i, m in enumerate(matches, 1):
             best = m.get("_best_market") or {}
@@ -1253,7 +1019,7 @@ def render_closer(matches, pack_matches, logo: Path, bg: Path, dest: Path, *, cr
         _footer(d, cw, ch, "© PlayReport. All rights reserved. Unauthorised copying or re-upload is prohibited.", 112)
     else:
         reel._wordmark(d, 26, width=cw)
-        _ctext(d, cw // 2, 92, f"TONIGHT'S {n} PICKS", _font(42), GREEN)
+        _ctext(d, cw // 2, 92, f"{_today_word(matches)} {n} PICKS", _font(42), GREEN)
         y = 160
         row_h = 112 if n <= 6 else 98
         gap = 12
@@ -1351,14 +1117,14 @@ def align_boundaries(words: list[tuple[str, float, float]], parts: list[str]) ->
     return cuts
 
 
-def split_clip(src: Path, parts: list[str], dests: list[Path], ff: str) -> list[float]:
+def split_clip(src: Path, parts: list[str], dests: list[Path], ff: str, *, min_part: float = 2.0) -> list[float]:
     """Cut one narration clip into len(parts) clips exactly where each part begins."""
     total = reel._probe(src, ff)
     cuts = None
     words = asr_words(src, ff)
     if words:
         cuts = align_boundaries(words, parts)
-        if cuts and any(b - a < 2.0 for a, b in zip([0.0] + cuts, cuts + [total])):
+        if cuts and any(b - a < min_part for a, b in zip([0.0] + cuts, cuts + [total])):
             cuts = None
     if cuts is None:   # fallback: expected time by characters, snapped to the nearest pause
         sil = [(s, e) for s, e in _silences(src, ff) if 0.8 < s < total - 0.3]
@@ -1375,12 +1141,38 @@ def split_clip(src: Path, parts: list[str], dests: list[Path], ff: str) -> list[
     for c in cuts:
         near = [t for t in pauses if abs(t - c) <= 1.0]
         snapped.append(min(near, key=lambda t: abs(t - c)) if near else c)
-    if all(b - a >= 2.0 for a, b in zip([0.0] + snapped, snapped + [total])):
+    if all(b - a >= min_part for a, b in zip([0.0] + snapped, snapped + [total])):
         cuts = snapped
     edges = [0.0] + cuts + [total]
     for i, dest in enumerate(dests):
         reel._run([ff, "-y", "-i", str(src), "-ss", f"{edges[i]:.3f}", "-to", f"{edges[i + 1]:.3f}", "-ac", "1", "-ar", "44100", str(dest)], f"cut {i}")
     return cuts
+
+
+def _slice_clip(src: Path, texts: list[str], dests: list[Path], ff: str, polish: bool, seed: int) -> bool:
+    """One narration clip -> one 44.1 kHz wav per slide.
+
+    With `polish` the pauses are re-timed from the punctuation that caused them, sentences drift a little in pace and
+    level, and each slide is mastered to one loudness (see voice_polish). If that cannot be done safely the clip is cut
+    at its real pauses instead. Returns True when the polished version was used.
+    """
+    if polish:
+        try:
+            import voice_polish as vp
+            x = vp.read_audio(src, ff)
+            arrays = vp.polish_clip(x, texts, ff, words_fn=lambda: vp.asr_words(src, ff), seed=seed)
+            if arrays and len(arrays) == len(dests):
+                for a, d in zip(arrays, dests):
+                    vp.to_wav44(a, d, ff)
+                return True
+            log.warning("voice polish could not place the slides in %s; cutting at the real pauses instead", Path(src).name)
+        except Exception as exc:  # noqa: BLE001
+            log.warning("voice polish failed for %s (%s); cutting at the real pauses instead", Path(src).name, exc)
+    if len(texts) == 1:
+        reel._run([ff, "-y", "-i", str(src), "-ac", "1", "-ar", "44100", str(dests[0])], f"decode {Path(src).name}")
+    else:
+        split_clip(Path(src), texts, dests, ff)
+    return False
 
 
 # ============================================================================ build
@@ -1429,7 +1221,8 @@ def _gather_photos(matches: list[dict], pack: dict, work: Path, supplied: list |
 
 
 def prepare(matches: list[dict], *, assets: Path, work: Path | None = None, voice_clips: list[Path] | None = None,
-            pack: dict | None = None, photos: list | None = None, day: str | None = None) -> Prepared:
+            pack: dict | None = None, photos: list | None = None, day: str | None = None,
+            polish: bool | None = None, extras: dict | None = None) -> Prepared:
     """Do all the slow, shared work once: pack, photos, crests, narration audio (split per slide)."""
     matches = list(matches or [])[:MAX_MATCHES]
     if not matches:
@@ -1440,29 +1233,33 @@ def prepare(matches: list[dict], *, assets: Path, work: Path | None = None, voic
     for sub in ("audio", "crests", "venues", "slides"):
         (work / sub).mkdir(parents=True, exist_ok=True)
     logo = assets / "logo.png"
-    pack = pack or auto_pack(matches, day=day)
+    pack = pack or auto_pack(matches, day=day, extras=extras)
     pack["matches"] = pack["matches"][: len(matches)]
+    if polish is None:
+        import voice_polish as _vp
+        polish = _vp.enabled()
 
     # narration -> one wav per slide
     n = len(matches)
     raw: list[Path] = []
+    seed0 = sp.seed_for(day or "", "voice")
     if voice_clips is not None and len(voice_clips) == n + 2:
         r0 = work / "audio" / "raw000.wav"
-        reel._run([ff, "-y", "-i", str(voice_clips[0]), "-ac", "1", "-ar", "44100", str(r0)], "decode intro")
+        _slice_clip(Path(voice_clips[0]), [pack["intro"]], [r0], ff, polish, seed0)
         raw.append(r0)
         for i in range(n):
             pm = pack["matches"][i]
-            parts = [pm["a"], pm["b"], pm["v"]]
             dests = [work / "audio" / f"raw{1 + 3 * i + k:03d}.wav" for k in range(3)]
-            split_clip(Path(voice_clips[1 + i]), parts, dests, ff)
+            _slice_clip(Path(voice_clips[1 + i]), [pm["a"], pm["b"], pm["v"]], dests, ff, polish, seed0 + 1 + i)
             raw += dests
         rl = work / "audio" / f"raw{len(raw):03d}.wav"
-        reel._run([ff, "-y", "-i", str(voice_clips[-1]), "-ac", "1", "-ar", "44100", str(rl)], "decode closer")
+        _slice_clip(Path(voice_clips[-1]), [pack["closer"]], [rl], ff, polish, seed0 + 99)
         raw.append(rl)
     elif voice_clips is not None and len(voice_clips) == 3 * n + 2:
+        slide_texts = [sl["text"] for sl in _slides_for(matches, pack)]
         for i, vc in enumerate(voice_clips):
             r = work / "audio" / f"raw{i:03d}.wav"
-            reel._run([ff, "-y", "-i", str(vc), "-ac", "1", "-ar", "44100", str(r)], f"decode {i}")
+            _slice_clip(Path(vc), [slide_texts[i]], [r], ff, polish, seed0 + i)
             raw.append(r)
     elif voice_clips is None:
         for i, s in enumerate(_slides_for(matches, pack)):
@@ -1595,16 +1392,17 @@ def render(prep: Prepared, outfile: Path, aspect: str = "16:9") -> Path:
 
 def build_show(matches: list[dict], outfile: Path, *, assets: Path, work: Path | None = None, aspect: str = "16:9",
                voice_clips: list[Path] | None = None, pack: dict | None = None, photos: list | None = None,
-               day: str | None = None) -> Path:
-    return render(prepare(matches, assets=assets, work=work, voice_clips=voice_clips, pack=pack, photos=photos, day=day),
-                  outfile, aspect)
+               day: str | None = None, polish: bool | None = None, extras: dict | None = None) -> Path:
+    return render(prepare(matches, assets=assets, work=work, voice_clips=voice_clips, pack=pack, photos=photos, day=day,
+                          polish=polish, extras=extras), outfile, aspect)
 
 
 def build_show_both(matches: list[dict], out_16x9: Path, out_9x16: Path, *, assets: Path, work: Path | None = None,
                     voice_clips: list[Path] | None = None, pack: dict | None = None, photos: list | None = None,
-                    day: str | None = None) -> tuple[Path, Path, Prepared]:
+                    day: str | None = None, polish: bool | None = None, extras: dict | None = None) -> tuple[Path, Path, Prepared]:
     """Both aspect ratios from the SAME narration audio, photos and slides content."""
-    prep = prepare(matches, assets=assets, work=work, voice_clips=voice_clips, pack=pack, photos=photos, day=day)
+    prep = prepare(matches, assets=assets, work=work, voice_clips=voice_clips, pack=pack, photos=photos, day=day,
+                   polish=polish, extras=extras)
     return render(prep, out_16x9, "16:9"), render(prep, out_9x16, "9:16"), prep
 
 

@@ -39,6 +39,9 @@ _RESTRICTED = re.compile(r"(?:^|[\s-])(?:nc|nd)(?:[\s-]|$)", re.I)
 
 def _is_free_license(lic: str) -> bool:
     return bool(lic) and bool(_FREE_LICENSE.search(lic.strip())) and not _RESTRICTED.search(lic)
+_SENSITIVE_TITLE = re.compile(
+    r"national[ _]guard|protest|\briot|police|militar|soldier|\barmy\b|armou?red|swat\b|curfew|unrest|demonstrat|funeral|memorial|"
+    r"vigil|shooting|attack|bomb|crash|accident|flood|wildfire|covid|vaccin|quarantine|lockdown|evacuat|refugee|ambulance", re.I)
 _BAD_TITLE = re.compile(
     r"logo|crest|badge|emblem|flag|coat[ _]of|\bmap\b|plan\b|seating|diagram|ticket|poster|\bkit\b|shirt|"
     r"scarf|signature|banner|pictogram|icon|march|queue|\bbus\b|train|tram|station|\bsign\b|"
@@ -167,6 +170,8 @@ def _candidate_from_page(page: dict, *, lead: bool = False) -> dict | None:
     if w < MIN_WIDTH or h <= 0 or not (1.25 <= w / h <= 2.4):
         return None
     title = str(page.get("title") or "")
+    if _SENSITIVE_TITLE.search(title):
+        return None
     if not lead and _BAD_TITLE.search(title):
         return None
     artist = _strip_html((meta.get("Artist") or {}).get("value", "")) or _strip_html((meta.get("Credit") or {}).get("value", ""))
@@ -221,6 +226,55 @@ def _is_monochrome(path: Path) -> bool:
         return False
 
 
+def _pitch_share(path: Path) -> float:
+    """Share of grass-green pixels. A photo that shows the pitch scores well; sky, a floodlight mast or a facade does not."""
+    try:
+        import numpy as np
+        from PIL import Image
+        im = Image.open(path).convert("RGB")
+        im.thumbnail((200, 200))
+        hsv = np.asarray(im.convert("HSV"), dtype=np.float32)
+        hue, sat, val = hsv[..., 0] * 360.0 / 255.0, hsv[..., 1] / 255.0, hsv[..., 2] / 255.0
+        return float(((hue > 70) & (hue < 160) & (sat > 0.25) & (val > 0.20)).mean())
+    except Exception:  # noqa: BLE001
+        return 0.0
+
+
+PITCH_MIN = 0.06           # below this a photo is probably not showing the ground at all
+
+
+def pitch_centering(im, target_w: int, target_h: int) -> tuple[float, float]:
+    """Centering for ImageOps.fit that keeps the pitch in frame.
+
+    Only matters when the picture must be cropped vertically (a wide card cut from a tall photo) and the centred crop
+    would show little pitch (mostly sky): then the window slides to where the grass is. Otherwise the default centre."""
+    try:
+        import numpy as np
+        w, h = im.size
+        win_h = w * target_h / max(1, target_w)
+        if w <= 0 or h <= 0 or win_h >= h - 1:
+            return (0.5, 0.5)
+        small = im.convert("RGB")
+        small.thumbnail((240, 240))
+        sw, sh = small.size
+        hsv = np.asarray(small.convert("HSV"), dtype=np.float32)
+        hue, sat, val = hsv[..., 0] * 360.0 / 255.0, hsv[..., 1] / 255.0, hsv[..., 2] / 255.0
+        rows = ((hue > 70) & (hue < 160) & (sat > 0.25) & (val > 0.20)).astype(np.float32).mean(axis=1)
+        win = max(1, int(round(win_h * sh / h)))
+        cum = np.concatenate([[0.0], np.cumsum(rows)])
+        centre_top = (sh - win) // 2
+        if (cum[centre_top + win] - cum[centre_top]) / win >= 0.12:
+            return (0.5, 0.5)                                    # the usual crop already shows plenty of pitch
+        best, best_top = -1.0, centre_top
+        for top in range(0, sh - win + 1):
+            score = (cum[top + win] - cum[top]) / win - 0.05 * abs((top + win / 2) / sh - 0.5)
+            if score > best:
+                best, best_top = score, top
+        return (0.5, best_top / max(1, sh - win))
+    except Exception:  # noqa: BLE001
+        return (0.5, 0.5)
+
+
 def credit_line(c: dict) -> str:
     """Short on-screen / caption credit, e.g. 'Photo: Jane Doe / CC BY-SA 4.0 / Wikimedia Commons'."""
     return f"Photo: {c.get('artist')} / {c.get('license')} / Wikimedia Commons"
@@ -267,17 +321,35 @@ def venue_photos(team: str, dest_dir: Path, n: int = 3) -> list[dict]:
             cands.extend(c for c in rest if c["title"] not in seen)
     except Exception as exc:  # noqa: BLE001
         log.info("category photo lookup failed for %s: %s", team, exc)
-    out: list[dict] = []
+    # Try a few more candidates than we need and prefer the ones that actually show the pitch (first in the original
+    # order, so the curated lead image still wins when it is a good picture of the ground).
+    kept: list[tuple[int, float, dict, Path]] = []
     slug = _norm(team).replace(" ", "_") or "venue"
-    for c in cands:
-        if len(out) >= n:
+    for i, c in enumerate(cands[: max(n * 4, 8)]):
+        dest = dest_dir / f"{slug}_c{i + 1}.jpg"
+        if not _download(c["url"], dest):
+            continue
+        if _is_monochrome(dest):
+            dest.unlink(missing_ok=True)
+            continue
+        share = _pitch_share(dest)
+        kept.append((i, share, c, dest))
+        if len([k for k in kept if k[1] >= PITCH_MIN]) >= n:
             break
-        dest = dest_dir / f"{slug}_{len(out) + 1}.jpg"
-        if _download(c["url"], dest):
-            if _is_monochrome(dest):
-                dest.unlink(missing_ok=True)
-                continue
+    kept.sort(key=lambda k: (k[1] < PITCH_MIN, k[0]))
+    if any(k[1] >= PITCH_MIN for k in kept):
+        for k in [k for k in kept if k[1] < PITCH_MIN]:
+            k[3].unlink(missing_ok=True)
+        kept = [k for k in kept if k[1] >= PITCH_MIN]
+    out: list[dict] = []
+    for _, _share, c, tmp in kept:
+        if len(out) < n:
+            dest = dest_dir / f"{slug}_{len(out) + 1}.jpg"
+            if tmp != dest:
+                tmp.replace(dest)
             out.append({"path": dest, "credit": credit_line(c), "title": c["title"], "stadium": display_name(info.get("name") or "")})
+        else:
+            tmp.unlink(missing_ok=True)
     return out
 
 

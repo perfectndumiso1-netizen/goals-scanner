@@ -41,18 +41,26 @@ def test_pick_script_has_competition_not_model():
         "odds": 1.2, "p": 0.91, "kickoff": "2026-10-15 18:45",
         "country": "Europa League", "league": "League Stage",
     })
-    assert "Europa League, League Stage" in s
-    assert "Lyon versus Crystal Palace" in s
-    assert "1.20" in s
-    assert "Kick-off" in s
-    assert "percent" not in s.lower()
-    assert "model" not in s.lower()
+    assert "Europa League" in s and "league stage" in s              # country / competition on every pick
+    assert "Lyon" in s and "Crystal Palace" in s
+    assert "Lyon to score at least once" in s and "1.20" in s
+    assert "quarter to seven tonight" in s                           # kick-off, said the way people say it
+    assert "percent" not in s.lower() and "model" not in s.lower() and "%" not in s
+    assert "versus" not in s.lower() and "Kick-off," not in s       # no table-reading
+
+
+def test_pick_scripts_vary_from_one_pick_to_the_next():
+    picks = [{"home": f"H{i}", "away": f"A{i}", "label": "Over 1.5 goals", "odds": 1.2, "kickoff": "2026-10-15 18:45",
+              "country": "Spain", "league": "LaLiga"} for i in range(5)]
+    lines = [reel.pick_script(p, i, 5) for i, p in enumerate(picks, 1)]
+    openers = [x.split(" Spain")[0] for x in lines]
+    assert all(a != b for a, b in zip(openers, openers[1:]))
+    assert lines[0].startswith(("First up", "To start", "Let's begin")) and lines[-1].startswith(("And finally", "Last one", "And to finish"))
 
 
 def test_disclaimer_and_closer_scripts():
-    assert "18" in reel.DISCLAIMER_SCRIPT
-    assert "sure bet" in reel.DISCLAIMER_SCRIPT.lower()
-    assert "afford to lose" in reel.DISCLAIMER_SCRIPT
+    d = reel.DISCLAIMER_SCRIPT.lower()
+    assert "eighteen" in d and "sure bet" in d and "afford to lose" in d and "not betting advice" in d
     assert "like" in reel.CLOSER_SCRIPT.lower()
     assert "subscribe" in reel.CLOSER_SCRIPT.lower()
     assert "All rights reserved" in reel.CLOSER_SCRIPT
@@ -319,11 +327,11 @@ def test_yesterday_results_recap_starts_before_todays_selections(monkeypatch, tm
 
     assert slide_order == ["intro", "disclaimer", "results", "pick", "closer"]
     assert len(spoken_scripts) == 5
-    assert "Yesterday's shortlist results. 1 of 2 selections won." in spoken_scripts[2]
-    assert "Flamengo versus Botafogo, Over 1.5 goals, won, 2 to 1." in spoken_scripts[2]
+    assert "look back at yesterday" in spoken_scripts[2] and "We went one from two." in spoken_scripts[2]
+    assert "Flamengo against Botafogo" in spoken_scripts[2] and "two-one" in spoken_scripts[2]
     assert "Now, today's shortlist." in spoken_scripts[2]
-    assert "percent" not in spoken_scripts[2].lower()
-    assert "Lyon versus Crystal Palace" in spoken_scripts[3]
+    assert "percent" not in spoken_scripts[2].lower() and "%" not in spoken_scripts[2]
+    assert "Lyon" in spoken_scripts[3] and "Crystal Palace" in spoken_scripts[3]
 
 
 def test_shortlist_yesterday_results_extraction():

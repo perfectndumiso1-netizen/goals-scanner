@@ -8,6 +8,7 @@ from pathlib import Path
 import pytest
 from PIL import Image, ImageDraw
 
+import breakdown_script as bs
 import match_breakdown as mb
 import shortlist_reel as reel
 
@@ -100,8 +101,10 @@ def test_auto_pack_never_advertises_how_it_was_made_and_never_spoils_the_picks()
     intro = pack["intro"].lower()
     assert "eighteen" in intro and "not betting advice" in intro and "sure bet" in intro      # disclaimer read aloud
     assert not re.search(r"over \d|\d\.\d\d|at least once", intro)                           # no picks up front
-    assert all("my pick" in pm["v"] for pm in pack["matches"])
-    assert all("my pick" not in pm["a"] + pm["b"] for pm in pack["matches"])                  # reveal comes last
+    lead = re.compile(r"my pick|i'm going with|the one i like", re.I)
+    assert all(lead.search(pm["v"]) for pm in pack["matches"])
+    assert not any(lead.search(pm["a"] + " " + pm["b"]) for pm in pack["matches"])           # the reveal comes last
+    assert not any(re.search(r"at least once|over (one|two) and a half|\d\.\d\d", pm["a"] + " " + pm["b"]) for pm in pack["matches"])
     assert re.search(r"\b(subscribe)\b", pack["closer"]) and "All rights reserved" in pack["closer"]
 
 
@@ -110,7 +113,7 @@ def test_every_part_names_country_and_league_and_budgets_hold():
     pack = mb.auto_pack(ms, day="2026-10-16")
     ba, bb, bv = mb.part_budgets(6)
     for m, pm in zip(ms, pack["matches"]):
-        assert m["league"] in pm["a"] or m["league"].replace("ü", "u") in pm["a"]
+        assert bs.league_name(m["league"]) in pm["a"]
         assert len(pm["a"]) <= ba + 90 and len(pm["b"]) <= bb + 110 and len(pm["v"]) <= bv + 90
 
 
@@ -136,8 +139,8 @@ def test_overrides_fill_odds_and_pick_from_the_live_snapshot():
     pack = mb.auto_pack(ms, day="2026-10-16")
     ov = {"matches": [{"key": "Home0|Away0", "v": "So, my pick for this one: {pick}, at {odds}. Fine.", "why": ["x"]}]}
     out = mb.apply_overrides(pack, ov, ms)
-    assert out["matches"][0]["v"] == "So, my pick for this one: Home0 to score at least once, that's over 0.5 goals, at 1.20. Fine."
-    assert out["matches"][1]["v"].startswith("So, my pick")          # untouched match keeps its auto text
+    assert out["matches"][0]["v"] == "So, my pick for this one: Home0 to score at least once, at 1.20. Fine."
+    assert "to score at least once, at 1.21" in out["matches"][1]["v"]          # untouched match keeps its auto text
 
 
 # ------------------------------------------------------------------ audio alignment

@@ -46,7 +46,7 @@ BADGE_BASE = "https://lsm-static-prod.livescore.com/medium/"
 TAIL = 0.70          # extra hold after speech so the next match never appears mid-sentence
 INTRO_MIN = 5.0      # logo sting, seconds
 MAX_PICKS = 7
-MAX_TOTAL = 120.0
+MAX_TOTAL = 150.0
 # Ultra-realistic neural British male voices (CI/local), with male eSpeak-NG as emergency fallback.
 EDGE_TTS_VOICE = "en-GB-RyanNeural"
 EDGE_TTS_RATE = "-4%"
@@ -56,14 +56,14 @@ ESPEAK_VOICE = "en-gb"
 ESPEAK_SPEED = 150
 ESPEAK_PITCH = 40
 
-INTRO_SCRIPT = "PlayReport. Today's shortlist."
+INTRO_SCRIPT = "PlayReport. Here's today's shortlist."
 DISCLAIMER_SCRIPT = (
-    "Statistical information, not betting advice. Bet responsibly. "
-    "Not for persons under the age of 18. Do not bet with money you cannot afford to lose. "
-    "There is no such thing as a sure bet."
+    "Quick note before we start. This is statistical information, not betting advice. "
+    "It's eighteen plus only, so please bet responsibly. "
+    "Never use money you can't afford to lose, and remember, there's no such thing as a sure bet."
 )
 CLOSER_SCRIPT = (
-    "If this helped, like, share, or subscribe for tomorrow's list. "
+    "If this helped, give it a like, share it with a mate, and subscribe for tomorrow's list. "
     "PlayReport. All rights reserved."
 )
 
@@ -628,12 +628,70 @@ def spoken_text(text: str) -> str:
     return out
 
 
+_SENT_SPLIT = re.compile(r"(?<=[.!?])\s+")
+
+
+def _edge_sentence(sentence: str, edge_py: str, dest: Path) -> bool:
+    """One sentence through the Edge neural voice into `dest` (an mp3). False on any failure."""
+    voice = os.environ.get("EDGE_TTS_VOICE") or EDGE_TTS_VOICE
+    rate = os.environ.get("EDGE_TTS_RATE") or EDGE_TTS_RATE
+    pitch = os.environ.get("EDGE_TTS_PITCH") or EDGE_TTS_PITCH
+    cmd = [edge_py, "-m", "edge_tts", "--voice", voice, f"--rate={rate}", f"--pitch={pitch}", "--text", sentence, "--write-media", str(dest)]
+    r = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, timeout=45)
+    return r.returncode == 0 and dest.exists() and dest.stat().st_size > 200
+
+
+def _polished_edge(clean: str, wav: Path, edge_py: str) -> bool:
+    """Speak a script sentence by sentence and join it the way a person paces it (see voice_polish). False -> use the plain voice."""
+    try:
+        import voice_polish as vp
+        from concurrent.futures import ThreadPoolExecutor
+
+        if not vp.enabled():
+            return False
+        sents = [s for s in _SENT_SPLIT.split(clean.strip()) if s]
+        if not sents:
+            return False
+        ff = _ffmpeg()
+        tmp = wav.parent / (wav.stem + ".sent")
+        tmp.mkdir(parents=True, exist_ok=True)
+        try:
+            paths = [tmp / f"s{i:02d}.mp3" for i in range(len(sents))]
+            with ThreadPoolExecutor(max_workers=4) as pool:
+                ok = list(pool.map(lambda a: _edge_sentence(a[0], edge_py, a[1]), zip(sents, paths)))
+            if not all(ok):
+                return False
+            clips = [vp.read_audio(p, ff) for p in paths]
+            if any(len(c) < 2400 for c in clips):
+                return False
+            kinds = ["colon" if s.rstrip().endswith(":") else "sentence" for s in sents]
+            track = vp.polish_sentences(clips, kinds, ff, seed=hash_seed(clean))
+            vp.to_wav44(track, wav, ff)
+            return wav.exists()
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+    except Exception as exc:  # noqa: BLE001
+        log.warning("voice polish skipped, using the plain voice: %s", exc)
+        return False
+
+
+def hash_seed(text: str) -> int:
+    import hashlib
+    return int(hashlib.sha1(text.encode("utf-8")).hexdigest()[:10], 16)
+
+
 def synthesize_speech(text: str, wav: Path) -> None:
-    """Use ultra-realistic male neural TTS (Edge-TTS RyanNeural or Piper Alan medium), with male eSpeak-NG fallback."""
+    """Use ultra-realistic male neural TTS (Edge-TTS RyanNeural or Piper Alan medium), with male eSpeak-NG fallback.
+
+    The neural voice is spoken sentence by sentence and re-paced like a person (varied pauses, a little tempo and level
+    drift, warmth, room) by `voice_polish`; if that cannot run, the plain single-call voice is used.
+    """
     wav.parent.mkdir(parents=True, exist_ok=True)
     clean = spoken_text(text)
 
     edge_py = os.environ.get("EDGE_TTS_PYTHON")
+    if edge_py and Path(edge_py).is_file() and _polished_edge(clean, wav, edge_py):
+        return
     if edge_py and Path(edge_py).is_file():
         voice = os.environ.get("EDGE_TTS_VOICE") or EDGE_TTS_VOICE
         rate = os.environ.get("EDGE_TTS_RATE") or EDGE_TTS_RATE
@@ -681,8 +739,23 @@ def synthesize_speech(text: str, wav: Path) -> None:
         raise RuntimeError(f"espeak failed: {r.stdout[-400:]}")
 
 
+ROOM_TONE_DB = -41.0     # level trim of the brown-noise bed (comes out near -62 dBFS, far below any speech)
+
+
 def pad_audio(src: Path, dest: Path, duration: float, ff: str) -> None:
-    """Force a clip to `duration` seconds (pad with silence, never trim speech)."""
+    """Force a clip to `duration` seconds without ever trimming speech.
+
+    The hold after the speech is filled with a very quiet room tone rather than perfect digital silence: dead air is one
+    of the things that makes a synthetic narration sound synthetic. Falls back to plain silence if ffmpeg lacks the filters.
+    """
+    graph = (f"[0:a]apad=whole_dur={duration:.3f}[v];[1:a]lowpass=f=3200,highpass=f=50,volume={ROOM_TONE_DB}dB[n];"
+             f"[v][n]amix=inputs=2:duration=first:normalize=0:dropout_transition=0[o]")
+    try:
+        _run([ff, "-y", "-i", str(src), "-f", "lavfi", "-i", "anoisesrc=color=brown:amplitude=0.5:sample_rate=44100",
+              "-filter_complex", graph, "-map", "[o]", "-t", f"{duration:.3f}", "-ac", "1", "-ar", "44100", str(dest)], "pad+tone")
+        return
+    except Exception as exc:  # noqa: BLE001
+        log.info("room tone unavailable, padding with silence: %s", exc)
     _run([
         ff, "-y", "-i", str(src), "-af", f"apad=whole_dur={duration:.3f}",
         "-t", f"{duration:.3f}", str(dest),
@@ -720,14 +793,27 @@ def spoken_kickoff(p: dict) -> str:
     return ko
 
 
-def pick_script(p: dict) -> str:
-    home, away = p.get("home") or "", p.get("away") or ""
-    label = p.get("label") or "the selection"
+_PICK_OPEN_FIRST = ("First up,", "To start,", "Let's begin with")
+_PICK_OPEN_MID = ("Next,", "Then,", "Now,", "After that,", "Moving on to")
+_PICK_OPEN_LAST = ("And finally,", "Last one:", "And to finish,")
+_PICK_LEAD = ("I like", "My pick is", "I'm going with", "The pick here is")
+_HOSTS = ("host", "welcome", "are at home to")
+
+
+def pick_script(p: dict, idx: int = 1, total: int = 1) -> str:
+    """One pick as it is said: country and league, the match, kick-off, then the selection and price."""
+    import spoken as sp
+
+    home, away = str(p.get("home") or ""), str(p.get("away") or "")
     odds = p.get("odds")
-    od = f"{odds:.2f}" if isinstance(odds, (int, float)) else "N/A"
-    comp = ", ".join(x for x in (str(p.get("country") or "").strip(), str(p.get("league") or "").strip()) if x)
-    head = f"{comp}. " if comp else ""
-    return f"{head}{home} versus {away}. {label}, at {od}. Kick-off, {spoken_kickoff(p)}."
+    od = f"{float(odds):.2f}" if isinstance(odds, (int, float)) else "N/A"
+    opens = _PICK_OPEN_FIRST if idx <= 1 else _PICK_OPEN_LAST if idx >= total > 1 else _PICK_OPEN_MID
+    place = sp.competition(p.get("country"), p.get("league"))
+    ko = sp.kickoff(str(p.get("kickoff") or "")[11:16])
+    match = f"{sp.team(home)} {_HOSTS[idx % len(_HOSTS)]} {sp.team(away)}" + (f" {ko}" if ko else "")
+    market = sp.market_phrase(p.get("label"), home, away)
+    head = f"{opens[idx % len(opens)]} {place}." if place else f"{opens[idx % len(opens)]}"
+    return f"{head} {match}. {_PICK_LEAD[idx % len(_PICK_LEAD)]} {market}, at {od}."
 
 
 def reel_results(yesterday: dict | list | None) -> list[dict]:
@@ -743,28 +829,46 @@ def reel_results(yesterday: dict | list | None) -> list[dict]:
     return chosen[:MAX_PICKS]
 
 
+def _score_words(raw) -> str:
+    import spoken as sp
+
+    m = re.match(r"^\s*(\d+)\s*[-:]\s*(\d+)\s*$", str(raw or ""))
+    return sp.score(int(m.group(1)), int(m.group(2))) if m else ""
+
+
 def results_script(results: list[dict]) -> str:
-    """Spoken narration for yesterday's shortlist results slide — factual, no model probabilities."""
+    """Yesterday's settled picks as a short, spoken look back. Factual, no model probabilities."""
+    import spoken as sp
+
     rows = reel_results(results)
     if not rows:
         return ""
     settled = [r for r in rows if r.get("result") in ("hit", "miss")]
     hits = sum(1 for r in settled if r.get("result") == "hit")
-    lead = (
-        f"Yesterday's shortlist results. {hits} of {len(settled)} selections won. "
-        if settled
-        else "Yesterday's shortlist results. "
-    )
+    n = len(settled)
+    if not n:
+        count = ""
+    elif hits == n:
+        count = "It landed." if n == 1 else f"A clean sweep, {sp.words(hits)} from {sp.words(n)}."
+    elif hits == 0:
+        count = "A tough one, with none landing." if n == 1 else f"A tough one, none of the {sp.words(n)} landed."
+    else:
+        count = f"We went {sp.words(hits)} from {sp.words(n)}."
     parts = []
-    for r in rows:
+    for i, r in enumerate(rows):
         home, away = r.get("home") or "", r.get("away") or ""
-        label = r.get("label") or r.get("sel") or "selection"
+        h, a = sp.team(home), sp.team(away)
+        mk = sp.market_phrase(r.get("label") or r.get("sel") or "the selection", home, away)
+        sc = _score_words(r.get("score"))
         res = str(r.get("result") or "").lower()
-        verdict = "won" if res == "hit" else "lost" if res == "miss" else "void"
-        sc = str(r.get("score") or "").strip().replace("-", " to ")
-        score_bit = f", {sc}" if sc else ""
-        parts.append(f"{home} versus {away}, {label}, {verdict}{score_bit}.")
-    return lead + " ".join(parts) + " Now, today's shortlist."
+        tail = f", {sc}" if sc else ""
+        if res == "hit":
+            parts.append((f"{h} against {a}: {mk} came in{tail}.", f"{h} against {a}, {mk}, landed{tail}.")[i % 2])
+        elif res == "miss":
+            parts.append((f"{h} against {a}: {mk} missed{tail}.", f"{sp.cap(mk)} didn't come in for {h} against {a}{tail}.")[i % 2])
+        else:
+            parts.append(f"{h} against {a} was void.")
+    return " ".join(x for x in ("First, a quick look back at yesterday.", count, " ".join(parts), "Now, today's shortlist.") if x)
 
 
 def is_reel_market(p: dict) -> bool:
@@ -854,7 +958,7 @@ def build(picks: list, outfile: Path, *, assets: Path, work: Path | None = None,
             p_img = slides_dir / f"p{i:02d}.jpg"
             render_pick(p, i, n, bgs[i % 3], hb, ab, p_img)
             images.append(p_img)
-            texts.append(pick_script(p))
+            texts.append(pick_script(p, i, n))
 
         render_closer(logo, bgs[2], slides_dir / "closer.jpg")
         images.append(slides_dir / "closer.jpg")
