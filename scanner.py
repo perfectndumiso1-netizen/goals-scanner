@@ -44,7 +44,7 @@ import shutil
 import tempfile
 import time
 from dataclasses import dataclass, field
-from datetime import datetime, time, timedelta
+from datetime import datetime, time as dtime, timedelta
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
@@ -3397,7 +3397,7 @@ def main() -> None:
         # user rule (2026-10-10): the shortlist is for THAT day only — nothing from tomorrow on.
         # keep app_end's tzinfo: CI runs tz-aware (SAST); a naive end-of-day would break the comparison
         _app_end = ctx["app_end"]
-        sl_end = min(_app_end, datetime.combine(now.date(), time(23, 59), tzinfo=getattr(_app_end, "tzinfo", None)))
+        sl_end = min(_app_end, datetime.combine(now.date(), dtime(23, 59), tzinfo=getattr(_app_end, "tzinfo", None)))
         sl_board = shortlist_mod.build(rows, now, sl_end, cal_map=cal_map)
         sl_book, sl_new = shortlist_mod.record(sl_book, sl_board, now)
         SHORTLIST_FILE.parent.mkdir(parents=True, exist_ok=True)
