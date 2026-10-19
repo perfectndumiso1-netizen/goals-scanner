@@ -302,6 +302,36 @@
     const bd = $('#btn-briefing-dl'); if (bd) bd.onclick = () => PR.push({ type: 'briefing', download: true });
   };
 
+
+  PR.views.x12 = function () {
+    const d = state.data; const sl = d.shortlist || {}; const rows = sl.x12 || [];
+    const R = sl.rules || {};
+    const parts = [];
+    parts.push(`<div class="hero-row"><div><div class="kicker">Match result</div><h1>1X2</h1></div><span class="quality">today only</span></div>`);
+    parts.push(`<div class="card compact"><div class="b">Home, draw or away — one pick per match</div><div class="tiny muted">Independent of the Shortlist winner. Model bar 60%. Sportybet prices ${f2(1.20)}–${f2(3.50)}. Overs-side policy still applies (no double chance). Statistical information, not betting advice. 18+.</div></div>`);
+    if (!sl.counts) {
+      parts.push(`<div class="card empty">The 1X2 board appears after the next analysis run (every 30 minutes).</div>`);
+      view().innerHTML = parts.join('');
+      return;
+    }
+    const na = (v, f) => (v == null ? 'N/A' : f(v));
+    const card = (x) => `<div class="card compact tap" data-fx="${esc(x.fixture || '')}">
+      <div class="row"><span class="pill hi">#${x.rank}</span><div class="grow"><div class="b">${esc(x.home)} v ${esc(x.away)}</div><div class="tiny muted">${flag(x.country)} ${esc(x.league)} · ${esc(koShort(x.kickoff))}</div></div></div>
+      <div class="b" style="margin-top:6px">🏆 ${esc(x.label)} @ ${na(x.odds, f2)}</div>
+      <table class="tbl" style="margin-top:4px">
+        <tr><td>Model probability</td><td class="right b">${pct(x.p)}</td></tr>
+        <tr><td>Bookmaker implied (margin removed)</td><td class="right">${na(x.p_sb, pct)}</td></tr>
+        <tr><td>Data quality · confidence</td><td class="right">${esc(x.quality)} · ${esc(x.confidence)}</td></tr></table>
+      <div class="row" style="justify-content:flex-end;margin-top:6px">${PR.addBtn && x.odds ? PR.addBtn(x.fixture, x.sel, x.odds) : ''}</div></div>`;
+    if (rows.length) {
+      parts.push(`<div class="card compact mk-rail result"><div class="comp-head">🏆 Match result · ${rows.length}</div>${rows.map(card).join('')}</div>`);
+    } else {
+      parts.push(`<div class="card empty small"><b>NO QUALIFYING 1X2 SELECTIONS.</b> Nothing cleared the 60% bar with a verified Sportybet price in ${f2(1.20)}–${f2(3.50)}.</div>`);
+    }
+    parts.push(`<div class="card tiny muted"><b>How 1X2 is built</b> — every analysed match is screened for home / draw / away. One selection per match (the strongest 1X2). This tab does not steal slots from Over 2.5 or BTTS on the Shortlist. Not an instruction to bet.</div>`);
+    view().innerHTML = parts.join('');
+  };
+
   // ------------------------------------------------------------------ SEQUENCES: the user's betting windows
   // "I bet in the morning for matches playing 7-12, 12-16, 16-20 and 20-midnight." The Sequences tab is
   // the day's SHORTLIST split into those windows — the exact same rule-approved picks (every gate of
@@ -844,6 +874,7 @@
       row('trophy', 'Leagues', 'Worldwide competitions', 'data-tab-go="leagues"'),
       row('tag', 'Low odds', 'Sportybet prices from 1.19 to 1.45', 'data-tab-go="lowodds"'),
       row('target', 'Shortlist', 'Today’s high-conviction picks · grouped by market', 'data-tab-go="shortlist"'),
+      row('star', '1X2', 'Match result · home, draw or away · today', 'data-tab-go="x12"'),
       row('clock', 'Sequences', 'Your betting windows · today’s matches', 'data-tab-go="sequences"'),
     ]));
     parts.push(group('Model & results', [

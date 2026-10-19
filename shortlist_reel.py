@@ -45,8 +45,8 @@ CARD_BG = (8, 22, 38)
 BADGE_BASE = "https://lsm-static-prod.livescore.com/medium/"
 TAIL = 0.70          # extra hold after speech so the next match never appears mid-sentence
 INTRO_MIN = 5.0      # logo sting, seconds
-MAX_PICKS = 7
-MAX_TOTAL = 150.0
+MAX_PICKS = 12
+MAX_TOTAL = 240.0
 # Ultra-realistic neural British male voices (CI/local), with male eSpeak-NG as emergency fallback.
 EDGE_TTS_VOICE = "en-GB-RyanNeural"
 EDGE_TTS_RATE = "-4%"
@@ -517,6 +517,35 @@ def render_pick(pick: dict, i: int, n: int, bg: Path, home_b: Path, away_b: Path
     im.convert("RGB").save(dest, quality=92)
 
 
+def render_acca(group: dict, idx: int, total: int, bg: Path, dest: Path, logo: Path) -> None:
+    """One treble: three legs and the combined Sportybet price."""
+    from PIL import Image, ImageDraw
+    cw, ch = _ACTIVE_SIZE
+    im = _cover(bg, 0.58, size=(cw, ch))
+    d = ImageDraw.Draw(im)
+    _wordmark(d, 50 if cw > ch else 90, width=cw)
+    title = f"TREBLE  {idx} OF {total}"
+    d.text(((cw - _tw(d, title, _font(28, True))) // 2, 140 if cw > ch else 180), title, fill=GREEN, font=_font(28, True))
+    legs = group.get("legs") or []
+    comb = group.get("combined")
+    od = f"{comb:.2f}" if isinstance(comb, (int, float)) else "N/A"
+    box_top = 210 if cw > ch else 280
+    y = box_top
+    for i, p in enumerate(legs, 1):
+        line1 = f"{i}. {p.get('home') or ''}  v  {p.get('away') or ''}"
+        line2 = f"{p.get('label') or ''}   @   {p.get('odds') if p.get('odds') is not None else 'N/A'}"
+        d.text((80, y), line1, fill=WHITE, font=_font(32 if cw < ch else 28, True))
+        d.text((80, y + 40), line2, fill=GOLD, font=_font(26 if cw < ch else 24, True))
+        y += 110 if cw < ch else 90
+    cap = "COMBINED PRICE"
+    d.text(((cw - _tw(d, cap, _font(20, True))) // 2, y + 10), cap, fill=MUTED, font=_font(20, True))
+    d.text(((cw - _tw(d, od, _font(96, True))) // 2, y + 40), od, fill=GREEN, font=_font(96, True))
+    foot = "PlayReport  ·  three selections  ·  not betting advice  ·  18+"
+    d.text(((cw - _tw(d, foot, _font(20, False))) // 2, ch - 80), foot, fill=MUTED, font=_font(20, False))
+    im.convert("RGB").save(dest, quality=92)
+
+
+
 def render_closer(logo: Path, bg: Path, dest: Path, *, aspect: str | None = None, size: tuple[int, int] | None = None) -> None:
     from PIL import Image, ImageDraw
     cw, ch = _resolve_size(aspect, size)
@@ -872,31 +901,94 @@ def results_script(results: list[dict]) -> str:
 
 
 def is_reel_market(p: dict) -> bool:
-    """Goals, corners and bookings only. Unders stay out of the video."""
+    """Videos: 1X2, BTTS and Over 2.5. Unders stay out."""
+    sel = str(p.get("sel") or "").upper()
     blob = " ".join(str(p.get(k) or "") for k in ("label", "sel", "market", "group")).lower()
-    if "under" in blob:
+    if "under" in blob or sel in ("U15", "U25", "U35", "NBTTS", "1X", "12", "X2"):
         return False
-    if any(w in blob for w in ("corner", "card", "booking", "yellow")):
+    if sel in ("H", "D", "A"):
         return True
-    if any(w in blob for w in ("over", "btts", "both teams", "to score", "team goal", "goals")):
+    if sel == "BTTS" or "btts" in blob or "both teams" in blob:
+        return True
+    if sel == "O25" or "over 2.5" in blob:
         return True
     return False
 
 
+def _match_key(p: dict) -> tuple:
+    return (str(p.get("kickoff") or ""), str(p.get("home") or ""), str(p.get("away") or ""))
+
+
 def reel_picks(picks: list) -> list:
-    out = []
+    """At least twelve when the pool allows: 1X2 / BTTS / Over 2.5, one per match."""
+    rank = {"O25": 0, "BTTS": 1, "H": 2, "A": 2, "D": 3}
+    best = {}
+    order = []
     for p in picks or []:
         if not is_reel_market(p):
             continue
-        out.append(p)
-        if len(out) >= MAX_PICKS:
-            break
-    return out
+        k = _match_key(p)
+        prev = best.get(k)
+        if prev is None:
+            best[k] = p
+            order.append(k)
+        else:
+            if rank.get(str(p.get("sel") or "").upper(), 9) < rank.get(str(prev.get("sel") or "").upper(), 9):
+                best[k] = p
+    out = [best[k] for k in order]
+    return out[:MAX_PICKS]
 
 
 def overs_only(picks: list) -> list:
-    """Kept name for scanner.py: video markets are goals / corners / bookings, Overs-side only."""
+    """Kept name for scanner.py."""
     return reel_picks(picks)
+
+
+def pack_accas(picks: list, size: int = 3) -> list:
+    """Group picks into 3-fold accas. Same match never appears twice in one treble. Combined odds = product of prices."""
+    remaining = list(picks or [])
+    groups = []
+    while remaining:
+        g, matches, rest = [], set(), []
+        for p in remaining:
+            mk = _match_key(p)
+            if mk in matches or len(g) >= size:
+                rest.append(p)
+                continue
+            g.append(p)
+            matches.add(mk)
+        if len(g) < size:
+            break
+        combined = 1.0
+        ok = True
+        for p in g:
+            od = p.get("odds")
+            if not isinstance(od, (int, float)) or od <= 1:
+                ok = False
+                break
+            combined *= float(od)
+        groups.append({"legs": g, "combined": round(combined, 2) if ok else None})
+        remaining = rest
+    return groups
+
+
+def acca_script(group: dict, idx: int, total: int) -> str:
+    import spoken as sp
+    legs = group.get("legs") or []
+    n = len(legs)
+    comb = group.get("combined")
+    od = f"{comb:.2f}" if isinstance(comb, (int, float)) else "N/A"
+    bits = []
+    for p in legs:
+        home, away = p.get("home") or "", p.get("away") or ""
+        mk = sp.market_phrase(p.get("label"), home, away)
+        price = p.get("odds")
+        ps = f"{float(price):.2f}" if isinstance(price, (int, float)) else "N/A"
+        bits.append(f"{sp.team(home)} against {sp.team(away)}, {mk} at {ps}")
+    body = "; ".join(bits[:-1]) + (", and " + bits[-1] if len(bits) > 1 else (bits[0] if bits else ""))
+    head = "First treble" if idx == 1 else ("Last treble" if idx == total else f"Treble number {sp.words(idx)}")
+    return (f"{head}. Three selections: {body}. "
+            f"Together that's about {od}. Statistical information, not a sure thing.")
 
 
 def build(picks: list, outfile: Path, *, assets: Path, work: Path | None = None,
@@ -946,19 +1038,36 @@ def build(picks: list, outfile: Path, *, assets: Path, work: Path | None = None,
             images.append(res_img)
             texts.append(results_script(recap))
 
-        for i, p in enumerate(picks, 1):
+        accas = pack_accas(picks, 3)
+        covered = {id(p) for g in accas for p in g["legs"]}
+        pi = 0
+        for gi, g in enumerate(accas, 1):
+            a_img = slides_dir / f"acca{gi:02d}.jpg"
+            render_acca(g, gi, len(accas), bgs[gi % 3], a_img, logo)
+            images.append(a_img)
+            texts.append(acca_script(g, gi, len(accas)))
+            for p in g["legs"]:
+                pi += 1
+                fx = fixture_for_pick(p, fixtures) or {}
+                badges = p.get("badges") or fx.get("badges") or {}
+                hb = fetch_badge(badges.get("home"), crests / f"h{pi}.png", logo)
+                ab = fetch_badge(badges.get("away"), crests / f"a{pi}.png", logo)
+                p_img = slides_dir / f"p{pi:02d}.jpg"
+                render_pick(p, pi, n, bgs[pi % 3], hb, ab, p_img)
+                images.append(p_img)
+                texts.append(pick_script(p, pi, n))
+        for p in picks:
+            if id(p) in covered:
+                continue
+            pi += 1
             fx = fixture_for_pick(p, fixtures) or {}
             badges = p.get("badges") or fx.get("badges") or {}
-            if not fx:
-                log.warning("no fixture match for shortlist badges: %s v %s", p.get("home"), p.get("away"))
-            if not badges.get("home") or not badges.get("away"):
-                log.warning("club badge metadata missing for %s v %s", p.get("home"), p.get("away"))
-            hb = fetch_badge(badges.get("home"), crests / f"h{i}.png", logo)
-            ab = fetch_badge(badges.get("away"), crests / f"a{i}.png", logo)
-            p_img = slides_dir / f"p{i:02d}.jpg"
-            render_pick(p, i, n, bgs[i % 3], hb, ab, p_img)
+            hb = fetch_badge(badges.get("home"), crests / f"h{pi}.png", logo)
+            ab = fetch_badge(badges.get("away"), crests / f"a{pi}.png", logo)
+            p_img = slides_dir / f"p{pi:02d}.jpg"
+            render_pick(p, pi, n, bgs[pi % 3], hb, ab, p_img)
             images.append(p_img)
-            texts.append(pick_script(p, i, n))
+            texts.append(pick_script(p, pi, n))
 
         render_closer(logo, bgs[2], slides_dir / "closer.jpg")
         images.append(slides_dir / "closer.jpg")
@@ -986,11 +1095,10 @@ def build(picks: list, outfile: Path, *, assets: Path, work: Path | None = None,
 
         total = sum(durations)
         max_allowed = MAX_TOTAL + (60.0 if recap else 0.0)
-        if total > max_allowed and len(picks) > 3:
-            log.info("reel %.1fs > %.0fs — dropping last pick", total, max_allowed)
-            vc = None if voice_clips is None else list(voice_clips[:-2]) + [voice_clips[-1]]
+        if total > max_allowed and len(picks) > 6:
+            log.info("reel %.1fs > %.0fs — dropping last treble", total, max_allowed)
             return build(
-                picks[:-1], outfile, assets=assets, work=work, voice_clips=vc,
+                picks[:-3], outfile, assets=assets, work=work, voice_clips=None,
                 fixtures=fixtures, yesterday_results=yesterday_results, aspect=aspect,
             )
 

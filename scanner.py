@@ -2597,7 +2597,8 @@ def maybe_send_daily_reel(sl_pub: dict, now: datetime) -> None:
     morning = hour in (5, 6) or (hour == 7 and minute < 20)
     if not morning and not force:
         return
-    prim = reel_mod.overs_only((sl_pub or {}).get("primary") or [])
+    pool = list((sl_pub or {}).get("x12") or []) + list((sl_pub or {}).get("primary") or [])
+    prim = reel_mod.reel_picks(pool)
     if not prim:
         return
     path, st = _telegram_state(now)

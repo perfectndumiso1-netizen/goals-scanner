@@ -239,6 +239,7 @@ with sync_playwright() as p:
     page.click('[data-mf=all]'); page.wait_for_timeout(100)
     open_more_tab(page, 'lowodds'); t = shot(page, 'lowodds'); assert 'low odds' in t.lower(), 'low odds remains reachable under More'
     open_more_tab(page, 'shortlist'); t = shot(page, 'shortlist'); assert 'shortlist' in t.lower(), 'shortlist remains reachable under More'
+    open_more_tab(page, 'x12'); t = shot(page, 'x12'); assert '1x2' in t.lower() or 'match result' in t.lower(), '1X2 tab remains reachable under More'
     open_more_tab(page, 'sequences'); t = shot(page, 'sequences'); assert 'sequences' in t.lower(), 'sequences remains reachable under More'
     open_more_tab(page, 'days'); t = shot(page, 'days')
     assert page.locator('[data-day]').count() >= 1, 'days list'

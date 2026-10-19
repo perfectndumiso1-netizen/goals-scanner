@@ -73,6 +73,11 @@ MAX_PER_MARKET = int(os.getenv("SHORTLIST_MAX_PER_MARKET", "10"))  # best picks 
 IGNORE_UNDER = os.getenv("SHORTLIST_IGNORE_UNDER", "1") != "0"   # user rule: Overs only — Under selections are never candidates
 UNDER_RE = None if not IGNORE_UNDER else policy.UNDER_RE      # every under in every market (incl. team corners / cards, no-BTTS)
 MAX_WATCH = 10
+# Dedicated 1X2 tab (user 2026-10-19): match-result board, independent of which market won the shortlist slot.
+# 1X2 prices are often above the shortlist 1.90 cap, so this board uses its own band.
+X12_MIN_ODDS = float(os.getenv("X12_MIN_ODDS", "1.20"))
+X12_MAX_ODDS = float(os.getenv("X12_MAX_ODDS", "3.50"))
+X12_MAX = int(os.getenv("X12_MAX", "40"))
 KEEP_DAYS = 120
 # Lanes (2026-10-17). One selection per match stays the rule, but "the best-scored candidate wins the match" meant Over 1.5
 # won 286 of 303 matches (it is always the likelier of Over 1.5 / Over 2.5 / BTTS), so Over 2.5 could never appear whatever
@@ -123,7 +128,7 @@ def _conf_key(sel: str, group: str) -> str:
     return ""          # goals lines without their own grade, corners, cards: data quality decides alone
 
 
-def evaluate(r, s) -> dict:
+def evaluate(r, s, *, min_odds: float | None = None, max_odds: float | None = None) -> dict:
     """One selection through every gate. Returns the full record with reasons; changes nothing."""
     fx = r.fx
     audit = r.audit or {}
@@ -140,16 +145,18 @@ def evaluate(r, s) -> dict:
     cx = audit.get("context") or {}
     conflicts = cx.get("conflicts") or []
     bar = policy.min_p(s.sel, BARS.get(group, 0.70))
+    floor = MIN_ODDS if min_odds is None else min_odds
+    ceil = MAX_ODDS if max_odds is None else max_odds
 
     hard, soft = [], []
     if not r.data_ok:
         hard.append("failed the pipeline's data checks")
     if odds is None:
         hard.append("odds N/A (not priced by Sportybet)")
-    elif odds < MIN_ODDS:
-        hard.append(f"odds {odds:.2f} below the {MIN_ODDS:.2f} floor")
-    elif odds > MAX_ODDS:
-        hard.append(f"odds {odds:.2f} above the {MAX_ODDS:.2f} ceiling (band {MIN_ODDS:.2f}\u2013{MAX_ODDS:.2f})")
+    elif odds < floor:
+        hard.append(f"odds {odds:.2f} below the {floor:.2f} floor")
+    elif odds > ceil:
+        hard.append(f"odds {odds:.2f} above the {ceil:.2f} ceiling (band {floor:.2f}\u2013{ceil:.2f})")
     if s.p_model < bar:
         hard.append(f"probability {100 * s.p_model:.0f}% below the {100 * bar:.0f}% bar for {group}")
     if s.sel in safe_mod.TEAM_GOAL_MARKETS:
@@ -425,6 +432,7 @@ def build(rows: list, now: datetime, window_end: datetime | None = None,
                    "candidates": sum(len(m["all"]) for m in per_match),
                    "primary": len(prim), "watchlist": len(watch), "rejected": len(rejected)},
         "primary": prim, "watchlist": watch[:MAX_WATCH],
+        "x12": collect_x12(analysed, sels_by_row),
         "rejected_patterns": [[k, v] for k, v in patterns.most_common(6) if v],
         "watch_patterns": [[k, v] for k, v in watch_patterns.most_common(4)],
         "markets": [[k, v] for k, v in markets.most_common()],
@@ -446,6 +454,29 @@ def _pattern(reason: str) -> str:
         if key in r:
             return name
     return reason[:40]
+
+
+def collect_x12(analysed: list, sels_by_row: dict) -> list:
+    """One 1X2 pick per match for the dedicated tab — independent of the shortlist winner."""
+    out = []
+    for r in analysed:
+        best = None
+        for s in sels_by_row.get(id(r), []) or []:
+            if getattr(s, "sel", None) not in ("H", "D", "A"):
+                continue
+            rec = evaluate(r, s, min_odds=X12_MIN_ODDS, max_odds=X12_MAX_ODDS)
+            if rec.get("status") != STATUS_PRIMARY:
+                continue
+            if best is None or rec["score"] > best["score"]:
+                best = rec
+        if best:
+            out.append(dict(best))
+    out.sort(key=lambda x: -x["score"])
+    for i, x in enumerate(out[:X12_MAX], 1):
+        x["rank"] = i
+        x["p_cal"] = calib.apply_map(x.get("p"), x.get("market"), None)
+    return out[:X12_MAX]
+
 
 
 def public(board: dict) -> dict:

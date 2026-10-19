@@ -4,20 +4,32 @@ from __future__ import annotations
 import shortlist_reel as reel
 
 
-def test_reel_picks_goals_corners_bookings_only():
+def test_reel_picks_1x2_btts_o25_only():
     picks = [
-        {"label": "Over 1.5 goals", "home": "A"},
-        {"label": "Under 2.5 cards", "home": "B"},
-        {"label": "Home or draw", "home": "C", "sel": "1X"},
-        {"label": "Over 10.5 corners", "home": "E"},
-        {"label": "Over 3.5 cards", "home": "F"},
-        {"label": "Away under 1.5", "home": "D"},
-    ] + [{"label": "Over 1.5 goals", "home": f"X{i}"} for i in range(10)]
+        {"label": "Over 2.5 goals", "sel": "O25", "home": "A", "away": "Z", "kickoff": "1"},
+        {"label": "Under 2.5 cards", "sel": "KU25", "home": "B", "away": "Z", "kickoff": "2"},
+        {"label": "Home or draw", "sel": "1X", "home": "C", "away": "Z", "kickoff": "3"},
+        {"label": "Home win", "sel": "H", "home": "E", "away": "Z", "kickoff": "4"},
+        {"label": "BTTS", "sel": "BTTS", "home": "F", "away": "Z", "kickoff": "5"},
+        {"label": "Over 2.5 goals", "sel": "O25", "home": "G", "away": "Z", "kickoff": "6"},
+        {"label": "Over 3.5 cards", "sel": "KO35", "home": "H", "away": "Z", "kickoff": "7"},
+    ] + [{"label": "Over 2.5 goals", "sel": "O25", "home": f"X{i}", "away": "Z", "kickoff": str(10+i)} for i in range(12)]
     out = reel.reel_picks(picks)
     assert all(reel.is_reel_market(p) for p in out)
-    assert all("under" not in (p.get("label") or "").lower() for p in out)
     assert [p["home"] for p in out[:3]] == ["A", "E", "F"]
     assert len(out) == reel.MAX_PICKS
+    assert reel.MAX_PICKS >= 12
+
+
+def test_pack_accas_three_legs_and_combined_odds():
+    picks = [
+        {"home": f"H{i}", "away": f"A{i}", "kickoff": f"k{i}", "odds": 1.5, "sel": "O25", "label": "Over 2.5 goals"}
+        for i in range(12)
+    ]
+    groups = reel.pack_accas(picks, 3)
+    assert len(groups) == 4
+    assert all(len(g["legs"]) == 3 for g in groups)
+    assert groups[0]["combined"] == round(1.5 ** 3, 2)
 
 
 def test_hold_never_cuts_speech_and_intro_is_five_seconds():
@@ -50,7 +62,7 @@ def test_pick_script_has_competition_not_model():
 
 
 def test_pick_scripts_vary_from_one_pick_to_the_next():
-    picks = [{"home": f"H{i}", "away": f"A{i}", "label": "Over 1.5 goals", "odds": 1.2, "kickoff": "2026-10-15 18:45",
+    picks = [{"home": f"H{i}", "away": f"A{i}", "label": "Over 2.5 goals", "odds": 1.2, "kickoff": "2026-10-15 18:45",
               "country": "Spain", "league": "LaLiga"} for i in range(5)]
     lines = [reel.pick_script(p, i, 5) for i, p in enumerate(picks, 1)]
     openers = [x.split(" Spain")[0] for x in lines]
@@ -178,7 +190,7 @@ def test_short_reel_does_not_add_trailing_silence(monkeypatch, tmp_path):
     monkeypatch.setattr(reel, "_ffmpeg", lambda: "/usr/bin/ffmpeg")
     outfile = tmp_path / "short-reel.mp4"
     reel.build(
-        [{"home": "Home FC", "away": "Away FC", "label": "Over 1.5 goals", "odds": 1.5, "p": 0.7}],
+        [{"home": "Home FC", "away": "Away FC", "label": "Over 2.5 goals", "sel": "O25", "odds": 1.5, "p": 0.7, "kickoff": "2026-10-19 18:00"}],
         outfile,
         assets=assets,
         work=tmp_path / "work",
@@ -260,12 +272,12 @@ def test_widescreen_16x9_dimensions_and_slide_renders(tmp_path):
     reel.render_disclaimer(logo, bg, disc)
     reel.render_results(
         [{"home": "Arsenal", "away": "Chelsea", "country": "England", "league": "Premier League",
-          "label": "Over 1.5 goals", "odds": 1.24, "result": "hit", "score": "2-1"}],
+          "label": "Over 2.5 goals", "odds": 1.24, "result": "hit", "score": "2-1"}],
         logo, bg, res, day_label="2026-10-14",
     )
     reel.render_pick(
         {"home": "Lyon", "away": "Crystal Palace", "country": "Europa League", "league": "League Stage",
-         "label": "Over 1.5 goals", "odds": 1.25, "kickoff": "2026-10-15 18:45", "form_h": "WWDWL", "form_a": "WDWLW"},
+         "label": "Over 2.5 goals", "odds": 1.25, "kickoff": "2026-10-15 18:45", "form_h": "WWDWL", "form_a": "WDWLW"},
         1, 3, bg, logo, logo, pick,
     )
     reel.render_closer(logo, bg, closer)
@@ -311,13 +323,13 @@ def test_yesterday_results_recap_starts_before_todays_selections(monkeypatch, tm
     yres = {
         "day": "2026-10-14",
         "items": [
-            {"home": "Flamengo", "away": "Botafogo", "label": "Over 1.5 goals", "market": "goals", "odds": 1.28, "result": "hit", "score": "2-1"},
-            {"home": "Santos", "away": "Corinthians", "label": "Over 8.5 corners", "market": "corners", "odds": 1.35, "result": "miss", "score": "0-0"},
+            {"home": "Flamengo", "away": "Botafogo", "sel": "O25", "label": "Over 2.5 goals", "market": "goals", "odds": 1.28, "result": "hit", "score": "2-1"},
+            {"home": "Santos", "away": "Corinthians", "sel": "BTTS", "label": "BTTS", "market": "btts", "odds": 1.35, "result": "miss", "score": "0-0"},
         ],
     }
     outfile = tmp_path / "briefing-16x9.mp4"
     reel.build(
-        [{"home": "Lyon", "away": "Crystal Palace", "label": "Over 1.5 goals", "odds": 1.25, "kickoff": "2026-10-15 18:45"}],
+        [{"home": "Lyon", "away": "Crystal Palace", "sel": "O25", "label": "Over 2.5 goals", "odds": 1.25, "kickoff": "2026-10-15 18:45"}],
         outfile,
         assets=assets,
         work=tmp_path / "work",
@@ -341,7 +353,7 @@ def test_shortlist_yesterday_results_extraction():
 
     df = pd.DataFrame([
         {"day": "2026-10-14", "kickoff": "2026-10-14 20:00", "country": "Brazil", "league": "Serie A",
-         "home": "Flamengo", "away": "Botafogo", "sel": "O15", "label": "Over 1.5 goals", "market": "goals",
+         "home": "Flamengo", "away": "Botafogo", "sel": "O25", "label": "Over 2.5 goals", "market": "goals",
          "odds": "1.28", "status": "primary", "result": "hit", "score": "2-1"},
         {"day": "2026-10-14", "kickoff": "2026-10-14 21:00", "country": "Brazil", "league": "Serie A",
          "home": "Santos", "away": "Corinthians", "sel": "CO85", "label": "Over 8.5 corners", "market": "corners",
@@ -366,7 +378,7 @@ def test_yesterday_results_strictly_matches_yesterdays_video_picks():
     # Simulate 2026-10-15 ledger with early-morning MLS rows (not in video) + the 7 UEFA video rows + trailing rows
     rows = [
         {"day": "2026-10-15", "kickoff": "2026-10-15 02:30", "country": "USA", "league": "MLS",
-         "home": "St. Louis City", "away": "Vancouver Whitecaps", "sel": "O15", "label": "Over 1.5 goals",
+         "home": "St. Louis City", "away": "Vancouver Whitecaps", "sel": "O25", "label": "Over 2.5 goals",
          "market": "goals", "odds": "1.16", "status": "primary", "result": "miss", "score": "0-0"},
         {"day": "2026-10-15", "kickoff": "2026-10-15 02:30", "country": "USA", "league": "MLS",
          "home": "FC Dallas", "away": "Seattle Sounders FC", "sel": "HO05", "label": "FC Dallas over 0.5 goals",
@@ -381,7 +393,7 @@ def test_yesterday_results_strictly_matches_yesterdays_video_picks():
          "home": "Lyon", "away": "Crystal Palace", "sel": "HO05", "label": "Lyon over 0.5 goals",
          "market": "team_goals", "odds": "1.20", "status": "primary", "result": "hit", "score": "3-2"},
         {"day": "2026-10-15", "kickoff": "2026-10-15 18:45", "country": "Europa League", "league": "League Stage",
-         "home": "Union St.Gilloise", "away": "Real Sociedad", "sel": "O15", "label": "Over 1.5 goals",
+         "home": "Union St.Gilloise", "away": "Real Sociedad", "sel": "O25", "label": "Over 2.5 goals",
          "market": "goals", "odds": "1.21", "status": "primary", "result": "hit", "score": "1-1"},
         {"day": "2026-10-15", "kickoff": "2026-10-15 21:00", "country": "Europa League", "league": "League Stage",
          "home": "Ferencvaros", "away": "Viktoria Plzen", "sel": "HO05", "label": "Ferencvaros over 0.5 goals",
@@ -393,10 +405,10 @@ def test_yesterday_results_strictly_matches_yesterdays_video_picks():
          "home": "FC Salzburg", "away": "AC Milan", "sel": "HO05", "label": "FC Salzburg over 0.5 goals",
          "market": "team_goals", "odds": "1.31", "status": "primary", "result": "miss", "score": "0-4"},
         {"day": "2026-10-15", "kickoff": "2026-10-15 18:45", "country": "Conference League", "league": "League Stage",
-         "home": "PFC CSKA Sofia", "away": "AS Monaco", "sel": "O15", "label": "Over 1.5 goals",
+         "home": "PFC CSKA Sofia", "away": "AS Monaco", "sel": "O25", "label": "Over 2.5 goals",
          "market": "goals", "odds": "1.22", "status": "primary", "result": "hit", "score": "1-2"},
         {"day": "2026-10-15", "kickoff": "2026-10-15 18:45", "country": "Europa League", "league": "League Stage",
-         "home": "Sparta Prague", "away": "Lillestroem", "sel": "O15", "label": "Over 1.5 goals",
+         "home": "Sparta Prague", "away": "Lillestroem", "sel": "O25", "label": "Over 2.5 goals",
          "market": "goals", "odds": "1.18", "status": "primary", "result": "hit", "score": "1-1"},
     ]
     df = pd.DataFrame(rows)
@@ -411,13 +423,13 @@ def test_yesterday_results_strictly_matches_yesterdays_video_picks():
     assert res["misses"] == 1
 
     # Also verify multi-video day merging in record_briefing_picks
-    hist = scanner.record_briefing_picks({}, "2026-10-16", [{"home": "A", "away": "B", "sel": "O15"}])
+    hist = scanner.record_briefing_picks({}, "2026-10-16", [{"home": "A", "away": "B", "sel": "O25"}])
     hist = scanner.record_briefing_picks(hist, "2026-10-16", [
-        {"home": "A", "away": "B", "sel": "O15"},
+        {"home": "A", "away": "B", "sel": "O25"},
         {"home": "C", "away": "D", "sel": "HO05"},
     ])
     assert hist["2026-10-16"] == [
-        {"home": "A", "away": "B", "sel": "O15"},
+        {"home": "A", "away": "B", "sel": "O25"},
         {"home": "C", "away": "D", "sel": "HO05"},
     ]
 
@@ -427,7 +439,7 @@ def test_spoken_kickoff_and_spoken_text_naturalness():
     assert reel.spoken_kickoff({"kickoff": "2026-10-16 20:45"}) == "8:45 PM"
     assert reel.spoken_kickoff({"kickoff": "2026-10-16 21:00"}) == "9 PM"
     clean = reel.spoken_text(
-        "Union St.Gilloise versus Real Sociedad, Over 1.5 goals, won, 1 to 1. "
+        "Union St.Gilloise versus Real Sociedad, Over 2.5 goals, won, 1 to 1. "
         "Turkiye, Süper Lig. Kick-off, 7 PM."
     )
     assert "Union Saint Gilloise" in clean
@@ -487,7 +499,7 @@ def test_dual_resolutions_16x9_and_9x16_share_single_consistent_voice(monkeypatc
     out16 = tmp_path / "out-16x9.mp4"
     out9 = tmp_path / "out-9x16.mp4"
     reel.build_both(
-        [{"home": "Lyon", "away": "Crystal Palace", "label": "Over 1.5 goals", "odds": 1.20, "kickoff": "2026-10-15 18:45"}],
+        [{"home": "Lyon", "away": "Crystal Palace", "label": "Over 2.5 goals", "odds": 1.20, "kickoff": "2026-10-15 18:45"}],
         out16,
         out9,
         assets=assets,

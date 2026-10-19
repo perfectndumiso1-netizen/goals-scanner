@@ -536,7 +536,7 @@ window.PR = (function () {
 
   // ------------------------------------------------------------------ navigation (primary shell: Home / Scan / Live / Matches / More —
   // Low odds, Shortlist, Sequences, Days and Leagues remain valid secondary destinations under More)
-  const TABS = ['home', 'bets', 'live', 'matches', 'lowodds', 'shortlist', 'sequences', 'days', 'leagues', 'more'];
+  const TABS = ['home', 'bets', 'live', 'matches', 'lowodds', 'shortlist', 'x12', 'sequences', 'days', 'leagues', 'more'];
   function render() {
     if (!state.data && !(state.stack.length && state.stack[state.stack.length - 1].type === 'settings')) return;
     closeMenu();
@@ -550,12 +550,12 @@ window.PR = (function () {
     if (top) PR.pages[top.type](top); else PR.views[state.tab]();
     injectSearch();
   }
-  const TAB_TITLE = { home: 'PlayReport', bets: 'Scan', live: 'Live', matches: 'Matches', lowodds: 'Low odds 1.19 – 1.45', more: 'More', days: 'Days', leagues: 'Leagues', shortlist: 'Shortlist', sequences: 'Sequences' };
+  const TAB_TITLE = { home: 'PlayReport', bets: 'Scan', live: 'Live', matches: 'Matches', lowodds: 'Low odds 1.19 – 1.45', more: 'More', days: 'Days', leagues: 'Leagues', shortlist: 'Shortlist', x12: '1X2', sequences: 'Sequences' };
   function setTab(tab) {
     if (tab === 'today') tab = 'home';
     if (!TABS.includes(tab)) tab = 'home';
     state.tab = tab; state.stack = [];
-    const navTab = ['lowodds', 'shortlist', 'sequences', 'days', 'leagues'].includes(tab) ? 'more' : tab;
+    const navTab = ['lowodds', 'shortlist', 'x12', 'sequences', 'days', 'leagues'].includes(tab) ? 'more' : tab;
     const ttl = $('#top .title'); if (ttl) ttl.textContent = TAB_TITLE[tab] || 'PlayReport';
     $$('#tabs button').forEach((b) => {
       const active = b.dataset.tab === navTab;
@@ -697,7 +697,7 @@ window.PR = (function () {
   const PLACES = [
     { label: 'Bets of the day', icn: 'star', go: { tab: 'bets' } }, { label: 'Live scores', icn: 'live', go: { tab: 'live' } },
     { label: 'Matches', icn: 'calendar', go: { tab: 'matches' } }, { label: 'Low odds 1.19 – 1.45', icn: 'tag', go: { tab: 'lowodds' } },
-    { label: 'Shortlist', icn: 'target', go: { tab: 'shortlist' } }, { label: 'Days', icn: 'history', go: { tab: 'days' } },
+    { label: 'Shortlist', icn: 'target', go: { tab: 'shortlist' } }, { label: '1X2', icn: 'star', go: { tab: 'x12' } }, { label: 'Days', icn: 'history', go: { tab: 'days' } },
     { label: 'Leagues', icn: 'trophy', go: { tab: 'leagues' } }, { label: 'Today\u2019s accas', icn: 'ticket', go: { page: 'accas' } },
     { label: 'Tickets', icn: 'ticket', go: { page: 'tickets' } }, { label: 'Teams', icn: 'users', go: { page: 'teams' } },
     { label: 'Performance', icn: 'chart', go: { page: 'performance' } }, { label: 'Bet advisor', icn: 'shield', go: { page: 'advisor' } },

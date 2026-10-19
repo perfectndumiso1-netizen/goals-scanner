@@ -241,7 +241,7 @@ def shortlist_payload(sl: dict, ids_by_key: dict, fixture_id) -> dict:
     if not sl:
         return {}
     out = {k: v for k, v in sl.items() if k not in ("primary", "watchlist")}
-    for part in ("primary", "watchlist"):
+    for part in ("primary", "watchlist", "x12"):
         items = []
         for x in sl.get(part) or []:
             key = tuple(x.get("key") or ())
