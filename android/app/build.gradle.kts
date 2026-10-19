@@ -1,4 +1,4 @@
-// Build marker: rebuild requested so the published APK tracks current main assets (Leagues tab, leagues.js, core.js, index.html). Comment only — no functional change.
+// Build marker: 2026-10-19 nav memory + panther icon. Comment only — no functional change.
 import java.util.Properties
 
 plugins {

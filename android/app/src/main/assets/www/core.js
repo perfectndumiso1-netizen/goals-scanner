@@ -38,7 +38,7 @@ window.PR = (function () {
   const state = { data: null, tab: 'home', stack: [], live: {}, incidents: {}, liveTimer: null, lastLive: 0, loading: false, q: '',
     update: null, updateStage: null, days: {}, teams: {}, reports: {}, details: {}, betsView: 'today', search: '', sort: 'ko', matchFilter: 'all',
     liveView: 'tracked', liveAll: null, lastLiveAll: 0, dayView: 'results', matchView: 'overview', teamView: 'overview', menuOpen: false, expanded: {}, badges: {}, dark: false,
-    teamIdx: null, teamIdxLoading: false, lgSort: 'country', lgTableSort: 'pts' };
+    teamIdx: null, teamIdxLoading: false, lgSort: 'country', lgTableSort: 'pts', scrolls: {}, tabHist: [] };
   const BADGE_BASE = 'https://lsm-static-prod.livescore.com/medium/';
 
   const $ = (sel, root) => (root || document).querySelector(sel);
@@ -537,6 +537,50 @@ window.PR = (function () {
   // ------------------------------------------------------------------ navigation (primary shell: Home / Scan / Live / Matches / More —
   // Low odds, Shortlist, Sequences, Days and Leagues remain valid secondary destinations under More)
   const TABS = ['home', 'bets', 'live', 'matches', 'lowodds', 'shortlist', 'x12', 'sequences', 'days', 'leagues', 'more'];
+  const TAB_TITLE = { home: 'PlayReport', bets: 'Scan', live: 'Live', matches: 'Matches', lowodds: 'Low odds 1.19 – 1.45', more: 'More', days: 'Days', leagues: 'Leagues', shortlist: 'Shortlist', x12: '1X2', sequences: 'Sequences' };
+  const MORE_TABS = ['lowodds', 'shortlist', 'x12', 'sequences', 'days', 'leagues'];
+  const NAV_PREF_KEYS = ['sort', 'matchFilter', 'matchesView', 'homeTab', 'homeSort', 'homeMk', 'homeShow', 'slMk', 'betsView', 'liveView', 'lgSort', 'lgTableSort', 'betGroup', 'board'];
+  function navKey() {
+    const top = state.stack[state.stack.length - 1];
+    if (top) return 'p:' + top.type + ':' + String(top.id || top.name || top.slug || top.date || '');
+    return 't:' + state.tab;
+  }
+  function rememberScroll() {
+    state.scrolls = state.scrolls || {};
+    state.scrolls[navKey()] = window.scrollY || 0;
+  }
+  function restoreScroll() {
+    const y = (state.scrolls || {})[navKey()] || 0;
+    const go = () => window.scrollTo(0, y);
+    go();
+    requestAnimationFrame(go);
+    setTimeout(go, 0);
+  }
+  function persistNav() {
+    const n = { tab: state.tab };
+    NAV_PREF_KEYS.forEach((k) => { if (state[k] != null) n[k] = state[k]; });
+    if (typeof state.safestAll === 'boolean') n.safestAll = state.safestAll;
+    persist('pr_nav', JSON.stringify(n));
+  }
+  function loadNav() {
+    try {
+      const n = JSON.parse(stored('pr_nav') || '{}');
+      if (!n || typeof n !== 'object') return;
+      NAV_PREF_KEYS.forEach((k) => { if (n[k] != null) state[k] = n[k]; });
+      if (typeof n.safestAll === 'boolean') state.safestAll = n.safestAll;
+      if (n.tab && TABS.includes(n.tab)) state.tab = n.tab;
+    } catch (e) { /* ignore */ }
+  }
+  loadNav();
+  function paintChrome(tab) {
+    const navTab = MORE_TABS.includes(tab) ? 'more' : tab;
+    const ttl = $('#top .title'); if (ttl) ttl.textContent = TAB_TITLE[tab] || 'PlayReport';
+    $$('#tabs button').forEach((b) => {
+      const active = b.dataset.tab === navTab;
+      b.classList.toggle('active', active);
+      if (active) b.setAttribute('aria-current', 'page'); else b.removeAttribute('aria-current');
+    });
+  }
   function render() {
     if (!state.data && !(state.stack.length && state.stack[state.stack.length - 1].type === 'settings')) return;
     closeMenu();
@@ -547,30 +591,54 @@ window.PR = (function () {
     }
     const v = $('#view'); v.classList.remove('enter'); void v.offsetWidth; v.classList.add('enter');
     document.body.classList.toggle('depth', !!top);
+    paintChrome(state.tab);
     if (top) PR.pages[top.type](top); else PR.views[state.tab]();
     injectSearch();
+    persistNav();
   }
-  const TAB_TITLE = { home: 'PlayReport', bets: 'Scan', live: 'Live', matches: 'Matches', lowodds: 'Low odds 1.19 – 1.45', more: 'More', days: 'Days', leagues: 'Leagues', shortlist: 'Shortlist', x12: '1X2', sequences: 'Sequences' };
-  function setTab(tab) {
+  function setTab(tab, opts) {
+    opts = opts || {};
     if (tab === 'today') tab = 'home';
     if (!TABS.includes(tab)) tab = 'home';
-    state.tab = tab; state.stack = [];
-    const navTab = ['lowodds', 'shortlist', 'x12', 'sequences', 'days', 'leagues'].includes(tab) ? 'more' : tab;
-    const ttl = $('#top .title'); if (ttl) ttl.textContent = TAB_TITLE[tab] || 'PlayReport';
-    $$('#tabs button').forEach((b) => {
-      const active = b.dataset.tab === navTab;
-      b.classList.toggle('active', active);
-      if (active) b.setAttribute('aria-current', 'page'); else b.removeAttribute('aria-current');
-    });
-    render(); window.scrollTo(0, 0);
+    // already on this destination: tapping the tab again pops a match/team page back to the list
+    if (!opts.boot && !opts.fromBack && tab === state.tab) {
+      if (state.stack.length) {
+        rememberScroll();
+        state.stack = [];
+        render();
+        restoreScroll();
+      }
+      return;
+    }
+    rememberScroll();
+    if (!opts.boot && !opts.fromBack) {
+      state.tabHist = state.tabHist || [];
+      state.tabHist.push(state.tab);
+      if (state.tabHist.length > 16) state.tabHist.shift();
+    }
+    state.tab = tab;
+    state.stack = [];
+    render();
+    if (opts.restore) restoreScroll();
+    else window.scrollTo(0, 0);
     if (tab === 'live' && state.data && Date.now() - state.lastLive > 15000) PR.live.refresh(false);
   }
-  function push(page) { state.stack.push(page); render(); window.scrollTo(0, 0); }
+  function push(page) { rememberScroll(); state.stack.push(page); render(); window.scrollTo(0, 0); }
   function replace(page) { state.stack[state.stack.length - 1] = page; render(); }
   function back() {
     if (state.menuOpen) { closeMenu(); return true; }
-    if (state.stack.length) { state.stack.pop(); render(); window.scrollTo(0, 0); return true; }
-    if (state.tab !== 'home') { setTab('home'); return true; }
+    rememberScroll();
+    if (state.stack.length) { state.stack.pop(); render(); restoreScroll(); return true; }
+    if (state.tab !== 'home') {
+      const hist = state.tabHist || [];
+      let prev = null;
+      while (hist.length) {
+        const t = hist.pop();
+        if (t && t !== state.tab && TABS.includes(t)) { prev = t; break; }
+      }
+      setTab(prev || 'home', { fromBack: true, restore: true });
+      return true;
+    }
     return false;
   }
   /** The day-file record of a fixture (final score, half-time, statistics, goal incidents, bets) once its day is loaded. */

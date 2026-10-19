@@ -1,3 +1,7 @@
+## What's new — back goes where you were, and a new logo
+- ⬅️ **Back remembers where you were.** Open a match (or a team, a league, a day) and the system back button — or the in-page arrow — returns you to the same list, **same sort, same filter, same scroll**. Tapping the tab you are already on pops back to that list too. Preferences and sorting are kept on the phone, including after you leave the app.
+- 🐆 **New app icon** — the PlayReport panther badge (home screen, splash and the header).
+
 ## What's new — 1X2 tab, and the scan no longer dies on a retry
 - 🏆 **1X2 has its own tab** (More → **1X2**): home, draw or away, one pick per match, **55%** model bar, Sportybet **1.20–3.50**. It does not steal slots from the Shortlist.
 - 🎬 **Morning video** now takes **at least 12** selections — **1X2, BTTS and Over 2.5** — grouped into **trebles of 3** with the combined Sportybet price on each treble. Same male voice, no music, each slide waits for the line to finish.

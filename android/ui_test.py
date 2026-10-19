@@ -161,6 +161,19 @@ with sync_playwright() as p:
     heads = page.locator('#view .acc-head'); heads.nth(0).click(); page.wait_for_timeout(150)
     page.click('[data-mmode=time]'); page.wait_for_timeout(150)
     page.click('#tabs button[data-tab=home]'); page.wait_for_timeout(100)
+    # ---- back from a match restores Matches (sort + scroll), not Home
+    page.click('#tabs button[data-tab=matches]'); page.wait_for_timeout(200)
+    page.select_option('#fx-sort', 'O25'); page.wait_for_timeout(80)
+    page.evaluate('window.scrollTo(0, 360)')
+    fid_back = page.evaluate("""(() => { const P = window.app.PR; const f = (P.state.data.fixtures || [])[2]; return f && f.id; })()""")
+    assert fid_back, 'a fixture exists to open from Matches'
+    page.evaluate(f'window.app.PR.openMatch({json.dumps(fid_back)})'); page.wait_for_timeout(400)
+    assert page.locator('#back').count() == 1, 'match page shows the back arrow'
+    assert page.evaluate('window.app.back()') is True
+    page.wait_for_timeout(200)
+    assert page.evaluate('window.app.state.tab') == 'matches', 'back returns to Matches, not Home'
+    assert page.evaluate('window.app.state.sort') == 'O25' and page.locator('#fx-sort').input_value() == 'O25', 'sort remembered'
+    assert page.evaluate('window.scrollY') >= 200, 'scroll position restored'
     page.click('#btn-search'); page.wait_for_timeout(200)
     assert page.evaluate('window.app.state.tab') == 'matches' and page.evaluate("document.activeElement && document.activeElement.id") == 'fx-search', 'search button focuses the search box'
     # ---- match page: the first priced match that has not kicked off yet (so the slip can be used)
