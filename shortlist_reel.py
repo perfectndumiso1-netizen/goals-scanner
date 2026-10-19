@@ -900,8 +900,20 @@ def results_script(results: list[dict]) -> str:
     return " ".join(x for x in ("First, a quick look back at yesterday.", count, " ".join(parts), "Now, today's shortlist.") if x)
 
 
+def is_breakdown_market(p: dict) -> bool:
+    """Match-breakdown videos: goals, corners and bookings (Overs). Independent of the morning reel pool."""
+    blob = " ".join(str(p.get(k) or "") for k in ("label", "sel", "market", "group")).lower()
+    if "under" in blob:
+        return False
+    if any(w in blob for w in ("corner", "card", "booking", "yellow")):
+        return True
+    if any(w in blob for w in ("over", "btts", "both teams", "to score", "team goal", "goals")):
+        return True
+    return False
+
+
 def is_reel_market(p: dict) -> bool:
-    """Videos: 1X2, BTTS and Over 2.5. Unders stay out."""
+    """Morning videos: 1X2, BTTS and Over 2.5. Unders stay out."""
     sel = str(p.get("sel") or "").upper()
     blob = " ".join(str(p.get(k) or "") for k in ("label", "sel", "market", "group")).lower()
     if "under" in blob or sel in ("U15", "U25", "U35", "NBTTS", "1X", "12", "X2"):

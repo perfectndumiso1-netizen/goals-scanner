@@ -1,5 +1,5 @@
 ## What's new — 1X2 tab, and the scan no longer dies on a retry
-- 🏆 **1X2 has its own tab** (More → **1X2**): home, draw or away, one pick per match, 60% model bar, Sportybet **1.20–3.50**. It does not steal slots from the Shortlist.
+- 🏆 **1X2 has its own tab** (More → **1X2**): home, draw or away, one pick per match, **55%** model bar, Sportybet **1.20–3.50**. It does not steal slots from the Shortlist.
 - 🎬 **Morning video** now takes **at least 12** selections — **1X2, BTTS and Over 2.5** — grouped into **trebles of 3** with the combined Sportybet price on each treble. Same male voice, no music, each slide waits for the line to finish.
 - 🐛 **Fixed: the half-hourly scan was crashing** whenever football-data needed a retry (`time.sleep` after `from datetime import time`). That was the failure email, and why the morning reel sometimes never sent.
 

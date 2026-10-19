@@ -276,18 +276,18 @@ def select_featured_matches(dossiers: list[dict], shortlist_primary: list[dict] 
         h, a = str(dos.get("home") or ""), str(dos.get("away") or "")
         p = sl.get((h, a))
         best = None
-        if p and reel.is_reel_market(p):
+        if p and reel.is_breakdown_market(p):
             best = {"sel": p.get("sel"), "label": p.get("label"), "odds": p.get("odds"), "market": p.get("market") or "goals"}
         else:
             for s in (dos.get("sels") or []):
-                if isinstance(s, dict) and reel.is_reel_market(s) and isinstance(s.get("odds"), (int, float)) \
+                if isinstance(s, dict) and reel.is_breakdown_market(s) and isinstance(s.get("odds"), (int, float)) \
                         and 1.15 <= float(s["odds"]) <= 1.90:
                     best = {"sel": s.get("sel"), "label": s.get("label") or s.get("sel"), "odds": float(s["odds"]),
                             "market": s.get("market") or "goals"}
                     break
         if not best or not best.get("label"):
             continue
-        cands.append(((0 if (p and reel.is_reel_market(p)) else 1), _league_rank(dos.get("country"), dos.get("league")), ko,
+        cands.append(((0 if (p and reel.is_breakdown_market(p)) else 1), _league_rank(dos.get("country"), dos.get("league")), ko,
                       {**dos, "_best_market": best, "_shortlist_pick": p}))
     cands.sort(key=lambda x: (x[0], x[1], x[2]))
     chosen, leagues = [], set()

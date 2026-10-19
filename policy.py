@@ -3,7 +3,7 @@
     * Team-goals selections are dropped altogether (HO05, AO05, HO15, AU15 ...).
     * Double chance is dropped (1X, 12, X2).
     * No unders in any market: total-goals unders, "no BTTS", team unders, corner and card unders.
-    * Over 1.5, Over 2.5, BTTS and bookings (cards) are the focus. Over 2.5 and BTTS START from a 55% model
+    * Over 1.5, Over 2.5, BTTS and bookings (cards) are the focus. Over 2.5, BTTS and 1X2 START from a 55% model
       probability; every other market keeps the bar it already had.
 
 One source of truth. `safe.selections()` asks `allowed(code)` before it yields a candidate, so every surface that
@@ -93,11 +93,13 @@ def _env_float(name: str, default: float) -> float:
         return default
 
 
-# Over 2.5 and BTTS start from 55% (user rule 2026-10-17). Every other selection keeps the floor of the
-# board that asks (70% for goals lines, 65% for corners and bookings in the shortlist, 60% for 1X2 ...).
+# Over 2.5, BTTS and 1X2 start from 55% (user rules 2026-10-17 / 2026-10-19). Every other selection keeps
+# the floor of the board that asks (70% for goals lines, 65% for corners and bookings in the shortlist).
 # The env names carry a POLICY_ prefix on purpose: scan.yml already sets MIN_P_O25 / MIN_P_BTTS (0.60) for the older "Goals
 # shortlists" star thresholds, and reusing those names silently moved this floor to 60% in production on 2026-10-17.
-SEL_MIN_P = {"O25": _env_float("POLICY_MIN_P_O25", 0.55), "BTTS": _env_float("POLICY_MIN_P_BTTS", 0.55)}
+_x12_floor = _env_float("POLICY_MIN_P_1X2", 0.55)
+SEL_MIN_P = {"O25": _env_float("POLICY_MIN_P_O25", 0.55), "BTTS": _env_float("POLICY_MIN_P_BTTS", 0.55),
+             "H": _x12_floor, "D": _x12_floor, "A": _x12_floor}
 
 
 def min_p(sel: str, default: float) -> float:
@@ -111,7 +113,7 @@ def describe() -> dict:
         "focus": ["Over 1.5", "Over 2.5", "BTTS", "Bookings"],
         "dropped": [f for f, on in (("team goals", "team" not in ALLOW), ("double chance", "dc" not in ALLOW),
                                     ("unders (every market)", "unders" not in ALLOW)) if on],
-        "starting_floor": {"O25": SEL_MIN_P["O25"], "BTTS": SEL_MIN_P["BTTS"]},
+        "starting_floor": {"O25": SEL_MIN_P["O25"], "BTTS": SEL_MIN_P["BTTS"], "1X2": SEL_MIN_P["H"]},
         "kept_by_default": [name for name, key in (("corners (overs)", "corners"), ("1X2 (home / away)", "result"))
                             if key not in DROP],
     }

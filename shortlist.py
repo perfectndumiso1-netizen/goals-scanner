@@ -64,9 +64,9 @@ import policy
 MIN_ODDS = float(os.getenv("SHORTLIST_MIN_ODDS", "1.15"))     # band floor: odds below this are rejected
 MAX_ODDS = float(os.getenv("SHORTLIST_MAX_ODDS", "1.90"))     # band ceiling: odds above this are rejected
 # Probability bar per market group. A selection the policy names starts from its own floor instead:
-# Over 2.5 and BTTS at 55% (policy.SEL_MIN_P, user rule 2026-10-17); Over 1.5 and the other goals lines stay at 70%.
+# Over 2.5, BTTS and 1X2 at 55% (policy.SEL_MIN_P); Over 1.5 and the other goals lines stay at 70%.
 # ("dc" and "team" are gone — double chance and team goals are no longer offered.)
-BARS = {"result": 0.60, "goals": 0.70, "btts": policy.SEL_MIN_P["BTTS"], "corners": 0.65, "cards": 0.65}
+BARS = {"result": policy.SEL_MIN_P["H"], "goals": 0.70, "btts": policy.SEL_MIN_P["BTTS"], "corners": 0.65, "cards": 0.65}
 MAX_EDGE = 0.12          # more than 12 pp over the de-vigged market = data fault, not edge
 MAX_RAW_EDGE = 0.25      # no de-vigged view: gap over the raw implied price above this = data fault
 MAX_PER_MARKET = int(os.getenv("SHORTLIST_MAX_PER_MARKET", "10"))  # best picks kept PER MARKET GROUP

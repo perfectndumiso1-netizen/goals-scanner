@@ -44,7 +44,7 @@ def test_rollback_switch_restores_a_family(monkeypatch):
 def test_over25_and_btts_start_from_55_everything_else_keeps_its_floor():
     assert policy.min_p("O25", 0.70) == 0.55 and policy.min_p("BTTS", 0.70) == 0.55
     assert policy.min_p("O15", 0.70) == 0.70 and policy.min_p("O35", 0.70) == 0.70
-    assert policy.min_p("CO85", 0.65) == 0.65 and policy.min_p("H", 0.60) == 0.60
+    assert policy.min_p("CO85", 0.65) == 0.65 and policy.min_p("H", 0.60) == 0.55
 
 
 # ---------------------------------------------------------------- the single source: safe.selections()
@@ -132,7 +132,7 @@ def test_safest_uses_the_per_selection_floor():
         r.p_final[k] = 0.10
     out = safe.safest([r], now, now + timedelta(days=1), groups=("goals", "btts"))
     assert [b.sel for b in out["bets"]] == ["O25"]              # most probable of the eligible ones, one per match
-    assert out["floors"] == {"O25": 0.55, "BTTS": 0.55} and out["min_p"] == 0.70
+    assert out["floors"]["O25"] == out["floors"]["BTTS"] == out["floors"]["H"] == 0.55 and out["min_p"] == 0.70
     r2 = _bet_row({"O25": 0.54, "BTTS": 0.54, "O15": 0.60})
     for k in ("O05", "O35", "O45", "O55"):
         r2.p_final[k] = 0.10
@@ -216,7 +216,7 @@ def test_the_apps_dropped_set_and_floors_match_the_python_policy():
         assert bool(team_rx.search(code)) == policy.is_team_goal(code), code
     for dc in DOUBLE_CHANCE:
         assert f"sel === '{dc}'" in js
-    floors = re.search(r"const SEL_FLOOR = \{ O25: ([0-9.]+), BTTS: ([0-9.]+) \};", js)
+    floors = re.search(r"const SEL_FLOOR = \{ O25: ([0-9.]+), BTTS: ([0-9.]+)", js)
     assert floors and float(floors.group(1)) == policy.SEL_MIN_P["O25"] and float(floors.group(2)) == policy.SEL_MIN_P["BTTS"]
 
 
@@ -230,14 +230,15 @@ def test_the_55_floor_ignores_the_scan_workflows_older_min_p_variables(monkeypat
     monkeypatch.setenv("MIN_P_O15", "0.84")
     try:
         importlib.reload(policy)
-        assert policy.SEL_MIN_P == {"O25": 0.55, "BTTS": 0.55}
+        assert policy.SEL_MIN_P == {"O25": 0.55, "BTTS": 0.55, "H": 0.55, "D": 0.55, "A": 0.55}
         monkeypatch.setenv("POLICY_MIN_P_O25", "0.58")
         importlib.reload(policy)
-        assert policy.SEL_MIN_P == {"O25": 0.58, "BTTS": 0.55}          # the policy's own lever still works
+        assert policy.SEL_MIN_P["O25"] == 0.58 and policy.SEL_MIN_P["BTTS"] == 0.55
+        assert policy.SEL_MIN_P["H"] == policy.SEL_MIN_P["A"] == 0.55          # the policy's own lever still works
     finally:
         monkeypatch.undo()
         importlib.reload(policy)
-    assert policy.SEL_MIN_P == {"O25": 0.55, "BTTS": 0.55}
+    assert policy.SEL_MIN_P == {"O25": 0.55, "BTTS": 0.55, "H": 0.55, "D": 0.55, "A": 0.55}
 
 
 def test_no_workflow_sets_the_policy_levers_by_accident():
