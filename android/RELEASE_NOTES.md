@@ -1,3 +1,8 @@
+## What's new — 1X2 tab, and the scan no longer dies on a retry
+- 🏆 **1X2 has its own tab** (More → **1X2**): home, draw or away, one pick per match, 60% model bar, Sportybet **1.20–3.50**. It does not steal slots from the Shortlist.
+- 🎬 **Morning video** now takes **at least 12** selections — **1X2, BTTS and Over 2.5** — grouped into **trebles of 3** with the combined Sportybet price on each treble. Same male voice, no music, each slide waits for the line to finish.
+- 🐛 **Fixed: the half-hourly scan was crashing** whenever football-data needed a retry (`time.sleep` after `from datetime import time`). That was the failure email, and why the morning reel sometimes never sent.
+
 ## What's new — every league we have enough data on, and a tighter market focus
 - 🌍 **Every league with enough data is in** (your rule): the **Chinese Super League** and League One, K League 1 & 2, the Saudi Pro League, the Indian Super League, UAE, Qatar, Thailand, plus the second and third tiers (England League 1 & 2, the Scottish divisions, 3. Liga, Eerste Divisie, Liga Portugal 2, Turkey's 1. Lig …) and national leagues such as Ghana, Kenya, Tanzania, Tunisia and Algeria — about 165 competitions instead of 36. The test is objective: a real table, a deep results history, a recent result, and match statistics (or, where a league publishes none, a table that is not a regional / amateur tier). Japan and Australia, cups, women's, youth and qualifiers stay out.
 - 🎯 **Focus: Over 1.5, Over 2.5, BTTS and bookings.** **Team goals and double chance are gone**, and **no unders in any market** — not on the shortlist, the high-probability selections, bets of the day, accas, the match pages or the boards.
