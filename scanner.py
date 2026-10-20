@@ -1232,6 +1232,7 @@ class MatchRow:
     x12_market: dict | None = None  # de-margined bookmaker 1X2 (comparison only)
     audit: dict = field(default_factory=dict)  # evidence / quality / explanation / warnings (quality.py), filled in main()
     scores: list = field(default_factory=list)  # top scorelines [[home, away, p], ...] from the Dixon-Coles matrix
+    sheet: dict | None = None  # user's Google Sheet V1 bookmaker model (comparison only; never a PlayReport input)
 
     @property
     def basis(self) -> str:
@@ -1311,6 +1312,10 @@ def analyse(fx: pd.Series, long: pd.DataFrame, results: pd.DataFrame,
         ex.card_p = markets.count_lines(ex.cards, markets.CARDS)
     so, su = sharp_ou(fx)
     ex.p_o25_fair = markets.fair_two_way(so, su)      # market-implied O2.5 from the reference odds (comparison only)
+    # User's Google Sheet V1 — filled from this match, evaluated with the sheet's own formulas.
+    # Comparison only: p_model / p_final / extra markets are not read from it.
+    import sheet_model as sheetmod
+    row.sheet = sheetmod.build(fx, H, A, da, ex.x12, ex.tg, p_model)
     return row
 
 

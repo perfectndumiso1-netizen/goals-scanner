@@ -1,3 +1,8 @@
+## What's new — your Google Sheet model on every match
+- 📊 **Sheet tab on every match.** Your bookmaker Google Sheet (V1) is filled with **that match's available data** and shown next to PlayReport. **PlayReport's model is not changed** — comparison only. Missing numbers stay N/A.
+- ⬇️ **Download the filled sheet** (MATCH_INPUT + MARKETS CSV) from the Sheet tab.
+- The test match was cleared from the Google Sheet template. **No formulas were edited.**
+
 ## What's new — matches stay on the board, team goals, videos 3× a day
 - 🐛 **Fixed: the app showing 0 matches in the afternoon.** When Livescore or football-data dropped out after a good morning scan, the next refresh published an empty board over tonight's fixtures. The scan now **restores upcoming matches from the morning archive** and **refuses to publish a 0-match file** over a live list.
 - 🎯 **Team-goal Overs are back** (home/away over 0.5, 1.5, …). Unders and double chance stay out.

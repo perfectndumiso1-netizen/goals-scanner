@@ -505,6 +505,8 @@ def export(path: Path, *, ctx: dict, rows: list, all_rows: list | None = None, p
             "market": (r.audit or {}).get("market"),
             "warnings": (r.audit or {}).get("warnings"),
             "generated": now.strftime("%Y-%m-%d %H:%M"),
+            # User's Google Sheet V1 bookmaker model, filled for this match. Comparison only.
+            "sheet_model": getattr(r, "sheet", None),
         })
         _write(fx_dir / f"{key}.json", detail)
     # detail files are NEVER pruned — every analysed fixture stays available permanently

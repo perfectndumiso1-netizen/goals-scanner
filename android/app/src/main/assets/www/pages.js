@@ -142,7 +142,7 @@
         <div class="tri"><span class="h" style="width:${Math.round((x12(f, 'H') || 0) * 100)}%"></span><span class="d" style="width:${Math.round((x12(f, 'D') || 0) * 100)}%"></span><span class="a" style="width:${Math.round((x12(f, 'A') || 0) * 100)}%"></span></div></div>
       <div class="chips small-chips" style="margin-top:6px;justify-content:center">${qualityChip(f)}${f.data_ok ? '' : '<span class="chip warn">⚠️ low data — never shortlisted</span>'}</div>
       ${PR.sbEventUrl(PR.fittedSbEvent(f)) ? `<a class="sb-open" href="${esc(PR.sbEventUrl(PR.fittedSbEvent(f)))}" style="display:flex;align-items:center;justify-content:center;gap:6px;margin-top:8px;padding:8px;border-radius:10px;background:var(--chip);font-size:13px;font-weight:600;color:var(--text)">${icon('target', 'sm')} Open in Sportybet — their live odds &amp; slip</a>` : ''}</div>`);
-    const segTabs = [['overview', 'Overview'], ['form', 'Form'], ['markets', 'Markets'], ['trends', 'Trends'], ['stats', 'Stats'],
+    const segTabs = [['overview', 'Overview'], ['form', 'Form'], ['markets', 'Markets'], ['sheet', 'Sheet'], ['trends', 'Trends'], ['stats', 'Stats'],
       ...(fin ? [['report', 'Report']] : []), ['table', 'Table'], ['h2h', 'H2H'], ['news', 'News'], ['data', 'Data'], ['lineups', 'Line-ups']];
     parts.push(`<div class="card compact">${segmented(segTabs, v, 'mv')}</div>`);
     if (v === 'lineups') parts.push(lineupsBlock(f, s, x));
@@ -152,6 +152,7 @@
     else if (v === 'form') matchForm(parts, f);
     else if (v === 'trends') matchTrends(parts, x);
     else if (v === 'markets') matchMarkets(parts, x);
+    else if (v === 'sheet') matchSheet(parts, x);
     else if (v === 'stats') matchStats(parts, x, th, ta);
     else if (v === 'table') matchTable(parts, f, th, ta);
     else if (v === 'news') matchNews(parts, f, x);
@@ -162,6 +163,7 @@
     wireBack();
     const fb = $('#fav-btn'); if (fb) fb.onclick = () => PR.toggleFav(f.id);
     const dl = $('#dl-csv'); if (dl) dl.onclick = () => PR.downloadMatchCsv(x, s, state.lastStats);
+    const dls = $('#dl-sheet'); if (dls) dls.onclick = () => PR.downloadSheetCsv(x);
     $$('[data-mv]').forEach((b) => { b.onclick = () => { state.matchView = b.dataset.mv; PR.render(); }; });
   };
   /** Full-time report tab: a readable narrative of the finished match — result, how it went, and every
@@ -332,6 +334,57 @@
     if (sb.CORN || sb.CARDS || sb.CORNH || sb.CORN1H) parts.push(`<div class="card compact"><div class="b">More Sportybet lines (over / under)</div><table class="tbl" style="margin-top:4px">${lines(sb.CORN, 'Corners')}${lines(sb.CORN1H, '1st-half corners')}${lines(sb.CORNH, 'Home corners')}${lines(sb.CORNA, 'Away corners')}${lines(sb.CARDS, 'Cards')}${lines(sb.CARDSH, 'Home cards')}${lines(sb.CARDSA, 'Away cards')}</table></div>`);
     if (f.corners || f.cards) parts.push(`<div class="card compact"><div class="b">Expected counts (own corner / card models)</div><div class="grid4" style="margin-top:6px">${f.corners ? `<div class="cell"><div class="k">Corners</div><div class="v">${f1(f.corners.total)}</div><div class="tiny muted">${f1(f.corners.home)} – ${f1(f.corners.away)}${countN(f.corners)}</div></div>` : ''}${f.cards ? `<div class="cell"><div class="k">Cards</div><div class="v">${f1(f.cards.total)}</div><div class="tiny muted">${f1(f.cards.home)} – ${f1(f.cards.away)}${countN(f.cards)}</div></div>` : ''}</div></div>`);
     else parts.push(`<div class="card tiny muted">Corners and cards are modelled for the 22 main European leagues, where match statistics are published.</div>`);
+  }
+  /** User's Google Sheet V1 bookmaker model, filled with this match. Comparison only. */
+  function matchSheet(parts, f) {
+    const sm = f.sheet_model;
+    if (!sm) {
+      parts.push(`<div class="card empty">The sheet model was not on this analysis yet — it is filled on the next scan. PlayReport's own numbers on the other tabs are unchanged.</div>`);
+      return;
+    }
+    const inp = sm.inputs || {};
+    const eng = sm.model || {};
+    const cell = (v, d) => (v == null || v === '') ? '<span class="muted">N/A</span>' : esc(String(d ? d(v) : v));
+    parts.push(`<div class="card tiny muted"><b>Your Google Sheet model (V1)</b> — the same MATCH_INPUT → MODEL_ENGINE → SCORE_MATRIX → MARKETS formulas, filled with <b>this match's available data</b>. PlayReport's Dixon-Coles model is not changed; the two sit side by side so you can compare them. Missing inputs are N/A, never invented.</div>`);
+    parts.push(`<div class="card compact"><div class="b">${icon('info', 'sm')} Match information</div>
+      <table class="tbl" style="margin-top:6px">
+        <tr><td>Competition</td><td>${cell(inp.competition)}</td></tr>
+        <tr><td>Season</td><td>${cell(inp.season)}</td></tr>
+        <tr><td>Date</td><td>${cell(inp.date)}</td></tr>
+        <tr><td>Home</td><td>${cell(inp.home)}</td></tr>
+        <tr><td>Away</td><td>${cell(inp.away)}</td></tr>
+        <tr><td>Venue</td><td>${cell(inp.venue)}</td></tr>
+      </table></div>`);
+    parts.push(`<div class="card compact"><div class="b">${icon('chart', 'sm')} V1 statistical inputs</div>
+      <table class="tbl head" style="margin-top:6px"><tr><th>Input</th><th class="right">Value</th></tr>
+        <tr><td>Home goals scored / home game</td><td class="right">${cell(inp.home_gf_home, f2)}</td></tr>
+        <tr><td>Home goals conceded / home game</td><td class="right">${cell(inp.home_ga_home, f2)}</td></tr>
+        <tr><td>Away goals scored / away game</td><td class="right">${cell(inp.away_gf_away, f2)}</td></tr>
+        <tr><td>Away goals conceded / away game</td><td class="right">${cell(inp.away_ga_away, f2)}</td></tr>
+        <tr><td>League average home goals / game</td><td class="right">${cell(inp.lg_home, f2)}</td></tr>
+        <tr><td>League average away goals / game</td><td class="right">${cell(inp.lg_away, f2)}</td></tr>
+      </table>
+      <div class="tiny muted" style="margin-top:6px">Home sample ${inp.home_venue_n || 0} games · away sample ${inp.away_venue_n || 0}. When a venue split is empty we use overall goals / game (still real data). Context kept for the sheet but not used by V1: xG ${cell(inp.home_xg, f2)} / ${cell(inp.away_xg, f2)}, SOT ${cell(inp.home_sot, f1)} / ${cell(inp.away_sot, f1)}.</div>
+      ${(sm.missing || []).length ? `<div class="tiny warn" style="margin-top:4px">Not available: ${esc((sm.missing || []).join('; '))}.</div>` : ''}</div>`);
+    if (!sm.ok || !eng.lambda_h) {
+      parts.push(`<div class="card empty">V1 cannot run until the six statistical inputs are present. Nothing was invented.</div>`);
+    } else {
+      parts.push(`<div class="card compact"><div class="b">${icon('sparkle', 'sm')} Sheet engine (unchanged formulas)</div>
+        <table class="tbl head" style="margin-top:6px"><tr><th></th><th class="right">Sheet</th><th class="right">PlayReport</th></tr>
+          <tr><td>Expected home goals (λH)</td><td class="right"><b>${f2(eng.lambda_h)}</b></td><td class="right">${f2((f.xg || {}).model_home)}</td></tr>
+          <tr><td>Expected away goals (λA)</td><td class="right"><b>${f2(eng.lambda_a)}</b></td><td class="right">${f2((f.xg || {}).model_away)}</td></tr>
+          <tr><td>Expected total</td><td class="right">${f2(eng.lambda_total)}</td><td class="right">${f2((f.xg || {}).model_total)}</td></tr>
+        </table>
+        <div class="tiny muted" style="margin-top:4px">Sheet: league home × home attack × away defence (raw venue rates, no shrinkage). PlayReport: league × shrunk ratings × Dixon-Coles. 1X2 sheet sum ${eng.x12_sum != null ? Math.round(eng.x12_sum * 1000) / 10 + '%' : '—'} (0–7 matrix residual ${eng.matrix_residual != null ? Math.round(eng.matrix_residual * 10000) / 100 + ' pp' : '—'}).</div></div>`);
+      const rows = (sm.markets || []).map((m) => {
+        const sp = m.p, pp = m.playreport;
+        return `<tr><td>${esc(m.name)}</td><td class="right"><b>${pct(sp)}</b><div class="tiny muted">${m.fair != null ? f2(m.fair) : ''}</div></td><td class="right">${pp == null ? '<span class="muted">—</span>' : pct(pp)}</td></tr>`;
+      }).join('');
+      parts.push(`<div class="card compact"><div class="b">${icon('ticket', 'sm')} Market probabilities &amp; fair odds</div>
+        <table class="tbl head" style="margin-top:6px"><tr><th>Market</th><th class="right">Sheet · fair</th><th class="right">PlayReport</th></tr>${rows}</table>
+        <div class="tiny muted" style="margin-top:4px">Fair odds = 1 / sheet probability. PlayReport column is this app's model for the same market (blank when that market is not modelled the same way, e.g. Over 0.5).</div></div>`);
+    }
+    parts.push(`<div class="card compact"><div class="small muted">Download this match's filled MATCH_INPUT + MARKETS as a spreadsheet file (opens in Google Sheets / Excel). Calculations are the sheet's V1 formulas; PlayReport's model is not in this file except as a comparison column.</div><button class="btn" id="dl-sheet" style="margin-top:8px;width:100%">${icon('download', 'sm')} Download sheet model (CSV)</button></div>`);
   }
   // ------------------------------------------------------------------ DATA / AUDIT TAB (data-first engine)
   const EVIDENCE = [[40, 'Very strong'], [20, 'Strong'], [10, 'Moderate'], [5, 'Small'], [1, 'Very small']];
