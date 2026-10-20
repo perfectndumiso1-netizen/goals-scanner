@@ -429,12 +429,24 @@ def window_days(start: datetime, end: datetime) -> list[datetime]:
 def fetch_window(start: datetime, end: datetime, tz_offset_hours: int = 2, back_days: int = 1) -> list[dict]:
     """Day feeds covering [start - back_days, end] (yesterday is included so late finals reach the archive)."""
     events: dict[str, dict] = {}
+    fails = 0
     for day in window_days(start - timedelta(days=back_days), end):
         try:
-            for ev in fetch_day(day, tz_offset_hours):
-                events[ev["eid"]] = ev
+            got = fetch_day(day, tz_offset_hours)
+            if got:
+                fails = 0
+                for ev in got:
+                    events[ev["eid"]] = ev
+            else:
+                fails += 1
+                if fails >= 4 and not events:
+                    log.warning("Livescore window aborted after %d empty/failed days (feed down)", fails)
+                    break
         except Exception as exc:  # noqa: BLE001
             log.warning("Livescore day %s failed: %s", day.date(), exc)
+            fails += 1
+            if fails >= 4 and not events:
+                break
     return list(events.values())
 
 

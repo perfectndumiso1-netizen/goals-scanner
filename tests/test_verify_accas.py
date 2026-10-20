@@ -148,7 +148,7 @@ def test_over25_and_btts_may_be_published_from_55_percent(tmp_path):
 
 
 def test_a_dropped_market_is_refused_but_a_frozen_live_bet_from_before_the_change_is_not(tmp_path):
-    assert any("market policy dropped" in e for e in _safe_errors(tmp_path, [_bet("HO05", 0.85)]))
+    assert _safe_errors(tmp_path, [_bet("HO05", 0.85)]) == []   # team-goal Overs are back
     assert any("market policy dropped" in e for e in _safe_errors(tmp_path / "b", [_bet("1X", 0.85)]))
     assert any("under selection" in e for e in _safe_errors(tmp_path / "c", [_bet("KHU25", 0.85)]))
     # carried over unchanged from the previous publication (kicked off in the last 3 h): never blocks the first run

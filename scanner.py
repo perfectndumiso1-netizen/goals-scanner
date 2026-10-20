@@ -803,6 +803,80 @@ def load_fixtures(tz: ZoneInfo) -> pd.DataFrame:
     return fx.sort_values(["kickoff", "country", "league"]).reset_index(drop=True)
 
 
+def fixtures_from_archive(start: datetime, end: datetime, tz: ZoneInfo,
+                          have: pd.DataFrame | None = None, *,
+                          days_dir: Path | None = None, latest_path: Path | None = None) -> pd.DataFrame:
+    """Upcoming fixtures already stored on disk (day files / last latest.json).
+
+    Live feeds (Livescore, football-data.co.uk) can go empty mid-day. The morning scan still
+    wrote tonight's matches into data/app/days/. Reuse those rows so a failed refresh cannot
+    publish a 0-match board over a working morning. Never invents kick-offs or teams.
+    """
+    seen: set[tuple] = set()
+    if have is not None and not have.empty:
+        for _, r in have.iterrows():
+            seen.add((str(r.get("home") or ""), str(r.get("away") or ""),
+                      r["kickoff"].strftime("%Y-%m-%d %H:%M") if hasattr(r.get("kickoff"), "strftime") else str(r.get("kickoff") or "")[:16]))
+    rows = []
+
+    def add(f: dict) -> None:
+        if not isinstance(f, dict):
+            return
+        ko_s = str(f.get("kickoff") or "")[:16]
+        try:
+            ko = datetime.strptime(ko_s, "%Y-%m-%d %H:%M").replace(tzinfo=tz)
+        except ValueError:
+            return
+        if ko < start or ko > end:
+            return
+        sc = f.get("score") if isinstance(f.get("score"), dict) else {}
+        st = str(sc.get("status") or "")
+        if st in ("FT", "AET", "AP") or (sc.get("hg") is not None and ko <= start):
+            return
+        home, away = str(f.get("home") or "").strip(), str(f.get("away") or "").strip()
+        if not home or not away:
+            return
+        key = (home, away, ko.strftime("%Y-%m-%d %H:%M"))
+        if key in seen:
+            return
+        seen.add(key)
+        div = str(f.get("div") or "LS")
+        rows.append({
+            "source": "archive", "code": "LS" if div.startswith("LS") else div,
+            "country": str(f.get("country") or ""), "div": div,
+            "league": str(f.get("league") or f.get("competition") or ""),
+            "date": pd.Timestamp(ko.date()), "time": ko.strftime("%H:%M"),
+            "home": home, "away": away, "home_id": None, "away_id": None,
+            "odds_over": np.nan, "odds_under": np.nan, "b365_over": np.nan, "b365_under": np.nan,
+            "odds_h": np.nan, "odds_d": np.nan, "odds_a": np.nan, "bfe_h": np.nan, "bfe_d": np.nan, "bfe_a": np.nan,
+            "bfe_over": np.nan, "bfe_under": np.nan, "max_over": np.nan, "max_under": np.nan, "referee": "",
+            "kickoff": ko, "time_known": True, "eid": f.get("livescore_id") or None,
+        })
+
+    latest = Path(latest_path or APP_FILE)
+    if latest.exists():
+        try:
+            for f in (json.loads(latest.read_text(encoding="utf-8")).get("fixtures") or []):
+                add(f)
+        except (OSError, ValueError):
+            pass
+    ddir = Path(days_dir or DAYS_DIR)
+    d = start.date()
+    last = end.date()
+    while d <= last:
+        p = ddir / f"{d:%Y-%m-%d}.json"
+        if p.exists():
+            try:
+                for f in (json.loads(p.read_text(encoding="utf-8")).get("fixtures") or []):
+                    add(f)
+            except (OSError, ValueError):
+                pass
+        d += timedelta(days=1)
+    if not rows:
+        return pd.DataFrame()
+    return pd.DataFrame(rows).sort_values(["kickoff", "country", "league"]).reset_index(drop=True)
+
+
 # ----------------------------------------------------------------------------- modelling
 @dataclass
 class DivAvg:
@@ -2581,29 +2655,45 @@ def _telegram_state(now: datetime) -> tuple[Path, dict]:
     return path, st
 
 
-def maybe_send_daily_reel(sl_pub: dict, now: datetime) -> None:
-    """16:9 shortlist video to Telegram once a day (05:00–07:19 SAST, or on manual FORCE_DAILY_REEL).
+def _reel_slot(now: datetime) -> str | None:
+    """Three video windows SAST: morning 05:00–07:19, noon 11:00–12:19, evening 16:00–17:19."""
+    h, m = now.hour, now.minute
+    if h in (5, 6) or (h == 7 and m < 20):
+        return "morning"
+    if h == 11 or (h == 12 and m < 20):
+        return "noon"
+    if h == 16 or (h == 17 and m < 20):
+        return "evening"
+    return None
 
-    Starts with the settled results of ONLY the matches included in yesterday's video(s),
-    then proceeds to today's shortlist selections. Video is deleted after a successful send —
-    never git, never Drive, never the data branch.
+
+def maybe_send_daily_reel(sl_pub: dict, now: datetime) -> None:
+    """Shortlist video to Telegram three times a day (morning / noon / evening SAST).
+
+    Each slot is a fresh 12-pick set: matches already shown earlier today are skipped.
+    Only selections at 65%+ go in. Starts with yesterday's settled video picks on the
+    morning slot. Video is deleted after a successful send — never git, never Drive.
     """
     if reel_mod is None:
         return
     if not (os.getenv("TELEGRAM_BOT_TOKEN") and os.getenv("TELEGRAM_CHAT_ID")):
         return
     force = os.getenv("FORCE_DAILY_REEL", "").strip().lower() in ("1", "true", "yes")
-    hour, minute = now.hour, now.minute
-    morning = hour in (5, 6) or (hour == 7 and minute < 20)
-    if not morning and not force:
-        return
-    pool = list((sl_pub or {}).get("x12") or []) + list((sl_pub or {}).get("primary") or [])
-    prim = reel_mod.reel_picks(pool)
-    if not prim:
+    slot = _reel_slot(now) or ("manual" if force else None)
+    if not slot:
         return
     path, st = _telegram_state(now)
     today = now.strftime("%Y-%m-%d")
-    if st.get("briefing") == today and not force:
+    slots = st.get("briefing_slots") if isinstance(st.get("briefing_slots"), dict) else {}
+    already = list(slots.get(today) or [])
+    if slot in already and not force:
+        return
+    hist = st.get("briefing_history") if isinstance(st.get("briefing_history"), dict) else {}
+    used = {(str(x.get("home") or ""), str(x.get("away") or ""))
+            for x in (hist.get(today) or []) if isinstance(x, dict)}
+    pool = list((sl_pub or {}).get("x12") or []) + list((sl_pub or {}).get("primary") or [])
+    prim = reel_mod.reel_picks(pool, used=used)
+    if not prim:
         return
     assets = ROOT / "assets" / "reel"
     if not (assets / "logo.png").exists():
@@ -2676,6 +2766,7 @@ def maybe_send_daily_reel(sl_pub: dict, now: datetime) -> None:
         )
     if ok_16x9 or ok_9x16:
         st["briefing"] = today
+        st["briefing_slots"] = {**slots, today: already + [slot]}
         st["briefing_history"] = record_briefing_picks(hist, today, prim_enriched)
         try:
             path.parent.mkdir(parents=True, exist_ok=True)
@@ -3107,6 +3198,13 @@ def main() -> None:
 
     tracker = load_tracker()
     pending = tracker[tracker["status"] == "pending"] if not tracker.empty else tracker
+
+    if todays.empty:
+        arch = fixtures_from_archive(start, end, tz, todays)
+        if not arch.empty:
+            log.warning("Live fixture feeds empty — restored %d upcoming match(es) from the day archive (last good scan)",
+                        len(arch))
+            todays = arch
 
     # which history files do we need? whole country systems, so promoted/relegated teams keep their history
     countries = set(todays["country"]) if not todays.empty else set()

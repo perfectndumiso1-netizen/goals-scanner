@@ -30,13 +30,15 @@ def test_team_goals_are_not_confused_with_team_corners_or_cards():
 
 
 def test_policy_allows_exactly_the_focus_markets():
-    assert [c for c in UNDERS + TEAM_GOALS + DOUBLE_CHANCE if policy.allowed(c)] == []
+    assert [c for c in UNDERS + DOUBLE_CHANCE if policy.allowed(c)] == []
     assert all(policy.allowed(c) for c in OVERS)
+    assert all(policy.allowed(c) for c in ("HO05", "AO05", "HO15", "AO15"))
+    assert not policy.allowed("HU15") and not policy.allowed("AU15")
 
 
 def test_rollback_switch_restores_a_family(monkeypatch):
     monkeypatch.setattr(policy, "ALLOW", frozenset(("dc",)))
-    assert policy.allowed("1X") and not policy.allowed("HO05") and not policy.allowed("U25")
+    assert policy.allowed("1X") and policy.allowed("HO05") and not policy.allowed("U25")
     monkeypatch.setattr(policy, "ALLOW", frozenset(("unders", "team", "dc")))
     assert all(policy.allowed(c) for c in UNDERS + TEAM_GOALS + DOUBLE_CHANCE)
 
@@ -67,12 +69,12 @@ def _full_row():
     )
 
 
-def test_selections_carry_no_team_goals_no_double_chance_no_unders():
+def test_selections_carry_no_unders_no_double_chance_team_goal_overs_on():
     codes = [s.sel for s in safe.selections(_full_row())]
     assert codes, "the focus markets must still be there"
-    for bad in UNDERS + TEAM_GOALS + DOUBLE_CHANCE:
+    for bad in UNDERS + DOUBLE_CHANCE:
         assert bad not in codes, bad
-    for good in ("H", "D", "A", "O15", "O25", "O35", "BTTS", "CO95", "KO35", "CHO45", "KHO15"):
+    for good in ("H", "D", "A", "O15", "O25", "O35", "BTTS", "CO95", "KO35", "CHO45", "KHO15", "HO05", "AO05"):
         assert good in codes, good
 
 
@@ -166,14 +168,14 @@ def _ledger(rows):
 def test_pending_card_picks_the_policy_dropped_leave_the_sticky_card_but_history_stays():
     now = datetime(2026, 10, 17, 12, 0)
     df = _ledger([
-        {"home": "A", "away": "B", "sel": "HO05", "botd": "o15", "kind": "botd"},              # card-only row, pending, dropped market
+        {"home": "A", "away": "B", "sel": "1X", "botd": "o15", "kind": "botd"},              # card-only row, pending, dropped market
         {"home": "C", "away": "D", "sel": "CAU55", "botd": "corners", "kind": "safe"},          # also a safest-record row
         {"home": "E", "away": "F", "sel": "HO05", "botd": "o15", "kind": "botd", "status": "hit", "score": "2-0"},   # settled: history
         {"home": "G", "away": "H", "sel": "O15", "botd": "o15", "kind": "botd"},                # still allowed
     ])
     out = safe.pick_bets_of_the_day(df, now, candidates=[])
     rows = {(r.home, r.sel): r for r in out.itertuples()}
-    assert ("A", "HO05") not in rows                                  # card-only, pending -> removed
+    assert ("A", "1X") not in rows                                  # card-only, pending -> removed
     assert ("C", "CAU55") in rows and rows[("C", "CAU55")].botd == ""  # kept for the safest record, off the card
     assert rows[("E", "HO05")].botd == "o15" and rows[("E", "HO05")].status == "hit"   # settled stays on the record
     assert rows[("G", "O15")].botd == "o15"
@@ -184,7 +186,7 @@ def test_pending_card_picks_the_policy_dropped_leave_the_sticky_card_but_history
 
 def test_a_match_whose_old_ledger_row_was_a_dropped_market_can_still_get_a_new_card_pick():
     now = datetime(2026, 10, 17, 12, 0)
-    df = _ledger([{"home": "A", "away": "B", "sel": "HO05", "botd": "", "kind": "safe"}])    # old safest row, dropped market
+    df = _ledger([{"home": "A", "away": "B", "sel": "1X", "botd": "", "kind": "safe"}])    # old safest row, dropped market
     cand = safe.Bet(("2026-10-17", "England", "A", "B"), "E0", "Premier League", "A", "B", "2026-10-17 20:00", "O15", 0.82, 0.82, None, 1.25)
     out = safe.pick_bets_of_the_day(df, now, candidates=[cand])
     assert any(r.sel == "O15" and r.botd == "o15" for r in out.itertuples())
@@ -209,13 +211,13 @@ def test_the_apps_isunder_matches_the_python_policy_on_every_code():
 def test_the_apps_dropped_set_and_floors_match_the_python_policy():
     import re
     js = _core_js()
-    team = re.search(r"const isDropped = .*?/(\^\[HA\]\[OU\]\\d\+\$)/\.test", js)
-    assert team, "isDropped team-goal pattern moved — update this test"
-    team_rx = re.compile(team.group(1))
-    for code in TEAM_GOALS + OVERS + UNDERS:
-        assert bool(team_rx.search(code)) == policy.is_team_goal(code), code
+    dropped = re.search(r"const isDropped = \(sel\) => ([^;]+);", js)
+    assert dropped, "isDropped moved — update this test"
+    expr = dropped.group(1)
+    assert "^[HA][OU]" not in expr and "isUnder(sel)" in expr
     for dc in DOUBLE_CHANCE:
         assert f"sel === '{dc}'" in js
+    assert "HO05" not in expr
     floors = re.search(r"const SEL_FLOOR = \{ O25: ([0-9.]+), BTTS: ([0-9.]+)", js)
     assert floors and float(floors.group(1)) == policy.SEL_MIN_P["O25"] and float(floors.group(2)) == policy.SEL_MIN_P["BTTS"]
 

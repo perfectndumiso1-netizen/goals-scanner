@@ -1,9 +1,9 @@
 """Market policy (user rules, 2026-10-17): which selections the model may recommend, and from what probability.
 
-    * Team-goals selections are dropped altogether (HO05, AO05, HO15, AU15 ...).
+    * Team-goals Overs are on (HO05, AO05, HO15, AO15 …). Team unders stay out.
     * Double chance is dropped (1X, 12, X2).
     * No unders in any market: total-goals unders, "no BTTS", team unders, corner and card unders.
-    * Over 1.5, Over 2.5, BTTS and bookings (cards) are the focus. Over 2.5, BTTS and 1X2 START from a 55% model
+    * Over 1.5, Over 2.5, BTTS, team goals and bookings are the focus. Over 2.5, BTTS and 1X2 START from a 55% model
       probability; every other market keeps the bar it already had.
 
 One source of truth. `safe.selections()` asks `allowed(code)` before it yields a candidate, so every surface that
@@ -74,7 +74,7 @@ def allowed(sel: str) -> bool:
     if is_under(sel):
         return "unders" in ALLOW
     if is_team_goal(sel):
-        return "team" in ALLOW
+        return True   # user 2026-10-20: team-goal Overs are back (unders already rejected above)
     if is_double_chance(sel):
         return "dc" in ALLOW
     if DROP:
@@ -110,8 +110,8 @@ def min_p(sel: str, default: float) -> float:
 def describe() -> dict:
     """Machine-readable summary published with the shortlist rules (shown in the app)."""
     return {
-        "focus": ["Over 1.5", "Over 2.5", "BTTS", "Bookings"],
-        "dropped": [f for f, on in (("team goals", "team" not in ALLOW), ("double chance", "dc" not in ALLOW),
+        "focus": ["Over 1.5", "Over 2.5", "BTTS", "Team goals", "Bookings"],
+        "dropped": [f for f, on in (("double chance", "dc" not in ALLOW),
                                     ("unders (every market)", "unders" not in ALLOW)) if on],
         "starting_floor": {"O25": SEL_MIN_P["O25"], "BTTS": SEL_MIN_P["BTTS"], "1X2": SEL_MIN_P["H"]},
         "kept_by_default": [name for name, key in (("corners (overs)", "corners"), ("1X2 (home / away)", "result"))

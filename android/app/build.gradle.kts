@@ -1,4 +1,4 @@
-// Build marker: 2026-10-19 nav memory + panther icon. Comment only — no functional change.
+// Build marker: 2026-10-20 archive restore + team goals + 3x videos. Comment only.
 import java.util.Properties
 
 plugins {

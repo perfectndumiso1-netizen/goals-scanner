@@ -123,6 +123,17 @@ def check_publication(staging: Path, live: Path, ledger: Path, now: datetime, ex
     fixtures = d.get("fixtures") or []
     if expect_fixtures and not fixtures:
         errors.append("no fixtures in the publication although the scan had rows")
+    if not fixtures:
+        live_latest = live / "latest.json"
+        try:
+            live_d = json.loads(live_latest.read_text(encoding="utf-8")) if live_latest.exists() else {}
+            live_fx = live_d.get("fixtures") or []
+            cut = now.strftime("%Y-%m-%d %H:%M")
+            remaining = [f for f in live_fx if str((f or {}).get("kickoff") or "")[:16] >= cut]
+            if remaining:
+                errors.append(f"empty publication would wipe {len(remaining)} live fixture(s) still in the window")
+        except (OSError, ValueError, TypeError):
+            pass
     ids = set()
     n_detail_missing = 0
     for f in fixtures:

@@ -1,3 +1,8 @@
+## What's new — matches stay on the board, team goals, videos 3× a day
+- 🐛 **Fixed: the app showing 0 matches in the afternoon.** When Livescore or football-data dropped out after a good morning scan, the next refresh published an empty board over tonight's fixtures. The scan now **restores upcoming matches from the morning archive** and **refuses to publish a 0-match file** over a live list.
+- 🎯 **Team-goal Overs are back** (home/away over 0.5, 1.5, …). Unders and double chance stay out.
+- 🎬 **Videos three times a day** (morning, noon, evening). **No match is repeated** across those videos. Only selections at **65%+** go in.
+
 ## What's new — back goes where you were, and a new logo
 - ⬅️ **Back remembers where you were.** Open a match (or a team, a league, a day) and the system back button — or the in-page arrow — returns you to the same list, **same sort, same filter, same scroll**. Tapping the tab you are already on pops back to that list too. Preferences and sorting are kept on the phone, including after you leave the app.
 - 🐆 **New app icon** — the PlayReport panther badge (home screen, splash and the header).

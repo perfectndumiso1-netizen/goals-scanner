@@ -912,17 +912,35 @@ def is_breakdown_market(p: dict) -> bool:
     return False
 
 
+REEL_MIN_P = 0.65   # user 2026-10-20: videos only carry selections at 65%+
+
+
+def _reel_p(p: dict) -> float | None:
+    for k in ("p", "p_cal", "prob"):
+        try:
+            v = float(p.get(k))
+        except (TypeError, ValueError):
+            continue
+        if v == v:
+            return v
+    return None
+
+
 def is_reel_market(p: dict) -> bool:
-    """Morning videos: 1X2, BTTS and Over 2.5. Unders stay out."""
+    """Videos: Overs-side markets (1X2, BTTS, Over 2.5, team goals, corners, bookings). Unders stay out."""
     sel = str(p.get("sel") or "").upper()
     blob = " ".join(str(p.get(k) or "") for k in ("label", "sel", "market", "group")).lower()
-    if "under" in blob or sel in ("U15", "U25", "U35", "NBTTS", "1X", "12", "X2"):
+    if "under" in blob or sel in ("U15", "U25", "U35", "NBTTS", "1X", "12", "X2") or sel.endswith("U05") or sel.endswith("U15") or sel.endswith("U25"):
         return False
     if sel in ("H", "D", "A"):
         return True
     if sel == "BTTS" or "btts" in blob or "both teams" in blob:
         return True
-    if sel == "O25" or "over 2.5" in blob:
+    if sel in ("O15", "O25", "O35") or "over" in blob:
+        return True
+    if sel[:2] in ("HO", "AO") and sel[2:].isdigit():
+        return True
+    if any(w in blob for w in ("corner", "card", "booking", "yellow", "team goal", "to score", "goals")):
         return True
     return False
 
@@ -931,15 +949,21 @@ def _match_key(p: dict) -> tuple:
     return (str(p.get("kickoff") or ""), str(p.get("home") or ""), str(p.get("away") or ""))
 
 
-def reel_picks(picks: list) -> list:
-    """At least twelve when the pool allows: 1X2 / BTTS / Over 2.5, one per match."""
-    rank = {"O25": 0, "BTTS": 1, "H": 2, "A": 2, "D": 3}
+def reel_picks(picks: list, *, used: set | None = None) -> list:
+    """At least twelve when the pool allows: one selection per match, 65%+, never a match already shown today."""
+    rank = {"O25": 0, "BTTS": 1, "HO05": 2, "AO05": 2, "H": 3, "A": 3, "D": 4}
+    skip = used or set()
     best = {}
     order = []
     for p in picks or []:
         if not is_reel_market(p):
             continue
+        pr = _reel_p(p)
+        if pr is None or pr < REEL_MIN_P:
+            continue
         k = _match_key(p)
+        if k in skip or (k[1], k[2]) in skip:
+            continue
         prev = best.get(k)
         if prev is None:
             best[k] = p

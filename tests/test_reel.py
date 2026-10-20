@@ -6,19 +6,23 @@ import shortlist_reel as reel
 
 def test_reel_picks_1x2_btts_o25_only():
     picks = [
-        {"label": "Over 2.5 goals", "sel": "O25", "home": "A", "away": "Z", "kickoff": "1"},
-        {"label": "Under 2.5 cards", "sel": "KU25", "home": "B", "away": "Z", "kickoff": "2"},
-        {"label": "Home or draw", "sel": "1X", "home": "C", "away": "Z", "kickoff": "3"},
-        {"label": "Home win", "sel": "H", "home": "E", "away": "Z", "kickoff": "4"},
-        {"label": "BTTS", "sel": "BTTS", "home": "F", "away": "Z", "kickoff": "5"},
-        {"label": "Over 2.5 goals", "sel": "O25", "home": "G", "away": "Z", "kickoff": "6"},
-        {"label": "Over 3.5 cards", "sel": "KO35", "home": "H", "away": "Z", "kickoff": "7"},
-    ] + [{"label": "Over 2.5 goals", "sel": "O25", "home": f"X{i}", "away": "Z", "kickoff": str(10+i)} for i in range(12)]
+        {"label": "Over 2.5 goals", "sel": "O25", "home": "A", "away": "Z", "kickoff": "1", "p": 0.72},
+        {"label": "Under 2.5 cards", "sel": "KU25", "home": "B", "away": "Z", "kickoff": "2", "p": 0.80},
+        {"label": "Home or draw", "sel": "1X", "home": "C", "away": "Z", "kickoff": "3", "p": 0.80},
+        {"label": "Home win", "sel": "H", "home": "E", "away": "Z", "kickoff": "4", "p": 0.70},
+        {"label": "BTTS", "sel": "BTTS", "home": "F", "away": "Z", "kickoff": "5", "p": 0.68},
+        {"label": "Over 2.5 goals", "sel": "O25", "home": "G", "away": "Z", "kickoff": "6", "p": 0.60},
+        {"label": "Over 3.5 cards", "sel": "KO35", "home": "H", "away": "Z", "kickoff": "7", "p": 0.71},
+    ] + [{"label": "Over 2.5 goals", "sel": "O25", "home": f"X{i}", "away": "Z", "kickoff": str(10+i), "p": 0.70} for i in range(12)]
     out = reel.reel_picks(picks)
     assert all(reel.is_reel_market(p) for p in out)
+    assert all((p.get("p") or 0) >= reel.REEL_MIN_P for p in out)
+    assert "G" not in [p["home"] for p in out]          # 60% is below the 65% video floor
     assert [p["home"] for p in out[:3]] == ["A", "E", "F"]
     assert len(out) == reel.MAX_PICKS
     assert reel.MAX_PICKS >= 12
+    skipped = reel.reel_picks(picks, used={("A", "Z"), ("E", "Z")})
+    assert "A" not in [p["home"] for p in skipped] and "E" not in [p["home"] for p in skipped]
 
 
 def test_pack_accas_three_legs_and_combined_odds():
@@ -329,7 +333,7 @@ def test_yesterday_results_recap_starts_before_todays_selections(monkeypatch, tm
     }
     outfile = tmp_path / "briefing-16x9.mp4"
     reel.build(
-        [{"home": "Lyon", "away": "Crystal Palace", "sel": "O25", "label": "Over 2.5 goals", "odds": 1.25, "kickoff": "2026-10-15 18:45"}],
+        [{"home": "Lyon", "away": "Crystal Palace", "sel": "O25", "label": "Over 2.5 goals", "odds": 1.25, "kickoff": "2026-10-15 18:45", "p": 0.72}],
         outfile,
         assets=assets,
         work=tmp_path / "work",
@@ -499,7 +503,7 @@ def test_dual_resolutions_16x9_and_9x16_share_single_consistent_voice(monkeypatc
     out16 = tmp_path / "out-16x9.mp4"
     out9 = tmp_path / "out-9x16.mp4"
     reel.build_both(
-        [{"home": "Lyon", "away": "Crystal Palace", "label": "Over 2.5 goals", "odds": 1.20, "kickoff": "2026-10-15 18:45"}],
+        [{"home": "Lyon", "away": "Crystal Palace", "sel": "O25", "label": "Over 2.5 goals", "odds": 1.20, "kickoff": "2026-10-15 18:45", "p": 0.72}],
         out16,
         out9,
         assets=assets,

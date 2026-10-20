@@ -6,6 +6,7 @@ from __future__ import annotations
 import json
 import logging
 import subprocess
+import time
 from datetime import datetime, timedelta
 
 import pandas as pd
@@ -26,17 +27,32 @@ FINISHED = {"FT", "AET", "AP", "Postp.", "Canc.", "Aband.", "Awarded"}
 
 
 def _get(url: str, quiet: bool = False) -> dict | None:
-    try:
-        r = requests.get(url, headers={"User-Agent": UA, "Accept": "application/json"}, timeout=TIMEOUT)
-        if r.status_code == 200:
-            data = r.json()
-            feed_health.record("livescore", "success" if data else "empty", "valid_json")
-            return data
-        feed_health.record("livescore", "error", f"http_{r.status_code}")
-        (log.debug if quiet else log.warning)("Livescore HTTP %s for %s", r.status_code, url[:100])
-    except (requests.RequestException, ValueError) as exc:
-        feed_health.record("livescore", "error", "request_or_json_error")
-        log.warning("Livescore request failed: %s", exc)
+    last = None
+    for attempt in range(3):
+        try:
+            r = requests.get(url, headers={"User-Agent": UA, "Accept": "application/json",
+                                           "Referer": "https://www.livescore.com/"}, timeout=TIMEOUT)
+            if r.status_code == 200:
+                data = r.json()
+                feed_health.record("livescore", "success" if data else "empty", "valid_json")
+                return data
+            last = f"http_{r.status_code}"
+            if r.status_code in (429, 502, 503) and attempt < 2:
+                time.sleep(1.6 * (attempt + 1))
+                continue
+            feed_health.record("livescore", "error", last)
+            (log.debug if quiet else log.warning)("Livescore HTTP %s for %s", r.status_code, url[:100])
+            return None
+        except (requests.RequestException, ValueError) as exc:
+            last = "request_or_json_error"
+            if attempt < 2:
+                time.sleep(1.6 * (attempt + 1))
+                continue
+            feed_health.record("livescore", "error", last)
+            log.warning("Livescore request failed: %s", exc)
+            return None
+    if last:
+        feed_health.record("livescore", "error", last)
     return None
 
 
