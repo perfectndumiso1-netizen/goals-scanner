@@ -242,7 +242,7 @@
       parts.push(`<div class="card compact"><div class="row"><div class="grow"><div class="b">📋 Yesterday’s shortlist (${esc(yr.day || '')})</div><div class="tiny muted">${yr.hits} of ${yr.settled} settled selection${yr.settled === 1 ? '' : 's'} won (${pct(yr.hit_rate)})</div></div><span class="pill ${yr.hit_rate >= 0.7 ? 'hi' : 'mid'}">${yr.hits}/${yr.settled}</span></div></div>`);
     }
     if (np) {
-      parts.push(`<div class="card compact briefing-cta"><div class="row"><div class="grow"><div class="b">${icon('sparkle', 'sm')} Tonight's 16:9 briefing</div><div class="tiny muted">Starts with yesterday’s shortlist results, then proceeds to today’s selections. Male voiceover, kick-off times in SAST. A shortlist for your review — never an instruction to bet.</div></div></div>
+      parts.push(`<div class="card compact briefing-cta"><div class="row"><div class="grow"><div class="b">${icon('sparkle', 'sm')} Tonight's 16:9 briefing</div><div class="tiny muted">Opens with yesterday’s full card — every selection from every video — then today’s matches one by one with the reason for each, and one combined-acca suggestion at the end. Male voiceover, kick-off times in SAST. A shortlist for your review — never an instruction to bet.</div></div></div>
         <div class="row" style="gap:8px;margin-top:8px"><button class="btn" id="btn-briefing">${icon('live', 'sm')} Watch briefing</button><button class="btn" id="btn-briefing-dl">${icon('download', 'sm')} Download 16:9 video</button></div></div>`);
     }
     if (!sl.counts) {

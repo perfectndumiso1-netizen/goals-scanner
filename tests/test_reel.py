@@ -1,6 +1,10 @@
 """Reel timing: one voice clip per slide, no music, goals/corners/bookings only."""
 from __future__ import annotations
 
+from pathlib import Path
+
+import pytest
+
 import shortlist_reel as reel
 
 
@@ -51,7 +55,7 @@ def test_frame_hold_rounds_up_so_video_is_never_shorter_than_voice():
     assert abs(h * reel.FPS - round(h * reel.FPS)) < 1e-6
 
 
-def test_pick_script_has_competition_not_model():
+def test_pick_script_has_competition_and_a_reason():
     s = reel.pick_script({
         "home": "Lyon", "away": "Crystal Palace", "label": "Lyon over 0.5 goals",
         "odds": 1.2, "p": 0.91, "kickoff": "2026-10-15 18:45",
@@ -61,8 +65,26 @@ def test_pick_script_has_competition_not_model():
     assert "Lyon" in s and "Crystal Palace" in s
     assert "Lyon to score at least once" in s and "1.20" in s
     assert "quarter to seven tonight" in s                           # kick-off, said the way people say it
-    assert "percent" not in s.lower() and "model" not in s.lower() and "%" not in s
+    assert "around nine in ten" in s                                 # the reason, not a stats table
+    assert "percent" not in s.lower() and "%" not in s
     assert "versus" not in s.lower() and "Kick-off," not in s       # no table-reading
+
+
+def test_pick_reason_is_built_from_the_picks_own_evidence():
+    pick = {
+        "home": "Villarreal", "away": "Getafe", "label": "Over 2.5 goals", "market": "goals",
+        "odds": 1.85, "p": 0.74, "kickoff": "2026-10-20 18:45", "country": "Spain", "league": "LaLiga",
+        "form_h": "WWDWL", "form_a": "LDLWW", "support": ["model xG 1.84–1.12", "both teams' historical O25 rate 62%"],
+    }
+    said = reel.pick_reason_script(pick)
+    assert "about two in three" in said
+    assert "Villarreal" in said and "getting on for two" in said
+    assert "have won three of their last five" in said
+    screen = reel.pick_reason_bits(pick)
+    assert any("74%" in b for b in screen) and any("1.84" in b for b in screen)
+    # Nothing is invented when the evidence is absent
+    bare = reel.pick_reason_script({"home": "A", "away": "B", "p": 0.7})
+    assert bare and "model" in bare.lower() and "xG" not in bare
 
 
 def test_pick_scripts_vary_from_one_pick_to_the_next():
@@ -97,6 +119,7 @@ def test_raw_shortlist_key_resolves_both_club_badges():
 def test_espeak_fallback_uses_male_voice(monkeypatch, tmp_path):
     captured = {}
 
+    monkeypatch.setenv("PLAYREPORT_ALLOW_ESPEAK", "1")
     monkeypatch.delenv("EDGE_TTS_PYTHON", raising=False)
     monkeypatch.delenv("PIPER_MODEL_PATH", raising=False)
     monkeypatch.delenv("PIPER_CONFIG_PATH", raising=False)
@@ -116,6 +139,41 @@ def test_espeak_fallback_uses_male_voice(monkeypatch, tmp_path):
     assert cmd[cmd.index("-s") + 1] == str(reel.ESPEAK_SPEED)
     assert cmd[cmd.index("-p") + 1] == str(reel.ESPEAK_PITCH)
     assert reel.ESPEAK_PITCH <= 50
+
+
+def test_a_robotic_voice_is_never_published_by_accident(monkeypatch, tmp_path):
+    """No neural voice and no explicit opt-in: the build fails loudly instead of shipping eSpeak."""
+    monkeypatch.delenv("PLAYREPORT_ALLOW_ESPEAK", raising=False)
+    monkeypatch.delenv("EDGE_TTS_PYTHON", raising=False)
+    monkeypatch.delenv("PIPER_MODEL_PATH", raising=False)
+    monkeypatch.delenv("PIPER_CONFIG_PATH", raising=False)
+    monkeypatch.setattr(reel.shutil, "which", lambda _name: "/usr/bin/espeak-ng")
+    with pytest.raises(reel.VoiceUnavailable):
+        reel.synthesize_speech("Good morning.", tmp_path / "voice.wav")
+
+
+def test_one_voice_and_one_pacing_seed_for_every_slide(monkeypatch, tmp_path):
+    """Every clip in every video of the run uses the same voice and the same pacing seed."""
+    reel.set_voice_seed()
+    seed = reel.voice_identity()["seed"]
+    reel.set_voice_seed(seed)
+    assert reel.voice_identity()["seed"] == seed
+
+    seen = []
+
+    def fake_sentence(sentence, edge_py, dest, voice=None):
+        seen.append(voice)
+        import numpy as np
+        import voice_polish as vp
+        vp.write_wav(dest, np.zeros(24000, dtype=np.float32) + 0.01, vp.SR)
+        return True
+
+    monkeypatch.setenv("EDGE_TTS_PYTHON", str(Path(__file__)))
+    monkeypatch.setattr(reel, "_edge_sentence", fake_sentence)
+    monkeypatch.setattr(reel, "_ffmpeg", lambda: "/usr/bin/ffmpeg")
+    assert reel._edge_voice_candidates()[0] == reel.EDGE_TTS_VOICE
+    assert len(set(reel._edge_voice_candidates())) == len(reel._edge_voice_candidates())
+    assert "en-GB-RyanNeural" in reel.EDGE_TTS_VOICES      # the CI voice stays first, never eSpeak
 
 
 def test_piper_neural_voice_is_used_when_configured(monkeypatch, tmp_path):
@@ -517,3 +575,131 @@ def test_dual_resolutions_16x9_and_9x16_share_single_consistent_voice(monkeypatc
 
 
 
+
+
+def _capture_build(monkeypatch, tmp_path, picks, *, yesterday=None, recap=True, name="b.mp4"):
+    """Run build() with fakes and return (slide order, spoken texts, recap rows per slide)."""
+    assets = tmp_path / "assets"
+    assets.mkdir(exist_ok=True)
+    (assets / "logo.png").write_bytes(b"logo")
+    for bg in ("bg_stadium.jpg", "bg_pitch.jpg", "bg_lights.jpg"):
+        (assets / bg).write_bytes(b"background")
+
+    order, texts, recap_pages = [], [], []
+
+    def rec(tag):
+        def _fn(*args, **kwargs):
+            dest = args[-1]
+            dest.parent.mkdir(parents=True, exist_ok=True)
+            dest.write_bytes(b"image")
+            order.append(tag)
+            if tag == "results":
+                recap_pages.append(list(args[0]))
+        return _fn
+
+    monkeypatch.setattr(reel, "render_intro", rec("intro"))
+    monkeypatch.setattr(reel, "render_disclaimer", rec("disclaimer"))
+    monkeypatch.setattr(reel, "render_results", rec("results"))
+    monkeypatch.setattr(reel, "render_pick", rec("pick"))
+    monkeypatch.setattr(reel, "render_combine", rec("combine"))
+    monkeypatch.setattr(reel, "render_closer", rec("closer"))
+    monkeypatch.setattr(reel, "synthesize_speech", lambda text, wav: (texts.append(text), wav.write_bytes(b"audio")))
+    monkeypatch.setattr(reel, "_probe", lambda _path, _ff: 1.0)
+    monkeypatch.setattr(reel, "pad_audio", lambda _src, dest, _dur, _ff: dest.write_bytes(b"audio"))
+    monkeypatch.setattr(reel, "still_clip", lambda _img, dest, _dur, _ff: dest.write_bytes(b"video"))
+    monkeypatch.setattr(reel, "_run", lambda cmd, _label: Path(cmd[-1]).write_bytes(b"video"))
+    monkeypatch.setattr(reel, "_ffmpeg", lambda: "/usr/bin/ffmpeg")
+    out = tmp_path / name
+    reel.build(picks, out, assets=assets, work=tmp_path / f"work-{name}", fixtures=[],
+               yesterday_results=yesterday, recap=recap)
+    return order, texts, recap_pages
+
+
+def _pick(i, **over):
+    p = {"home": f"Home {i}", "away": f"Away {i}", "sel": "O25", "label": "Over 2.5 goals", "market": "goals",
+         "odds": 1.5 + i / 100, "p": 0.72, "kickoff": f"2026-10-20 1{i}:00", "country": "Spain", "league": "LaLiga"}
+    p.update(over)
+    return p
+
+
+def test_only_the_first_video_of_the_day_carries_the_recap(monkeypatch, tmp_path):
+    yesterday = {"day": "2026-10-19", "items": [
+        {"home": "A", "away": "B", "sel": "O25", "label": "Over 2.5 goals", "result": "hit", "score": "2-1", "odds": 1.8},
+    ]}
+    picks = [_pick(i) for i in range(1, 4)]
+    order_recap, texts_recap, _ = _capture_build(monkeypatch, tmp_path, picks, yesterday=yesterday,
+                                                 recap=True, name="recap.mp4")
+    assert order_recap[:3] == ["intro", "disclaimer", "results"]
+    assert "look back at yesterday" in texts_recap[2]
+    order_noon, texts_noon, pages_noon = _capture_build(monkeypatch, tmp_path, picks, yesterday=yesterday,
+                                                        recap=False, name="noon.mp4")
+    assert "results" not in order_noon and not pages_noon
+    assert "yesterday" not in " ".join(texts_noon).lower()
+
+
+def test_the_morning_recap_covers_every_video_from_yesterday_across_pages(monkeypatch, tmp_path):
+    items = []
+    for i in range(22):
+        items.append({"home": f"T{i}", "away": f"U{i}", "sel": "O25", "label": "Over 2.5 goals", "market": "goals",
+                      "odds": 1.7, "result": "hit" if i % 3 else "miss", "score": "2-1" if i % 3 else "0-0"})
+    yesterday = {"day": "2026-10-19", "items": items}
+    order, texts, pages = _capture_build(monkeypatch, tmp_path, [_pick(1), _pick(2), _pick(3)],
+                                         yesterday=yesterday, recap=True, name="long.mp4")
+    assert order.count("results") == 3                              # 22 rows over RECAP_ROWS (9) per slide
+    assert [len(p) for p in pages] == [9, 9, 4]
+    assert sum(len(p) for p in pages) == 22                         # every selection, nothing truncated
+    first = texts[2]
+    assert "across all of yesterday's videos" in first
+    assert "We went" in first and "The standout" in first
+    # Later pages are one line each — the card is on screen, not read match by match
+    assert all(len(t) < 120 for t in texts[3:5])
+
+
+def test_matches_are_said_once_then_the_combine_slide_comes_last(monkeypatch, tmp_path):
+    picks = [_pick(i) for i in range(1, 7)]
+    order, texts, _ = _capture_build(monkeypatch, tmp_path, picks, name="order.mp4")
+    assert order.count("pick") == 6
+    assert order[-2:] == ["combine", "closer"]
+    # Each match is introduced exactly once, with its reason (the combine slide names it, but does not re-read it)
+    for i in range(1, 7):
+        said = [t for t in texts if f"Home {i}" in t and "The model has that at" in t]
+        assert len(said) == 1, said
+        assert "at 1." in said[0]
+    assert sum(1 for t in texts if "The model has that at" in t) == 6
+    combine_text = texts[-2]
+    assert "one way to do it" in combine_text.lower()
+    assert "combine any of these however you like" in combine_text.lower()
+    assert "different market" in combine_text.lower()
+    # The accumulator does not repeat the per-pick market/price read-out
+    assert "over two and a half goals, at" not in combine_text.lower()
+    assert " @ " not in combine_text
+
+
+def test_combine_plan_uses_trebles_then_a_double_and_names_the_leftovers():
+    picks = [_pick(i) for i in range(1, 9)]                          # 8 picks: 2 trebles + 1 double
+    plan = reel.combine_plan(picks)
+    assert [len(g["legs"]) for g in plan["groups"]] == [3, 3, 2]
+    assert plan["groups"][-1]["double"] is True
+    assert not plan["singles"]
+    assert all(g["combined"] and g["combined"] > 1 for g in plan["groups"])
+    said = reel.combine_script(plan)
+    assert "Treble one" in said and "Double" in said and "different market" in said.lower()
+
+    seven = reel.combine_plan([_pick(i) for i in range(1, 8)])        # 7 picks: 2 trebles + 1 single
+    assert len(seven["singles"]) == 1
+    assert "single" in reel.combine_script(seven).lower()
+
+
+def test_combine_slide_renders_in_both_aspects(tmp_path):
+    from PIL import Image
+
+    logo = tmp_path / "logo.png"
+    bg = tmp_path / "bg.jpg"
+    Image.new("RGBA", (256, 256), (0, 200, 111, 255)).save(logo)
+    Image.new("RGB", (640, 360), (7, 17, 29)).save(bg)
+    plan = reel.combine_plan([_pick(i) for i in range(1, 7)])
+    for aspect, size in (("16:9", (1920, 1080)), ("9:16", (1080, 1920))):
+        dest = tmp_path / f"combine-{aspect.replace(':', 'x')}.jpg"
+        reel.render_combine(plan, logo, bg, dest, aspect=aspect)
+        with Image.open(dest) as im:
+            assert im.size == size

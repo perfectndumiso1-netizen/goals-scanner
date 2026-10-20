@@ -1469,7 +1469,8 @@ view().innerHTML = parts.join('');
     const picks = briefingPicks();
     const sl = (state.data && state.data.shortlist) || {};
     const yr = sl.yesterday_results || {};
-    const yItems = Array.isArray(yr.items) ? yr.items.filter((r) => r && ['hit', 'miss', 'void'].includes(r.result)).slice(0, 7) : [];
+    // Every selection yesterday's videos carried (morning, noon and evening), not just the last video.
+    const yItems = Array.isArray(yr.items) ? yr.items.filter((r) => r && ['hit', 'miss', 'void'].includes(r.result)) : [];
     const meta = (state.data && state.data.meta) || {};
     const when = meta.generated || '';
     const slides = [
@@ -1492,28 +1493,53 @@ view().innerHTML = parts.join('');
       const settled = yItems.filter((r) => r.result === 'hit' || r.result === 'miss');
       const hits = settled.filter((r) => r.result === 'hit').length;
       const linesTxt = yItems.map((r) => `${r.home} v ${r.away}: ${r.label || r.sel} (${r.result === 'hit' ? 'WON' : r.result === 'miss' ? 'LOST' : 'VOID'}${r.score ? ' ' + r.score : ''})`).join(' · ');
-      const speakParts = yItems.map((r) => `${r.home} versus ${r.away}, ${r.label || r.sel}, ${r.result === 'hit' ? 'won' : r.result === 'miss' ? 'lost' : 'void'}${r.score ? ', ' + String(r.score).replace('-', ' to ') : ''}.`).join(' ');
+      // Spoken: the record plus the standout and the one that got away. The full card is on screen.
+      const byOdds = (rows) => rows.slice().sort((a, b) => Number(b.odds || 0) - Number(a.odds || 0))[0];
+      const bestWin = byOdds(settled.filter((r) => r.result === 'hit'));
+      const badLoss = byOdds(settled.filter((r) => r.result === 'miss'));
+      const say = (r, won) => r ? `${r.home} against ${r.away}, ${r.label || r.sel}, ${won ? 'landed' : 'finished'}${r.score ? ', ' + String(r.score).replace('-', ' to ') : ''}.` : '';
+      const record = !settled.length ? '' : hits === settled.length ? `A clean sweep: all ${settled.length} landed.` : hits === 0 ? `A tough one: none of the ${settled.length} landed.` : `We went ${hits} from ${settled.length}.`;
       slides.push({
-        kicker: `Yesterday’s shortlist results · ${yr.day || ''}`,
+        kicker: `Yesterday’s card · every video · ${yr.day || ''}`,
         title: settled.length ? `${hits} of ${settled.length} selections won` : 'Yesterday’s results recap',
-        sub: settled.length ? `Hit rate ${Math.round((100 * hits) / settled.length)}% across settled shortlist selections` : 'Settled selections recap',
+        sub: settled.length ? `Hit rate ${Math.round((100 * hits) / settled.length)}% across every selection yesterday’s videos carried` : 'Settled selections recap',
         line: linesTxt,
-        speak: `Yesterday's shortlist results. ${settled.length ? `${hits} of ${settled.length} selections won. ` : ''}${speakParts} Now, today's shortlist.`,
+        speak: `First, a quick look back at yesterday, across all of yesterday’s videos. ${record} ${bestWin ? 'The standout: ' + say(bestWin, true) : ''} ${badLoss ? 'The one that got away: ' + say(badLoss, false) : ''} Everything else is on screen. Now, today’s list.`,
       });
     }
     picks.forEach((x, i) => {
       const odds = x.odds ? f2(x.odds) : 'N/A';
       const comp = [x.country, x.league].filter(Boolean).join(' · ');
       const compSpoken = [x.country, x.league].filter(Boolean).join(', ');
+      const reason = briefingReason(x);
       slides.push({
-        kicker: `Pick ${i + 1} of ${picks.length}${comp ? ' · ' + comp : ''}`,
+        kicker: `Match ${i + 1} of ${picks.length}${comp ? ' · ' + comp : ''}`,
         title: `${x.home} v ${x.away}`,
         sub: `${x.label || ''} @ ${odds} · Kick-off ${esc(koTime(x.kickoff))} SAST`,
-        line: `Sportybet price ${odds} · Qualified selection`,
-        speak: `${compSpoken ? compSpoken + '. ' : ''}${x.home} versus ${x.away}. ${x.label || 'the selection'}, at ${odds}. Kick-off, ${koTime(x.kickoff)}.`,
+        line: reason.screen || `Sportybet price ${odds} · Qualified selection`,
+        speak: `${compSpoken ? compSpoken + '. ' : ''}${x.home} versus ${x.away}. ${x.label || 'the selection'}, at ${odds}.${reason.said ? ' ' + reason.said : ''}`,
         pick: x,
       });
     });
+    // One accumulator slide, at the end — the picks were already introduced above, so only the combined prices are new.
+    const priced = picks.filter((x) => Number(x.odds) > 1);
+    const groups = [];
+    for (let i = 0; i + 3 <= priced.length; i += 3) {
+      const legs = priced.slice(i, i + 3);
+      const comb = legs.reduce((a, x) => a * Number(x.odds), 1);
+      groups.push({ legs, comb });
+    }
+    if (groups.length) {
+      const screen = groups.map((g, i) => `Treble ${i + 1}: ${g.legs.map((x) => `${x.home} v ${x.away}`).join(' · ')} — ${f2(g.comb)}`).join('  |  ');
+      const spoken = groups.map((g, i) => `Treble ${i + 1}: ${g.legs.map((x) => x.home).slice(0, -1).join(', ')} and ${g.legs[g.legs.length - 1].home}, about ${f2(g.comb)}`).join('. ');
+      slides.push({
+        kicker: 'If you combine them',
+        title: 'One way to do it — not the only way',
+        sub: 'Build your own multiple, take fewer legs, or choose a different market.',
+        line: screen,
+        speak: `Now, if you like combining, here’s one way to do it. ${spoken}. That’s only one way. Combine any of these however you like, take fewer legs, or pick a different market altogether. It’s your call. Nothing here is a sure thing.`,
+      });
+    }
     slides.push({
       kicker: 'PlayReport',
       title: 'That’s the list',
@@ -1523,19 +1549,61 @@ view().innerHTML = parts.join('');
     });
     return slides;
   }
+  function briefingReason(x) {
+    // The same reasons the Telegram video uses: the model's number, its projected goals, form and the base rate.
+    const bits = [];
+    const pv = Number(x.p);
+    if (pv > 0) {
+      const chance = pv >= 0.95 ? 'better than nine in ten' : pv >= 0.85 ? 'around nine in ten' : pv >= 0.75 ? 'about three in four' : pv >= 0.65 ? 'about two in three' : pv >= 0.55 ? 'better than half' : 'around half';
+      bits.push(`Model ${Math.round(pv * 100)}% (${chance})`);
+      x._chance = chance;
+    }
+    (x.support || []).forEach((s) => bits.push(String(s)));
+    const head = bits.slice(0, 3);
+    const said = [];
+    if (x._chance) said.push(`The model has that at ${x._chance}.`);
+    const xg = (x.support || []).map((s) => String(s).match(/xG\s*([\d.]+)\s*[–-]\s*([\d.]+)/i)).find(Boolean);
+    if (xg) said.push(`It projects ${xg[1]} goals for ${x.home} and ${xg[2]} for ${x.away}.`);
+    const hist = (x.support || []).map((s) => String(s).match(/historical\s+(O15|O25|BTTS)\s+rate\s+([\d.]+)\s*%/i)).find(Boolean);
+    if (hist) said.push(`Their own record has that landing about ${Math.round(Number(hist[2]) / 10)} times in ten.`);
+    return { screen: head.join(' · '), said: said.join(' ') };
+  }
+  function briefingVoice() {
+    // One voice for the whole briefing: the best British/Irish male the device has, else the best English one.
+    const voices = (window.speechSynthesis && window.speechSynthesis.getVoices()) || [];
+    const en = voices.filter((v) => /^en/i.test(v.lang || ''));
+    const score = (v) => {
+      let n = 0;
+      if (/male|daniel|david|george|rishi|arthur|oliver|ryan|thomas|guy|brian|alex/i.test(v.name || '')) n += 6;
+      if (/google|neural|natural|enhanced|premium|siri/i.test(v.name || '')) n += 4;
+      if (/^en[-_]GB/i.test(v.lang || '')) n += 3;
+      if (/^en[-_]IE/i.test(v.lang || '')) n += 2;
+      if (/female|samantha|victoria|karen|moira|tessa|serena|kate|zira|aria/i.test(v.name || '')) n -= 6;
+      if (/^en[-_]US/i.test(v.lang || '')) n += 1;
+      return n;
+    };
+    return en.sort((a, b) => score(b) - score(a))[0] || voices[0] || null;
+  }
   function briefingSpeak(text, onend) {
+    // Spoken sentence by sentence with a natural breather between them, so it does not run together or sound clipped.
     try {
       if (!window.speechSynthesis) { if (onend) onend(); return; }
       window.speechSynthesis.cancel();
-      const u = new SpeechSynthesisUtterance(text);
-      u.rate = 1.05; u.pitch = 1.0; u.lang = 'en-GB';
-      const voices = window.speechSynthesis.getVoices() || [];
-      const male = voices.find((v) => /en/.test(v.lang) && /male|daniel|david|george|rishi|google uk english male/i.test(v.name))
-        || voices.find((v) => v.lang === 'en-GB') || voices.find((v) => /^en/.test(v.lang));
-      if (male) u.voice = male;
-      u.onend = () => { if (onend) onend(); };
-      u.onerror = () => { if (onend) onend(); };
-      window.speechSynthesis.speak(u);
+      const voice = briefingVoice();
+      const parts = String(text || '').match(/[^.!?]+[.!?]+|[^.!?]+$/g) || [String(text || '')];
+      let i = 0;
+      const next = () => {
+        if (i >= parts.length) { if (onend) onend(); return; }
+        const chunk = parts[i++].trim();
+        if (!chunk) { next(); return; }
+        const u = new SpeechSynthesisUtterance(chunk);
+        u.rate = 0.97; u.pitch = 0.95; u.volume = 1.0; u.lang = (voice && voice.lang) || 'en-GB';
+        if (voice) u.voice = voice;
+        u.onend = () => setTimeout(next, 220);
+        u.onerror = () => { if (onend) onend(); };
+        window.speechSynthesis.speak(u);
+      };
+      next();
     } catch (e) { if (onend) onend(); }
   }
   function briefingHtml(slides) {

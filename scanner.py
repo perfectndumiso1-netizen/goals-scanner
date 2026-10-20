@@ -2727,32 +2727,52 @@ def maybe_send_daily_reel(sl_pub: dict, now: datetime) -> None:
             pc["form_a"] = form["a"]
         prim_enriched.append(pc)
 
-    # Resolve yesterday's settled selections strictly to the matches included in yesterday's video(s)
+    # The FIRST video of the day recaps every video from yesterday; the noon and evening videos go straight to
+    # today's matches. Yesterday's history is merged per day (morning + noon + evening), so the recap is the whole
+    # card — every selection the videos carried, not just the last one sent.
+    recap_needed = slot in ("morning", "manual")
     yres = (sl_pub or {}).get("yesterday_results")
     yday = (now.date() - timedelta(days=1)).strftime("%Y-%m-%d")
     hist = st.get("briefing_history") if isinstance(st.get("briefing_history"), dict) else {}
     yday_video_picks = hist.get(yday)
     if yday_video_picks:
         yres = _filter_yres_to_video_picks(yres, yday_video_picks)
+    elif recap_needed:
+        log.warning("Morning reel: no recorded video picks for %s — the recap falls back to yesterday's ledger", yday)
 
+    # One voice, one pacing seed for the whole day's videos (recap, breakdown and the two aspect ratios).
+    if hasattr(reel_mod, "set_voice_seed"):
+        reel_mod.set_voice_seed(int(today.replace("-", "")))
     work = Path(os.getenv("TMPDIR") or "/tmp") / "playreport-reel"
     out_16x9 = work / "briefing-16x9.mp4"
     out_9x16 = work / "briefing-9x16-reel.mp4"
-    recap_rows = reel_mod.reel_results(yres)
+    recap_rows = reel_mod.reel_results(yres) if recap_needed else []
     log.info(
-        "Building daily 16:9 widescreen & 9:16 vertical reel videos with shared voice (%d yesterday results, %d today Overs picks, no music)",
+        "Building daily 16:9 widescreen & 9:16 vertical reel videos with shared voice "
+        "(%s: %d yesterday results across all videos, %d today picks, no music)",
+        "morning recap" if recap_needed else "no recap",
         len(recap_rows),
         len(prim_enriched),
     )
-    if hasattr(reel_mod, "build_both"):
-        reel_mod.build_both(
-            prim_enriched, out_16x9, out_9x16, assets=assets, work=work, fixtures=fixtures, yesterday_results=yres
-        )
-    else:
-        reel_mod.build(prim_enriched, out_16x9, assets=assets, work=work, fixtures=fixtures, yesterday_results=yres)
+    try:
+        if hasattr(reel_mod, "build_both"):
+            reel_mod.build_both(
+                prim_enriched, out_16x9, out_9x16, assets=assets, work=work, fixtures=fixtures,
+                yesterday_results=yres, recap=recap_needed,
+            )
+        else:
+            reel_mod.build(prim_enriched, out_16x9, assets=assets, work=work, fixtures=fixtures,
+                           yesterday_results=yres, recap=recap_needed)
+    except Exception as exc:  # noqa: BLE001 - a voice/build failure must never take the scan down
+        log.warning("Daily reel skipped: %s", exc)
+        return
+    voice = reel_mod.voice_identity() if hasattr(reel_mod, "voice_identity") else {}
+    if voice:
+        log.info("Narration voice used: %s (seed %s)", voice.get("voice") or "unknown", voice.get("seed"))
     settled_recap = [r for r in recap_rows if r.get("result") in ("hit", "miss")]
     hits_recap = sum(1 for r in settled_recap if r.get("result") == "hit")
-    recap_caption = f"Yesterday: {hits_recap}/{len(settled_recap)} won · " if settled_recap else ""
+    recap_caption = (f"Yesterday (all videos): {hits_recap}/{len(settled_recap)} won · "
+                     if settled_recap and recap_needed else "")
     ok_16x9 = send_telegram_video(
         out_16x9,
         f"🎬 PlayReport 16:9 widescreen shortlist — {now:%a %d %b}. {recap_caption}Today: {len(prim_enriched)} selection(s). "
@@ -2817,11 +2837,20 @@ def maybe_send_daily_breakdown(sl_pub: dict, now: datetime) -> None:
     if len(featured) < 3:
         log.info("Match breakdown skipped: only %d qualifying match(es) today", len(featured))
         return
+    if hasattr(reel_mod, "set_voice_seed"):
+        reel_mod.set_voice_seed(int(today.replace("-", "")))
     work = Path(os.getenv("TMPDIR") or "/tmp") / "playreport-breakdown"
-    out16, out9, prep = breakdown_mod.build_show_both(
-        featured, work / "match-breakdown-16x9.mp4", work / "match-breakdown-9x16.mp4",
-        assets=assets, work=work, day=today,
-    )
+    try:
+        out16, out9, prep = breakdown_mod.build_show_both(
+            featured, work / "match-breakdown-16x9.mp4", work / "match-breakdown-9x16.mp4",
+            assets=assets, work=work, day=today,
+        )
+    except Exception as exc:  # noqa: BLE001 - a voice/build failure must never take the scan down
+        log.warning("Match breakdown video skipped: %s", exc)
+        return
+    voice = reel_mod.voice_identity() if hasattr(reel_mod, "voice_identity") else {}
+    if voice:
+        log.info("Breakdown narration voice: %s (seed %s)", voice.get("voice") or "unknown", voice.get("seed"))
     tail = (f"{now:%a %d %b} · {len(prep.matches)} matches. Recent form, home and away splits, head to head, "
             f"team news and my pick for each. 18+.")
     ok16 = send_telegram_video(out16, f"🎬 PlayReport match breakdowns (16:9) — {tail}", width=1920, height=1080)

@@ -1,3 +1,9 @@
+## What's new — the videos: a real voice, yesterday's whole card, and no repetition
+- 🎙️ **A natural voice, the same one all the way through.** The narration no longer falls back to the robotic synth — if no natural voice is available the video is skipped and logged instead of published. One voice and one pacing for every slide, and both aspect ratios share the exact same audio.
+- 📊 **The first video of the day recaps everything.** Morning starts with **every result from every video yesterday** (morning, noon and evening) — the full card on screen, paged when it is long, read as the day's record plus the standout win and the one that got away. Noon and evening go straight to today's matches.
+- 🗣️ **No more saying it twice.** Each match is introduced once — competition, teams, kick-off, the selection and the price, then **why it is there** (the model's chance, its projected goals, recent form, the base rate). The reasons now appear on the pick slide too.
+- 🧩 **Accas moved to the end, and it's your call.** One closing slide shows how the card *could* be combined, with a plain statement that you can take fewer legs, build your own multiple, or choose a different market.
+
 ## What's new — your Google Sheet model on every match
 - 📊 **Sheet tab on every match.** Your bookmaker Google Sheet (V1) is filled with **that match's available data** and shown next to PlayReport. **PlayReport's model is not changed** — comparison only. Missing numbers stay N/A.
 - ⬇️ **Download the filled sheet** (MATCH_INPUT + MARKETS CSV) from the Sheet tab.
