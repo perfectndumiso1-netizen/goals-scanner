@@ -1,3 +1,7 @@
+## What's new — Japanese leagues are back
+- 🇯🇵 **Japan is back on the board.** Your 2026-10-11 block is lifted: the **J1 and J2 League** are analysed and priced like every other division, and J3 and the deeper divisions join through the archive rule when they have enough history. The Emperor's Cup, the League Cup and the women's WE League stay out, and Australia stays blocked.
+- 📚 **Their results history is seeded**, so the model starts with J1/J2 form, corners and cards rather than building from nothing.
+
 ## What's new — strong markets for the day, total corners, and no accumulators
 - 💪 **New: Strong markets for the day.** The home page opens with the day's strongest markets: **75%+** model probability at a real Sportybet price of **1.16 or better**, in **Over 1.5 goals, team goals, corners and bookings** only. Ordered strongest first, with the price and the model number on every row, and at most two markets per match.
 - 🚩 **Total corners are finally on the board.** The model only ever looked at 8.5+ total corners, so an average 10-corner match could never show a 75% total — and one shared corner slot meant the team-corner lines took everything. Total corners now start at **over 7.5** and have **their own slots**, separate from team corners (same for bookings).

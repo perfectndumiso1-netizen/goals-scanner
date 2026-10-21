@@ -24,6 +24,8 @@ ALLOWED = [
     ("Croatia", "HNL"), ("Serbia", "Super Liga"), ("Ukraine", "Premier League"),
     ("Brazil", "Serie A"), ("Argentina", "Liga Profesional: Clausura"),
     ("USA", "MLS"), ("USA", "Major League Soccer"), ("Mexico", "Liga MX: Apertura"),
+    # Japan is back (user reversal 2026-10-21): J1 and J2 are curated; the live feed names them "J1 League" / "J2 League"
+    ("Japan", "J1 League"), ("Japan", "J2 League"), ("Japan", "J. League"), ("Japan", "J1 League: Championship Round"),
     ("South Africa", "Premiership"), ("Nigeria", "NPFL"),
     ("Egypt", "Premier League"), ("Morocco", "Botola Pro"),
     # UEFA club competitions are IN (user reversal 2026-10-12). Real Livescore shape: the competition
@@ -34,7 +36,9 @@ ALLOWED = [
 
 BLOCKED = [
     # explicit user exclusions
-    ("Japan", "J1 League"), ("Japan", "J2 League"), ("Australia", "A-League Men"),
+    ("Australia", "A-League Men"),
+    # Japanese cups and the women's league stay out even though the country is in
+    ("Japan", "Emperor's Cup"), ("Japan", "League Cup"), ("Japan", "WE League"),
     ("England", "Women's Super League"), ("Sweden", "Damallsvenskan"),
     ("England", "Premier League 2"), ("Italy", "Primavera 1"),
     ("Club Friendlies", "Club Friendly Games"),
@@ -81,9 +85,9 @@ def test_diet_is_on_and_depth_gate_defaults_to_eight():
 
 
 def test_seed_stages_carry_no_banned_competitions():
-    # 2026-10-17: only Japan and Australia stay explicitly banned (user rule 2026-10-11); the rest of the
-    # old list is now decided by the archive rule, not by name
-    banned = ("japan", "australia")
+    # 2026-10-21: Japan is back (user reversal) and its three divisions are seeded so the archive keeps building;
+    # Australia is the only country left explicitly banned
+    banned = ("australia",)
     for s in scanner.CONFIG["SEED_STAGES"].split(","):
         s = s.strip().lower()
         assert not any(b in s for b in banned), f"seed stage off the diet: {s}"
@@ -142,7 +146,7 @@ def test_a_stats_rich_lower_tier_comes_in_because_the_archive_supports_it():
 
 
 def test_the_hard_blocks_beat_the_archive_rule():
-    facts = [_fact("Japan", "J1 League"), _fact("Australia", "A-League Men"), _fact("Germany", "Frauen-Bundesliga"),
+    facts = [_fact("Australia", "A-League Men"), _fact("Germany", "Frauen-Bundesliga"),
              _fact("Spain", "Liga F"), _fact("England", "Premier League 2"), _fact("England", "FA Cup"),
              _fact("England", "Baller League UK", stats=0.0), _fact("International Friendlies", "Friendlies 2024", teams=30),
              _fact("Europe", "Champions League: Qualification"), _fact("Denmark", "Superliga: Playoffs")]
@@ -161,9 +165,13 @@ def test_england_step_four_no_longer_slips_through_the_premier_league_pattern():
     assert not scanner.league_allowed("England", "Premier League 2")
 
 
-def test_japan_and_australia_stay_blocked_even_when_they_have_enough_data(monkeypatch):
-    monkeypatch.setattr(scanner, "DATA_RICH", {scanner._diet_key("Japan", "J1 League"): "x", scanner._diet_key("Australia", "A-League Men"): "x"})
-    assert not scanner.league_allowed("Japan", "J1 League") and not scanner.league_allowed("Australia", "A-League Men")
+def test_australia_stays_blocked_even_when_it_has_enough_data(monkeypatch):
+    monkeypatch.setattr(scanner, "DATA_RICH", {scanner._diet_key("Japan", "J3 League"): "x", scanner._diet_key("Australia", "A-League Men"): "x"})
+    assert not scanner.league_allowed("Australia", "A-League Men")
+    # Japan is back: J1/J2 are curated outright and the deeper divisions come in through the archive rule
+    assert scanner.league_allowed("Japan", "J1 League") and scanner.league_allowed("Japan", "J2 League")
+    assert scanner.league_allowed("Japan", "J3 League")
+    assert not scanner.league_allowed("Japan", "Emperor's Cup")      # the cup block still beats the country
 
 
 def test_archive_only_leagues_are_analysed_a_fortnight_ahead_curated_and_main_divisions_always(monkeypatch):

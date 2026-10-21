@@ -212,7 +212,7 @@ CONFIG = {
     # to this automatically on every run, so the list only needs a manual entry for a new code.
     # seed stages = the model diet's competitions (user rule 2026-10-11). They get archive-refresh
     # priority; everything else on the day feed is still discovered but (per the diet) not analysed.
-    "SEED_STAGES": os.getenv("SEED_STAGES", "england/premier-league,england/championship,spain/laliga,spain/laliga-2,italy/serie-a,italy/serie-b,germany/bundesliga,germany/2-bundesliga,france/ligue-1,france/ligue-2,netherlands/eredivisie,belgium/belgian-pro-league-2025,portugal/primeira-liga,scotland/scotland-premiership,turkey/super-lig,denmark/superliga,switzerland/super-league,greece/super-league,poland/ekstraklasa,austria/bundesliga,sweden/allsvenskan,norway/eliteserien,croatia/1st-league,ukraine/premier-league,brazil/serie-a,argentina/liga-profesional-clausura,usa/major-league-soccer-2026,mexico/liga-mx-apertura,south-africa/premiership,nigeria/npfl,egypt/premier-league,morocco/botola-pro,champions-league/league-stage,europa-league/league-stage,conference-league/league-stage"),
+    "SEED_STAGES": os.getenv("SEED_STAGES", "england/premier-league,england/championship,spain/laliga,spain/laliga-2,italy/serie-a,italy/serie-b,germany/bundesliga,germany/2-bundesliga,france/ligue-1,france/ligue-2,netherlands/eredivisie,belgium/belgian-pro-league-2025,portugal/primeira-liga,scotland/scotland-premiership,turkey/super-lig,denmark/superliga,switzerland/super-league,greece/super-league,poland/ekstraklasa,austria/bundesliga,sweden/allsvenskan,norway/eliteserien,croatia/1st-league,ukraine/premier-league,brazil/serie-a,argentina/liga-profesional-clausura,usa/major-league-soccer-2026,mexico/liga-mx-apertura,south-africa/premiership,nigeria/npfl,egypt/premier-league,morocco/botola-pro,japan/j-league,japan/j-league-2,japan/j-league-3,champions-league/league-stage,europa-league/league-stage,conference-league/league-stage"),
     "STATS_BUDGET_S": _env_float("STATS_BUDGET_S", 75),      # Livescore match statistics per run: time budget
     "STATS_MAX": int(_env_float("STATS_MAX", 400)),          # ... and request cap
     "WORLD_COUNT_MIN_N": int(_env_float("WORLD_COUNT_MIN_N", 5)),  # corners/cards outside the main leagues need this many matches with stats per team
@@ -304,25 +304,27 @@ EXTRA_LEAGUES = {
 }
 
 # ----------------------------------------------------------------------------- model diet (user rules 2026-10-11, widened 2026-10-17)
+# 2026-10-21: Japan is BACK (user reversal) — J1 and J2 are on the curated list, and any other Japanese
+# division (J3 ...) comes in through the archive rule like every other league. Australia stays out.
 # 2026-10-17: "add every league we have enough data on, including the Chinese Super League". The diet is now
 # the curated list below PLUS every competition the Livescore stage archive can support (see
 # data_rich_from_facts: league-shaped table, deep results history, a recent result, and match statistics —
 # or, for national leagues that publish none, a table that is not a regional / amateur tier). The 22 football-data
-# divisions are all in. The hard blocks below are unchanged: Japan and Australia (explicit user rule of
-# 2026-10-11), cups, women's, youth, friendlies and qualifiers stay out.
+# divisions are all in. The hard blocks are unchanged apart from Japan (user reversal 2026-10-21):
+# Australia, cups, women's, youth, friendlies and qualifiers stay out.
 # "Prioritise data-rich leagues." A fixture outside the diet is never analysed, so the shortlist,
 # sequences, the Positive EV tab, accas and bets of the day all inherit the filter (they are all
 # built from the analysed rows). History collection is deliberately untouched: cup / international
 # / friendly results still feed team form for the allowed leagues (friendlies already drop out of
 # the stats once a team has enough competitive matches).
-# Order matters: hard blocks first (never analysed even if an allow pattern matches) - Japan and
-# Australia (explicit user rule), women's, youth/reserve, friendlies, and every cup / knockout /
+# Order matters: hard blocks first (never analysed even if an allow pattern matches) - Australia
+# (explicit user rule), women's, youth/reserve, friendlies, and every cup / knockout /
 # international competition. National teams play in no league, so competitive internationals and
 # everything unlisted (lower divisions, minor countries) drop out through the allowlist.
 DIET_BLOCK_RE = re.compile(
     r"women|femini|femmin|damall|femeni|kvinner|kvinde|toppserien|frauen|\bliga f\b|nwsl"
     r"|\bu-?1[4-9]\b|\bu-?2[0-3]\b|youth|reserve|primavera|jukuren|devel|premier league 2\b|baller league"
-    r"|friendl|japan|australia|\ba-?league\b|\bj[123]\b"
+    r"|friendl|australia|\ba-?league\b"
     r"|\bcups?\b|coppa|coupe|pokal|\bcopa\b|kupa|\bkup\b|ta[cčç]a|beker|pokalen|super ?cup|superkupa"
     r"|play-?offs?\b|qualif\w*"
     r"|libertadores|sudamericana|nations league|world cup|concacaf|conmebol|carabao"
@@ -360,6 +362,10 @@ DIET_ALLOW: "list[tuple[re.Pattern, re.Pattern]]" = [
         ("^nigeria$", r"\bnpfl\b|premier league$"),
         ("^egypt$", r"premier league$"),
         ("^morocco$", r"botola"),
+        # Japan is back (user reversal 2026-10-21). Livescore names the divisions "J1 League" / "J2 League" (archive
+        # keys japan/j-league and japan/j-league-2); the older "J. League" shapes stay covered. The Emperor's Cup and
+        # the League Cup are caught by the cup block above.
+        ("^japan$", r"^j[12]\.? ?league(?:\s*:.*)?$|^j\.? ?league( [12])?(?:\s*:.*)?$"),
     ]]
 
 
