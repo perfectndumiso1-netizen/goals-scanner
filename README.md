@@ -168,13 +168,17 @@ same numbers the app shows (`reel_insights.py`, reading `data/app/fx/<key>.json`
 
 * **THE PICK** — the clubs, their form, the kick-off, the selection and its SportyBet price, and a horizontal bar
   chart of *every market the video covers for that match*, highest model probability first. The featured market is
-  the green bar; because `reel.reel_picks` now features the strongest allowed market per match, it is also the
-  tallest bar. The axis is labelled 50 %–100 % rather than 0–100 %: every market in a video is 65 %+ by rule, so a
-  zero-based axis would draw six identical bars and hide the differences. The pick is always on its own chart even
-  when the fixture detail is missing.
+  the green bar and it is **always the tallest bar**: `reel.reel_picks` picks the strongest allowed market per
+  match from the board, and `reel_insights.featured_pick` then re-points the video at the strongest market the
+  fixture detail actually offers (still a video market, still 65 %+, still priced) whenever that beats the board's
+  own choice — verified against the live payload, where an Over 1.5 at 74 % was losing to a team-to-score at 76 %.
+  Markets under the video's 65 % floor are not drawn at all. The axis is labelled 50 %–100 % rather than 0–100 %:
+  every market in a video is 65 %+ by rule, so a zero-based axis would draw six identical bars and hide the
+  differences. The pick is always on its own chart even when the fixture detail is missing.
 * **WHY IT'S HERE** — each club's league position, points, games played and last-five pills, its home/away scoring
-  and conceding rates, then the reasons (`reel_insights.reasons`: model probability, projected goals, the base rate,
-  the table position, the edge in points) and this fixture's own trend lines.
+  and conceding rates, then the reasons (`reel_insights.reasons`: model probability, projected goals, the base rate
+  — that club's shutout rate for a team-goals pick, the Over 1.5 rate for a goals pick — the table position and the
+  edge in points) and this fixture's own trend lines.
 * **THE RECORD** — head to head with scores and W/D/L plus the aggregate line, and both clubs' last five results.
 
 Cards are laid out with `reel._fill_slots`, which spreads their contents over the card (capped, so a two-line card
