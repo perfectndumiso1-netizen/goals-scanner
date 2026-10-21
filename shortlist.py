@@ -548,7 +548,17 @@ def settle(df: pd.DataFrame, results: pd.DataFrame, today: datetime) -> pd.DataF
             stale = True
         if stale:
             df.loc[i, ["result", "settled_on"]] = ["void", today.strftime("%Y-%m-%d")]
+    # Self-heal rows graded before the 2026-10-21 corner/card fix (the ledger calls the column `result`).
+    df, fixed = safe_mod.regrade_settled(df, results, today, status_col="result")
+    if fixed:
+        _log().info("shortlist ledger: re-graded %d corner/card row(s) settled the wrong way round", fixed)
     return df
+
+
+def _log():
+    """The scanner's logger without importing scanner (keeps this module pure and importable on its own)."""
+    import logging
+    return logging.getLogger("scanner")
 
 
 def track_record(df: pd.DataFrame) -> dict:

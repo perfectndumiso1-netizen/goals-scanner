@@ -18,6 +18,7 @@ No selection is ever labelled safe, guaranteed or a banker in user-facing text.
 from __future__ import annotations
 
 import json
+import logging
 import os
 import re
 import math
@@ -28,6 +29,8 @@ from pathlib import Path
 import pandas as pd
 
 import markets
+
+log = logging.getLogger("scanner")
 import policy
 
 MIN_P = 0.70         # probability at least 70% — the only bar (odds never filter, user decision 2026-10-01);
@@ -232,8 +235,33 @@ def group(sel: str) -> str:
     return "cards"
 
 
+# Market codes (2026-10-21). A market is a family letter, an optional team side, over/under, and the line in tenths:
+#   goals   O25 / U35 (match total),      HO05 / AU15 (that team's goals)
+#   corners CO85 / CU95 (match total),    CHO35 / CAU55 (that team's corners)
+#   cards   KO35 / KU35 (match total),    KHO25 / KAU25 (that team's cards, yellows + reds)
+# The side letter sits between the family and the over/under, so the old code (which read sel[1] as the direction)
+# graded every team corner/card market as the opposite of what it was — a home team "over 3.5 corners" was settled as
+# a match-under. `settle` is the only place that decides a result, so it is the only place that must know all of them.
+_SEL_RE = re.compile(r"^(C|K)?(H|A)?(O|U)(\d+)$")
+
+
+def _stat(x):
+    """A match statistic as a number, or None when the feed did not publish it (never 0)."""
+    if x is None or _nan(x):
+        return None
+    try:
+        return float(x)
+    except (TypeError, ValueError):
+        return None
+
+
 def settle(sel: str, hg, ag, hc=None, ac=None, hcards=None, acards=None) -> bool | None:
-    """True / False, or None when the selection cannot be graded from the available result data."""
+    """True / False, or None when the selection cannot be graded from the available result data.
+
+    Team markets are graded on that team's own number; totals on the match total. A statistic the feed never
+    published returns None (the row stays pending, then voids) — it is never turned into a loss.
+    """
+    sel = str(sel or "").strip().upper()
     if hg is None or ag is None or _nan(hg) or _nan(ag):
         return None
     hg, ag = int(hg), int(ag)
@@ -244,22 +272,36 @@ def settle(sel: str, hg, ag, hc=None, ac=None, hcards=None, acards=None) -> bool
         return hg > 0 and ag > 0
     if sel == "NBTTS":
         return not (hg > 0 and ag > 0)
-    if sel[0] in "OU" and sel[1:].isdigit():
-        return tot > _line(sel) if sel[0] == "O" else tot < _line(sel)
-    if sel[0] in "HA" and sel[1] in "OU":
-        g = hg if sel[0] == "H" else ag
-        return g > _line(sel) if sel[1] == "O" else g < _line(sel)
-    if sel[0] == "C":
-        if hc is None or ac is None or _nan(hc) or _nan(ac):
-            return None
-        c = int(hc) + int(ac)
-        return c > _line(sel) if sel[1] == "O" else c < _line(sel)
-    if sel[0] == "K":
-        if hcards is None or acards is None or _nan(hcards) or _nan(acards):
-            return None
-        k = int(hcards) + int(acards)
-        return k > _line(sel) if sel[1] == "O" else k < _line(sel)
-    return None
+    m = _SEL_RE.match(sel)
+    if not m:
+        return None
+    family, side, direction, digits = m.group(1), m.group(2), m.group(3), m.group(4)
+    line = int(digits) / 10.0
+    if family == "C":
+        if side == "H":
+            value = _stat(hc)
+        elif side == "A":
+            value = _stat(ac)
+        else:
+            h, a = _stat(hc), _stat(ac)
+            value = None if h is None or a is None else h + a
+    elif family == "K":
+        if side == "H":
+            value = _stat(hcards)
+        elif side == "A":
+            value = _stat(acards)
+        else:
+            h, a = _stat(hcards), _stat(acards)
+            value = None if h is None or a is None else h + a
+    elif side == "H":                       # team goals — always known
+        value = float(hg)
+    elif side == "A":
+        value = float(ag)
+    else:
+        value = float(tot)
+    if value is None:
+        return None
+    return value > line if direction == "O" else value < line
 
 
 def _nan(x) -> bool:
@@ -764,7 +806,60 @@ def settle_bets(df: pd.DataFrame, results: pd.DataFrame, today: datetime) -> pd.
                 continue
         if (pd.Timestamp(today.date()) - pd.Timestamp(r["match_date"])).days > 21:
             df.loc[i, ["status", "settled_on"]] = ["void", today.strftime("%Y-%m-%d")]
+    # Self-heal: a corner or card row graded before the 2026-10-21 fix is re-checked against the same archive.
+    df, fixed = regrade_settled(df, results, today)
+    if fixed:
+        log.info("re-graded %d corner/card row(s) that had been settled the wrong way round", fixed)
     return df
+
+
+# Markets whose grading needs a match statistic. Until 2026-10-21 `settle` read the side letter as the direction, so
+# every team corner / team card pick was graded backwards and the record showed losses that were really wins.
+STAT_MARKETS = re.compile(r"^(C|K)[HA]?[OU]\d+$")
+
+REGRADE_COLS = ("status", "score", "settled_on")
+
+
+def regrade_settled(df: pd.DataFrame, results: pd.DataFrame, today: datetime,
+                    days: int = 60, status_col: str = "status") -> tuple[pd.DataFrame, int]:
+    """Re-check rows already graded from a match statistic and correct them. Returns (frame, number fixed).
+
+    Only corner / card markets are touched: goals, BTTS and 1X2 were always graded correctly, so historical rows for
+    those are left exactly as they are. A row is corrected only when the archive now grades it the other way, and a
+    statistic the feed does not publish leaves the row alone (never turned into a loss). Positional throughout, so a
+    ledger with a repeated index cannot trip it.
+    """
+    if df is None or df.empty or results is None or results.empty or "sel" not in df.columns:
+        return df, 0
+    df = df.copy()
+    n = len(df)
+    cutoff = (pd.Timestamp(today.date()) - pd.Timedelta(days=days)).strftime("%Y-%m-%d")
+    status = (df[status_col].astype(str).str.lower().to_numpy()
+              if status_col in df.columns else pd.Series([""] * n).to_numpy())
+    sels = df["sel"].astype(str).str.upper()
+    dates = df["match_date"].astype(str).to_numpy() if "match_date" in df.columns else pd.Series([""] * n).to_numpy()
+    mask = ((status == "hit") | (status == "miss")) & sels.str.match(STAT_MARKETS.pattern).to_numpy() & (dates >= cutoff)
+    fixed = 0
+    for pos in range(n):
+        if not mask[pos]:
+            continue
+        r = df.iloc[pos]
+        row = _lookup(results, r["country"], r["home"], r["away"], r["match_date"])
+        if row is None:
+            continue
+        ok = settle(r["sel"], row["hg"], row["ag"], row.get("hc"), row.get("ac"), _cards(row, "h"), _cards(row, "a"))
+        if ok is None:
+            continue
+        want = "hit" if ok else "miss"
+        if str(r[status_col]).lower() == want:
+            continue
+        df.loc[df.index[pos], status_col] = want
+        if "score" in df.columns and row["hg"] is not None and not _nan(row["ag"]):
+            df.loc[df.index[pos], "score"] = f"{int(row['hg'])}-{int(row['ag'])}"
+        if "settled_on" in df.columns and str(r.get("settled_on")) in ("", "nan", "None", "NaT"):
+            df.loc[df.index[pos], "settled_on"] = today.strftime("%Y-%m-%d")
+        fixed += 1
+    return df, fixed
 
 
 def settle_accas(df: pd.DataFrame, results: pd.DataFrame, today: datetime) -> pd.DataFrame:

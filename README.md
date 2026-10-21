@@ -88,6 +88,24 @@ Hard blocks are unchanged and beat every rule: **Japan and Australia** (explicit
 ### Market policy (2026-10-17)
 `policy.py` is the one place that decides which selections the model may recommend; `safe.selections()` asks it for every candidate, so the shortlist, high-probability selections, bets of the day, accas, the match pages and the app boards all inherit it (the app repeats the rule client-side so a payload published before a change cannot show a dropped market). **Dropped:** team goals (HO05 … AU15), double chance (1X/12/X2) and **every under** — total goals, no-BTTS, team unders, corner and card unders (the old pattern missed team-level corner/card unders, which is how `CAU55` / `KHU25` reached bets of the day). **Focus:** Over 1.5, Over 2.5, BTTS and bookings; 1X2 and corner overs stay on (not asked to go). **Over 2.5 and BTTS start from a 55 % model probability** (`policy.SEL_MIN_P`, in the shortlist bars, bets of the day, the high-probability list and the app boards); every other market keeps its bar (goals lines 70 %, corners & bookings 65 %, 1X2 60 %). Old codes still label and settle, so bets placed earlier keep grading. **Lanes:** one selection per match stays the rule, but "the best candidate wins the match" gave Over 1.5 — always the likeliest of Over 1.5 / Over 2.5 / BTTS — 286 of 303 matches on the 2026-10-17 slate (and 40 of 40 high-probability slots), so Over 2.5 could never appear whatever its floor. Both the **shortlist** and the **high-probability selections** now work like the bets-of-the-day card: each market claims its own best matches in turn (shortlist: Over 2.5, BTTS, bookings, corners, 1X2, then Over 1.5 and the other goals lines, 10 each; selections: bookings 6, corners 4, Over 2.5 10, BTTS 10, then Over 1.5 up to 50 in total), and Over 1.5 takes what is left. Nothing is padded, a match cut from one lane can still be claimed by a later one, and the board is still shown by probability. Levers: `SHORTLIST_LANES=0` / `SAFE_LANES=0` restore the old single-ranking behaviour. Other levers: `MODEL_MARKETS=all` (or `unders,team,dc`) restores a dropped family, `MODEL_DROP=corners,result` switches those two off, `POLICY_MIN_P_O25` / `POLICY_MIN_P_BTTS` move the 55 % (not `MIN_P_O25` / `MIN_P_BTTS`: scan.yml already uses those, at 0.60, for the older Goals-shortlist star thresholds).
 
+### Settlement: team corners and team cards were graded backwards (2026-10-21)
+Reported as "I'm losing more bets than before". The picks were not the problem — the grader was. `safe.settle` read
+the *side* letter as the *direction*, so a code like `CHO35` ("home team over 3.5 corners") was graded as a
+**match-under** (`total corners < 3.5`) and came back as a loss almost every time; `KAO15` / `KHU25` (team cards) had
+the same fault, and a statistic the feed never published could also be turned into a loss. On the published data
+branch that mis-graded **63 wins as losses** (34 of them still inside the last 60 days). `settle` now parses one shape
+— family (`C` corners / `K` cards / none goals), optional side (`H`/`A`), direction (`O`/`U`), line in tenths — and
+grades a team market on *that team's* number and a total on the match total, returning `None` (pending → void) when
+the statistic is missing. A new `safe.regrade_settled` re-checks settled corner/card rows against the archive and is
+called by `settle_bets` and `shortlist.settle`, so the record repairs itself on the next scan; goals, BTTS and 1X2
+rows were always right and are never touched. `tools/regrade_ledgers.py --state state [--write]` does the same
+offline. Tests: `tests/test_settle_markets.py` (every code the policy can emit must be gradable, plus a repair test).
+
+Model check on the same archive, 788 settled bets re-graded: actual 79.7 % vs the model's 80.4 % — calibrated in
+every probability band (<70 %: 70 % actual vs 65 % predicted … 85 %+: 87 % vs 89 %), so the recent dip is variance
+plus the false losses, not a broken model. What did change on 2026-10-17 is volume and mix: the lanes added corners,
+bookings and 1X2, and the app now announces 20–110 picks on a busy day (45 on 2026-10-20) instead of a dozen.
+
 ### Videos: a natural voice, a full recap first, and no repeated read-out (2026-10-20)
 Four user-commissioned fixes to the shortlist and breakdown videos. **Voice.** The narration is the Edge neural
 voice (`en-GB-RyanNeural` first, then `en-GB-ThomasNeural`, `en-US-AndrewNeural`), spoken sentence by sentence and
