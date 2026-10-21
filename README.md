@@ -187,6 +187,12 @@ top third of a card. A slide with nothing to show is **skipped, never left empty
 Portrait stacks each chart bar's label above its bar, because a 9:16 frame cannot fit a market name beside one.
 Tests: `tests/test_reel_insights.py`.
 
+**In the app.** The on-phone briefing player follows the same three slides (`pages.js`: `briefingMarketRows`,
+`briefingFeatured`, `briefingSlideHtml`): the market chart with the featured bar green and on top, the reasons,
+trends and venue splits, then the record. Its holds are content-based like `stage_seconds` (5–11 s per stage), the
+results recap is paged 9 rows at a time and a text card is capped at 16 s, so nothing sits still; the fixture detail
+files are warmed before the player builds, and a failed fetch means fewer slides rather than a blank one.
+
 ### Google Drive handoff: Drive → Zapier → YouTube (2026-10-21)
 `drive_handoff.py` is the third lane and the one the user chose to publish through: the finished **16:9** video is
 copied into a Drive folder, and a free two-step Zapier Zap (Drive *New File in Folder* → YouTube *Upload Video*)
