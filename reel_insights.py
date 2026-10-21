@@ -28,6 +28,7 @@ from pathlib import Path
 log = logging.getLogger("scanner")
 
 CHART_ROWS = 6                 # bars on THE PICK slide
+MIN_MARKET_P = 0.65            # the same floor the video itself uses: nothing weaker is drawn on the chart
 TREND_LINES = 3                # trends on the evidence slide
 RECENT_ROWS = 5                # results per team on the record slide
 H2H_ROWS = 5                   # meetings on the record slide
@@ -61,11 +62,11 @@ def chance_phrase(p: float | None) -> str:
         return "better than nine in ten"
     if p >= 0.85:
         return "around nine in ten"
-    if p >= 0.75:
+    if p >= 0.70:
         return "about three in four"
-    if p >= 0.65:
+    if p >= 0.60:
         return "about two in three"
-    if p >= 0.55:
+    if p >= 0.52:
         return "better than half"
     return "around half"
 
@@ -112,7 +113,8 @@ def market_rows(detail: dict | None, pick: dict) -> list[dict]:
     """Every market the video covers for this match, highest model probability first.
 
     `detail["sels"]` is [[sel, p, p_model, p_sb, odds, diff, diff_pp, ev], …] from appdata. A row is kept when the
-    video is allowed to show that market and the model has a probability for it. If the fixture detail is missing,
+    video is allowed to show that market and the model rates it at the video's own 65% floor — a 33% market drawn
+    beside a 76% one is noise, and on a 50-100% axis it would be an invisible stub. If the fixture detail is missing,
     the pick itself is the only row — the chart still draws, it is just short.
     """
     home, away = str(pick.get("home") or "Home"), str(pick.get("away") or "Away")
@@ -124,7 +126,7 @@ def market_rows(detail: dict | None, pick: dict) -> list[dict]:
         if not _eligible(cand):
             continue
         pv = _f(s[1] if len(s) > 1 else None)
-        if pv is None or not (0.0 < pv < 1.0):
+        if pv is None or not (MIN_MARKET_P <= pv < 1.0):
             continue
         odds = _f(s[4]) if len(s) > 4 else None
         p_sb = _f(s[3]) if len(s) > 3 else None
@@ -170,6 +172,46 @@ def chart_rows(detail: dict | None, pick: dict, limit: int = CHART_ROWS) -> list
         if mine:
             top = (top[: limit - 1] + [mine])
     return sorted(top, key=lambda r: (-r["p"], not r["picked"]))
+
+
+def market_group(sel: str) -> str:
+    """The market family a code belongs to — the same grouping the board uses ('goals', 'team', 'corners', …)."""
+    sel = str(sel or "").upper()
+    if sel in ("H", "D", "A", "1X", "12", "X2"):
+        return "result"
+    if re.match(r"^[HA]?O\d+$", sel) and not sel[:1] in ("C", "K"):
+        return "team" if sel[:1] in ("H", "A") else "goals"
+    if re.match(r"^C[HAOU]?\d+$", sel):
+        return "corners"
+    if re.match(r"^K[HAOU]?\d+$", sel):
+        return "cards"
+    return ""
+
+
+def featured_pick(pick: dict, detail: dict | None, *, min_p: float = 0.65,
+                  min_odds: float = 1.16) -> dict:
+    """The pick, switched to the strongest market this match offers, when a stronger one exists.
+
+    The chart on THE PICK slide has to show the featured market as its highest bar (user rule 2026-10-21). The board
+    ranks the markets *it* collected, so its own selection is not always the strongest one in the fixture detail —
+    e.g. a team-to-score market at 76% can beat the Over 1.5 at 74%. Rather than draw a chart that quietly disagrees
+    with the pick, the video takes the strongest market the fixture actually offers, provided it is a market the
+    video may show, still clears the 65% bar and still has a usable price. Everything about the match is untouched.
+    Returns a copy; the caller's dict is never modified.
+    """
+    rows = market_rows(detail, {**pick, "sel": ""})
+    own = str(pick.get("sel") or "").upper()
+    best = next((r for r in rows if r["p"] >= min_p and (r.get("odds") or 0) >= min_odds), None)
+    if best is None or best["sel"] == own:
+        return pick
+    base_p = _f(pick.get("p")) or 0.0
+    if best["p"] <= base_p + 0.005:                   # not worth changing the board's wording for a rounding
+        return pick
+    out = dict(pick)
+    out.update({"sel": best["sel"], "label": best["label"], "p": best["p"], "odds": best["odds"],
+                "p_sb": best["p_sb"], "market": market_group(best["sel"]) or pick.get("market") or "",
+                "upgraded_from": own})
+    return out
 
 
 # ----------------------------------------------------------------------------- standings
@@ -319,12 +361,21 @@ def reasons(pick: dict, detail: dict | None, table: dict | None) -> list[str]:
         xg = (_f(d_xg[0]), _f(d_xg[1]))
     if xg and None not in xg:
         out.append(f"Projected goals {xg[0]:.2f} – {xg[1]:.2f}")
-    market = str(pick.get("market") or "").lower()
     teams = (detail or {}).get("teams") or {}
-    prof = (teams.get("home") or {}) if market in ("goals", "team", "") else {}
-    rate = _f((prof or {}).get("o15")) if isinstance(prof, dict) else None
-    if rate is not None:
-        out.append(f"Over 1.5 has landed in {_pct(rate)} of {pick.get('home')}’s matches")
+    sel = str(pick.get("sel") or "").upper()
+    side = "home" if sel.startswith("H") and not sel.startswith(("C", "K")) else (
+        "away" if sel.startswith("A") and not sel.startswith(("C", "K")) else "")
+    prof = (teams.get(side) or {}) if side else (teams.get("home") or {})
+    team = pick.get("home") if side != "away" else pick.get("away")
+    if side and isinstance(prof, dict):
+        # a team-goals pick is about that club scoring, so quote how rarely it is shut out — not a goals line
+        fts = _f(prof.get("fts"))
+        if fts is not None:
+            out.append(f"{team} have failed to score in {'only ' if fts <= 0.25 else ''}{_pct(fts)} of their matches")
+    elif isinstance(prof, dict):
+        rate = _f(prof.get("o15"))
+        if rate is not None:
+            out.append(f"Over 1.5 has landed in {_pct(rate)} of {pick.get('home')}’s matches")
     if table:
         row = (table.get("teams") or {}).get("home")
         line = standing_line(row, table.get("size") or 0)

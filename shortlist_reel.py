@@ -818,7 +818,8 @@ def render_pick_overview(pick: dict, i: int, n: int, bg: Path, home_b: Path, awa
 
 
 def _fill_slots(d, box: tuple[int, int, int, int], heading: str, slots: list, *, wide: bool,
-                pad: int, cap: int = 96, lo: int = 17, hi: int = 32, rule: bool = False) -> None:
+                pad: int, cap: int = 96, lo: int = 17, hi: int = 32, rule: bool = False,
+                center: bool = True) -> None:
     """Lay a card out under its heading, using the card instead of pooling in the top third.
 
     `slots` are callables taking (x, y, w, h). Each gets an equal share of the space under the heading, but never
@@ -830,7 +831,7 @@ def _fill_slots(d, box: tuple[int, int, int, int], heading: str, slots: list, *,
     avail = max(1, (box[3] - pad) - top)
     h = max(1, min(cap or avail, avail // max(1, len(slots))))
     size = max(lo, min(hi, int(h * 0.46)))
-    y = top + max(0, (avail - h * len(slots)) // 2)
+    y = top + (max(0, (avail - h * len(slots)) // 2) if center else 0)
     for idx, fn in enumerate(slots):
         if rule and idx:
             d.line((box[0] + pad, y + 1, box[2] - pad, y + 1), fill=(26, 52, 80), width=1)
@@ -969,8 +970,15 @@ def render_pick_record(pick: dict, i: int, n: int, bg: Path, dest: Path, *,
             df = _font(int(size * 0.72), False)
             d.text((x, ty + 2), r["date"], fill=MUTED, font=df)
             dx = x + _tw(d, r["date"], df) + 18
-            d.text((dx, ty), _ellip(d, f"{r['home']} v {r['away']}", f, w - (dx - x) - 122),
-                   fill=WHITE, font=f)
+            fixture, room = f"{r['home']} v {r['away']}", w - (dx - x) - 150
+            # shrink before cutting: a head-to-head line that names both clubs is the point of the row
+            fs = f.size
+            while fs > 14 and _tw(d, fixture, _font(fs, False)) > room:
+                fs -= 1
+            f = _font(fs, False)
+            if fs < int(size * 0.86):
+                ty = y + (h - f.size) // 2 - 2
+            d.text((dx, ty), _ellip(d, fixture, f, room), fill=WHITE, font=f)
             score = f"{r['hg']}–{r['ag']}"
             d.text((x + w - 96 - _tw(d, score, f), ty), score, fill=WHITE, font=f)
             _result_pill(d, x + w - 74, ty - 2, r["res"], pill)
@@ -978,7 +986,7 @@ def render_pick_record(pick: dict, i: int, n: int, bg: Path, dest: Path, *,
     if not left_slots:
         left_slots.append(lambda x, y, w, h, size: d.text((x, y), "No meetings on record",
                                                           fill=MUTED, font=_font(size, False)))
-    _fill_slots(d, (lx0, ly0, lx1, ly1), "Head to head", left_slots, wide=wide, pad=pad, cap=0, hi=30, rule=True)
+    _fill_slots(d, (lx0, ly0, lx1, ly1), "Head to head", left_slots, wide=wide, pad=pad, cap=150, hi=30, rule=True, center=False)
 
     # ---- right: two columns, one per club
     rows = max(len(home_recent), len(away_recent), 1)
@@ -1006,7 +1014,7 @@ def render_pick_record(pick: dict, i: int, n: int, bg: Path, dest: Path, *,
                 d.text((bx + col_w - 92 - _tw(d, sc, f), ry + 2), sc, fill=WHITE, font=f)
                 _result_pill(d, bx + col_w - 70, ry, r["res"], pill)
         right_slots.append(recent_slot)
-    _fill_slots(d, (rx0, ry0, rx1, ry1), "Recent matches", right_slots, wide=wide, pad=pad, cap=0, hi=30, rule=True)
+    _fill_slots(d, (rx0, ry0, rx1, ry1), "Recent matches", right_slots, wide=wide, pad=pad, cap=150, hi=30, rule=True, center=False)
 
     _progress_bar(d, cw, ch, i, n, wide=wide)
     _stage_footer(d, cw, ch, wide=wide)
@@ -1615,6 +1623,10 @@ def build(picks: list, outfile: Path, *, assets: Path, work: Path | None = None,
             hb = fetch_badge(badges.get("home"), crests / f"h{pi}.png", logo)
             ab = fetch_badge(badges.get("away"), crests / f"a{pi}.png", logo)
             detail = load_detail(p, fx_dir)
+            # The chart has to show the featured market as its tallest bar (user rule 2026-10-21), and the board's
+            # own pick is not always the strongest market in the fixture detail — so the video features the
+            # strongest market the match actually offers, still 65%+ and still priced. Everything else is untouched.
+            p = reel_insights.featured_pick(p, detail, min_p=REEL_MIN_P)
             table = reel_insights.standing(tables, p) if tables else None
             ev = reel_insights.evidence_lines(detail, p, table)
             bars = reel_insights.market_rows(detail, p)
