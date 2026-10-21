@@ -36,10 +36,12 @@ Android app and Telegram — no servers, no API keys, and it runs while your pho
   promoted; a failed check keeps the previous publication and reports the problem on Telegram.
 * **Season backfill** — up to two earlier seasons of every covered competition are archived from Livescore once,
   so head-to-head, form and league pages are complete outside football-data's leagues.
-* **Delivery** — full report (Markdown + PDF) at 07:00 / 12:00 / 17:00 SAST on Telegram; a 9:16 shortlist reel
-  (no background music; each slide holds until that pick's voice-over ends) once a day before 07:00 SAST, then
-  deleted; app data on the `data` branch (`data/app/latest.json`, per-match files, 60-day history); a weekly
-  performance digest on Mondays.
+* **Delivery** — full report (Markdown + PDF) at 07:00 / 12:00 / 17:00 SAST on Telegram; three shortlist videos a
+  day (05:00–07:19, 11:00–12:19, 16:00–17:19 SAST) in 16:9 and 9:16, no background music, each slide holding until
+  that line's voice-over ends — the first video of the day opens with every result from every video of the day
+  before, then today's matches one at a time with the reason for each, then one "if you combine them" slide; files
+  are deleted after a successful send; app data on the `data` branch (`data/app/latest.json`, per-match files,
+  60-day history); a weekly performance digest on Mondays.
 
 The code lives on `main`; all generated state (reports, ledgers, app data, the Livescore archive) lives on the
 orphan `data` branch, which is force-pushed by every run so the history stays small.
@@ -81,13 +83,81 @@ the football model code; the only shared piece is the generic Markdown → PDF h
 
 ### Model diet: every league the archive has enough data on (2026-10-11, widened 2026-10-17)
 Fixture intake is filtered before analysis (`scanner.league_allowed` / `scanner.fixture_allowed`). A competition is in when it is on the **curated list** (big-5 + second tiers, the strong top flights, Brazil, Argentina, MLS, Liga MX, the big African leagues, UEFA Champions / Europa / Conference League), is one of the **22 football-data main divisions**, or passes the **archive rule** (`scanner.data_rich_from_facts`, computed once per run from `data/ls/stages` via `coverage.stage_facts`, ≈ 2 s): a league-shaped table (8–45 clubs), the registry's `eligible` flag, a median of at least 15 archived finished matches per club, a result inside the model's 400-day window, and match statistics on ≥ 50 % of the recent window — or, for a national league whose provider publishes no statistics (Ghana, Kenya, Tunisia, Algeria …), a table that is not a regional / amateur tier (`AMATEUR_TIER_RE`: Oberliga, Serie D, RFEF and "Group x" splits, Norwegian 3. divisjon …). On the 2026-10-17 archive that is **165 stages (was 36)**, including the **Chinese Super League and League One**, K League 1/2, the Saudi Pro League, the Indian Super League, UAE, Qatar, Thailand, Brazil Série B, USL, England League 1/2, the Scottish divisions, 3. Liga, Eerste Divisie, Liga Portugal 2 and Turkey's 1. Lig. As the stats collector fills more competitions they qualify automatically.
-Hard blocks are unchanged and beat every rule: **Japan and Australia** (explicit user rule 2026-10-11), women, youth/reserve (incl. "Premier League 2"), friendlies, all domestic cups, internationals, qualifiers and play-offs. The 2026-10-17 pass also anchored the English patterns (`Northern Premier League`, step 4, used to slip through `premier league$`). Competitions that are in only through the archive rule are analysed `DIET_EXTRA_DAYS` (14) ahead — the app lists ten days of fixtures, so the far end of the 60-day window would only cost scan time (curated leagues and main divisions keep the full horizon). Depth gate: a fixture where either team has fewer than `MIN_TEAM_MATCHES` (8) recent matches with data is skipped entirely. Every app surface inherits the filter (shortlist, selections, bets of the day, accas, the Leagues browser, fixtures list and search); history collection stays wide so cup/international results still feed team form. Levers: `MODEL_DIET`, `MIN_TEAM_MATCHES`, `DIET_EXTRA_DAYS`, `DIET_MIN_PER_TEAM`, `DIET_STATS_PCT`, `SEED_STAGES`.
+Hard blocks beat every rule: **Australia** (explicit user rule 2026-10-11), women, youth/reserve (incl. "Premier League 2"), friendlies, all domestic cups, internationals, qualifiers and play-offs. The 2026-10-17 pass also anchored the English patterns (`Northern Premier League`, step 4, used to slip through `premier league$`). Competitions that are in only through the archive rule are analysed `DIET_EXTRA_DAYS` (14) ahead — the app lists ten days of fixtures, so the far end of the 60-day window would only cost scan time (curated leagues and main divisions keep the full horizon). Depth gate: a fixture where either team has fewer than `MIN_TEAM_MATCHES` (8) recent matches with data is skipped entirely. Every app surface inherits the filter (shortlist, selections, bets of the day, accas, the Leagues browser, fixtures list and search); history collection stays wide so cup/international results still feed team form. Levers: `MODEL_DIET`, `MIN_TEAM_MATCHES`, `DIET_EXTRA_DAYS`, `DIET_MIN_PER_TEAM`, `DIET_STATS_PCT`, `SEED_STAGES`.
+
+### Japan is back (2026-10-21)
+The 2026-10-11 ban on Japan is reversed at the user's request: **J1 and J2 League are on the curated list**
+(`DIET_ALLOW`), so they are analysed whenever they play, and any deeper Japanese division (J3 …) comes in through the
+archive rule like every other league — the Livescore archive already carries `japan/j-league`, `japan/j-league-2` and
+`japan/j-league-3`, and all three are now seeded (`SEED_STAGES`) so their history keeps updating. `japan` and
+`\bj[123]\b` are out of `DIET_BLOCK_RE`; the Emperor's Cup, the League Cup and the WE League stay out through the cup /
+women's blocks, and **Australia stays banned**. Tests: `tests/test_diet.py` (Japan allowed, Japanese cups blocked,
+Australia still blocked).
 
 ### Market policy (2026-10-17)
-`policy.py` is the one place that decides which selections the model may recommend; `safe.selections()` asks it for every candidate, so the shortlist, high-probability selections, bets of the day, accas, the match pages and the app boards all inherit it (the app repeats the rule client-side so a payload published before a change cannot show a dropped market). **Dropped:** team goals (HO05 … AU15), double chance (1X/12/X2) and **every under** — total goals, no-BTTS, team unders, corner and card unders (the old pattern missed team-level corner/card unders, which is how `CAU55` / `KHU25` reached bets of the day). **Focus:** Over 1.5, Over 2.5, BTTS and bookings; 1X2 and corner overs stay on (not asked to go). **Over 2.5 and BTTS start from a 55 % model probability** (`policy.SEL_MIN_P`, in the shortlist bars, bets of the day, the high-probability list and the app boards); every other market keeps its bar (goals lines 70 %, corners & bookings 65 %, 1X2 60 %). Old codes still label and settle, so bets placed earlier keep grading. **Lanes:** one selection per match stays the rule, but "the best candidate wins the match" gave Over 1.5 — always the likeliest of Over 1.5 / Over 2.5 / BTTS — 286 of 303 matches on the 2026-10-17 slate (and 40 of 40 high-probability slots), so Over 2.5 could never appear whatever its floor. Both the **shortlist** and the **high-probability selections** now work like the bets-of-the-day card: each market claims its own best matches in turn (shortlist: Over 2.5, BTTS, bookings, corners, 1X2, then Over 1.5 and the other goals lines, 10 each; selections: bookings 6, corners 4, Over 2.5 10, BTTS 10, then Over 1.5 up to 50 in total), and Over 1.5 takes what is left. Nothing is padded, a match cut from one lane can still be claimed by a later one, and the board is still shown by probability. Levers: `SHORTLIST_LANES=0` / `SAFE_LANES=0` restore the old single-ranking behaviour. Other levers: `MODEL_MARKETS=all` (or `unders,team,dc`) restores a dropped family, `MODEL_DROP=corners,result` switches those two off, `POLICY_MIN_P_O25` / `POLICY_MIN_P_BTTS` move the 55 % (not `MIN_P_O25` / `MIN_P_BTTS`: scan.yml already uses those, at 0.60, for the older Goals-shortlist star thresholds).
+`policy.py` is the one place that decides which selections the model may recommend; `safe.selections()` asks it for every candidate, so the shortlist, high-probability selections, bets of the day, accas, the match pages and the app boards all inherit it (the app repeats the rule client-side so a payload published before a change cannot show a dropped market). **Dropped:** double chance (1X/12/X2) and **every under** — total goals, no-BTTS, team unders, corner and card unders (the old pattern missed team-level corner/card unders, which is how `CAU55` / `KHU25` reached bets of the day). **Focus:** Over 1.5, Over 2.5, BTTS and bookings; 1X2 and corner overs stay on (not asked to go). **Over 2.5 and BTTS start from a 55 % model probability** (`policy.SEL_MIN_P`, in the shortlist bars, bets of the day, the high-probability list and the app boards); every other market keeps its bar (goals lines 70 %, corners & bookings 65 %, 1X2 60 %). Old codes still label and settle, so bets placed earlier keep grading. **Lanes:** one selection per match stays the rule, but "the best candidate wins the match" gave Over 1.5 — always the likeliest of Over 1.5 / Over 2.5 / BTTS — 286 of 303 matches on the 2026-10-17 slate (and 40 of 40 high-probability slots), so Over 2.5 could never appear whatever its floor. Both the **shortlist** and the **high-probability selections** now work like the bets-of-the-day card: each market claims its own best matches in turn (shortlist: Over 2.5, BTTS, bookings, corners, 1X2, then Over 1.5 and the other goals lines, 10 each; selections: bookings 6, corners 4, Over 2.5 10, BTTS 10, then Over 1.5 up to 50 in total), and Over 1.5 takes what is left. Nothing is padded, a match cut from one lane can still be claimed by a later one, and the board is still shown by probability. Levers: `SHORTLIST_LANES=0` / `SAFE_LANES=0` restore the old single-ranking behaviour. Other levers: `MODEL_MARKETS=all` (or `unders,team,dc`) restores a dropped family, `MODEL_DROP=corners,result` switches those two off, `POLICY_MIN_P_O25` / `POLICY_MIN_P_BTTS` move the 55 % (not `MIN_P_O25` / `MIN_P_BTTS`: scan.yml already uses those, at 0.60, for the older Goals-shortlist star thresholds).
+
+### Settlement: team corners and team cards were graded backwards (2026-10-21)
+Reported as "I'm losing more bets than before". The picks were not the problem — the grader was. `safe.settle` read
+the *side* letter as the *direction*, so a code like `CHO35` ("home team over 3.5 corners") was graded as a
+**match-under** (`total corners < 3.5`) and came back as a loss almost every time; `KAO15` / `KHU25` (team cards) had
+the same fault, and a statistic the feed never published could also be turned into a loss. On the published data
+branch that mis-graded **63 wins as losses** (34 of them still inside the last 60 days). `settle` now parses one shape
+— family (`C` corners / `K` cards / none goals), optional side (`H`/`A`), direction (`O`/`U`), line in tenths — and
+grades a team market on *that team's* number and a total on the match total, returning `None` (pending → void) when
+the statistic is missing. A new `safe.regrade_settled` re-checks settled corner/card rows against the archive and is
+called by `settle_bets` and `shortlist.settle`, so the record repairs itself on the next scan; goals, BTTS and 1X2
+rows were always right and are never touched. `tools/regrade_ledgers.py --state state [--write]` does the same
+offline. Tests: `tests/test_settle_markets.py` (every code the policy can emit must be gradable, plus a repair test).
+
+Model check on the same archive, 788 settled bets re-graded: actual 79.7 % vs the model's 80.4 % — calibrated in
+every probability band (<70 %: 70 % actual vs 65 % predicted … 85 %+: 87 % vs 89 %), so the recent dip is variance
+plus the false losses, not a broken model. What did change on 2026-10-17 is volume and mix: the lanes added corners,
+bookings and 1X2, and the app now announces 20–110 picks on a busy day (45 on 2026-10-20) instead of a dozen.
+
+### Strong markets for the day, total corners, and no accumulators (2026-10-21)
+Three user rules in one pass. **Strong markets.** The home page now opens with one section, *Strong markets for the
+day*: model probability **≥ 75 %**, a real Sportybet price of **≥ 1.16**, and only **Over 1.5 total goals, team goals,
+corners and bookings**. `policy.is_strong_market()` is the definition, `appdata.strong_markets_payload()` filters,
+caps and orders the list, and the payload key is `strong_markets` (`min_p`, `min_odds`, `date`, `bets`). Team-corner
+lines used to crowd out the totals, so the section caps each family (`STRONG_CAPS`: total corners 8, total bookings
+6, Over 1.5 10, team goals 6, team corners 3, team bookings 3), shows at most two markets per match, and orders by
+probability. Nothing else may appear there — no Over 2.5, BTTS, 1X2 or unders. **Total corners.** Two things hid the
+match-total corner market: the count model only priced 8.5 and above while team lines started at 3.5 (so an average
+10-corner match could never show 75 %+ on a total), and the board gave the whole corner family one lane of four
+slots, which the three team lines took. `markets.CORNERS["lines_total"]` is now `(7.5 … 12.5)` — same distribution,
+same calibration, wider lines — and both boards split `corners` / `corners_team` and `cards` / `cards_team` into separate lanes — totals first —
+so the totals always get their slots: `safe.safe_lane()`/`SAFE_LANE_CAP` (bookings 4 + 2, corners 4 + 2) and
+`shortlist.lane_of()`/`LANE_ORDER`/`LANE_CAP` (10 per total lane, 5 per team lane). **No
+accumulators.** Accas are retired everywhere: no build in `scanner.py`, no acca page, home card, menu entry or slip
+button in the app, no acca or combine slide in the videos, no acca block in `verify.py` and no acca line in
+`safe.summary()`. `accas.py` stays only to settle the historical `data/accas.csv` / `data/accas_doubles.csv` rows.
+**Videos** carry Over 1.5 total goals, team goals, corners and bookings only (`shortlist_reel.REEL_MARKET_RE`);
+BTTS, Over 2.5 and 1X2 picks are out, and the in-app briefing player uses the same filter. Tests:
+`tests/test_strong_markets.py`.
+
+### Videos: a natural voice, a full recap first, and no repeated read-out (2026-10-20)
+Four user-commissioned fixes to the shortlist and breakdown videos. **Voice.** The narration is the Edge neural
+voice (`en-GB-RyanNeural` first, then `en-GB-ThomasNeural`, `en-US-AndrewNeural`), spoken sentence by sentence and
+re-paced by `voice_polish` (varied pauses, tempo and level drift, room tone, one loudness). One pacing seed is set
+once per run (`reel.set_voice_seed(day)`) and used by every clip, every slide and both aspect ratios, so nothing
+jumps performer mid-video, and the voice actually used is logged (`Narration voice used: …`) and returned by
+`reel.voice_identity()`. **eSpeak is gone**: without a neural voice the builder now raises `VoiceUnavailable` and the
+video is skipped with a log line instead of publishing a robot voice (`PLAYREPORT_ALLOW_ESPEAK=1` opts in for a
+deliberate test); `scripts/setup_voice.sh` installs edge-tts + the Piper fallback locally and prints the env to
+export. **Recap.** The first video of the day (morning, or a manual `FORCE_DAILY_REEL`) recaps *every* selection
+from *all* of yesterday's videos — the history is already merged per day across morning, noon and evening — paged
+`RECAP_ROWS` (9) at a time, headed `YESTERDAY'S CARD · EVERY VIDEO · PART n OF m`. It is read as the record plus the
+standout win and the one that got away, never match by match (that is what the slide is for); later pages get one
+line each. The noon and evening videos carry no recap (`recap=False`). **No repetition.** Each match is introduced
+once — competition, match, kick-off, selection, price, then its reasons (`reel.pick_reason_script`: the model's
+chance, its projected goals, recent form, the base rate, never a percentage or a table) — and the accumulators now
+are gone (2026-10-21): the video ends on the closer, with no combine or acca slide at all. The list keeps the
+board's own order — one selection per match, 65 %+, and only Over 1.5 / team goals / corners / bookings. Levers: `REEL_MIN_P` (0.65), `MAX_PICKS` (12),
+`RECAP_ROWS`, `MAX_RECAP`, `EDGE_TTS_VOICE`, `EDGE_TTS_RATE`, `EDGE_TTS_PITCH`, `PLAYREPORT_POLISH=0`.
 
 ### Briefing videos go to Telegram, then the file is deleted (2026-10-13)
-Shortlist briefing videos are sent with `send_telegram_video` (same `TELEGRAM_BOT_TOKEN` / `TELEGRAM_CHAT_ID` as the text picks). After a successful send the local file is unlinked. They are never committed, never published on the `data` branch, and never uploaded to Drive. Pass `PLAYREPORT_BRIEFING_VIDEO` on a report run to send one. Ultra-realistic voiceovers are cut in the agent session — Actions does not mint that voice.
+Shortlist briefing videos are sent with `send_telegram_video` (same `TELEGRAM_BOT_TOKEN` / `TELEGRAM_CHAT_ID` as the text picks). After a successful send the local file is unlinked. They are never committed, never published on the `data` branch, and never uploaded to Drive. Pass `PLAYREPORT_BRIEFING_VIDEO` on a report run to send one. The voice is minted by the workflow itself (edge-tts + Piper, `Prepare neural narration voice`).
 
 ### Sportybet names no longer mix matches + shortlist briefing (2026-10-13)
 `attach_prices` looked up Sportybet events by `zip(todays.index, rows)`. The depth gate drops thin fixtures from `rows` but not from `todays`, so every later event slid onto the wrong match — `home_long` then painted the bookmaker name (Kaizer Chiefs on Bristol City) across the app. Lookup is now by fixture identity; `event_fits` refuses a name that is not the same club; matching is exclusive; carried cache events are dropped when they do not fit. The client ignores `home_long` / Sportybet deep-links that fail the same check, so an already-published file stops lying on update. Shortlist tab: **Tonight's briefing** — a video-style player with a male voiceover and a download (WebM when the WebView can record, otherwise a self-contained HTML briefing).

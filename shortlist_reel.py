@@ -1,7 +1,9 @@
 """PlayReport shortlist video — 16:9 widescreen (1920x1080), narrated slides, no bed music or trailing silence.
 
-Starts with the settled results of yesterday's shortlist selections (when available), then proceeds
-to today's shortlist selections. Each slide lasts exactly as long as its own voice clip (plus a short tail),
+The morning video opens with the settled results of *every* video from yesterday (morning, noon and evening),
+then walks today's matches one at a time — the match, the selection, the price and the reason it made the list.
+Videos carry Over 1.5 total goals, team goals, corners and bookings only, and no accumulator is built, shown or
+spoken anywhere (user rules 2026-10-21). Each slide lasts exactly as long as its own voice clip (plus a short tail),
 so the next match never appears while the previous one is still being read.
 """
 from __future__ import annotations
@@ -47,8 +49,12 @@ TAIL = 0.70          # extra hold after speech so the next match never appears m
 INTRO_MIN = 5.0      # logo sting, seconds
 MAX_PICKS = 12
 MAX_TOTAL = 240.0
-# Ultra-realistic neural British male voices (CI/local), with male eSpeak-NG as emergency fallback.
-EDGE_TTS_VOICE = "en-GB-RyanNeural"
+RECAP_ROWS = 9       # results per recap slide (readable in both 16:9 and 9:16)
+MAX_RECAP = 60       # every selection from yesterday's three videos, with a hard ceiling
+# Ultra-realistic neural British male voices (CI/local). Tried in order: the first that answers is the voice for the
+# whole run, so every clip, every slide and both aspect ratios are spoken by exactly the same person.
+EDGE_TTS_VOICES = ("en-GB-RyanNeural", "en-GB-ThomasNeural", "en-US-AndrewNeural")
+EDGE_TTS_VOICE = EDGE_TTS_VOICES[0]
 EDGE_TTS_RATE = "-4%"
 EDGE_TTS_PITCH = "-2Hz"
 PIPER_VOICE_MODEL = "en_GB-alan-medium.onnx"
@@ -56,18 +62,36 @@ ESPEAK_VOICE = "en-gb"
 ESPEAK_SPEED = 150
 ESPEAK_PITCH = 40
 
-INTRO_SCRIPT = "PlayReport. Here's today's shortlist."
+# One pacing seed for the whole day: every video built today is re-timed by the same "person", never a new random
+# performance per clip. `set_voice_seed()` is called once per build.
+_VOICE_SEED = 7
+_VOICE_USED: list[str] = []
+
+
+def set_voice_seed(seed: int | None = None) -> None:
+    """Lock the narration's pacing for this run (default: a fixed value, so clips never jump performer to performer)."""
+    global _VOICE_SEED
+    _VOICE_SEED = 7 if seed is None else int(seed)
+
+
+def voice_identity() -> dict:
+    """What actually spoke this run — logged with the video so an inconsistent voice is visible, never guessed."""
+    return {"voice": (_VOICE_USED[-1] if _VOICE_USED else ""), "seed": _VOICE_SEED,
+            "rate": os.environ.get("EDGE_TTS_RATE") or EDGE_TTS_RATE,
+            "pitch": os.environ.get("EDGE_TTS_PITCH") or EDGE_TTS_PITCH}
+
+
+INTRO_SCRIPT = "PlayReport. These are the matches worth your attention today."
 DISCLAIMER_SCRIPT = (
     "Quick note before we start. This is statistical information, not betting advice. "
     "It's eighteen plus only, so please bet responsibly. "
     "Never use money you can't afford to lose, and remember, there's no such thing as a sure bet."
 )
 CLOSER_SCRIPT = (
+    "That's the list. Take them as singles, take fewer, or skip the ones you don't like. "
     "If this helped, give it a like, share it with a mate, and subscribe for tomorrow's list. "
     "PlayReport. All rights reserved."
 )
-
-
 def hold_seconds(index: int, speech: float) -> float:
     """Slide length = this clip's speech. Intro never shorter than 5s. Never trim speech."""
     speech = max(0.0, float(speech or 0.0))
@@ -284,20 +308,30 @@ def render_disclaimer(logo: Path, bg: Path, dest: Path, *, aspect: str | None = 
     im.convert("RGB").save(dest, quality=92)
 
 
+def _clean_score(raw) -> str:
+    """A final score for the slide, or "" when there is not a real one (a void pick carries "-")."""
+    sc = str(raw or "").strip()
+    return sc if re.match(r"^\d+\s*[-:]\s*\d+$", sc) else ""
+
+
 def render_results(results: list[dict], logo: Path, bg: Path, dest: Path, *, day_label: str = "",
-                   aspect: str | None = None, size: tuple[int, int] | None = None) -> None:
-    """Slide recapping yesterday's settled video shortlist selections before today's picks (16:9 or 9:16)."""
+                   aspect: str | None = None, size: tuple[int, int] | None = None,
+                   page: int = 1, pages: int = 1, all_rows: list[dict] | None = None) -> None:
+    """Slide recapping yesterday's settled selections — every video from the day, paged when the card is long."""
     from PIL import ImageDraw
     cw, ch = _resolve_size(aspect, size)
     im = _cover(bg, 0.62, size=(cw, ch))
     d = ImageDraw.Draw(im)
 
-    settled = [r for r in results if r.get("result") in ("hit", "miss")]
+    every = list(all_rows) if all_rows is not None else list(results)
+    settled = [r for r in every if r.get("result") in ("hit", "miss")]
     hits = sum(1 for r in settled if r.get("result") == "hit")
     rate_str = f"  ({round(100 * hits / len(settled))}%)" if settled else ""
-    summary = f"{hits} OF {len(settled)} SELECTIONS WON{rate_str}" if settled else f"{len(results)} SELECTIONS RECAP"
-    head = "YESTERDAY'S SHORTLIST RESULTS" + (f"  ·  {day_label}" if day_label else "")
-    rows = results[:MAX_PICKS]
+    summary = f"{hits} OF {len(settled)} SELECTIONS WON{rate_str}" if settled else f"{len(every)} SELECTIONS RECAP"
+    head = "YESTERDAY'S CARD  ·  EVERY VIDEO" + (f"  ·  {day_label}" if day_label else "")
+    if pages > 1:
+        head += f"  ·  PART {page} OF {pages}"
+    rows = results[:RECAP_ROWS]
 
     if cw < ch:
         # 9:16 vertical reel layout (1080x1920)
@@ -322,7 +356,7 @@ def render_results(results: list[dict], logo: Path, bg: Path, dest: Path, *, day
                     d.text((88, y + 44), comp_txt[:46], fill=MUTED, font=_font(19, False))
                 d.text((88, y + 80), sel_txt[:38], fill=GREEN, font=_font(23, True))
 
-                sc = str(r.get("score") or "").strip()
+                sc = _clean_score(r.get("score"))
                 res = str(r.get("result") or "").lower()
                 badge_lbl = "WON" if res == "hit" else "LOST" if res == "miss" else "VOID"
                 badge_col = GREEN if res == "hit" else RED if res == "miss" else MUTED
@@ -365,7 +399,7 @@ def render_results(results: list[dict], logo: Path, bg: Path, dest: Path, *, day
                 sel_txt = f"{r.get('label') or r.get('sel') or ''}{od}"
                 d.text((820, y + 18), sel_txt[:38], fill=WHITE, font=_font(24, True))
 
-                sc = str(r.get("score") or "").strip()
+                sc = _clean_score(r.get("score"))
                 if sc:
                     ft_txt = f"FT {sc}"
                     d.text((1430, y + 20), ft_txt, fill=GOLD, font=_font(24, True))
@@ -388,13 +422,32 @@ def render_results(results: list[dict], logo: Path, bg: Path, dest: Path, *, day
     im.convert("RGB").save(dest, quality=92)
 
 
+def _draw_reason_panel(d, bits: list[str], x0: int, y_top: int, x1: int, y_bottom: int) -> None:
+    """The 'why it's here' lines under the price, from the pick's own evidence. Never overflows the card."""
+    if not bits or y_bottom - y_top < 40:
+        return
+    y = y_top
+    if y_bottom - y_top >= 92:
+        d.text((x0, y), "WHY IT'S HERE", fill=GREEN, font=_font(16, True))
+        y += 28
+    fnt = _font(22, False)
+    for bit in bits:
+        for line in _wrap(d, bit, fnt, x1 - x0, 2):
+            if y + 27 > y_bottom:
+                return
+            d.text((x0, y), line, fill=WHITE, font=fnt)
+            y += 27
+    d.rectangle((x0 - 16, y_top, x0 - 10, min(y, y_bottom)), fill=GREEN)
+
+
 def render_pick(pick: dict, i: int, n: int, bg: Path, home_b: Path, away_b: Path, dest: Path,
                 *, aspect: str | None = None, size: tuple[int, int] | None = None) -> None:
     from PIL import ImageDraw
     cw, ch = _resolve_size(aspect, size)
     im = _cover(bg, 0.58, size=(cw, ch))
     d = ImageDraw.Draw(im)
-    k = f"TODAY'S SHORTLIST  ·  PICK {i} OF {n}"
+    k = f"TODAY'S SHORTLIST  ·  MATCH {i} OF {n}"
+    reasons = pick_reason_bits(pick)
     comp = competition_line(pick)
 
     if cw < ch:
@@ -450,6 +503,8 @@ def render_pick(pick: dict, i: int, n: int, bg: Path, home_b: Path, away_b: Path
         kw = _tw(d, kt, kf) + 64
         d.rounded_rectangle((rcx - kw // 2, ry1 - 130, rcx + kw // 2, ry1 - 60), 20, fill=(16, 40, 66), outline=GOLD, width=2)
         d.text((rcx - _tw(d, kt, kf) // 2, ry1 - 114), kt, fill=GOLD, font=kf)
+
+        _draw_reason_panel(d, reasons, rx0 + 60, y + 205, rx1 - 60, ry1 - 150)
 
         d.rectangle((76, ch - 190, cw - 76, ch - 176), fill=(20, 48, 74))
         d.rectangle((76, ch - 190, 76 + int(i / max(n, 1) * (cw - 152)), ch - 176), fill=GREEN)
@@ -510,40 +565,13 @@ def render_pick(pick: dict, i: int, n: int, bg: Path, home_b: Path, away_b: Path
         d.rounded_rectangle((rcx - kw // 2, ry1 - 115, rcx + kw // 2, ry1 - 52), 18, fill=(16, 40, 66), outline=GOLD, width=2)
         d.text((rcx - _tw(d, kt, kf) // 2, ry1 - 101), kt, fill=GOLD, font=kf)
 
+        _draw_reason_panel(d, reasons, rx0 + 55, y + 178, rx1 - 55, ry1 - 130)
+
         d.rectangle((110, ch - 115, cw - 110, ch - 103), fill=(20, 48, 74))
         d.rectangle((110, ch - 115, 110 + int(i / max(n, 1) * (cw - 220)), ch - 103), fill=GREEN)
         foot = "PlayReport  ·  not betting advice  ·  18+"
         d.text(((cw - _tw(d, foot, _font(20, False))) // 2, ch - 64), foot, fill=MUTED, font=_font(20, False))
     im.convert("RGB").save(dest, quality=92)
-
-
-def render_acca(group: dict, idx: int, total: int, bg: Path, dest: Path, logo: Path) -> None:
-    """One treble: three legs and the combined Sportybet price."""
-    from PIL import Image, ImageDraw
-    cw, ch = _ACTIVE_SIZE
-    im = _cover(bg, 0.58, size=(cw, ch))
-    d = ImageDraw.Draw(im)
-    _wordmark(d, 50 if cw > ch else 90, width=cw)
-    title = f"TREBLE  {idx} OF {total}"
-    d.text(((cw - _tw(d, title, _font(28, True))) // 2, 140 if cw > ch else 180), title, fill=GREEN, font=_font(28, True))
-    legs = group.get("legs") or []
-    comb = group.get("combined")
-    od = f"{comb:.2f}" if isinstance(comb, (int, float)) else "N/A"
-    box_top = 210 if cw > ch else 280
-    y = box_top
-    for i, p in enumerate(legs, 1):
-        line1 = f"{i}. {p.get('home') or ''}  v  {p.get('away') or ''}"
-        line2 = f"{p.get('label') or ''}   @   {p.get('odds') if p.get('odds') is not None else 'N/A'}"
-        d.text((80, y), line1, fill=WHITE, font=_font(32 if cw < ch else 28, True))
-        d.text((80, y + 40), line2, fill=GOLD, font=_font(26 if cw < ch else 24, True))
-        y += 110 if cw < ch else 90
-    cap = "COMBINED PRICE"
-    d.text(((cw - _tw(d, cap, _font(20, True))) // 2, y + 10), cap, fill=MUTED, font=_font(20, True))
-    d.text(((cw - _tw(d, od, _font(96, True))) // 2, y + 40), od, fill=GREEN, font=_font(96, True))
-    foot = "PlayReport  ·  three selections  ·  not betting advice  ·  18+"
-    d.text(((cw - _tw(d, foot, _font(20, False))) // 2, ch - 80), foot, fill=MUTED, font=_font(20, False))
-    im.convert("RGB").save(dest, quality=92)
-
 
 
 def render_closer(logo: Path, bg: Path, dest: Path, *, aspect: str | None = None, size: tuple[int, int] | None = None) -> None:
@@ -660,14 +688,46 @@ def spoken_text(text: str) -> str:
 _SENT_SPLIT = re.compile(r"(?<=[.!?])\s+")
 
 
-def _edge_sentence(sentence: str, edge_py: str, dest: Path) -> bool:
-    """One sentence through the Edge neural voice into `dest` (an mp3). False on any failure."""
-    voice = os.environ.get("EDGE_TTS_VOICE") or EDGE_TTS_VOICE
+class VoiceUnavailable(RuntimeError):
+    """No natural neural voice could be reached. The video is skipped rather than published in a robot voice."""
+
+
+def _edge_voice_candidates() -> list[str]:
+    """The configured voice first, then the fallbacks — always at least one natural neural voice."""
+    env = (os.environ.get("EDGE_TTS_VOICE") or "").strip()
+    names = [env] if env else []
+    names += [v for v in EDGE_TTS_VOICES if v not in names]
+    return names
+
+
+def _remember_voice(name: str) -> None:
+    if not _VOICE_USED or _VOICE_USED[-1] != name:
+        _VOICE_USED.append(name)
+        log.info("narration voice: %s", name)
+
+
+def _edge_sentence(sentence: str, edge_py: str, dest: Path, voice: str | None = None) -> bool:
+    """One sentence through the neural voice into `dest` (an mp3). False on any failure.
+
+    The voice is tried twice and, only if it keeps failing, the next natural voice is tried — so a network hiccup
+    never silently changes the presenter, and a dead voice name never drops the whole video to eSpeak.
+    """
     rate = os.environ.get("EDGE_TTS_RATE") or EDGE_TTS_RATE
     pitch = os.environ.get("EDGE_TTS_PITCH") or EDGE_TTS_PITCH
-    cmd = [edge_py, "-m", "edge_tts", "--voice", voice, f"--rate={rate}", f"--pitch={pitch}", "--text", sentence, "--write-media", str(dest)]
-    r = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, timeout=45)
-    return r.returncode == 0 and dest.exists() and dest.stat().st_size > 200
+    names = [voice] if voice else _edge_voice_candidates()
+    for attempt in range(2):
+        for name in names:
+            cmd = [edge_py, "-m", "edge_tts", "--voice", name, f"--rate={rate}", f"--pitch={pitch}",
+                   "--text", sentence, "--write-media", str(dest)]
+            try:
+                r = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, timeout=45)
+            except Exception as exc:  # noqa: BLE001 - a timeout is just a failed attempt
+                log.info("edge_tts %s attempt %d failed: %s", name, attempt + 1, exc)
+                continue
+            if r.returncode == 0 and dest.exists() and dest.stat().st_size > 200:
+                _remember_voice(name)
+                return True
+    return False
 
 
 def _polished_edge(clean: str, wav: Path, edge_py: str) -> bool:
@@ -686,15 +746,17 @@ def _polished_edge(clean: str, wav: Path, edge_py: str) -> bool:
         tmp.mkdir(parents=True, exist_ok=True)
         try:
             paths = [tmp / f"s{i:02d}.mp3" for i in range(len(sents))]
-            with ThreadPoolExecutor(max_workers=4) as pool:
-                ok = list(pool.map(lambda a: _edge_sentence(a[0], edge_py, a[1]), zip(sents, paths)))
+            # Once a voice has answered, every sentence in this run uses that exact voice.
+            voice = _VOICE_USED[-1] if _VOICE_USED else None
+            with ThreadPoolExecutor(max_workers=2) as pool:
+                ok = list(pool.map(lambda a: _edge_sentence(a[0], edge_py, a[1], voice), zip(sents, paths)))
             if not all(ok):
                 return False
             clips = [vp.read_audio(p, ff) for p in paths]
             if any(len(c) < 2400 for c in clips):
                 return False
             kinds = ["colon" if s.rstrip().endswith(":") else "sentence" for s in sents]
-            track = vp.polish_sentences(clips, kinds, ff, seed=hash_seed(clean))
+            track = vp.polish_sentences(clips, kinds, ff, seed=_VOICE_SEED)
             vp.to_wav44(track, wav, ff)
             return wav.exists()
         finally:
@@ -722,28 +784,32 @@ def synthesize_speech(text: str, wav: Path) -> None:
     if edge_py and Path(edge_py).is_file() and _polished_edge(clean, wav, edge_py):
         return
     if edge_py and Path(edge_py).is_file():
-        voice = os.environ.get("EDGE_TTS_VOICE") or EDGE_TTS_VOICE
         rate = os.environ.get("EDGE_TTS_RATE") or EDGE_TTS_RATE
         pitch = os.environ.get("EDGE_TTS_PITCH") or EDGE_TTS_PITCH
         mp3 = wav.with_suffix(".edge.mp3")
         try:
-            cmd = [
-                edge_py, "-m", "edge_tts",
-                "--voice", voice,
-                f"--rate={rate}",
-                f"--pitch={pitch}",
-                "--text", clean,
-                "--write-media", str(mp3),
-            ]
-            r = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, timeout=30)
-            if r.returncode == 0 and mp3.exists() and mp3.stat().st_size > 200:
-                ff = _ffmpeg()
-                _run([ff, "-y", "-i", str(mp3), "-ac", "1", "-ar", "44100", str(wav)], "edge_tts decode")
-                mp3.unlink(missing_ok=True)
-                if wav.exists():
-                    return
+            for voice in _edge_voice_candidates():
+                cmd = [
+                    edge_py, "-m", "edge_tts",
+                    "--voice", voice,
+                    f"--rate={rate}",
+                    f"--pitch={pitch}",
+                    "--text", clean,
+                    "--write-media", str(mp3),
+                ]
+                try:
+                    r = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, timeout=45)
+                except Exception as exc:  # noqa: BLE001
+                    log.info("edge_tts %s failed: %s", voice, exc)
+                    continue
+                if r.returncode == 0 and mp3.exists() and mp3.stat().st_size > 200:
+                    ff = _ffmpeg()
+                    _run([ff, "-y", "-i", str(mp3), "-ac", "1", "-ar", "44100", str(wav)], "edge_tts decode")
+                    _remember_voice(voice)
+                    if wav.exists():
+                        return
         except Exception as exc:  # noqa: BLE001
-            log.warning("Edge-TTS neural voice fallback to Piper/eSpeak: %s", exc)
+            log.warning("Edge-TTS neural voice fallback to Piper: %s", exc)
         finally:
             mp3.unlink(missing_ok=True)
 
@@ -759,13 +825,23 @@ def synthesize_speech(text: str, wav: Path) -> None:
             raise RuntimeError(f"Piper TTS failed: {r.stdout[-400:]}")
         return
 
+    # eSpeak is the robot voice. It is never used by accident: a run without a natural neural voice skips the video
+    # and says so, instead of publishing something that sounds synthetic. Opt in only for a deliberate test.
+    allow_robot = os.environ.get("PLAYREPORT_ALLOW_ESPEAK", "").strip().lower() in ("1", "true", "yes", "on")
+    if not allow_robot:
+        raise VoiceUnavailable(
+            "No natural neural voice is available (edge-tts not reachable and no Piper voice configured). "
+            "The video was skipped rather than published in a robotic voice. "
+            "Run scripts/setup_voice.sh, or set PLAYREPORT_ALLOW_ESPEAK=1 to allow eSpeak."
+        )
     exe = shutil.which("espeak-ng") or shutil.which("espeak")
     if not exe:
-        raise RuntimeError("Piper is not configured and espeak-ng is not installed")
+        raise VoiceUnavailable("Piper is not configured and espeak-ng is not installed")
     cmd = [exe, "-v", ESPEAK_VOICE, "-s", str(ESPEAK_SPEED), "-p", str(ESPEAK_PITCH), "-a", "150", "-w", str(wav), clean]
     r = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
     if r.returncode != 0 or not wav.exists():
-        raise RuntimeError(f"espeak failed: {r.stdout[-400:]}")
+        raise VoiceUnavailable(f"espeak failed: {r.stdout[-400:]}")
+    _remember_voice("espeak")
 
 
 ROOM_TONE_DB = -41.0     # level trim of the brown-noise bed (comes out near -62 dBFS, far below any speech)
@@ -829,8 +905,156 @@ _PICK_LEAD = ("I like", "My pick is", "I'm going with", "The pick here is")
 _HOSTS = ("host", "welcome", "are at home to")
 
 
+def _as_odds(v) -> float | None:
+    try:
+        f = float(v)
+    except (TypeError, ValueError):
+        return None
+    return f if f > 1.0 else None
+
+
+def _chance_phrase(p) -> str:
+    """A probability as a presenter says it, and never the word \"percent\"."""
+    try:
+        v = float(p)
+    except (TypeError, ValueError):
+        return ""
+    if v >= 0.95:
+        return "better than nine in ten"
+    if v >= 0.85:
+        return "around nine in ten"
+    if v >= 0.75:
+        return "about three in four"
+    if v >= 0.65:
+        return "about two in three"
+    if v >= 0.55:
+        return "better than half"
+    if v >= 0.45:
+        return "around half"
+    return "roughly a third"
+
+
+def _form_string(p: dict, key: str) -> str:
+    return "".join(ch for ch in str(p.get(key) or "").upper() if ch in "WDL")[:5]
+
+
+def _won_phrase(form: str) -> str:
+    """\"have won three of their last five\" / \"have not won any of their last five\"."""
+    import spoken as sp
+
+    f = "".join(ch for ch in str(form or "").upper() if ch in "WDL")
+    if len(f) < 3:
+        return ""
+    wins = f.count("W")
+    n = len(f)
+    if wins == 0:
+        return f"have not won any of their last {sp.words(n)}"
+    return f"have won {sp.of_last(wins, n)}"
+
+
+def _pick_xg(p: dict) -> tuple[float, float] | None:
+    """The model's own projected goals, when the pick carries them (support string or direct fields)."""
+    for a, b in (("mod_h", "mod_a"), ("xg_h", "xg_a")):
+        try:
+            return float(p[a]), float(p[b])
+        except (KeyError, TypeError, ValueError):
+            continue
+    for s in (p.get("support") or []):
+        m = re.search(r"(?:model\s+)?xG\s*([\d.]+)\s*[–\-]\s*([\d.]+)", str(s), re.I)
+        if m:
+            try:
+                return float(m.group(1)), float(m.group(2))
+            except ValueError:
+                continue
+    return None
+
+
+def _pick_hist(p: dict) -> tuple[str, float] | None:
+    """The historical base rate the pick cites (market code, probability)."""
+    for s in (p.get("support") or []):
+        m = re.search(r"historical\s+(O15|O25|BTTS)\s+rate\s+([\d.]+)\s*%", str(s), re.I)
+        if m:
+            try:
+                return m.group(1).upper(), float(m.group(2)) / 100.0
+            except ValueError:
+                continue
+    return None
+
+
+def _pick_edge(p: dict) -> float | None:
+    try:
+        return float(p.get("edge_pp"))
+    except (TypeError, ValueError):
+        pass
+    for s in (p.get("support") or []):
+        m = re.search(r"model\s+([\d.]+)\s*pp\s+above", str(s), re.I)
+        if m:
+            try:
+                return float(m.group(1))
+            except ValueError:
+                break
+    return None
+
+
+def pick_reason_bits(p: dict) -> list[str]:
+    """Short, human phrases for the slide: why this match is on the list. Only the pick's own evidence."""
+    import spoken as sp
+
+    out: list[str] = []
+    pv = _reel_p(p)
+    if pv:
+        out.append(f"Model {round(100 * pv)}% ({_chance_phrase(pv)})")
+    xg = _pick_xg(p)
+    if xg and str(p.get("market") or "").lower() in ("goals", "btts", "team", ""):
+        out.append(f"Projected goals {xg[0]:.2f} – {xg[1]:.2f}")
+    hist = _pick_hist(p)
+    if hist:
+        out.append(f"{hist[0]} landed in {round(100 * hist[1])}% of their matches")
+    fh, fa = _form_string(p, "form_h"), _form_string(p, "form_a")
+    if fh and fa:
+        out.append(f"Last {len(fh)}: {sp.team(p.get('home'))} {fh}  ·  {sp.team(p.get('away'))} {fa}")
+    edge = _pick_edge(p)
+    if edge is not None and edge >= 1.0:
+        out.append(f"Sits {edge:.1f} points above the market price")
+    return out[:3]
+
+
+def pick_reason_script(p: dict) -> str:
+    """Why the pick is there, said aloud in one or two short sentences. No percentages, no table reading."""
+    import spoken as sp
+
+    home, away = str(p.get("home") or ""), str(p.get("away") or "")
+    h, a = sp.team(home), sp.team(away)
+    bits: list[str] = []
+    pv = _reel_p(p)
+    if pv:
+        bits.append(f"The model has that at {_chance_phrase(pv)}")
+    xg = _pick_xg(p)
+    market = str(p.get("market") or "").lower()
+    if xg and market in ("goals", "btts", "team", ""):
+        bits.append(f"it projects {sp.per_game(xg[0])} goals for {h} and {sp.per_game(xg[1])} for {a}")
+    for form_key, name in (("form_h", h), ("form_a", a)):
+        phrase = _won_phrase(_form_string(p, form_key))
+        if phrase:
+            bits.append(f"{name} {phrase}")
+            break
+    tail = ""
+    hist = _pick_hist(p)
+    if hist:
+        label = {"O15": "Over one and a half", "O25": "Over two and a half", "BTTS": "Both teams to score"}[hist[0]]
+        tail = f"{label} has landed in {sp.rate(hist[1])} of their matches."
+    if not bits and not tail:
+        return ""
+    head = ", ".join(bits[:-1]) + (" and " + bits[-1] if len(bits) > 1 else bits[0]) if bits else ""
+    reason = f"{sp.cap(head)}." if head else ""
+    edge = _pick_edge(p)
+    if not tail and edge is not None and edge >= 2.0:
+        tail = "It also sits above what the market implies."
+    return " ".join(x for x in (reason, tail) if x)
+
+
 def pick_script(p: dict, idx: int = 1, total: int = 1) -> str:
-    """One pick as it is said: country and league, the match, kick-off, then the selection and price."""
+    """One pick, said once: competition, match, kick-off, the selection and price, then the reason it is here."""
     import spoken as sp
 
     home, away = str(p.get("home") or ""), str(p.get("away") or "")
@@ -842,11 +1066,16 @@ def pick_script(p: dict, idx: int = 1, total: int = 1) -> str:
     match = f"{sp.team(home)} {_HOSTS[idx % len(_HOSTS)]} {sp.team(away)}" + (f" {ko}" if ko else "")
     market = sp.market_phrase(p.get("label"), home, away)
     head = f"{opens[idx % len(opens)]} {place}." if place else f"{opens[idx % len(opens)]}"
-    return f"{head} {match}. {_PICK_LEAD[idx % len(_PICK_LEAD)]} {market}, at {od}."
+    return " ".join(x for x in (f"{head} {match}.", f"{_PICK_LEAD[idx % len(_PICK_LEAD)]} {market}, at {od}.",
+                                pick_reason_script(p)) if x)
 
 
-def reel_results(yesterday: dict | list | None) -> list[dict]:
-    """Extract settled yesterday shortlist rows for the video recap (Overs goals/corners/bookings, max MAX_PICKS)."""
+def reel_results(yesterday: dict | list | None, limit: int | None = None) -> list[dict]:
+    """Every settled selection from *all* of yesterday's videos, for the morning recap.
+
+    The history is merged per day (morning + noon + evening) before it reaches here, so this is the full day's
+    card, not just the last video. `limit` is only for a deliberate cap; the morning recap passes None.
+    """
     if not yesterday:
         return []
     items = yesterday.get("items") if isinstance(yesterday, dict) else yesterday
@@ -855,7 +1084,8 @@ def reel_results(yesterday: dict | list | None) -> list[dict]:
     settled = [x for x in items if isinstance(x, dict) and str(x.get("result") or "").lower() in ("hit", "miss", "void")]
     filtered = [x for x in settled if is_reel_market(x)]
     chosen = filtered if filtered else settled
-    return chosen[:MAX_PICKS]
+    chosen = chosen[:MAX_RECAP]
+    return chosen if limit is None else chosen[:limit]
 
 
 def _score_words(raw) -> str:
@@ -865,39 +1095,74 @@ def _score_words(raw) -> str:
     return sp.score(int(m.group(1)), int(m.group(2))) if m else ""
 
 
-def results_script(results: list[dict]) -> str:
-    """Yesterday's settled picks as a short, spoken look back. Factual, no model probabilities."""
+def _record_phrase(settled: list[dict]) -> str:
     import spoken as sp
 
-    rows = reel_results(results)
-    if not rows:
-        return ""
-    settled = [r for r in rows if r.get("result") in ("hit", "miss")]
-    hits = sum(1 for r in settled if r.get("result") == "hit")
     n = len(settled)
     if not n:
-        count = ""
-    elif hits == n:
-        count = "It landed." if n == 1 else f"A clean sweep, {sp.words(hits)} from {sp.words(n)}."
-    elif hits == 0:
-        count = "A tough one, with none landing." if n == 1 else f"A tough one, none of the {sp.words(n)} landed."
-    else:
-        count = f"We went {sp.words(hits)} from {sp.words(n)}."
-    parts = []
-    for i, r in enumerate(rows):
-        home, away = r.get("home") or "", r.get("away") or ""
-        h, a = sp.team(home), sp.team(away)
-        mk = sp.market_phrase(r.get("label") or r.get("sel") or "the selection", home, away)
-        sc = _score_words(r.get("score"))
-        res = str(r.get("result") or "").lower()
+        return ""
+    hits = sum(1 for r in settled if r.get("result") == "hit")
+    if hits == n:
+        return "It landed." if n == 1 else f"A clean sweep: all {sp.words(n)} landed."
+    if hits == 0:
+        return "A tough one, with none landing." if n == 1 else f"A tough one: none of the {sp.words(n)} landed."
+    return f"We went {sp.words(hits)} from {sp.words(n)}."
+
+
+def _notable(rows: list[dict]) -> str:
+    """The one win and the one loss worth naming — the rest of the card is on screen, not read out."""
+    import spoken as sp
+
+    settled = [r for r in rows if r.get("result") in ("hit", "miss")]
+    wins = sorted((r for r in settled if r.get("result") == "hit"), key=lambda r: -(_as_odds(r.get("odds")) or 0))
+    losses = sorted((r for r in settled if r.get("result") == "miss"), key=lambda r: -(_as_odds(r.get("odds")) or 0))
+    out = []
+    for row, kind in ((wins[0] if wins else None, "hit"), (losses[0] if losses else None, "miss")):
+        if row is None:
+            continue
+        home, away = row.get("home") or "", row.get("away") or ""
+        mk = sp.market_phrase(row.get("label") or row.get("sel") or "the selection", home, away)
+        sc = _score_words(row.get("score"))
         tail = f", {sc}" if sc else ""
-        if res == "hit":
-            parts.append((f"{h} against {a}: {mk} came in{tail}.", f"{h} against {a}, {mk}, landed{tail}.")[i % 2])
-        elif res == "miss":
-            parts.append((f"{h} against {a}: {mk} missed{tail}.", f"{sp.cap(mk)} didn't come in for {h} against {a}{tail}.")[i % 2])
+        if kind == "hit":
+            out.append(f"The standout: {sp.team(home)} against {sp.team(away)}, {mk}, landed{tail}.")
         else:
-            parts.append(f"{h} against {a} was void.")
-    return " ".join(x for x in ("First, a quick look back at yesterday.", count, " ".join(parts), "Now, today's shortlist.") if x)
+            out.append(f"The one that got away: {sp.team(home)} against {sp.team(away)}, {mk}, finished{tail}.")
+    return " ".join(out)
+
+
+def results_script(results: list[dict] | list, *, page: int = 1, pages: int = 1, rows: list[dict] | None = None) -> str:
+    """Yesterday's card as a short, spoken look back: the record and the notable ones. Factual, no probabilities.
+
+    Page one carries the day's record across every video plus the standout win and the one that got away; later pages
+    are a single line for the rows on that slide. Nothing is read match by match — that is what the slide is for.
+    """
+    import spoken as sp
+
+    all_rows = reel_results(results) if rows is None else list(rows)
+    if not all_rows:
+        return ""
+    if page > 1:
+        settled = [r for r in all_rows if r.get("result") in ("hit", "miss")]
+        if not settled:
+            return "The rest of yesterday's card is on screen."
+        hits = sum(1 for r in settled if r.get("result") == "hit")
+        if hits == len(settled):
+            return f"The rest of the card: all {sp.words(len(settled))} of these landed."
+        if hits == 0:
+            return f"The rest of the card: none of these {sp.words(len(settled))} landed."
+        return f"The rest of the card: {sp.words(hits)} of these {sp.words(len(settled))} landed."
+    settled = [r for r in all_rows if r.get("result") in ("hit", "miss")]
+    voids = sum(1 for r in all_rows if str(r.get("result") or "").lower() == "void")
+    record = _record_phrase(settled)
+    if record and voids:
+        record += f" {sp.words(voids)} void."
+    elif voids:
+        record = f"{sp.words(voids)} void."
+    notable = _notable(all_rows)
+    rest = "Everything else is on screen." if len(all_rows) > 2 else ""
+    return " ".join(x for x in ("First, a quick look back at yesterday, across all of yesterday's videos.",
+                                record, notable, rest, "Now, today's shortlist.") if x)
 
 
 def is_breakdown_market(p: dict) -> bool:
@@ -926,23 +1191,19 @@ def _reel_p(p: dict) -> float | None:
     return None
 
 
+REEL_MARKET_RE = re.compile(r"^(?:O15|[HA]O\d+|C[HA]?O\d+|K[HA]?O\d+)$")
+
+
 def is_reel_market(p: dict) -> bool:
-    """Videos: Overs-side markets (1X2, BTTS, Over 2.5, team goals, corners, bookings). Unders stay out."""
+    """Videos carry Over 1.5 total goals, team goals, corners and bookings — nothing else (user rule 2026-10-21).
+
+    BTTS, Over 2.5, 1X2 and every under are out, and no accumulator is built from the picks any more.
+    """
     sel = str(p.get("sel") or "").upper()
-    blob = " ".join(str(p.get(k) or "") for k in ("label", "sel", "market", "group")).lower()
-    if "under" in blob or sel in ("U15", "U25", "U35", "NBTTS", "1X", "12", "X2") or sel.endswith("U05") or sel.endswith("U15") or sel.endswith("U25"):
+    blob = " ".join(str(p.get(k) or "") for k in ("label", "market", "group")).lower()
+    if "under" in blob or "no btts" in blob:
         return False
-    if sel in ("H", "D", "A"):
-        return True
-    if sel == "BTTS" or "btts" in blob or "both teams" in blob:
-        return True
-    if sel in ("O15", "O25", "O35") or "over" in blob:
-        return True
-    if sel[:2] in ("HO", "AO") and sel[2:].isdigit():
-        return True
-    if any(w in blob for w in ("corner", "card", "booking", "yellow", "team goal", "to score", "goals")):
-        return True
-    return False
+    return bool(REEL_MARKET_RE.match(sel))
 
 
 def _match_key(p: dict) -> tuple:
@@ -951,7 +1212,7 @@ def _match_key(p: dict) -> tuple:
 
 def reel_picks(picks: list, *, used: set | None = None) -> list:
     """At least twelve when the pool allows: one selection per match, 65%+, never a match already shown today."""
-    rank = {"O25": 0, "BTTS": 1, "HO05": 2, "AO05": 2, "H": 3, "A": 3, "D": 4}
+    rank = {"O15": 0, "HO05": 1, "AO05": 1, "HO15": 1, "AO15": 1}
     skip = used or set()
     best = {}
     order = []
@@ -980,59 +1241,14 @@ def overs_only(picks: list) -> list:
     return reel_picks(picks)
 
 
-def pack_accas(picks: list, size: int = 3) -> list:
-    """Group picks into 3-fold accas. Same match never appears twice in one treble. Combined odds = product of prices."""
-    remaining = list(picks or [])
-    groups = []
-    while remaining:
-        g, matches, rest = [], set(), []
-        for p in remaining:
-            mk = _match_key(p)
-            if mk in matches or len(g) >= size:
-                rest.append(p)
-                continue
-            g.append(p)
-            matches.add(mk)
-        if len(g) < size:
-            break
-        combined = 1.0
-        ok = True
-        for p in g:
-            od = p.get("odds")
-            if not isinstance(od, (int, float)) or od <= 1:
-                ok = False
-                break
-            combined *= float(od)
-        groups.append({"legs": g, "combined": round(combined, 2) if ok else None})
-        remaining = rest
-    return groups
-
-
-def acca_script(group: dict, idx: int, total: int) -> str:
-    import spoken as sp
-    legs = group.get("legs") or []
-    n = len(legs)
-    comb = group.get("combined")
-    od = f"{comb:.2f}" if isinstance(comb, (int, float)) else "N/A"
-    bits = []
-    for p in legs:
-        home, away = p.get("home") or "", p.get("away") or ""
-        mk = sp.market_phrase(p.get("label"), home, away)
-        price = p.get("odds")
-        ps = f"{float(price):.2f}" if isinstance(price, (int, float)) else "N/A"
-        bits.append(f"{sp.team(home)} against {sp.team(away)}, {mk} at {ps}")
-    body = "; ".join(bits[:-1]) + (", and " + bits[-1] if len(bits) > 1 else (bits[0] if bits else ""))
-    head = "First treble" if idx == 1 else ("Last treble" if idx == total else f"Treble number {sp.words(idx)}")
-    return (f"{head}. Three selections: {body}. "
-            f"Together that's about {od}. Statistical information, not a sure thing.")
-
-
 def build(picks: list, outfile: Path, *, assets: Path, work: Path | None = None,
           voice_clips: list[Path] | None = None, fixtures: list | None = None,
-          yesterday_results: dict | list | None = None, aspect: str = "16:9") -> Path:
+          yesterday_results: dict | list | None = None, aspect: str = "16:9", recap: bool = True) -> Path:
     """Build a 16:9 widescreen (1920x1080) or 9:16 vertical reel (1080x1920) video.
-    Starts with yesterday's settled video results when provided, then today's picks.
-    Slide length = that clip's duration + TAIL (intro at least INTRO_MIN). No music.
+
+    Order: intro, disclaimer, yesterday's full card (first video of the day only), today's matches one at a time with
+    the reason for each. Each pick is said once. Slide length = that clip's duration + TAIL (intro at least
+    INTRO_MIN). No music, no accumulator slide.
     """
     from PIL import Image  # noqa: F401  — imported for a clear error if missing
 
@@ -1044,7 +1260,7 @@ def build(picks: list, outfile: Path, *, assets: Path, work: Path | None = None,
         picks = reel_picks(picks)
         if not picks:
             raise ValueError("no shortlist picks for the reel")
-        recap = reel_results(yesterday_results)
+        recap_rows = reel_results(yesterday_results) if recap else []
         recap_day = yesterday_results.get("day", "") if isinstance(yesterday_results, dict) else ""
 
         assets = Path(assets)
@@ -1068,33 +1284,19 @@ def build(picks: list, outfile: Path, *, assets: Path, work: Path | None = None,
         texts = [INTRO_SCRIPT, DISCLAIMER_SCRIPT]
         images = [slides_dir / "intro.jpg", slides_dir / "disclaimer.jpg"]
 
-        if recap:
-            res_img = slides_dir / "results.jpg"
-            render_results(recap, logo, bgs[2], res_img, day_label=recap_day)
-            images.append(res_img)
-            texts.append(results_script(recap))
+        pages: list[list[dict]] = []
+        if recap_rows:
+            pages = [recap_rows[i:i + RECAP_ROWS] for i in range(0, len(recap_rows), RECAP_ROWS)]
+            for pageno, page_rows in enumerate(pages, 1):
+                res_img = slides_dir / f"results{pageno:02d}.jpg"
+                render_results(page_rows, logo, bgs[2], res_img, day_label=recap_day,
+                               page=pageno, pages=len(pages), all_rows=recap_rows)
+                images.append(res_img)
+                texts.append(results_script(recap_rows, page=pageno, pages=len(pages), rows=page_rows))
 
-        accas = pack_accas(picks, 3)
-        covered = {id(p) for g in accas for p in g["legs"]}
+        # Every match is introduced once — match, selection, price and the reason it is on the list.
         pi = 0
-        for gi, g in enumerate(accas, 1):
-            a_img = slides_dir / f"acca{gi:02d}.jpg"
-            render_acca(g, gi, len(accas), bgs[gi % 3], a_img, logo)
-            images.append(a_img)
-            texts.append(acca_script(g, gi, len(accas)))
-            for p in g["legs"]:
-                pi += 1
-                fx = fixture_for_pick(p, fixtures) or {}
-                badges = p.get("badges") or fx.get("badges") or {}
-                hb = fetch_badge(badges.get("home"), crests / f"h{pi}.png", logo)
-                ab = fetch_badge(badges.get("away"), crests / f"a{pi}.png", logo)
-                p_img = slides_dir / f"p{pi:02d}.jpg"
-                render_pick(p, pi, n, bgs[pi % 3], hb, ab, p_img)
-                images.append(p_img)
-                texts.append(pick_script(p, pi, n))
         for p in picks:
-            if id(p) in covered:
-                continue
             pi += 1
             fx = fixture_for_pick(p, fixtures) or {}
             badges = p.get("badges") or fx.get("badges") or {}
@@ -1130,12 +1332,12 @@ def build(picks: list, outfile: Path, *, assets: Path, work: Path | None = None,
             durations.append(hold)
 
         total = sum(durations)
-        max_allowed = MAX_TOTAL + (60.0 if recap else 0.0)
+        max_allowed = MAX_TOTAL + (180.0 if recap_rows else 0.0)
         if total > max_allowed and len(picks) > 6:
-            log.info("reel %.1fs > %.0fs — dropping last treble", total, max_allowed)
+            log.info("reel %.1fs > %.0fs — dropping the last three picks", total, max_allowed)
             return build(
                 picks[:-3], outfile, assets=assets, work=work, voice_clips=None,
-                fixtures=fixtures, yesterday_results=yesterday_results, aspect=aspect,
+                fixtures=fixtures, yesterday_results=yesterday_results, aspect=aspect, recap=recap,
             )
 
         # Persist metadata of the final slides & raw audio so build_both can reuse the exact same voice clips
@@ -1167,7 +1369,8 @@ def build(picks: list, outfile: Path, *, assets: Path, work: Path | None = None,
             "-map", "0:v", "-map", "1:a",
             "-c:v", "copy", "-c:a", "aac", "-b:a", "192k", str(outfile),
         ], "mux")
-        log.info("reel built %s [%s] (%.1fs, %d KB)", outfile.name, aspect, total, outfile.stat().st_size // 1024)
+        log.info("reel built %s [%s] (%.1fs, %d KB) voice=%s seed=%s", outfile.name, aspect, total,
+                 outfile.stat().st_size // 1024, voice_identity().get("voice") or "?", voice_identity().get("seed"))
         return outfile
     finally:
         _ACTIVE_SIZE = prev_size
@@ -1175,14 +1378,14 @@ def build(picks: list, outfile: Path, *, assets: Path, work: Path | None = None,
 
 def build_both(picks: list, out_16x9: Path, out_9x16: Path, *, assets: Path, work: Path | None = None,
                voice_clips: list[Path] | None = None, fixtures: list | None = None,
-               yesterday_results: dict | list | None = None) -> tuple[Path, Path]:
+               yesterday_results: dict | list | None = None, recap: bool = True) -> tuple[Path, Path]:
     """Build both 16:9 widescreen (1920x1080) and 9:16 vertical reel (1080x1920) videos using the EXACT same voice audio."""
     base_work = Path(work) if work else Path(tempfile.mkdtemp(prefix="pr-dual-"))
     w16 = base_work / "w16x9"
     w9 = base_work / "w9x16"
     p16 = build(
         picks, out_16x9, assets=assets, work=w16, voice_clips=voice_clips,
-        fixtures=fixtures, yesterday_results=yesterday_results, aspect="16:9",
+        fixtures=fixtures, yesterday_results=yesterday_results, aspect="16:9", recap=recap,
     )
     shared_vc = voice_clips
     used_picks = reel_picks(picks)
@@ -1198,13 +1401,13 @@ def build_both(picks: list, out_16x9: Path, out_9x16: Path, *, assets: Path, wor
             pass
     p9 = build(
         used_picks, out_9x16, assets=assets, work=w9, voice_clips=shared_vc,
-        fixtures=fixtures, yesterday_results=yesterday_results, aspect="9:16",
+        fixtures=fixtures, yesterday_results=yesterday_results, aspect="9:16", recap=recap,
     )
     return p16, p9
 
 
 def from_shortlist(sl_pub: dict, fixtures: list, outfile: Path, assets: Path, work: Path | None = None,
-                   yesterday_results: dict | list | None = None, *, aspect: str = "16:9") -> Path:
+                   yesterday_results: dict | list | None = None, *, aspect: str = "16:9", recap: bool = True) -> Path:
     sl = sl_pub or {}
     prim = [dict(p) for p in (sl.get("primary") or [])]
     art_by_id = {
@@ -1220,5 +1423,6 @@ def from_shortlist(sl_pub: dict, fixtures: list, outfile: Path, assets: Path, wo
         if form.get("a") and not p.get("form_a"):
             p["form_a"] = form["a"]
     yres = yesterday_results if yesterday_results is not None else sl.get("yesterday_results")
-    return build(prim, outfile, assets=assets, work=work, fixtures=fixtures, yesterday_results=yres, aspect=aspect)
+    return build(prim, outfile, assets=assets, work=work, fixtures=fixtures, yesterday_results=yres,
+                 aspect=aspect, recap=recap)
 

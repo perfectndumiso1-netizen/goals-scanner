@@ -148,7 +148,7 @@ def test_the_hold_after_speech_has_a_quiet_room_tone_not_dead_silence(ff, tmp_pa
 def test_the_daily_voice_is_spoken_sentence_by_sentence_and_polished(monkeypatch, tmp_path, ff):
     spoken = []
 
-    def fake_sentence(sentence, edge_py, dest):
+    def fake_sentence(sentence, edge_py, dest, voice=None):
         spoken.append(sentence)
         vp.write_wav(dest, speech_like(0.9 + 0.1 * len(spoken), seed=len(spoken)), SR)
         return True

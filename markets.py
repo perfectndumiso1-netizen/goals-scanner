@@ -24,8 +24,12 @@ import numpy as np
 import pandas as pd
 
 # ----------------------------------------------------------------------------- parameters (from the backtest)
+# 2026-10-21: the total-corner model only ever looked at 8.5 and above, while the team lines started at 3.5 — so a
+# normal fixture (about 10 corners) could never show a 75%+ total, and the corner board filled with team corners.
+# The total lines now start at 7.5 (a standard Sportybet line: over 7.5 of a 10-corner match is about 80%) and run to
+# 12.5. Same distribution, same calibration; only the lines the model prices are wider.
 CORNERS = {"K": 40.0, "KV": 20.0, "HL": 120.0, "r_total": 80.0, "r_team": 10.0, "div_K": 30.0,
-           "lines_total": (8.5, 9.5, 10.5, 11.5), "lines_team": (3.5, 4.5, 5.5)}
+           "lines_total": (7.5, 8.5, 9.5, 10.5, 11.5, 12.5), "lines_team": (3.5, 4.5, 5.5)}
 CARDS = {"K": 20.0, "KV": 20.0, "HL": 120.0, "r_total": 30.0, "r_team": 8.0, "div_K": 30.0, "K_ref": 10.0,
          "lines_total": (3.5, 4.5, 5.5), "lines_team": (1.5, 2.5)}
 MAX_N, MAX_DAYS = 40, 400

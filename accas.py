@@ -1,4 +1,9 @@
-"""Daily accas at a target price (3.00), built from the *vetted* part of the board, tracked and settled
+"""RETIRED 2026-10-21 (user rule): no acca is built, published or spoken anywhere — in the app or in the videos.
+
+The module is kept for one job only: settling the historical `data/accas.csv` / `data/accas_doubles.csv` rows so
+old records keep honest results. Nothing reads it for anything a user sees.
+
+Daily accas at a target price (3.00), built from the *vetted* part of the board, tracked and settled
 like every other bet.
 
 Why this exists: a probability-sorted board is not a betting plan. The highest model numbers on an

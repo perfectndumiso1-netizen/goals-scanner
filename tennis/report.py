@@ -70,9 +70,10 @@ def markdown(day: str, matches: list[dict], highlights: list[dict], tracker: dic
         fav = m["p1"] if m["p"]["a"] >= 0.5 else m["p2"]
         pf = max(m["p"]["a"], 1 - m["p"]["a"])
         row = next((r for r in m["markets"] if r["market"] == "winner" and r["selection"] == ("player_a" if m["p"]["a"] >= 0.5 else "player_b")), w)
+        edge_txt = "" if not row or row["edge_pp"] is None else f"{row['edge_pp']:+.1f} pp"
         L.append(f"| {sast(m['start'])} | {m['tour'].upper()} {m['tournament']}{' (Q)' if m.get('qualifying') else ''} · {m['surface'] or 'surface N/A'} · bo{m['best_of']} "
                  f"| **{m['p1']['name']}** v **{m['p2']['name']}** → {fav['name']} | {pct(pf)} | {odd(1/pf if pf else None)} | {odd(row['book_odds'] if row else None)} "
-                 f"| {pct(row['implied_fair'] if row else None)} | {'' if not row or row['edge_pp'] is None else f'{row['edge_pp']:+.1f} pp'} | {m['quality']['score']}% {m['quality']['overall']} |")
+                 f"| {pct(row['implied_fair'] if row else None)} | {edge_txt} | {m['quality']['score']}% {m['quality']['overall']} |")
     L += [""]
     if highlights:
         L += ["## Model above market (disagreements worth a look — not recommendations)", "",

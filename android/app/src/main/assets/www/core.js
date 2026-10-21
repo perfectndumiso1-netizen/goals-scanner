@@ -469,9 +469,9 @@ window.PR = (function () {
   /** A model probability that towers over the price is not value — it is a data fault. The live feed has
    *  friendlies priced 0.6% for a team the model rates 29%, and cup qualifiers priced 17% for a team the
    *  model rates 64%. Sorted by probability those legs lead the board, which is exactly how a punter picks
-   *  them. Anything at or above this gap is quarantined from the raw board (the edge gate in accas.py
+   *  them. Anything at or above this gap is quarantined from the raw board (the same edge gate the old acca builder used
    *  rejects the same legs server-side). Returns true when the leg should be hidden. */
-  const OUTLIER_PP = 0.15;        // against the de-vigged market view (the same yardstick accas.py gates on)
+  const OUTLIER_PP = 0.15;        // against the de-vigged market view
   const OUTLIER_RAW_PP = 0.25;    // …and a looser one against the raw price, used only when there is no
   const isOutlier = (s) => {      //    de-vigged view (the price alone still contains the bookmaker's margin)
     if (!s || !(s.odds > 1) || s.p_model == null || s.p_model <= 0) return false;
@@ -766,7 +766,7 @@ window.PR = (function () {
     { label: 'Bets of the day', icn: 'star', go: { tab: 'bets' } }, { label: 'Live scores', icn: 'live', go: { tab: 'live' } },
     { label: 'Matches', icn: 'calendar', go: { tab: 'matches' } }, { label: 'Low odds 1.19 – 1.45', icn: 'tag', go: { tab: 'lowodds' } },
     { label: 'Shortlist', icn: 'target', go: { tab: 'shortlist' } }, { label: '1X2', icn: 'star', go: { tab: 'x12' } }, { label: 'Days', icn: 'history', go: { tab: 'days' } },
-    { label: 'Leagues', icn: 'trophy', go: { tab: 'leagues' } }, { label: 'Today\u2019s accas', icn: 'ticket', go: { page: 'accas' } },
+    { label: 'Leagues', icn: 'trophy', go: { tab: 'leagues' } },
     { label: 'Tickets', icn: 'ticket', go: { page: 'tickets' } }, { label: 'Teams', icn: 'users', go: { page: 'teams' } },
     { label: 'Performance', icn: 'chart', go: { page: 'performance' } }, { label: 'Bet advisor', icn: 'shield', go: { page: 'advisor' } },
     { label: 'All markets', icn: 'swap', go: { page: 'marketsboard' } }, { label: 'Guide to the markets', icn: 'info', go: { page: 'guide' } },

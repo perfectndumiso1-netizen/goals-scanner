@@ -212,7 +212,7 @@ CONFIG = {
     # to this automatically on every run, so the list only needs a manual entry for a new code.
     # seed stages = the model diet's competitions (user rule 2026-10-11). They get archive-refresh
     # priority; everything else on the day feed is still discovered but (per the diet) not analysed.
-    "SEED_STAGES": os.getenv("SEED_STAGES", "england/premier-league,england/championship,spain/laliga,spain/laliga-2,italy/serie-a,italy/serie-b,germany/bundesliga,germany/2-bundesliga,france/ligue-1,france/ligue-2,netherlands/eredivisie,belgium/belgian-pro-league-2025,portugal/primeira-liga,scotland/scotland-premiership,turkey/super-lig,denmark/superliga,switzerland/super-league,greece/super-league,poland/ekstraklasa,austria/bundesliga,sweden/allsvenskan,norway/eliteserien,croatia/1st-league,ukraine/premier-league,brazil/serie-a,argentina/liga-profesional-clausura,usa/major-league-soccer-2026,mexico/liga-mx-apertura,south-africa/premiership,nigeria/npfl,egypt/premier-league,morocco/botola-pro,champions-league/league-stage,europa-league/league-stage,conference-league/league-stage"),
+    "SEED_STAGES": os.getenv("SEED_STAGES", "england/premier-league,england/championship,spain/laliga,spain/laliga-2,italy/serie-a,italy/serie-b,germany/bundesliga,germany/2-bundesliga,france/ligue-1,france/ligue-2,netherlands/eredivisie,belgium/belgian-pro-league-2025,portugal/primeira-liga,scotland/scotland-premiership,turkey/super-lig,denmark/superliga,switzerland/super-league,greece/super-league,poland/ekstraklasa,austria/bundesliga,sweden/allsvenskan,norway/eliteserien,croatia/1st-league,ukraine/premier-league,brazil/serie-a,argentina/liga-profesional-clausura,usa/major-league-soccer-2026,mexico/liga-mx-apertura,south-africa/premiership,nigeria/npfl,egypt/premier-league,morocco/botola-pro,japan/j-league,japan/j-league-2,japan/j-league-3,champions-league/league-stage,europa-league/league-stage,conference-league/league-stage"),
     "STATS_BUDGET_S": _env_float("STATS_BUDGET_S", 75),      # Livescore match statistics per run: time budget
     "STATS_MAX": int(_env_float("STATS_MAX", 400)),          # ... and request cap
     "WORLD_COUNT_MIN_N": int(_env_float("WORLD_COUNT_MIN_N", 5)),  # corners/cards outside the main leagues need this many matches with stats per team
@@ -304,25 +304,27 @@ EXTRA_LEAGUES = {
 }
 
 # ----------------------------------------------------------------------------- model diet (user rules 2026-10-11, widened 2026-10-17)
+# 2026-10-21: Japan is BACK (user reversal) — J1 and J2 are on the curated list, and any other Japanese
+# division (J3 ...) comes in through the archive rule like every other league. Australia stays out.
 # 2026-10-17: "add every league we have enough data on, including the Chinese Super League". The diet is now
 # the curated list below PLUS every competition the Livescore stage archive can support (see
 # data_rich_from_facts: league-shaped table, deep results history, a recent result, and match statistics —
 # or, for national leagues that publish none, a table that is not a regional / amateur tier). The 22 football-data
-# divisions are all in. The hard blocks below are unchanged: Japan and Australia (explicit user rule of
-# 2026-10-11), cups, women's, youth, friendlies and qualifiers stay out.
+# divisions are all in. The hard blocks are unchanged apart from Japan (user reversal 2026-10-21):
+# Australia, cups, women's, youth, friendlies and qualifiers stay out.
 # "Prioritise data-rich leagues." A fixture outside the diet is never analysed, so the shortlist,
 # sequences, the Positive EV tab, accas and bets of the day all inherit the filter (they are all
 # built from the analysed rows). History collection is deliberately untouched: cup / international
 # / friendly results still feed team form for the allowed leagues (friendlies already drop out of
 # the stats once a team has enough competitive matches).
-# Order matters: hard blocks first (never analysed even if an allow pattern matches) - Japan and
-# Australia (explicit user rule), women's, youth/reserve, friendlies, and every cup / knockout /
+# Order matters: hard blocks first (never analysed even if an allow pattern matches) - Australia
+# (explicit user rule), women's, youth/reserve, friendlies, and every cup / knockout /
 # international competition. National teams play in no league, so competitive internationals and
 # everything unlisted (lower divisions, minor countries) drop out through the allowlist.
 DIET_BLOCK_RE = re.compile(
     r"women|femini|femmin|damall|femeni|kvinner|kvinde|toppserien|frauen|\bliga f\b|nwsl"
     r"|\bu-?1[4-9]\b|\bu-?2[0-3]\b|youth|reserve|primavera|jukuren|devel|premier league 2\b|baller league"
-    r"|friendl|japan|australia|\ba-?league\b|\bj[123]\b"
+    r"|friendl|australia|\ba-?league\b"
     r"|\bcups?\b|coppa|coupe|pokal|\bcopa\b|kupa|\bkup\b|ta[cčç]a|beker|pokalen|super ?cup|superkupa"
     r"|play-?offs?\b|qualif\w*"
     r"|libertadores|sudamericana|nations league|world cup|concacaf|conmebol|carabao"
@@ -360,6 +362,10 @@ DIET_ALLOW: "list[tuple[re.Pattern, re.Pattern]]" = [
         ("^nigeria$", r"\bnpfl\b|premier league$"),
         ("^egypt$", r"premier league$"),
         ("^morocco$", r"botola"),
+        # Japan is back (user reversal 2026-10-21). Livescore names the divisions "J1 League" / "J2 League" (archive
+        # keys japan/j-league and japan/j-league-2); the older "J. League" shapes stay covered. The Emperor's Cup and
+        # the League Cup are caught by the cup block above.
+        ("^japan$", r"^j[12]\.? ?league(?:\s*:.*)?$|^j\.? ?league( [12])?(?:\s*:.*)?$"),
     ]]
 
 
@@ -2025,43 +2031,6 @@ def render_safest(ctx: dict) -> list[str]:
             L += shortlist_mod.markdown(ctx["shortlist"])
         except Exception:  # noqa: BLE001 - report section is optional
             pass
-    # ---- the daily accas: three builds at the target price, built only from legs that pass every gate
-    ac = ctx.get("accas") or {}
-    if ac:
-        L.append(f"### 🎯 The daily accas — {ac['target']:.2f} target")
-        L.append("")
-        L.append("_Built from the gated pool: a match the pipeline trusts, a real price, and a model probability that beats "
-                 "the de-vigged market by "
-                 f"{ac['edge_range'][0] * 100:.0f}–{ac['edge_range'][1] * 100:.0f} pp. Fewest legs to the price (2 legs cost about "
-                 "15% in vig where 3 cost about 22%), one leg per match, and the builds never share a match. Nothing is padded "
-                 f"to reach the price. Pool this run: {ac['pool']} eligible legs._")
-        L.append("")
-        if ac["plans"]:
-            for i, legs in enumerate(ac["plans"], 1):
-                price = acca_mod.acca_odds(legs)
-                pm = acca_mod.acca_p(legs)
-                pk = acca_mod.acca_p_market(legs)
-                aid = ac["ids"][i - 1] if i - 1 < len(ac["ids"]) else ""
-                L.append(f"**Acca {i}** — {len(legs)} legs @ **{price:.2f}** · model {pct(pm)} vs market {pct(pk)} "
-                         f"· if the model is right **{pm * price - 1:+.0%}**, if the market is right **{pk * price - 1:+.0%}**"
-                         f"{f' · `{aid}`' if aid else ''}")
-                L.append("")
-                L.append("| Kick-off | Match | Competition | Selection | Price | Model % | Market % | Edge (pp) |")
-                L.append("|---|---|---|---|---|---|---|---|")
-                for b in legs:
-                    L.append(f"| {b.kickoff[11:]} | **{b.home} v {b.away}** | {b.league} | **{b.label}** | **{b.odds:.2f}** | "
-                             f"{pct(b.p_model)} | {pct(b.p_sb)} | {100 * (b.p_model - b.p_sb):+.1f} |")
-                L.append("")
-        else:
-            L.append(f"_No build was possible this run: {ac['pool']} eligible legs, none of them priced to reach "
-                     f"{ac['target']:.2f} with {ac['legs_min']}–{ac['legs_max']} legs. The honest answer is no acca — not a worse one._")
-            L.append("")
-        ssum = (ac.get("summary") or {}).get("all") or {}
-        if ssum.get("n"):
-            L.append(f"_Acca record: {ssum.get('won', 0)}/{ssum.get('n', 0)} won ({pct(ssum.get('rate'))}, "
-                     f"expected {pct(ssum.get('exp_rate'))}) · ROI {ssum.get('roi', 0):+.1%} on "
-                     f"{ssum.get('n', 0)} settled build(s), graded in `data/accas.csv`._")
-            L.append("")
     bets = sf.get("bets") or []
     L.append(f"### High-probability singles (model ≥70%) — top {min(len(bets), 25)} of {len(bets)}")
     L.append("")
@@ -2727,32 +2696,52 @@ def maybe_send_daily_reel(sl_pub: dict, now: datetime) -> None:
             pc["form_a"] = form["a"]
         prim_enriched.append(pc)
 
-    # Resolve yesterday's settled selections strictly to the matches included in yesterday's video(s)
+    # The FIRST video of the day recaps every video from yesterday; the noon and evening videos go straight to
+    # today's matches. Yesterday's history is merged per day (morning + noon + evening), so the recap is the whole
+    # card — every selection the videos carried, not just the last one sent.
+    recap_needed = slot in ("morning", "manual")
     yres = (sl_pub or {}).get("yesterday_results")
     yday = (now.date() - timedelta(days=1)).strftime("%Y-%m-%d")
     hist = st.get("briefing_history") if isinstance(st.get("briefing_history"), dict) else {}
     yday_video_picks = hist.get(yday)
     if yday_video_picks:
         yres = _filter_yres_to_video_picks(yres, yday_video_picks)
+    elif recap_needed:
+        log.warning("Morning reel: no recorded video picks for %s — the recap falls back to yesterday's ledger", yday)
 
+    # One voice, one pacing seed for the whole day's videos (recap, breakdown and the two aspect ratios).
+    if hasattr(reel_mod, "set_voice_seed"):
+        reel_mod.set_voice_seed(int(today.replace("-", "")))
     work = Path(os.getenv("TMPDIR") or "/tmp") / "playreport-reel"
     out_16x9 = work / "briefing-16x9.mp4"
     out_9x16 = work / "briefing-9x16-reel.mp4"
-    recap_rows = reel_mod.reel_results(yres)
+    recap_rows = reel_mod.reel_results(yres) if recap_needed else []
     log.info(
-        "Building daily 16:9 widescreen & 9:16 vertical reel videos with shared voice (%d yesterday results, %d today Overs picks, no music)",
+        "Building daily 16:9 widescreen & 9:16 vertical reel videos with shared voice "
+        "(%s: %d yesterday results across all videos, %d today picks, no music)",
+        "morning recap" if recap_needed else "no recap",
         len(recap_rows),
         len(prim_enriched),
     )
-    if hasattr(reel_mod, "build_both"):
-        reel_mod.build_both(
-            prim_enriched, out_16x9, out_9x16, assets=assets, work=work, fixtures=fixtures, yesterday_results=yres
-        )
-    else:
-        reel_mod.build(prim_enriched, out_16x9, assets=assets, work=work, fixtures=fixtures, yesterday_results=yres)
+    try:
+        if hasattr(reel_mod, "build_both"):
+            reel_mod.build_both(
+                prim_enriched, out_16x9, out_9x16, assets=assets, work=work, fixtures=fixtures,
+                yesterday_results=yres, recap=recap_needed,
+            )
+        else:
+            reel_mod.build(prim_enriched, out_16x9, assets=assets, work=work, fixtures=fixtures,
+                           yesterday_results=yres, recap=recap_needed)
+    except Exception as exc:  # noqa: BLE001 - a voice/build failure must never take the scan down
+        log.warning("Daily reel skipped: %s", exc)
+        return
+    voice = reel_mod.voice_identity() if hasattr(reel_mod, "voice_identity") else {}
+    if voice:
+        log.info("Narration voice used: %s (seed %s)", voice.get("voice") or "unknown", voice.get("seed"))
     settled_recap = [r for r in recap_rows if r.get("result") in ("hit", "miss")]
     hits_recap = sum(1 for r in settled_recap if r.get("result") == "hit")
-    recap_caption = f"Yesterday: {hits_recap}/{len(settled_recap)} won · " if settled_recap else ""
+    recap_caption = (f"Yesterday (all videos): {hits_recap}/{len(settled_recap)} won · "
+                     if settled_recap and recap_needed else "")
     ok_16x9 = send_telegram_video(
         out_16x9,
         f"🎬 PlayReport 16:9 widescreen shortlist — {now:%a %d %b}. {recap_caption}Today: {len(prim_enriched)} selection(s). "
@@ -2817,11 +2806,20 @@ def maybe_send_daily_breakdown(sl_pub: dict, now: datetime) -> None:
     if len(featured) < 3:
         log.info("Match breakdown skipped: only %d qualifying match(es) today", len(featured))
         return
+    if hasattr(reel_mod, "set_voice_seed"):
+        reel_mod.set_voice_seed(int(today.replace("-", "")))
     work = Path(os.getenv("TMPDIR") or "/tmp") / "playreport-breakdown"
-    out16, out9, prep = breakdown_mod.build_show_both(
-        featured, work / "match-breakdown-16x9.mp4", work / "match-breakdown-9x16.mp4",
-        assets=assets, work=work, day=today,
-    )
+    try:
+        out16, out9, prep = breakdown_mod.build_show_both(
+            featured, work / "match-breakdown-16x9.mp4", work / "match-breakdown-9x16.mp4",
+            assets=assets, work=work, day=today,
+        )
+    except Exception as exc:  # noqa: BLE001 - a voice/build failure must never take the scan down
+        log.warning("Match breakdown video skipped: %s", exc)
+        return
+    voice = reel_mod.voice_identity() if hasattr(reel_mod, "voice_identity") else {}
+    if voice:
+        log.info("Breakdown narration voice: %s (seed %s)", voice.get("voice") or "unknown", voice.get("seed"))
     tail = (f"{now:%a %d %b} · {len(prep.matches)} matches. Recent form, home and away splits, head to head, "
             f"team news and my pick for each. 18+.")
     ok16 = send_telegram_video(out16, f"🎬 PlayReport match breakdowns (16:9) — {tail}", width=1920, height=1080)
@@ -3433,42 +3431,20 @@ def main() -> None:
     bets_df.to_csv(SAFE_BETS_FILE, index=False)
     safe_res["ids"] = []
     ctx["safe"] = safe_res
-    ctx["safe_summary"] = safe_mod.summary(bets_df, accas_df, now)
+    ctx["safe_summary"] = safe_mod.summary(bets_df, now)
     botd_card = safe_mod.bets_of_the_day(bets_df, now)
     ctx["botd"], ctx["botd_groups"] = botd_card["bets"], botd_card["groups"]
     log.info("Safest: %d bets (%d new), bets of the day: %d", len(safe_res["bets"]), len(new_bets), len(ctx["botd"]))
 
-    # ---- the daily accas: three builds at ~3.00 from the gated pool, written to their own record and settled there
-    accas_book = acca_mod.load(ACCAS_FILE)
-    if not accas_book.empty and (accas_book["status"] == "pending").any():
-        accas_book = acca_mod.settle(accas_book, results_s, now)
-        accas_book.to_csv(ACCAS_FILE, index=False)
-    acca_pool = acca_mod.pool_from_rows(rows, now, ctx["app_end"])   # the window the user sees, not the next report hour
-    acca_plans = acca_mod.plan(acca_pool, acca_mod.TARGET, acca_mod.N_ACCAS)
-    accas_book, acca_ids = acca_mod.add(accas_book, acca_plans, now, run_label, ctx["app_end"])
-    if acca_ids:
-        accas_book.to_csv(ACCAS_FILE, index=False)
-    # ---- safer doubles (2026-10-11 upgrade): a second family at ~2.00, two legs, same gates,
-    #      never sharing a match with the 3.00 builds, tracked in its own ledger
-    used3 = {b.key for a in acca_plans for b in a}
-    acca2_pool = [b for b in acca_pool if b.key not in used3]
-    acca2_plans = acca_mod.plan(acca2_pool, 2.00, acca_mod.N_ACCAS, min_legs=2, max_legs=2, tol=0.10)
-    acca2_book = acca_mod.load(ACCAS2_FILE)
-    if not acca2_book.empty and (acca2_book["status"] == "pending").any():
-        acca2_book = acca_mod.settle(acca2_book, results_s, now)
-        acca2_book.to_csv(ACCAS2_FILE, index=False)
-    acca2_book, acca2_ids = acca_mod.add(acca2_book, acca2_plans, now, run_label, ctx["app_end"], target=2.00)
-    if acca2_ids:
-        acca2_book.to_csv(ACCAS2_FILE, index=False)
-    ctx["accas"] = {"target": acca_mod.TARGET, "pool": len(acca_pool), "plans": acca_plans, "ids": acca_ids,
-                    "summary": acca_mod.summary(accas_book, now), "recent": acca_mod.recent(accas_book),
-                    "legs_min": acca_mod.MIN_LEGS, "legs_max": acca_mod.MAX_LEGS,
-                    "edge_range": (acca_mod.MIN_EDGE, acca_mod.MAX_EDGE), "vig": acca_mod.VIG,
-                    "doubles_plans": acca2_plans, "doubles_ids": acca2_ids,
-                    "doubles_summary": acca_mod.summary(acca2_book, now), "doubles_recent": acca_mod.recent(acca2_book),
-                    "doubles_target": 2.00}
-    log.info("Accas: %d legs eligible, %d build(s) at %.2f, %d settled so far",
-             len(acca_pool), len(acca_ids), acca_mod.TARGET, ctx["accas"]["summary"]["all"].get("n", 0))
+    # ---- accumulators retired (user rule 2026-10-21): no acca is built, published or spoken anywhere.
+    #      The historical ledgers are still settled so old records keep honest results, and nothing else reads them.
+    for _file, _book in ((ACCAS_FILE, None), (ACCAS2_FILE, None)):
+        try:
+            _df = acca_mod.load(_file)
+            if not _df.empty and (_df["status"] == "pending").any():
+                acca_mod.settle(_df, results_s, now).to_csv(_file, index=False)
+        except Exception as exc:  # noqa: BLE001 - a retired ledger must never break a run
+            log.warning("Acca ledger %s not settled: %s", _file.name, exc)
 
     # ---- predicted line-ups (user rule 2026-10-12): when the official XI is not out yet, the app shows a
     #      projection built from the club's own archived confirmed XIs (never invented, never "official")
@@ -3513,14 +3489,12 @@ def main() -> None:
             sl_book, now, video_picks=_tg_st.get("briefing_history")
         )
         ctx["shortlist"] = sl_pub
-        ctx["accas"]["cal"] = cal_map
         c = sl_board["counts"]
         log.info("Shortlist: analysed %d, screened %d, primary %d, watchlist %d, rejected %d (%d decision(s) logged)",
                  c["analysed"], c["screened"], c["primary"], c["watchlist"], c["rejected"], sl_new)
     except Exception as exc:  # noqa: BLE001 - the shortlist is an add-on; it must never break the pipeline
         log.warning("Shortlist skipped: %s", exc)
         ctx["shortlist"] = {}
-        ctx["accas"]["cal"] = None
 
     # ---- alerts for the app (new safest bets), kept in state
     alerts_file = DATA_DIR / "app" / "alerts.json"
@@ -3570,7 +3544,7 @@ def main() -> None:
     days_index = []
     if days is not None:
         try:
-            days.annotate(tracker, ledger, accas_df, bets_df)
+            days.annotate(tracker, ledger, accas_df.iloc[0:0], bets_df)
             days_index = days.summarise()
             log.info("History: %d day file(s) written", days.write())
             days.days.clear()   # on disk now — free the 60-day in-memory archive before the team-page export

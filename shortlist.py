@@ -85,12 +85,22 @@ KEEP_DAYS = 120
 # first, and Over 1.5 (and the other goals lines) takes what is left; each lane keeps its best `max_per_market`.
 # A match cut from one lane can still be claimed by a later one (its Over 1.5), and nothing is padded.
 LANES = os.getenv("SHORTLIST_LANES", "1") != "0"
-LANE_ORDER = ("o25", "btts", "cards", "corners", "result", "goals")
+# 2026-10-21: the match-total corner and card markets get their own lanes, ahead of the team lines. One shared
+# "corners" lane let the three team-corner lines fill every slot, so the total market never reached the shortlist —
+# and therefore never reached the videos. Totals claim first; the team lanes keep a smaller cap.
+LANE_ORDER = ("o25", "btts", "cards", "cards_team", "corners", "corners_team", "result", "goals")
+LANE_CAP = {"cards_team": 5, "corners_team": 5}
 
 
 def lane_of(x: dict) -> str:
-    """The lane a evaluated selection competes in: Over 2.5 on its own, every other goals line together."""
-    return "o25" if x.get("sel") == "O25" else x["market"]
+    """The lane an evaluated selection competes in: Over 2.5 on its own, totals and team lines apart, every other
+    goals line together."""
+    if x.get("sel") == "O25":
+        return "o25"
+    market = x["market"]
+    if market in ("corners", "cards") and str(x.get("sel") or "")[1:2] in ("H", "A"):
+        return f"{market}_team"
+    return market
 
 COLS = ["day", "decided", "match_date", "kickoff", "country", "league", "home", "away", "sel", "label", "market",
         "odds", "p", "p_sb", "implied_raw", "edge_pp", "ev", "quality", "confidence", "status", "reasons",
@@ -359,7 +369,7 @@ def build(rows: list, now: datetime, window_end: datetime | None = None,
                 if cands:
                     pool.append(max(cands, key=lambda x: x["score"]))
             pool.sort(key=lambda x: -x["score"])
-            for x in pool[:max_per_market]:
+            for x in pool[:LANE_CAP.get(lane, max_per_market)]:
                 claimed[x["key"]] = x
         for m in per_match:
             x = claimed.get(m["best"]["key"])
@@ -421,7 +431,7 @@ def build(rows: list, now: datetime, window_end: datetime | None = None,
                   "max_edge_pp": 100 * MAX_EDGE, "max_per_market": max_per_market,
                   "band": f"{MIN_ODDS:.2f}\u2013{MAX_ODDS:.2f} (odds outside the band are rejected)",
                   "ev": "not a gate — strength and data support decide; value hunting lives on the Positive EV tab",
-                  "diet": "every league the archive has enough data on (user rule 2026-10-17) — deep results history, 8+ teams, match statistics or a full-division table; plus the top divisions, the 22 main European divisions, the big African leagues and the UEFA Champions/Europa/Conference League; domestic cups, women/youth/friendlies, Japan/Australia and qualifiers stay out; both teams need 8+ recent matches with data",
+                  "diet": "every league the archive has enough data on (user rule 2026-10-17) — deep results history, 8+ teams, match statistics or a full-division table; plus the top divisions, the 22 main European divisions, the big African leagues and the UEFA Champions/Europa/Conference League; domestic cups, women/youth/friendlies, Australia and qualifiers stay out (Japan is back in: J1 and J2); both teams need 8+ recent matches with data",
                   "unders": "none in any market — Overs only (user rule)",
                   "dropped_markets": "team goals and double chance (user rule 2026-10-17)",
                   "day": "today's matches only (nothing from tomorrow or later)",
@@ -548,7 +558,17 @@ def settle(df: pd.DataFrame, results: pd.DataFrame, today: datetime) -> pd.DataF
             stale = True
         if stale:
             df.loc[i, ["result", "settled_on"]] = ["void", today.strftime("%Y-%m-%d")]
+    # Self-heal rows graded before the 2026-10-21 corner/card fix (the ledger calls the column `result`).
+    df, fixed = safe_mod.regrade_settled(df, results, today, status_col="result")
+    if fixed:
+        _log().info("shortlist ledger: re-graded %d corner/card row(s) settled the wrong way round", fixed)
     return df
+
+
+def _log():
+    """The scanner's logger without importing scanner (keeps this module pure and importable on its own)."""
+    import logging
+    return logging.getLogger("scanner")
 
 
 def track_record(df: pd.DataFrame) -> dict:

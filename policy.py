@@ -3,6 +3,10 @@
     * Team-goals Overs are on (HO05, AO05, HO15, AO15 …). Team unders stay out.
     * Double chance is dropped (1X, 12, X2).
     * No unders in any market: total-goals unders, "no BTTS", team unders, corner and card unders.
+    * 2026-10-21: the home page's "strong markets for the day" section is defined here — model probability >= 75%,
+      price >= 1.16, and only Over 1.5 total goals, team goals, corners and bookings (see is_strong_market).
+    * 2026-10-21: accumulators are retired — no acca is built, shown or spoken anywhere (build/settle code stays so
+      the historical ledger keeps grading).
     * Over 1.5, Over 2.5, BTTS, team goals and bookings are the focus. Over 2.5, BTTS and 1X2 START from a 55% model
       probability; every other market keeps the bar it already had.
 
@@ -52,6 +56,21 @@ CORNER_RE = re.compile(r"^C[HA]?[OU]\d+$")
 
 def is_corner(sel: str) -> bool:
     return bool(CORNER_RE.match(sel or ""))
+
+
+# ---------------------------------------------------------------- "strong markets for the day" (user rule 2026-10-21)
+# The home page carries one section of the day's strongest markets: model probability >= 75% AND a real price of
+# 1.16 or more, and only in the four families the user named — Over 1.5 total goals, team goals, corners and
+# bookings. Team and total lines of the corner / booking markets are both in; 1X2, BTTS, Over 2.5 and every under
+# are out.
+STRONG_P_MIN = 0.75
+STRONG_ODDS_MIN = 1.16
+STRONG_RE = re.compile(r"^(?:O15|[HA]O\d+|C[HA]?O\d+|K[HA]?O\d+)$")
+
+
+def is_strong_market(sel: str) -> bool:
+    """One of the four families the home page's strong-markets section may show (overs only)."""
+    return bool(STRONG_RE.match(sel or ""))
 
 
 # ---------------------------------------------------------------- which families are on

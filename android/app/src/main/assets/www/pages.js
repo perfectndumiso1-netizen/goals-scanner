@@ -954,56 +954,6 @@ view().innerHTML = parts.join('');
     $$('[data-mkt-go]').forEach((b) => { b.onclick = () => { state.betsView = b.dataset.mktGo; PR.setTab('bets'); }; });
   };
 
-  // ------------------------------------------------------------------ PAGE: the daily accas (three builds at ~3.00)
-  // Built server-side from the GATED pool (see accas.py): only legs where the model beats the de-vigged
-  // market by a believable margin, one leg per match, at most three legs — and never a short-priced leg
-  // used to "fill up" to the price. Both numbers are shown for every acca, because the whole bet is the gap
-  // between them: what the model thinks, and what the market thinks.
-  const dec1 = (x) => (x == null ? '–' : `${(x * 100).toFixed(1)}%`);
-  const signed1 = (x) => (x == null ? '–' : `${x >= 0 ? '+' : ''}${(x * 100).toFixed(0)}%`);
-  PR.pages.accas = function () {
-    const d = state.data || {};
-    const a = d.accas || {};
-    const parts = [head('Today\u2019s accas', `${a.bets && a.bets.length ? a.bets.length : 0} build${(a.bets || []).length === 1 ? '' : 's'} at ~${f2(a.target || 3)} · ${a.pool || 0} eligible legs on the board`)];
-    const stat = ((a.summary || {}).all) || null;
-    if (stat && stat.n) {
-      parts.push(`<div class="card compact"><div class="row"><div class="grow small"><b>The record</b> · ${stat.n} settled · ${stat.won} won · expected ${dec1(stat.exp_rate)} · actual ${dec1(stat.rate)}</div><span class="chip ${stat.roi >= 0 ? 'good' : 'bad'}">ROI ${signed1(stat.roi)}</span></div>
-        <div class="tiny muted" style="margin-top:6px">${a.summary.pending ? `${a.summary.pending} still to settle · ` : ''}Every build in this app is settled against the final scores, so this is the only number that answers whether the plan works.</div></div>`);
-    } else {
-      parts.push(`<div class="card tiny muted">Nothing has settled yet — the record starts here. Every build is written down with its model and market probabilities, and settled against the final scores.</div>`);
-    }
-    const legRow = (l) => `<tr class="tap" data-fx="${esc(l.fixture)}"><td class="tiny muted nowrap">${esc(koTime(l.kickoff))}</td>
-      <td><div class="b">${esc(l.label || l.sel)}</div><div class="tiny muted">${flag(l.country)} ${esc(l.league || '')} · ${teamSpan(l.home, l.country, l.div)} v ${teamSpan(l.away, l.country, l.div)}</div></td>
-      <td class="right nowrap">${f2(l.odds)}</td>
-      <td class="right nowrap tiny">${pct(l.p_model)}<div class="${(l.edge_pp || 0) > 0 ? 'good' : 'muted'}">${l.edge_pp == null ? '' : `${l.edge_pp > 0 ? '+' : ''}${f1(l.edge_pp)} pp`}</div></td></tr>`;
-    const card = (b, i, kind) => `<div class="card compact" style="margin-top:8px">
-      <div class="row"><div class="grow"><div class="b">${kind || 'Acca'} ${i + 1} · ${b.n_legs} legs <span class="chip ${b.status === 'won' ? 'good' : b.status === 'lost' ? 'bad' : ''}">${esc(b.status || 'pending')}</span></div>
-      <div class="tiny muted">price ${f2(b.odds)} · model ${dec1(b.p)} vs market ${dec1(b.p_market)}${b.p_cal ? ` · <b>calibrated ${dec1(b.p_cal)}</b>` : ''}</div></div>
-      ${PR.slipFromAcca ? PR.slipFromAcca(b) : ''}</div>
-      <table class="tbl head" style="margin-top:4px"><tr><th>Kick-off</th><th>Selection</th><th class="right">Price</th><th class="right">Model · edge</th></tr>${(b.legs || []).map(legRow).join('')}</table>
-      <div class="tiny muted" style="margin-top:6px">If the model is right <b class="${(b.if_model_right || 0) > 0 ? 'good' : ''}">${signed1(b.if_model_right)}</b> · if the market is right <b class="${(b.if_no_edge || 0) < 0 ? 'bad' : ''}">${signed1(b.if_no_edge)}</b>. Both are honest: the second is what happens if the model has no edge over the price.</div></div>`;
-    if ((a.bets || []).length) (a.bets || []).forEach((b, i) => parts.push(card(b, i)));
-    else parts.push(`<div class="card empty">No acca is buildable right now.<br><span class="tiny muted">A build needs at least ${a.legs ? a.legs[0] : 2} legs that pass every gate: a match the pipeline trusts, a real Sportybet price, and a model probability that beats the de-vigged market by ${f1((a.edge_pp || [2, 12])[0])}\u2013${f1((a.edge_pp || [2, 12])[1])} pp. When the board is thin, the honest answer is no acca — not a worse one.</span></div>`);
-    // ---- safer doubles (2026-10-11): the second family, 2 legs at ~2.00, same gates, own record
-    const db = a.doubles || {};
-    if ((db.bets || []).length) {
-      const dst = (db.summary || {}).all;
-      parts.push(`<div class="section-head"><h2><span class="ico green">${icon('shield')}</span>Safer doubles · ~${f2(db.target || 2)} target</h2></div>`);
-      if (dst && dst.n) parts.push(`<div class="card compact"><div class="row"><div class="grow small"><b>The doubles record</b> · ${dst.n} settled · ${dst.won} won · expected ${dec1(dst.exp_rate)} · actual ${dec1(dst.rate)}</div><span class="chip ${dst.roi >= 0 ? 'good' : 'bad'}">ROI ${signed1(dst.roi)}</span></div></div>`);
-      (db.bets || []).forEach((b, i) => parts.push(card(b, i, 'Double')));
-      parts.push(`<div class="card tiny muted">Two legs only — less vig compounded, fewer things to go wrong than a triple, at about half the price. Same edge gate, same data checks, and it never shares a match with the 3.00 builds.</div>`);
-    }
-    parts.push(`<div class="card tiny muted"><b>How these are built</b> — the three builds never share a match, so one shock cannot take all of them, and each uses the fewest legs that reach ~${f2(a.target || 3)} (2 legs cost about 15% in vig where 6 cost about 40% for the same payout). <b>Why not the strongest-looking legs on the board?</b> Because the biggest model numbers are the model's biggest errors — the board is full of friendlies and cup qualifiers where the model rates a team 60% and the market rates it 17%. Those are rejected by the edge gate, not sold as value. The gap between "model" and "market" on each card is the entire bet: this app does not yet have proof the model beats the close, and the record above will show it either way.</div>`);
-    const rec = (a.recent || []).filter((r) => r.status !== 'pending');
-    if (rec.length) {
-      parts.push(`<div class="section-head"><h2><span class="ico">${icon('history')}</span>Settled builds</h2></div>`);
-      parts.push(`<div class="card compact"><table class="tbl">${rec.slice(0, 10).map((r) => `<tr><td class="tiny muted nowrap">${esc((r.created || '').slice(5, 16))}</td><td><b>${f2(r.odds)}</b> <span class="tiny muted">${r.n_legs} legs</span></td><td class="right tiny">${dec1(r.p)} <span class="muted">vs</span> ${dec1(r.p_market)}</td><td class="right"><span class="chip ${r.status === 'won' ? 'good' : 'bad'}">${esc(r.status)}</span></td></tr>`).join('')}</table></div>`);
-    }
-    view().innerHTML = parts.join('');
-    wireBack();
-    if (PR.wireAccaSlip) PR.wireAccaSlip();
-  };
-
   // ------------------------------------------------------------------ PAGE: all markets (today's six groups, strongest first)
   PR.pages.marketsboard = function () {
     const d = state.data || {};
@@ -1461,15 +1411,22 @@ view().innerHTML = parts.join('');
   };
 
   // ------------------------------------------------------------------ SHORTLIST BRIEFING (16:9 video-style player + download)
+  // Videos only carry Over 1.5 total goals, team goals, corners and bookings (user rule 2026-10-21). BTTS,
+  // Over 2.5 and 1X2 are no longer in the reel, so the in-app briefing shows exactly the same matches.
+  function reelMarket(x) {
+    const sel = String((x && x.sel) || '').toUpperCase();
+    return /^(?:O15|[HA]O\d+|C[HA]?O\d+|K[HA]?O\d+)$/.test(sel);
+  }
   function briefingPicks() {
     const sl = (state.data && state.data.shortlist) || {};
-    return (sl.primary || []).slice(0, 7);
+    return (sl.primary || []).filter(reelMarket).slice(0, 12);
   }
   function briefingSlides() {
     const picks = briefingPicks();
     const sl = (state.data && state.data.shortlist) || {};
     const yr = sl.yesterday_results || {};
-    const yItems = Array.isArray(yr.items) ? yr.items.filter((r) => r && ['hit', 'miss', 'void'].includes(r.result)).slice(0, 7) : [];
+    // Every selection yesterday's videos carried (morning, noon and evening), not just the last video.
+    const yItems = Array.isArray(yr.items) ? yr.items.filter((r) => r && ['hit', 'miss', 'void'].includes(r.result)) : [];
     const meta = (state.data && state.data.meta) || {};
     const when = meta.generated || '';
     const slides = [
@@ -1492,25 +1449,31 @@ view().innerHTML = parts.join('');
       const settled = yItems.filter((r) => r.result === 'hit' || r.result === 'miss');
       const hits = settled.filter((r) => r.result === 'hit').length;
       const linesTxt = yItems.map((r) => `${r.home} v ${r.away}: ${r.label || r.sel} (${r.result === 'hit' ? 'WON' : r.result === 'miss' ? 'LOST' : 'VOID'}${r.score ? ' ' + r.score : ''})`).join(' · ');
-      const speakParts = yItems.map((r) => `${r.home} versus ${r.away}, ${r.label || r.sel}, ${r.result === 'hit' ? 'won' : r.result === 'miss' ? 'lost' : 'void'}${r.score ? ', ' + String(r.score).replace('-', ' to ') : ''}.`).join(' ');
+      // Spoken: the record plus the standout and the one that got away. The full card is on screen.
+      const byOdds = (rows) => rows.slice().sort((a, b) => Number(b.odds || 0) - Number(a.odds || 0))[0];
+      const bestWin = byOdds(settled.filter((r) => r.result === 'hit'));
+      const badLoss = byOdds(settled.filter((r) => r.result === 'miss'));
+      const say = (r, won) => r ? `${r.home} against ${r.away}, ${r.label || r.sel}, ${won ? 'landed' : 'finished'}${r.score ? ', ' + String(r.score).replace('-', ' to ') : ''}.` : '';
+      const record = !settled.length ? '' : hits === settled.length ? `A clean sweep: all ${settled.length} landed.` : hits === 0 ? `A tough one: none of the ${settled.length} landed.` : `We went ${hits} from ${settled.length}.`;
       slides.push({
-        kicker: `Yesterday’s shortlist results · ${yr.day || ''}`,
+        kicker: `Yesterday’s card · every video · ${yr.day || ''}`,
         title: settled.length ? `${hits} of ${settled.length} selections won` : 'Yesterday’s results recap',
-        sub: settled.length ? `Hit rate ${Math.round((100 * hits) / settled.length)}% across settled shortlist selections` : 'Settled selections recap',
+        sub: settled.length ? `Hit rate ${Math.round((100 * hits) / settled.length)}% across every selection yesterday’s videos carried` : 'Settled selections recap',
         line: linesTxt,
-        speak: `Yesterday's shortlist results. ${settled.length ? `${hits} of ${settled.length} selections won. ` : ''}${speakParts} Now, today's shortlist.`,
+        speak: `First, a quick look back at yesterday, across all of yesterday’s videos. ${record} ${bestWin ? 'The standout: ' + say(bestWin, true) : ''} ${badLoss ? 'The one that got away: ' + say(badLoss, false) : ''} Everything else is on screen. Now, today’s list.`,
       });
     }
     picks.forEach((x, i) => {
       const odds = x.odds ? f2(x.odds) : 'N/A';
       const comp = [x.country, x.league].filter(Boolean).join(' · ');
       const compSpoken = [x.country, x.league].filter(Boolean).join(', ');
+      const reason = briefingReason(x);
       slides.push({
-        kicker: `Pick ${i + 1} of ${picks.length}${comp ? ' · ' + comp : ''}`,
+        kicker: `Match ${i + 1} of ${picks.length}${comp ? ' · ' + comp : ''}`,
         title: `${x.home} v ${x.away}`,
         sub: `${x.label || ''} @ ${odds} · Kick-off ${esc(koTime(x.kickoff))} SAST`,
-        line: `Sportybet price ${odds} · Qualified selection`,
-        speak: `${compSpoken ? compSpoken + '. ' : ''}${x.home} versus ${x.away}. ${x.label || 'the selection'}, at ${odds}. Kick-off, ${koTime(x.kickoff)}.`,
+        line: reason.screen || `Sportybet price ${odds} · Qualified selection`,
+        speak: `${compSpoken ? compSpoken + '. ' : ''}${x.home} versus ${x.away}. ${x.label || 'the selection'}, at ${odds}.${reason.said ? ' ' + reason.said : ''}`,
         pick: x,
       });
     });
@@ -1523,19 +1486,61 @@ view().innerHTML = parts.join('');
     });
     return slides;
   }
+  function briefingReason(x) {
+    // The same reasons the Telegram video uses: the model's number, its projected goals, form and the base rate.
+    const bits = [];
+    const pv = Number(x.p);
+    if (pv > 0) {
+      const chance = pv >= 0.95 ? 'better than nine in ten' : pv >= 0.85 ? 'around nine in ten' : pv >= 0.75 ? 'about three in four' : pv >= 0.65 ? 'about two in three' : pv >= 0.55 ? 'better than half' : 'around half';
+      bits.push(`Model ${Math.round(pv * 100)}% (${chance})`);
+      x._chance = chance;
+    }
+    (x.support || []).forEach((s) => bits.push(String(s)));
+    const head = bits.slice(0, 3);
+    const said = [];
+    if (x._chance) said.push(`The model has that at ${x._chance}.`);
+    const xg = (x.support || []).map((s) => String(s).match(/xG\s*([\d.]+)\s*[–-]\s*([\d.]+)/i)).find(Boolean);
+    if (xg) said.push(`It projects ${xg[1]} goals for ${x.home} and ${xg[2]} for ${x.away}.`);
+    const hist = (x.support || []).map((s) => String(s).match(/historical\s+(O15|O25|BTTS)\s+rate\s+([\d.]+)\s*%/i)).find(Boolean);
+    if (hist) said.push(`Their own record has that landing about ${Math.round(Number(hist[2]) / 10)} times in ten.`);
+    return { screen: head.join(' · '), said: said.join(' ') };
+  }
+  function briefingVoice() {
+    // One voice for the whole briefing: the best British/Irish male the device has, else the best English one.
+    const voices = (window.speechSynthesis && window.speechSynthesis.getVoices()) || [];
+    const en = voices.filter((v) => /^en/i.test(v.lang || ''));
+    const score = (v) => {
+      let n = 0;
+      if (/male|daniel|david|george|rishi|arthur|oliver|ryan|thomas|guy|brian|alex/i.test(v.name || '')) n += 6;
+      if (/google|neural|natural|enhanced|premium|siri/i.test(v.name || '')) n += 4;
+      if (/^en[-_]GB/i.test(v.lang || '')) n += 3;
+      if (/^en[-_]IE/i.test(v.lang || '')) n += 2;
+      if (/female|samantha|victoria|karen|moira|tessa|serena|kate|zira|aria/i.test(v.name || '')) n -= 6;
+      if (/^en[-_]US/i.test(v.lang || '')) n += 1;
+      return n;
+    };
+    return en.sort((a, b) => score(b) - score(a))[0] || voices[0] || null;
+  }
   function briefingSpeak(text, onend) {
+    // Spoken sentence by sentence with a natural breather between them, so it does not run together or sound clipped.
     try {
       if (!window.speechSynthesis) { if (onend) onend(); return; }
       window.speechSynthesis.cancel();
-      const u = new SpeechSynthesisUtterance(text);
-      u.rate = 1.05; u.pitch = 1.0; u.lang = 'en-GB';
-      const voices = window.speechSynthesis.getVoices() || [];
-      const male = voices.find((v) => /en/.test(v.lang) && /male|daniel|david|george|rishi|google uk english male/i.test(v.name))
-        || voices.find((v) => v.lang === 'en-GB') || voices.find((v) => /^en/.test(v.lang));
-      if (male) u.voice = male;
-      u.onend = () => { if (onend) onend(); };
-      u.onerror = () => { if (onend) onend(); };
-      window.speechSynthesis.speak(u);
+      const voice = briefingVoice();
+      const parts = String(text || '').match(/[^.!?]+[.!?]+|[^.!?]+$/g) || [String(text || '')];
+      let i = 0;
+      const next = () => {
+        if (i >= parts.length) { if (onend) onend(); return; }
+        const chunk = parts[i++].trim();
+        if (!chunk) { next(); return; }
+        const u = new SpeechSynthesisUtterance(chunk);
+        u.rate = 0.97; u.pitch = 0.95; u.volume = 1.0; u.lang = (voice && voice.lang) || 'en-GB';
+        if (voice) u.voice = voice;
+        u.onend = () => setTimeout(next, 220);
+        u.onerror = () => { if (onend) onend(); };
+        window.speechSynthesis.speak(u);
+      };
+      next();
     } catch (e) { if (onend) onend(); }
   }
   function briefingHtml(slides) {
