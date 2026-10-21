@@ -1435,45 +1435,42 @@ view().innerHTML = parts.join('');
         title: 'Today’s shortlist',
         sub: `${picks.length} selection${picks.length === 1 ? '' : 's'} · ${esc(when)} SAST`,
         line: 'Results recap & today’s selections · SAST',
-        speak: 'PlayReport. Today’s shortlist.',
       },
       {
         kicker: 'Please bet responsibly · 18+',
         title: 'Disclaimer',
         sub: 'Statistical information, not betting advice.',
         line: 'Not for persons under the age of 18. Do not bet with money you cannot afford to lose. There is no such thing as a sure bet.',
-        speak: 'Statistical information, not betting advice. Bet responsibly. Not for persons under the age of 18. Do not bet with money you cannot afford to lose. There is no such thing as a sure bet.',
       },
     ];
     if (yItems.length) {
       const settled = yItems.filter((r) => r.result === 'hit' || r.result === 'miss');
       const hits = settled.filter((r) => r.result === 'hit').length;
       const linesTxt = yItems.map((r) => `${r.home} v ${r.away}: ${r.label || r.sel} (${r.result === 'hit' ? 'WON' : r.result === 'miss' ? 'LOST' : 'VOID'}${r.score ? ' ' + r.score : ''})`).join(' · ');
-      // Spoken: the record plus the standout and the one that got away. The full card is on screen.
+      // The full card is on screen; the headline is the record plus the standout and the one that got away.
       const byOdds = (rows) => rows.slice().sort((a, b) => Number(b.odds || 0) - Number(a.odds || 0))[0];
       const bestWin = byOdds(settled.filter((r) => r.result === 'hit'));
       const badLoss = byOdds(settled.filter((r) => r.result === 'miss'));
-      const say = (r, won) => r ? `${r.home} against ${r.away}, ${r.label || r.sel}, ${won ? 'landed' : 'finished'}${r.score ? ', ' + String(r.score).replace('-', ' to ') : ''}.` : '';
-      const record = !settled.length ? '' : hits === settled.length ? `A clean sweep: all ${settled.length} landed.` : hits === 0 ? `A tough one: none of the ${settled.length} landed.` : `We went ${hits} from ${settled.length}.`;
+      const say = (r, won) => r ? `${r.home} v ${r.away}: ${r.label || r.sel} ${won ? 'landed' : 'missed'}${r.score ? ' (' + r.score + ')' : ''}.` : '';
+      const recap = [bestWin ? `Standout win — ${say(bestWin, true)}` : '', badLoss ? `The one that got away — ${say(badLoss, false)}` : '']
+        .filter(Boolean).join(' ');
       slides.push({
         kicker: `Yesterday’s card · every video · ${yr.day || ''}`,
         title: settled.length ? `${hits} of ${settled.length} selections won` : 'Yesterday’s results recap',
         sub: settled.length ? `Hit rate ${Math.round((100 * hits) / settled.length)}% across every selection yesterday’s videos carried` : 'Settled selections recap',
         line: linesTxt,
-        speak: `First, a quick look back at yesterday, across all of yesterday’s videos. ${record} ${bestWin ? 'The standout: ' + say(bestWin, true) : ''} ${badLoss ? 'The one that got away: ' + say(badLoss, false) : ''} Everything else is on screen. Now, today’s list.`,
+        note: recap,
       });
     }
     picks.forEach((x, i) => {
       const odds = x.odds ? f2(x.odds) : 'N/A';
       const comp = [x.country, x.league].filter(Boolean).join(' · ');
-      const compSpoken = [x.country, x.league].filter(Boolean).join(', ');
       const reason = briefingReason(x);
       slides.push({
         kicker: `Match ${i + 1} of ${picks.length}${comp ? ' · ' + comp : ''}`,
         title: `${x.home} v ${x.away}`,
         sub: `${x.label || ''} @ ${odds} · Kick-off ${esc(koTime(x.kickoff))} SAST`,
         line: reason.screen || `Sportybet price ${odds} · Qualified selection`,
-        speak: `${compSpoken ? compSpoken + '. ' : ''}${x.home} versus ${x.away}. ${x.label || 'the selection'}, at ${odds}.${reason.said ? ' ' + reason.said : ''}`,
         pick: x,
       });
     });
@@ -1482,7 +1479,6 @@ view().innerHTML = parts.join('');
       title: 'That’s the list',
       sub: 'Like, share or subscribe if this helped — no pressure.',
       line: 'Statistical information, not betting advice. 18+. © PlayReport. All rights reserved.',
-      speak: 'If this helped, like, share, or subscribe for tomorrow’s list. PlayReport. All rights reserved.',
     });
     return slides;
   }
@@ -1493,55 +1489,16 @@ view().innerHTML = parts.join('');
     if (pv > 0) {
       const chance = pv >= 0.95 ? 'better than nine in ten' : pv >= 0.85 ? 'around nine in ten' : pv >= 0.75 ? 'about three in four' : pv >= 0.65 ? 'about two in three' : pv >= 0.55 ? 'better than half' : 'around half';
       bits.push(`Model ${Math.round(pv * 100)}% (${chance})`);
-      x._chance = chance;
     }
     (x.support || []).forEach((s) => bits.push(String(s)));
     const head = bits.slice(0, 3);
-    const said = [];
-    if (x._chance) said.push(`The model has that at ${x._chance}.`);
-    const xg = (x.support || []).map((s) => String(s).match(/xG\s*([\d.]+)\s*[–-]\s*([\d.]+)/i)).find(Boolean);
-    if (xg) said.push(`It projects ${xg[1]} goals for ${x.home} and ${xg[2]} for ${x.away}.`);
-    const hist = (x.support || []).map((s) => String(s).match(/historical\s+(O15|O25|BTTS)\s+rate\s+([\d.]+)\s*%/i)).find(Boolean);
-    if (hist) said.push(`Their own record has that landing about ${Math.round(Number(hist[2]) / 10)} times in ten.`);
-    return { screen: head.join(' · '), said: said.join(' ') };
+    return { screen: head.join(' · ') };
   }
-  function briefingVoice() {
-    // One voice for the whole briefing: the best British/Irish male the device has, else the best English one.
-    const voices = (window.speechSynthesis && window.speechSynthesis.getVoices()) || [];
-    const en = voices.filter((v) => /^en/i.test(v.lang || ''));
-    const score = (v) => {
-      let n = 0;
-      if (/male|daniel|david|george|rishi|arthur|oliver|ryan|thomas|guy|brian|alex/i.test(v.name || '')) n += 6;
-      if (/google|neural|natural|enhanced|premium|siri/i.test(v.name || '')) n += 4;
-      if (/^en[-_]GB/i.test(v.lang || '')) n += 3;
-      if (/^en[-_]IE/i.test(v.lang || '')) n += 2;
-      if (/female|samantha|victoria|karen|moira|tessa|serena|kate|zira|aria/i.test(v.name || '')) n -= 6;
-      if (/^en[-_]US/i.test(v.lang || '')) n += 1;
-      return n;
-    };
-    return en.sort((a, b) => score(b) - score(a))[0] || voices[0] || null;
-  }
-  function briefingSpeak(text, onend) {
-    // Spoken sentence by sentence with a natural breather between them, so it does not run together or sound clipped.
-    try {
-      if (!window.speechSynthesis) { if (onend) onend(); return; }
-      window.speechSynthesis.cancel();
-      const voice = briefingVoice();
-      const parts = String(text || '').match(/[^.!?]+[.!?]+|[^.!?]+$/g) || [String(text || '')];
-      let i = 0;
-      const next = () => {
-        if (i >= parts.length) { if (onend) onend(); return; }
-        const chunk = parts[i++].trim();
-        if (!chunk) { next(); return; }
-        const u = new SpeechSynthesisUtterance(chunk);
-        u.rate = 0.97; u.pitch = 0.95; u.volume = 1.0; u.lang = (voice && voice.lang) || 'en-GB';
-        if (voice) u.voice = voice;
-        u.onend = () => setTimeout(next, 220);
-        u.onerror = () => { if (onend) onend(); };
-        window.speechSynthesis.speak(u);
-      };
-      next();
-    } catch (e) { if (onend) onend(); }
+  function briefingHold(slide) {
+    // No voice on the phone either (user rule 2026-10-21): a slide stays up as long as its words take to read,
+    // at the same 2.6 words a second the videos use, with the same floor.
+    const words = String(((slide && slide.title) || '') + ' ' + ((slide && slide.sub) || '') + ' ' + ((slide && slide.line) || '')).trim().split(/\s+/).filter(Boolean).length;
+    return Math.max(2600, Math.round((words / 2.6) * 1000));
   }
   function briefingHtml(slides) {
     const cards = slides.map((s, i) => `<section class="slide" id="s${i}">
@@ -1564,7 +1521,7 @@ ${cards}
   function briefingRecord(slides, done) {
     // Canvas webm — best-effort. Some WebViews cannot record; caller falls back to HTML.
     try {
-      const W = 1280, H = 720, fps = 4, hold = 5;
+      const W = 1280, H = 720, fps = 4;
       const c = document.createElement('canvas'); c.width = W; c.height = H;
       const g = c.getContext('2d');
       const stream = c.captureStream(fps);
@@ -1591,9 +1548,9 @@ ${cards}
         i += 1;
         if (i >= slides.length) { rec.stop(); return; }
         paint();
-        setTimeout(step, hold * 1000);
+        setTimeout(step, briefingHold(slides[i]));
       };
-      setTimeout(step, hold * 1000);
+      setTimeout(step, briefingHold(slides[i]));
     } catch (e) { done(null); }
   }
   function saveBlob(name, blob, mime) {
@@ -1613,7 +1570,7 @@ ${cards}
   }
   PR.pages.briefing = function (page) {
     const slides = briefingSlides();
-    const parts = [head('Shortlist briefing', 'Video · male voice · downloadable')];
+    const parts = [head('Shortlist briefing', 'Video · music-free slides · downloadable')];
     if (slides.length < 2) {
       parts.push('<div class="card empty">The shortlist is empty — the briefing appears once today’s picks publish.</div>');
       view().innerHTML = parts.join(''); wireBack(); return;
@@ -1629,7 +1586,7 @@ ${cards}
         <button class="btn" id="brief-next">Next</button>
       </div>
       <button class="btn" id="brief-dl" style="width:100%;margin-top:8px">${icon('download', 'sm')} Download video</button>
-      <div class="tiny muted" style="margin-top:8px">The on-phone voice is your device narrator (we pick a male English voice when the phone has one). The download is a video of these slides you can keep. Statistical information, not betting advice. 18+.</div>
+      <div class="tiny muted" style="margin-top:8px">The on-phone briefing is silent — each slide stays up as long as its words take to read, like the videos. The download is a video of these slides you can keep. Statistical information, not betting advice. 18+.</div>
     </div>`);
     view().innerHTML = parts.join(''); wireBack();
     let i = 0, playing = false, timer = null;
@@ -1637,19 +1594,19 @@ ${cards}
     const show = (n) => {
       i = Math.max(0, Math.min(slides.length - 1, n));
       const s = slides[i];
-      stage.innerHTML = `<div class="kicker">${esc(s.kicker)}</div><h2>${esc(s.title)}</h2><div class="sub">${esc(s.sub || '')}</div><div class="line">${esc(s.line || '')}</div>`;
+      stage.innerHTML = `<div class="kicker">${esc(s.kicker)}</div><h2>${esc(s.title)}</h2><div class="sub">${esc(s.sub || '')}</div><div class="line">${esc(s.line || '')}</div>${s.note ? `<div class="note">${esc(s.note)}</div>` : ''}`;
       pos.textContent = `${i + 1} / ${slides.length}`;
       seek.value = i;
     };
     const stop = () => {
       playing = false; if (timer) { clearTimeout(timer); timer = null; }
-      try { window.speechSynthesis && window.speechSynthesis.cancel(); } catch (e) { /* ignore */ }
       const bp = $('#brief-play'); if (bp) bp.textContent = 'Play';
     };
     const next = () => { if (i >= slides.length - 1) { stop(); return; } show(i + 1); if (playing) go(); };
     const go = () => {
       playing = true; const bp = $('#brief-play'); if (bp) bp.textContent = 'Pause';
-      briefingSpeak(slides[i].speak, () => { if (!playing) return; timer = setTimeout(next, 700); });
+      if (timer) clearTimeout(timer);
+      timer = setTimeout(next, briefingHold(slides[i]));
     };
     show(0);
     $('#brief-prev').onclick = () => { stop(); show(i - 1); };

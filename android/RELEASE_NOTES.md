@@ -1,3 +1,8 @@
+## What's new — the videos are silent: one music bed, no voice
+- 🎵 **The AI narration is gone.** Every video — the 16:9 shortlist, the 9:16 reel and the match breakdown — now carries one background track for its whole length instead of a voiceover.
+- ⏱️ **Same length, same format.** Each slide stays up for as long as its own words take to read, at the pace the narration used to speak them, so the videos run exactly as long as before.
+- 📱 **The in-app briefing player is silent too.** Same slides, same timing, no phone text-to-speech.
+
 ## What's new — Japanese leagues are back
 - 🇯🇵 **Japan is back on the board.** Your 2026-10-11 block is lifted: the **J1 and J2 League** are analysed and priced like every other division, and J3 and the deeper divisions join through the archive rule when they have enough history. The Emperor's Cup, the League Cup and the women's WE League stay out, and Australia stays blocked.
 - 📚 **Their results history is seeded**, so the model starts with J1/J2 form, corners and cards rather than building from nothing.
@@ -42,7 +47,7 @@
 - 🐛 Fixed: team-level corner and card unders could still reach bets of the day, and England's step-4 "Northern Premier League" slipped through the Premier League pattern.
 
 ## What's new — 16:9 widescreen video (yesterday's results first), football-only app & live feed health
-- 🎬 **16:9 widescreen shortlist video (`1920×1080`)**: starts with the **settled results of yesterday's shortlist selections** (won/lost, final score, hit rate), then proceeds to **today's shortlist selections** with recent W/D/L form pills, SAST kick-off badges, and an ultra-realistic British male neural voiceover (`en-GB-RyanNeural` / `en_GB-alan-medium`).
+- 🎬 **16:9 widescreen shortlist video (`1920×1080`)**: starts with the **settled results of yesterday's shortlist selections** (won/lost, final score, hit rate), then proceeds to **today's shortlist selections** with recent W/D/L form pills, SAST kick-off badges, and one background music bed (no voiceover).
 - ⚽ **Football-only focus**: Tennis has been removed from the app navigation, menu, More screen, and background polling, and the scheduled Tennis workflow is paused so the app is 100% focused on football intelligence.
 - 🟢 **Live feed health & instant cold-start cache**: the Matchday header now shows a real-time feed health indicator (`● Feed live` / `● Cached prices`), and the latest analysis is mirrored to native phone storage so cold starts are instant even if Android clears the WebView cache.
 - 🟨 **Referee historical card & foul context**: when a fixture has an appointed referee with 5+ tracked matches in the archive, the research layer records their historical cards/game and over-3.5-cards rate (display-only; N/A when fewer than 5 matches exist).
@@ -50,7 +55,7 @@
 ## What's new — Sportybet names no longer mix matches + shortlist briefing video
 - 📬 **Briefing videos go to Telegram, then the file is deleted** — never kept on GitHub or Drive after a successful send.
 - 🐛 **Fixed: many match pages showed another club's name** (Kaizer Chiefs on Bristol City, and the same shift across the list). Cause: Sportybet events were attached by list position, so a skipped fixture slid every later price onto the wrong match. The matcher now looks up by club identity, refuses a name that is not the same club, and never reuses one event on two fixtures. The app also ignores a long name / Sportybet link that does not belong to the match you opened — so today's already-published file stops lying the moment you update.
-- 🎬 **Shortlist briefing video** on the Shortlist tab: watch today's picks as a video with a male voiceover (kick-off times in SAST) and download it to your phone. A shortlist for your review — never an instruction to bet.
+- 🎬 **Shortlist briefing video** on the Shortlist tab: watch today's picks as a silent video (kick-off times in SAST) and download it to your phone. A shortlist for your review — never an instruction to bet.
 
 ## What's new — the wrong-match fix, new sounds, corners & bookings prices, focused trends
 - 🐛 **Fixed: tapping a match could show another match's data.** The app now proves every analysis belongs to the match you tapped (id + team names) at every layer, day-file fallbacks are pinned by country, and the on-phone cache was migrated to a fresh namespace with a one-time sweep — any bad data left behind by older builds is gone for good.

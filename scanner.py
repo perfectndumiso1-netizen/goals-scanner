@@ -2709,16 +2709,13 @@ def maybe_send_daily_reel(sl_pub: dict, now: datetime) -> None:
     elif recap_needed:
         log.warning("Morning reel: no recorded video picks for %s — the recap falls back to yesterday's ledger", yday)
 
-    # One voice, one pacing seed for the whole day's videos (recap, breakdown and the two aspect ratios).
-    if hasattr(reel_mod, "set_voice_seed"):
-        reel_mod.set_voice_seed(int(today.replace("-", "")))
     work = Path(os.getenv("TMPDIR") or "/tmp") / "playreport-reel"
     out_16x9 = work / "briefing-16x9.mp4"
     out_9x16 = work / "briefing-9x16-reel.mp4"
     recap_rows = reel_mod.reel_results(yres) if recap_needed else []
     log.info(
-        "Building daily 16:9 widescreen & 9:16 vertical reel videos with shared voice "
-        "(%s: %d yesterday results across all videos, %d today picks, no music)",
+        "Building daily 16:9 widescreen & 9:16 vertical reel videos with the music bed "
+        "(%s: %d yesterday results across all videos, %d today picks, no narration)",
         "morning recap" if recap_needed else "no recap",
         len(recap_rows),
         len(prim_enriched),
@@ -2732,12 +2729,9 @@ def maybe_send_daily_reel(sl_pub: dict, now: datetime) -> None:
         else:
             reel_mod.build(prim_enriched, out_16x9, assets=assets, work=work, fixtures=fixtures,
                            yesterday_results=yres, recap=recap_needed)
-    except Exception as exc:  # noqa: BLE001 - a voice/build failure must never take the scan down
+    except Exception as exc:  # noqa: BLE001 - a build failure must never take the scan down
         log.warning("Daily reel skipped: %s", exc)
         return
-    voice = reel_mod.voice_identity() if hasattr(reel_mod, "voice_identity") else {}
-    if voice:
-        log.info("Narration voice used: %s (seed %s)", voice.get("voice") or "unknown", voice.get("seed"))
     settled_recap = [r for r in recap_rows if r.get("result") in ("hit", "miss")]
     hits_recap = sum(1 for r in settled_recap if r.get("result") == "hit")
     recap_caption = (f"Yesterday (all videos): {hits_recap}/{len(settled_recap)} won · "
@@ -2773,8 +2767,8 @@ def maybe_send_daily_breakdown(sl_pub: dict, now: datetime) -> None:
     """Daily match breakdown (5-7 matches, 16:9 YouTube + 9:16 TikTok) to Telegram, once a day.
 
     Same morning window as the shortlist video (05:00-07:19 SAST) or a manual FORCE_DAILY_BREAKDOWN. It has its own
-    once-a-day marker, so a failed build is retried on the next scan instead of being skipped. One shared voice
-    track feeds both aspect ratios. Files are deleted after a successful send, never git, never Drive, never the
+    once-a-day marker, so a failed build is retried on the next scan instead of being skipped. One music bed
+    feeds both aspect ratios. Files are deleted after a successful send, never git, never Drive, never the
     data branch.
     """
     if breakdown_mod is None or reel_mod is None:
@@ -2806,20 +2800,15 @@ def maybe_send_daily_breakdown(sl_pub: dict, now: datetime) -> None:
     if len(featured) < 3:
         log.info("Match breakdown skipped: only %d qualifying match(es) today", len(featured))
         return
-    if hasattr(reel_mod, "set_voice_seed"):
-        reel_mod.set_voice_seed(int(today.replace("-", "")))
     work = Path(os.getenv("TMPDIR") or "/tmp") / "playreport-breakdown"
     try:
         out16, out9, prep = breakdown_mod.build_show_both(
             featured, work / "match-breakdown-16x9.mp4", work / "match-breakdown-9x16.mp4",
             assets=assets, work=work, day=today,
         )
-    except Exception as exc:  # noqa: BLE001 - a voice/build failure must never take the scan down
+    except Exception as exc:  # noqa: BLE001 - a build failure must never take the scan down
         log.warning("Match breakdown video skipped: %s", exc)
         return
-    voice = reel_mod.voice_identity() if hasattr(reel_mod, "voice_identity") else {}
-    if voice:
-        log.info("Breakdown narration voice: %s (seed %s)", voice.get("voice") or "unknown", voice.get("seed"))
     tail = (f"{now:%a %d %b} · {len(prep.matches)} matches. Recent form, home and away splits, head to head, "
             f"team news and my pick for each. 18+.")
     ok16 = send_telegram_video(out16, f"🎬 PlayReport match breakdowns (16:9) — {tail}", width=1920, height=1080)

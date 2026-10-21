@@ -1,10 +1,15 @@
-"""PlayReport shortlist video — 16:9 widescreen (1920x1080), narrated slides, no bed music or trailing silence.
+"""PlayReport shortlist video — 16:9 widescreen (1920x1080) or 9:16 vertical, one music bed, no narration.
+
+2026-10-21 (user rule): there is no voice any more — no neural TTS, no Piper, no eSpeak, nothing to speak. Every
+video carries the user's track `assets/reel/under_the_stadium_lights.mp3` for its whole length (looped, faded and
+normalised by `music.bed`). Slide lengths come from how long each slide's words take to read, at the pace the
+narration used to speak them, so the length and the format of the videos are unchanged.
 
 The morning video opens with the settled results of *every* video from yesterday (morning, noon and evening),
 then walks today's matches one at a time — the match, the selection, the price and the reason it made the list.
 Videos carry Over 1.5 total goals, team goals, corners and bookings only, and no accumulator is built, shown or
-spoken anywhere (user rules 2026-10-21). Each slide lasts exactly as long as its own voice clip (plus a short tail),
-so the next match never appears while the previous one is still being read.
+shown anywhere (user rules 2026-10-21). Each slide lasts as long as its own words take to read (plus TAIL), so the
+next match never appears while the previous one is still being read.
 """
 from __future__ import annotations
 
@@ -19,6 +24,8 @@ import sys
 import tempfile
 import urllib.request
 from pathlib import Path
+
+import music
 
 log = logging.getLogger("scanner")
 
@@ -45,41 +52,12 @@ GOLD = (251, 191, 36)
 NAVY = (7, 17, 29)
 CARD_BG = (8, 22, 38)
 BADGE_BASE = "https://lsm-static-prod.livescore.com/medium/"
-TAIL = 0.70          # extra hold after speech so the next match never appears mid-sentence
+TAIL = 0.70          # extra hold after a slide's words so the next one never lands on top of the last line
 INTRO_MIN = 5.0      # logo sting, seconds
 MAX_PICKS = 12
 MAX_TOTAL = 240.0
 RECAP_ROWS = 9       # results per recap slide (readable in both 16:9 and 9:16)
 MAX_RECAP = 60       # every selection from yesterday's three videos, with a hard ceiling
-# Ultra-realistic neural British male voices (CI/local). Tried in order: the first that answers is the voice for the
-# whole run, so every clip, every slide and both aspect ratios are spoken by exactly the same person.
-EDGE_TTS_VOICES = ("en-GB-RyanNeural", "en-GB-ThomasNeural", "en-US-AndrewNeural")
-EDGE_TTS_VOICE = EDGE_TTS_VOICES[0]
-EDGE_TTS_RATE = "-4%"
-EDGE_TTS_PITCH = "-2Hz"
-PIPER_VOICE_MODEL = "en_GB-alan-medium.onnx"
-ESPEAK_VOICE = "en-gb"
-ESPEAK_SPEED = 150
-ESPEAK_PITCH = 40
-
-# One pacing seed for the whole day: every video built today is re-timed by the same "person", never a new random
-# performance per clip. `set_voice_seed()` is called once per build.
-_VOICE_SEED = 7
-_VOICE_USED: list[str] = []
-
-
-def set_voice_seed(seed: int | None = None) -> None:
-    """Lock the narration's pacing for this run (default: a fixed value, so clips never jump performer to performer)."""
-    global _VOICE_SEED
-    _VOICE_SEED = 7 if seed is None else int(seed)
-
-
-def voice_identity() -> dict:
-    """What actually spoke this run — logged with the video so an inconsistent voice is visible, never guessed."""
-    return {"voice": (_VOICE_USED[-1] if _VOICE_USED else ""), "seed": _VOICE_SEED,
-            "rate": os.environ.get("EDGE_TTS_RATE") or EDGE_TTS_RATE,
-            "pitch": os.environ.get("EDGE_TTS_PITCH") or EDGE_TTS_PITCH}
-
 
 INTRO_SCRIPT = "PlayReport. These are the matches worth your attention today."
 DISCLAIMER_SCRIPT = (
@@ -92,8 +70,32 @@ CLOSER_SCRIPT = (
     "If this helped, give it a like, share it with a mate, and subscribe for tomorrow's list. "
     "PlayReport. All rights reserved."
 )
+def spoken_text(text: str) -> str:
+    """Normalise football abbreviations and telegraphic punctuation for plain, broadcast-style wording.
+
+    Kept after the voice was retired: `spoken.market_phrase` and the script writers use it so the on-screen text
+    reads like a person wrote it rather than like a feed.
+    """
+    out = str(text or "")
+    out = re.sub(r"\bUtd\b\.?", "United", out)
+    out = re.sub(r"\bSt\.\s*(?=[A-Z])", "Saint ", out)
+    out = re.sub(r"\bTurkiye\b", "Turkey", out)
+    out = out.replace("Süper Lig", "Super Lig")
+    out = re.sub(r"\bDjurgaarden\b", "Djurgarden", out)
+    out = re.sub(r"\bMjaellby\b", "Mjallby", out)
+    out = re.sub(r"\bLillestroem\b", "Lillestrom", out)
+    out = re.sub(r"\bDeportivo A Coruna\b", "Deportivo La Coruna", out)
+    out = re.sub(r"\bPFC CSKA\b", "CSKA", out)
+    out = re.sub(r"\b1\.\s*FC\b", "FC", out)
+    out = re.sub(r",\s*won,\s*(\d+)\s+to\s+(\d+)\.", r" landed, finishing \1 to \2.", out)
+    out = re.sub(r",\s*lost,\s*(\d+)\s+to\s+(\d+)\.", r" missed, finishing \1 to \2.", out)
+    out = re.sub(r",\s*at\s+(\d+\.\d+)\.", r" at \1.", out)
+    out = out.replace("Kick-off, ", "Kick-off at ")
+    return out
+
+
 def hold_seconds(index: int, speech: float) -> float:
-    """Slide length = this clip's speech. Intro never shorter than 5s. Never trim speech."""
+    """Slide length = the seconds given (reading time since 2026-10-21). Intro never shorter than INTRO_MIN."""
     speech = max(0.0, float(speech or 0.0))
     if index == 0:
         return max(INTRO_MIN, speech + TAIL)
@@ -101,7 +103,7 @@ def hold_seconds(index: int, speech: float) -> float:
 
 
 def frame_hold(seconds: float) -> float:
-    """Round duration up to a whole video frame so the picture outlasts the voice."""
+    """Round duration up to a whole video frame so the picture outlasts the slide's words."""
     return math.ceil(max(0.0, float(seconds)) * FPS) / FPS
 
 
@@ -665,208 +667,6 @@ def badges_for_pick(pick: dict, fixtures: list | None) -> dict:
     return pick.get("badges") or fixture.get("badges") or {}
 
 
-def spoken_text(text: str) -> str:
-    """Normalise football abbreviations and telegraphic punctuation for natural broadcast speech."""
-    out = str(text or "")
-    out = re.sub(r"\bUtd\b\.?", "United", out)
-    out = re.sub(r"\bSt\.\s*(?=[A-Z])", "Saint ", out)
-    out = re.sub(r"\bTurkiye\b", "Turkey", out)
-    out = out.replace("Süper Lig", "Super Lig")
-    out = re.sub(r"\bDjurgaarden\b", "Djurgarden", out)
-    out = re.sub(r"\bMjaellby\b", "Mjallby", out)
-    out = re.sub(r"\bLillestroem\b", "Lillestrom", out)
-    out = re.sub(r"\bDeportivo A Coruna\b", "Deportivo La Coruna", out)
-    out = re.sub(r"\bPFC CSKA\b", "CSKA", out)
-    out = re.sub(r"\b1\.\s*FC\b", "FC", out)
-    out = re.sub(r",\s*won,\s*(\d+)\s+to\s+(\d+)\.", r" landed, finishing \1 to \2.", out)
-    out = re.sub(r",\s*lost,\s*(\d+)\s+to\s+(\d+)\.", r" missed, finishing \1 to \2.", out)
-    out = re.sub(r",\s*at\s+(\d+\.\d+)\.", r" at \1.", out)
-    out = out.replace("Kick-off, ", "Kick-off at ")
-    return out
-
-
-_SENT_SPLIT = re.compile(r"(?<=[.!?])\s+")
-
-
-class VoiceUnavailable(RuntimeError):
-    """No natural neural voice could be reached. The video is skipped rather than published in a robot voice."""
-
-
-def _edge_voice_candidates() -> list[str]:
-    """The configured voice first, then the fallbacks — always at least one natural neural voice."""
-    env = (os.environ.get("EDGE_TTS_VOICE") or "").strip()
-    names = [env] if env else []
-    names += [v for v in EDGE_TTS_VOICES if v not in names]
-    return names
-
-
-def _remember_voice(name: str) -> None:
-    if not _VOICE_USED or _VOICE_USED[-1] != name:
-        _VOICE_USED.append(name)
-        log.info("narration voice: %s", name)
-
-
-def _edge_sentence(sentence: str, edge_py: str, dest: Path, voice: str | None = None) -> bool:
-    """One sentence through the neural voice into `dest` (an mp3). False on any failure.
-
-    The voice is tried twice and, only if it keeps failing, the next natural voice is tried — so a network hiccup
-    never silently changes the presenter, and a dead voice name never drops the whole video to eSpeak.
-    """
-    rate = os.environ.get("EDGE_TTS_RATE") or EDGE_TTS_RATE
-    pitch = os.environ.get("EDGE_TTS_PITCH") or EDGE_TTS_PITCH
-    names = [voice] if voice else _edge_voice_candidates()
-    for attempt in range(2):
-        for name in names:
-            cmd = [edge_py, "-m", "edge_tts", "--voice", name, f"--rate={rate}", f"--pitch={pitch}",
-                   "--text", sentence, "--write-media", str(dest)]
-            try:
-                r = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, timeout=45)
-            except Exception as exc:  # noqa: BLE001 - a timeout is just a failed attempt
-                log.info("edge_tts %s attempt %d failed: %s", name, attempt + 1, exc)
-                continue
-            if r.returncode == 0 and dest.exists() and dest.stat().st_size > 200:
-                _remember_voice(name)
-                return True
-    return False
-
-
-def _polished_edge(clean: str, wav: Path, edge_py: str) -> bool:
-    """Speak a script sentence by sentence and join it the way a person paces it (see voice_polish). False -> use the plain voice."""
-    try:
-        import voice_polish as vp
-        from concurrent.futures import ThreadPoolExecutor
-
-        if not vp.enabled():
-            return False
-        sents = [s for s in _SENT_SPLIT.split(clean.strip()) if s]
-        if not sents:
-            return False
-        ff = _ffmpeg()
-        tmp = wav.parent / (wav.stem + ".sent")
-        tmp.mkdir(parents=True, exist_ok=True)
-        try:
-            paths = [tmp / f"s{i:02d}.mp3" for i in range(len(sents))]
-            # Once a voice has answered, every sentence in this run uses that exact voice.
-            voice = _VOICE_USED[-1] if _VOICE_USED else None
-            with ThreadPoolExecutor(max_workers=2) as pool:
-                ok = list(pool.map(lambda a: _edge_sentence(a[0], edge_py, a[1], voice), zip(sents, paths)))
-            if not all(ok):
-                return False
-            clips = [vp.read_audio(p, ff) for p in paths]
-            if any(len(c) < 2400 for c in clips):
-                return False
-            kinds = ["colon" if s.rstrip().endswith(":") else "sentence" for s in sents]
-            track = vp.polish_sentences(clips, kinds, ff, seed=_VOICE_SEED)
-            vp.to_wav44(track, wav, ff)
-            return wav.exists()
-        finally:
-            shutil.rmtree(tmp, ignore_errors=True)
-    except Exception as exc:  # noqa: BLE001
-        log.warning("voice polish skipped, using the plain voice: %s", exc)
-        return False
-
-
-def hash_seed(text: str) -> int:
-    import hashlib
-    return int(hashlib.sha1(text.encode("utf-8")).hexdigest()[:10], 16)
-
-
-def synthesize_speech(text: str, wav: Path) -> None:
-    """Use ultra-realistic male neural TTS (Edge-TTS RyanNeural or Piper Alan medium), with male eSpeak-NG fallback.
-
-    The neural voice is spoken sentence by sentence and re-paced like a person (varied pauses, a little tempo and level
-    drift, warmth, room) by `voice_polish`; if that cannot run, the plain single-call voice is used.
-    """
-    wav.parent.mkdir(parents=True, exist_ok=True)
-    clean = spoken_text(text)
-
-    edge_py = os.environ.get("EDGE_TTS_PYTHON")
-    if edge_py and Path(edge_py).is_file() and _polished_edge(clean, wav, edge_py):
-        return
-    if edge_py and Path(edge_py).is_file():
-        rate = os.environ.get("EDGE_TTS_RATE") or EDGE_TTS_RATE
-        pitch = os.environ.get("EDGE_TTS_PITCH") or EDGE_TTS_PITCH
-        mp3 = wav.with_suffix(".edge.mp3")
-        try:
-            for voice in _edge_voice_candidates():
-                cmd = [
-                    edge_py, "-m", "edge_tts",
-                    "--voice", voice,
-                    f"--rate={rate}",
-                    f"--pitch={pitch}",
-                    "--text", clean,
-                    "--write-media", str(mp3),
-                ]
-                try:
-                    r = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, timeout=45)
-                except Exception as exc:  # noqa: BLE001
-                    log.info("edge_tts %s failed: %s", voice, exc)
-                    continue
-                if r.returncode == 0 and mp3.exists() and mp3.stat().st_size > 200:
-                    ff = _ffmpeg()
-                    _run([ff, "-y", "-i", str(mp3), "-ac", "1", "-ar", "44100", str(wav)], "edge_tts decode")
-                    _remember_voice(voice)
-                    if wav.exists():
-                        return
-        except Exception as exc:  # noqa: BLE001
-            log.warning("Edge-TTS neural voice fallback to Piper: %s", exc)
-        finally:
-            mp3.unlink(missing_ok=True)
-
-    model = os.environ.get("PIPER_MODEL_PATH")
-    config = os.environ.get("PIPER_CONFIG_PATH")
-    if model or config:
-        if not model or not config or not Path(model).is_file() or not Path(config).is_file():
-            raise RuntimeError("Piper voice is configured but its model or config file is missing")
-        python = os.environ.get("PIPER_PYTHON") or sys.executable
-        cmd = [python, "-m", "piper", "-m", model, "-c", config, "-f", str(wav), "--", clean]
-        r = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
-        if r.returncode != 0 or not wav.exists():
-            raise RuntimeError(f"Piper TTS failed: {r.stdout[-400:]}")
-        return
-
-    # eSpeak is the robot voice. It is never used by accident: a run without a natural neural voice skips the video
-    # and says so, instead of publishing something that sounds synthetic. Opt in only for a deliberate test.
-    allow_robot = os.environ.get("PLAYREPORT_ALLOW_ESPEAK", "").strip().lower() in ("1", "true", "yes", "on")
-    if not allow_robot:
-        raise VoiceUnavailable(
-            "No natural neural voice is available (edge-tts not reachable and no Piper voice configured). "
-            "The video was skipped rather than published in a robotic voice. "
-            "Run scripts/setup_voice.sh, or set PLAYREPORT_ALLOW_ESPEAK=1 to allow eSpeak."
-        )
-    exe = shutil.which("espeak-ng") or shutil.which("espeak")
-    if not exe:
-        raise VoiceUnavailable("Piper is not configured and espeak-ng is not installed")
-    cmd = [exe, "-v", ESPEAK_VOICE, "-s", str(ESPEAK_SPEED), "-p", str(ESPEAK_PITCH), "-a", "150", "-w", str(wav), clean]
-    r = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
-    if r.returncode != 0 or not wav.exists():
-        raise VoiceUnavailable(f"espeak failed: {r.stdout[-400:]}")
-    _remember_voice("espeak")
-
-
-ROOM_TONE_DB = -41.0     # level trim of the brown-noise bed (comes out near -62 dBFS, far below any speech)
-
-
-def pad_audio(src: Path, dest: Path, duration: float, ff: str) -> None:
-    """Force a clip to `duration` seconds without ever trimming speech.
-
-    The hold after the speech is filled with a very quiet room tone rather than perfect digital silence: dead air is one
-    of the things that makes a synthetic narration sound synthetic. Falls back to plain silence if ffmpeg lacks the filters.
-    """
-    graph = (f"[0:a]apad=whole_dur={duration:.3f}[v];[1:a]lowpass=f=3200,highpass=f=50,volume={ROOM_TONE_DB}dB[n];"
-             f"[v][n]amix=inputs=2:duration=first:normalize=0:dropout_transition=0[o]")
-    try:
-        _run([ff, "-y", "-i", str(src), "-f", "lavfi", "-i", "anoisesrc=color=brown:amplitude=0.5:sample_rate=44100",
-              "-filter_complex", graph, "-map", "[o]", "-t", f"{duration:.3f}", "-ac", "1", "-ar", "44100", str(dest)], "pad+tone")
-        return
-    except Exception as exc:  # noqa: BLE001
-        log.info("room tone unavailable, padding with silence: %s", exc)
-    _run([
-        ff, "-y", "-i", str(src), "-af", f"apad=whole_dur={duration:.3f}",
-        "-t", f"{duration:.3f}", str(dest),
-    ], "pad")
-
-
 def still_clip(img: Path, dest: Path, duration: float, ff: str, *, aspect: str | None = None,
                size: tuple[int, int] | None = None) -> None:
     cw, ch = _resolve_size(aspect, size)
@@ -1242,13 +1042,13 @@ def overs_only(picks: list) -> list:
 
 
 def build(picks: list, outfile: Path, *, assets: Path, work: Path | None = None,
-          voice_clips: list[Path] | None = None, fixtures: list | None = None,
-          yesterday_results: dict | list | None = None, aspect: str = "16:9", recap: bool = True) -> Path:
+          fixtures: list | None = None, yesterday_results: dict | list | None = None,
+          aspect: str = "16:9", recap: bool = True) -> Path:
     """Build a 16:9 widescreen (1920x1080) or 9:16 vertical reel (1080x1920) video.
 
     Order: intro, disclaimer, yesterday's full card (first video of the day only), today's matches one at a time with
-    the reason for each. Each pick is said once. Slide length = that clip's duration + TAIL (intro at least
-    INTRO_MIN). No music, no accumulator slide.
+    the reason for each. Each pick appears once. Slide length = its words' reading time + TAIL (intro at least
+    INTRO_MIN), muxed over one looped music bed. No voice, no accumulator slide.
     """
     from PIL import Image  # noqa: F401  — imported for a clear error if missing
 
@@ -1272,8 +1072,6 @@ def build(picks: list, outfile: Path, *, assets: Path, work: Path | None = None,
         work.mkdir(parents=True, exist_ok=True)
         slides_dir = work / "slides"
         slides_dir.mkdir(exist_ok=True)
-        audio_dir = work / "audio"
-        audio_dir.mkdir(exist_ok=True)
         crests = work / "crests"
         crests.mkdir(exist_ok=True)
 
@@ -1311,40 +1109,20 @@ def build(picks: list, outfile: Path, *, assets: Path, work: Path | None = None,
         images.append(slides_dir / "closer.jpg")
         texts.append(CLOSER_SCRIPT)
 
-        if voice_clips is not None and len(voice_clips) != len(images):
-            raise ValueError(f"voice_clips ({len(voice_clips)}) must match slides ({len(images)})")
-
-        durations = []
-        wavs = []
-        raw_wavs = []
-        for i, (img, text) in enumerate(zip(images, texts)):
-            raw = audio_dir / f"raw{i:02d}.wav"
-            if voice_clips is not None:
-                _run([ff, "-y", "-i", str(voice_clips[i]), "-ac", "1", "-ar", "44100", str(raw)], f"decode {i}")
-            else:
-                synthesize_speech(text, raw)
-            raw_wavs.append(raw)
-            d = _probe(raw, ff)
-            hold = frame_hold(hold_seconds(i, d))
-            padded = audio_dir / f"a{i:02d}.wav"
-            pad_audio(raw, padded, hold, ff)
-            wavs.append(padded)
-            durations.append(hold)
+        durations = [frame_hold(hold_seconds(i, music.reading_seconds(text)))
+                     for i, text in enumerate(texts)]
 
         total = sum(durations)
         max_allowed = MAX_TOTAL + (180.0 if recap_rows else 0.0)
         if total > max_allowed and len(picks) > 6:
             log.info("reel %.1fs > %.0fs — dropping the last three picks", total, max_allowed)
             return build(
-                picks[:-3], outfile, assets=assets, work=work, voice_clips=None,
+                picks[:-3], outfile, assets=assets, work=work,
                 fixtures=fixtures, yesterday_results=yesterday_results, aspect=aspect, recap=recap,
             )
 
-        # Persist metadata of the final slides & raw audio so build_both can reuse the exact same voice clips
-        (work / "build_meta.json").write_text(
-            json.dumps({"picks_count": len(picks), "raw_wavs": [str(p) for p in raw_wavs]}),
-            encoding="utf-8",
-        )
+        # build_both reads this to give the 9:16 cut the same picks the 16:9 cut kept.
+        (work / "build_meta.json").write_text(json.dumps({"picks_count": len(picks)}), encoding="utf-8")
 
         clips = []
         for i, (img, dur) in enumerate(zip(images, durations)):
@@ -1357,50 +1135,44 @@ def build(picks: list, outfile: Path, *, assets: Path, work: Path | None = None,
         silent = work / "silent.mp4"
         _run([ff, "-y", "-f", "concat", "-safe", "0", "-i", str(lst_v), "-c", "copy", str(silent)], "concat v")
 
-        lst_a = work / "a.txt"
-        lst_a.write_text("".join(f"file '{w}'\n" for w in wavs))
-        voice = work / "voice.wav"
-        _run([ff, "-y", "-f", "concat", "-safe", "0", "-i", str(lst_a), "-c", "copy", str(voice)], "concat a")
+        # One track for the whole video: the user's file, looped to the picture's length, faded and normalised.
+        bed = music.bed(total, work / "bed.m4a", ff, assets=assets)
 
         outfile = Path(outfile)
         outfile.parent.mkdir(parents=True, exist_ok=True)
-        _run([
-            ff, "-y", "-i", str(silent), "-i", str(voice),
-            "-map", "0:v", "-map", "1:a",
-            "-c:v", "copy", "-c:a", "aac", "-b:a", "192k", str(outfile),
-        ], "mux")
-        log.info("reel built %s [%s] (%.1fs, %d KB) voice=%s seed=%s", outfile.name, aspect, total,
-                 outfile.stat().st_size // 1024, voice_identity().get("voice") or "?", voice_identity().get("seed"))
+        music.mux(silent, bed, outfile, ff, bitrate="192k")
+        log.info("reel built %s [%s] (%.1fs, %d KB) music=%s", outfile.name, aspect, total,
+                 outfile.stat().st_size // 1024, music.MUSIC_FILE)
         return outfile
     finally:
         _ACTIVE_SIZE = prev_size
 
 
 def build_both(picks: list, out_16x9: Path, out_9x16: Path, *, assets: Path, work: Path | None = None,
-               voice_clips: list[Path] | None = None, fixtures: list | None = None,
-               yesterday_results: dict | list | None = None, recap: bool = True) -> tuple[Path, Path]:
-    """Build both 16:9 widescreen (1920x1080) and 9:16 vertical reel (1080x1920) videos using the EXACT same voice audio."""
+               fixtures: list | None = None, yesterday_results: dict | list | None = None,
+               recap: bool = True) -> tuple[Path, Path]:
+    """Build both 16:9 widescreen (1920x1080) and 9:16 vertical reel (1080x1920) with the same slides and music.
+
+    The 9:16 cut uses the picks the 16:9 cut actually kept (the length cap can drop the last three), and its
+    slides are timed from the same words, so both cuts tell the same story in the same order.
+    """
     base_work = Path(work) if work else Path(tempfile.mkdtemp(prefix="pr-dual-"))
     w16 = base_work / "w16x9"
     w9 = base_work / "w9x16"
     p16 = build(
-        picks, out_16x9, assets=assets, work=w16, voice_clips=voice_clips,
+        picks, out_16x9, assets=assets, work=w16,
         fixtures=fixtures, yesterday_results=yesterday_results, aspect="16:9", recap=recap,
     )
-    shared_vc = voice_clips
     used_picks = reel_picks(picks)
     meta_file = w16 / "build_meta.json"
     if meta_file.exists():
         try:
             meta = json.loads(meta_file.read_text(encoding="utf-8"))
             used_picks = used_picks[: int(meta.get("picks_count", len(used_picks)))]
-            raw_list = [Path(p) for p in (meta.get("raw_wavs") or [])]
-            if raw_list and all(p.exists() for p in raw_list):
-                shared_vc = raw_list
         except (OSError, ValueError):
             pass
     p9 = build(
-        used_picks, out_9x16, assets=assets, work=w9, voice_clips=shared_vc,
+        used_picks, out_9x16, assets=assets, work=w9,
         fixtures=fixtures, yesterday_results=yesterday_results, aspect="9:16", recap=recap,
     )
     return p16, p9

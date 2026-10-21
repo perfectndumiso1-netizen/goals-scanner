@@ -1,4 +1,4 @@
-"""PlayReport daily match breakdown: YouTube 16:9 + TikTok 9:16 from ONE shared voice track.
+"""PlayReport daily match breakdown: YouTube 16:9 + TikTok 9:16 from ONE music bed (no narration).
 
 Per match the viewer gets three beats, and the pick is only revealed at the very end of each match:
   A  recent form + home/away venue split
@@ -8,11 +8,13 @@ Per match the viewer gets three beats, and the pick is only revealed at the very
 Rules baked in (user + standing rules):
   - Never advertises how it was made: no "AI", no "TV style", no studio/broadcast wording anywhere.
   - Never reveals picks in the opening. They appear only at the end of each match, then in the recap.
-  - 5-7 matches when the data is strong enough, always under 8 minutes (<= 475 s), natural voice pace.
+  - 5-7 matches when the data is strong enough, always under 8 minutes (<= 475 s), read at a natural pace.
+  - Silent apart from the user's one track (music.bed): the voice was removed on 2026-10-21. Slide lengths come
+    from each slide's own words, so the length and format match the old narrated cut.
   - Real photography: free-licence stadium photos (Wikimedia Commons) with the photographer credited.
   - Never invents data: unknown is N/A; predicted line-ups are never called official; no model
     probabilities are ever shown or spoken; Sportybet odds are display-only.
-  - 18+ disclaimer is read aloud in every video; copyright notice and a soft like/share/subscribe close.
+  - 18+ disclaimer is on screen in every video; copyright notice and a soft like/share/subscribe close.
 """
 from __future__ import annotations
 
@@ -26,6 +28,7 @@ from datetime import datetime
 from pathlib import Path
 
 import breakdown_script as bs
+import music
 import shortlist_reel as reel
 import spoken as sp
 import venue_photos as vphotos
@@ -34,8 +37,7 @@ log = logging.getLogger("scanner")
 
 MIN_MATCHES, DEFAULT_MATCHES, MAX_MATCHES = 5, 6, 7
 MAX_SECONDS = 475.0            # hard ceiling, strictly under 8 minutes
-MAX_TEMPO = 1.05               # never speed the voice up more than this (keeps it natural)
-CHARS_PER_SEC = 14.0           # measured house-voice pace is ~14.7 chars/s; budget slightly under it
+CHARS_PER_SEC = 14.0           # measured house pace is ~14.7 chars/s; budgets are set slightly under it
 INTRO_CHARS, CLOSER_CHARS = 560, 430
 
 GREEN, RED, WHITE, MUTED, GOLD = reel.GREEN, reel.RED, reel.WHITE, reel.MUTED, reel.GOLD
@@ -308,7 +310,7 @@ def select_featured_matches(dossiers: list[dict], shortlist_primary: list[dict] 
 # ============================================================================ script pack
 
 def part_budgets(n_matches: int, cps: float = CHARS_PER_SEC) -> tuple[int, int, int]:
-    """Character budgets for narration parts A, B, V so the whole video stays under MAX_SECONDS."""
+    """Character budgets for parts A, B, V so the whole video stays under MAX_SECONDS."""
     slides = 2 + 3 * max(1, n_matches)
     speech_s = MAX_SECONDS - slides * reel.TAIL - 4.0
     per_match = (speech_s * cps - INTRO_CHARS - CLOSER_CHARS) / max(1, n_matches)
@@ -369,11 +371,12 @@ def _cards_from_headlines(dos: dict) -> list[dict]:
 
 
 def auto_pack(matches: list[dict], *, day: str | None = None, cps: float = CHARS_PER_SEC, extras: dict | None = None) -> dict:
-    """Narration + on-screen text for every slide, written from the data alone.
+    """On-screen text for every slide, written from the data alone.
 
     `extras` (optional, keyed "Home|Away") carries sourced material found by hand: structured team-news `cards`
     ({team, out[], doubt[], susp[], back[], source}), `table` ({home: "8th · 10 pts", away, source}), `facts`
-    ([{text, source, spoken}]), `reasons`, `stadium`, `photos`. Everything is still spoken in the same natural voice.
+    ([{text, source, spoken}]), `reasons`, `stadium`, `photos`. The text is the only thing the viewer reads, so every line is written to stand
+    on its own.
     """
     n = len(matches)
     ba, bb, bv = part_budgets(n, cps)
@@ -1046,135 +1049,6 @@ def render_closer(matches, pack_matches, logo: Path, bg: Path, dest: Path, *, cr
 
 # ============================================================================ audio
 
-def _silences(src: Path, ff: str) -> list[tuple[float, float]]:
-    p = subprocess.run([ff, "-i", str(src), "-af", "silencedetect=noise=-34dB:d=0.12", "-f", "null", "-"],
-                       capture_output=True, text=True)
-    starts = [float(x) for x in re.findall(r"silence_start:\s*(-?[0-9.]+)", p.stderr or "")]
-    ends = [float(x) for x in re.findall(r"silence_end:\s*([0-9.]+)", p.stderr or "")]
-    return [(s, e) for s, e in zip(starts, ends)]
-
-
-def _tok(text: str) -> list[str]:
-    return [t for t in re.sub(r"[^a-z0-9' ]+", " ", str(text or "").lower().replace("-", " ")).split() if t]
-
-
-def asr_words(src: Path, ff: str) -> list[tuple[str, float, float]] | None:
-    """Word-level timestamps via faster-whisper (tiny.en) when installed; None if unavailable.
-
-    Only used to place slide changes inside ONE pre-recorded narration clip (e.g. when the voice API
-    limits how many separate clips can be made). The daily CI build synthesises one clip per slide and
-    never needs this.
-    """
-    try:
-        import numpy as np
-        from faster_whisper import WhisperModel
-    except Exception:  # noqa: BLE001
-        return None
-    try:
-        raw = subprocess.run([ff, "-v", "quiet", "-i", str(src), "-ac", "1", "-ar", "16000", "-f", "f32le", "-"],
-                             capture_output=True).stdout
-        audio = np.frombuffer(raw, dtype=np.float32)
-        model = WhisperModel("tiny.en", device="cpu", compute_type="int8")
-        segs, _ = model.transcribe(audio, word_timestamps=True, language="en", beam_size=1, vad_filter=False)
-        return [(w.word.strip(), float(w.start), float(w.end)) for sg in segs for w in (sg.words or [])]
-    except Exception as exc:  # noqa: BLE001
-        log.warning("ASR alignment unavailable: %s", exc)
-        return None
-
-
-def align_boundaries(words: list[tuple[str, float, float]], parts: list[str]) -> list[float] | None:
-    """Cut times between consecutive `parts` of a narration, found by aligning the script to the ASR words."""
-    import difflib
-    s_tok: list[str] = []
-    starts: list[int] = []
-    for t in parts:
-        starts.append(len(s_tok))
-        s_tok += _tok(t)
-    a_tok = [x for w in words for x in (_tok(w[0]) or [""])][: len(words)]
-    a_tok = [(_tok(w[0]) or [""])[0] for w in words]
-    sm = difflib.SequenceMatcher(None, s_tok, a_tok, autojunk=False)
-    mp: dict[int, int] = {}
-    for blk in sm.get_matching_blocks():
-        for k in range(blk.size):
-            mp[blk.a + k] = blk.b + k
-    cuts: list[float] = []
-    for b in starts[1:]:
-        ai = None
-        for d in range(0, 4):
-            if b + d in mp:
-                ai = mp[b + d] - d
-                break
-        if ai is None:
-            for d in range(1, 4):
-                if b - d in mp:
-                    ai = mp[b - d] + d
-                    break
-        if ai is None or not (0 < ai < len(words)):
-            return None
-        cuts.append(0.5 * (words[ai - 1][2] + words[ai][1]))
-    if any(b <= a for a, b in zip([0.0] + cuts, cuts)):
-        return None
-    return cuts
-
-
-def split_clip(src: Path, parts: list[str], dests: list[Path], ff: str, *, min_part: float = 2.0) -> list[float]:
-    """Cut one narration clip into len(parts) clips exactly where each part begins."""
-    total = reel._probe(src, ff)
-    cuts = None
-    words = asr_words(src, ff)
-    if words:
-        cuts = align_boundaries(words, parts)
-        if cuts and any(b - a < min_part for a, b in zip([0.0] + cuts, cuts + [total])):
-            cuts = None
-    if cuts is None:   # fallback: expected time by characters, snapped to the nearest pause
-        sil = [(s, e) for s, e in _silences(src, ff) if 0.8 < s < total - 0.3]
-        chars, run, cuts = [len(t) for t in parts], 0, []
-        for c in chars[:-1]:
-            run += c
-            exp = total * run / max(1, sum(chars))
-            cands = [0.5 * (s + e) for s, e in sil] or [exp]
-            cuts.append(min(cands, key=lambda t: abs(t - exp)))
-        log.warning("split %s by pause heuristic (no ASR): cuts %s", Path(src).name, [round(c, 1) for c in cuts])
-    # never cut inside a word: snap each cut to the middle of the nearest real pause (within 1 s)
-    pauses = [0.5 * (a + b) for a, b in _silences(src, ff)]
-    snapped = []
-    for c in cuts:
-        near = [t for t in pauses if abs(t - c) <= 1.0]
-        snapped.append(min(near, key=lambda t: abs(t - c)) if near else c)
-    if all(b - a >= min_part for a, b in zip([0.0] + snapped, snapped + [total])):
-        cuts = snapped
-    edges = [0.0] + cuts + [total]
-    for i, dest in enumerate(dests):
-        reel._run([ff, "-y", "-i", str(src), "-ss", f"{edges[i]:.3f}", "-to", f"{edges[i + 1]:.3f}", "-ac", "1", "-ar", "44100", str(dest)], f"cut {i}")
-    return cuts
-
-
-def _slice_clip(src: Path, texts: list[str], dests: list[Path], ff: str, polish: bool, seed: int) -> bool:
-    """One narration clip -> one 44.1 kHz wav per slide.
-
-    With `polish` the pauses are re-timed from the punctuation that caused them, sentences drift a little in pace and
-    level, and each slide is mastered to one loudness (see voice_polish). If that cannot be done safely the clip is cut
-    at its real pauses instead. Returns True when the polished version was used.
-    """
-    if polish:
-        try:
-            import voice_polish as vp
-            x = vp.read_audio(src, ff)
-            arrays = vp.polish_clip(x, texts, ff, words_fn=lambda: vp.asr_words(src, ff), seed=seed)
-            if arrays and len(arrays) == len(dests):
-                for a, d in zip(arrays, dests):
-                    vp.to_wav44(a, d, ff)
-                return True
-            log.warning("voice polish could not place the slides in %s; cutting at the real pauses instead", Path(src).name)
-        except Exception as exc:  # noqa: BLE001
-            log.warning("voice polish failed for %s (%s); cutting at the real pauses instead", Path(src).name, exc)
-    if len(texts) == 1:
-        reel._run([ff, "-y", "-i", str(src), "-ac", "1", "-ar", "44100", str(dests[0])], f"decode {Path(src).name}")
-    else:
-        split_clip(Path(src), texts, dests, ff)
-    return False
-
-
 # ============================================================================ build
 
 @dataclass
@@ -1182,7 +1056,7 @@ class Prepared:
     matches: list[dict]
     pack: dict
     slides: list[dict]               # {kind: intro|a|b|v|closer, i: match index or None, text}
-    wavs: list[Path]
+    holds: list[float]               # seconds on screen per slide, from that slide's own words
     work: Path
     assets: Path
     crests: list[tuple[Path, Path]] = field(default_factory=list)
@@ -1220,77 +1094,38 @@ def _gather_photos(matches: list[dict], pack: dict, work: Path, supplied: list |
     return out
 
 
-def prepare(matches: list[dict], *, assets: Path, work: Path | None = None, voice_clips: list[Path] | None = None,
+def _holds(slides: list[dict]) -> list[float]:
+    """Seconds on screen for every slide: how long its own words take to read, plus the house tail."""
+    return [reel.frame_hold(reel.hold_seconds(i, music.reading_seconds(s["text"])))
+            for i, s in enumerate(slides)]
+
+
+def prepare(matches: list[dict], *, assets: Path, work: Path | None = None,
             pack: dict | None = None, photos: list | None = None, day: str | None = None,
-            polish: bool | None = None, extras: dict | None = None) -> Prepared:
-    """Do all the slow, shared work once: pack, photos, crests, narration audio (split per slide)."""
+            extras: dict | None = None) -> Prepared:
+    """Do all the slow, shared work once: pack, photos, crests and slide timings (no audio is recorded)."""
     matches = list(matches or [])[:MAX_MATCHES]
     if not matches:
         raise ValueError("no matches to present")
     ff = reel._ffmpeg()
     assets = Path(assets)
     work = Path(work) if work else Path(tempfile.mkdtemp(prefix="pr-breakdown-"))
-    for sub in ("audio", "crests", "venues", "slides"):
+    for sub in ("crests", "venues", "slides"):
         (work / sub).mkdir(parents=True, exist_ok=True)
     logo = assets / "logo.png"
     pack = pack or auto_pack(matches, day=day, extras=extras)
     pack["matches"] = pack["matches"][: len(matches)]
-    if polish is None:
-        import voice_polish as _vp
-        polish = _vp.enabled()
 
-    # narration -> one wav per slide
-    n = len(matches)
-    raw: list[Path] = []
-    seed0 = sp.seed_for(day or "", "voice")
-    if voice_clips is not None and len(voice_clips) == n + 2:
-        r0 = work / "audio" / "raw000.wav"
-        _slice_clip(Path(voice_clips[0]), [pack["intro"]], [r0], ff, polish, seed0)
-        raw.append(r0)
-        for i in range(n):
-            pm = pack["matches"][i]
-            dests = [work / "audio" / f"raw{1 + 3 * i + k:03d}.wav" for k in range(3)]
-            _slice_clip(Path(voice_clips[1 + i]), [pm["a"], pm["b"], pm["v"]], dests, ff, polish, seed0 + 1 + i)
-            raw += dests
-        rl = work / "audio" / f"raw{len(raw):03d}.wav"
-        _slice_clip(Path(voice_clips[-1]), [pack["closer"]], [rl], ff, polish, seed0 + 99)
-        raw.append(rl)
-    elif voice_clips is not None and len(voice_clips) == 3 * n + 2:
-        slide_texts = [sl["text"] for sl in _slides_for(matches, pack)]
-        for i, vc in enumerate(voice_clips):
-            r = work / "audio" / f"raw{i:03d}.wav"
-            _slice_clip(Path(vc), [slide_texts[i]], [r], ff, polish, seed0 + i)
-            raw.append(r)
-    elif voice_clips is None:
-        for i, s in enumerate(_slides_for(matches, pack)):
-            r = work / "audio" / f"raw{i:03d}.wav"
-            reel.synthesize_speech(s["text"], r)
-            raw.append(r)
-    else:
-        raise ValueError(f"voice_clips must hold {n + 2} (per match) or {3 * n + 2} (per slide) files, got {len(voice_clips)}")
-
-    # fit under the cap: drop trailing matches first (never below MIN_MATCHES), then a tiny tempo-up
-    def total_hold(wavs: list[Path]) -> float:
-        return sum(reel.frame_hold(reel.hold_seconds(i, reel._probe(w, ff))) for i, w in enumerate(wavs))
-
-    while total_hold(raw) > MAX_SECONDS and n > MIN_MATCHES and voice_clips is None:
-        n -= 1
-        matches = matches[:n]
-        pack["matches"] = pack["matches"][:n]
-        raw = raw[: 1 + 3 * n] + [raw[-1]]
-    tot = total_hold(raw)
-    if tot > MAX_SECONDS:
-        tempo = min(MAX_TEMPO, tot / (MAX_SECONDS - 3.0))
-        if tempo > MAX_TEMPO - 1e-6 and (tot / MAX_TEMPO) > MAX_SECONDS:
-            raise ValueError(f"narration too long: {tot:.0f}s > {MAX_SECONDS:.0f}s even at x{MAX_TEMPO}")
-        log.info("tempo x%.3f to fit %.0fs", tempo, MAX_SECONDS)
-        for i, r in enumerate(raw):
-            t = r.with_suffix(".paced.wav")
-            reel._run([ff, "-y", "-i", str(r), "-filter:a", f"atempo={tempo:.4f}", "-ac", "1", "-ar", "44100", str(t)], f"pace {i}")
-            t.replace(r)
-
-    slides = _slides_for(matches, pack)
-    assert len(slides) == len(raw), (len(slides), len(raw))
+    # Fit under the cap by dropping trailing matches (never below MIN_MATCHES). Nothing speeds the slides up.
+    while True:
+        slides = _slides_for(matches, pack)
+        holds = _holds(slides)
+        if sum(holds) <= MAX_SECONDS or len(matches) <= MIN_MATCHES:
+            break
+        matches = matches[:-1]
+        pack["matches"] = pack["matches"][: len(matches)]
+    if sum(holds) > MAX_SECONDS:
+        raise ValueError(f"breakdown too long: {sum(holds):.0f}s > {MAX_SECONDS:.0f}s at {len(matches)} matches")
 
     crests = []
     for i, m in enumerate(matches, 1):
@@ -1303,7 +1138,7 @@ def prepare(matches: list[dict], *, assets: Path, work: Path | None = None, voic
         for p in lst[:3]:
             if p.get("credit") and p["credit"] not in credits:
                 credits.append(p["credit"])
-    return Prepared(matches, pack, slides, raw, work, assets, crests, ph, _day_label(day), credits, ff)
+    return Prepared(matches, pack, slides, holds, work, assets, crests, ph, _day_label(day), credits, ff)
 
 
 def _still(img: Path, dest: Path, dur: float, ff: str, aspect: str) -> None:
@@ -1364,45 +1199,41 @@ def render(prep: Prepared, outfile: Path, aspect: str = "16:9") -> Path:
     ff, work = prep.ff, prep.work
     tag = aspect.replace(":", "x")
     images = render_slides(prep, aspect)
-    wavs, holds = [], []
-    for idx, raw in enumerate(prep.wavs):
-        hold = reel.frame_hold(reel.hold_seconds(idx, reel._probe(raw, ff)))
-        padded = work / "audio" / f"pad{tag}{idx:03d}.wav"
-        reel.pad_audio(raw, padded, hold, ff)
-        wavs.append(padded)
-        holds.append(hold)
+    holds = list(prep.holds)
+    if len(images) != len(holds):
+        raise ValueError(f"slides ({len(images)}) and holds ({len(holds)}) disagree")
     clips = []
     for idx, (img, hold) in enumerate(zip(images, holds)):
         c = work / f"v{tag}{idx:03d}.mp4"
         _still(img, c, hold, ff, aspect)
         clips.append(c)
-    lv, la = work / f"v{tag}.txt", work / f"a{tag}.txt"
+    lv = work / f"v{tag}.txt"
     lv.write_text("".join(f"file '{c}'\n" for c in clips))
-    la.write_text("".join(f"file '{w}'\n" for w in wavs))
-    silent, voice = work / f"silent{tag}.mp4", work / f"voice{tag}.wav"
+    silent = work / f"silent{tag}.mp4"
     reel._run([ff, "-y", "-f", "concat", "-safe", "0", "-i", str(lv), "-c", "copy", str(silent)], "concat v")
-    reel._run([ff, "-y", "-f", "concat", "-safe", "0", "-i", str(la), "-c", "copy", str(voice)], "concat a")
+    total = sum(holds)
+    bed = music.bed(total, work / f"bed{tag}.m4a", ff, assets=prep.assets)
     outfile = Path(outfile)
     outfile.parent.mkdir(parents=True, exist_ok=True)
-    reel._run([ff, "-y", "-i", str(silent), "-i", str(voice), "-map", "0:v", "-map", "1:a",
-               "-c:v", "copy", "-c:a", "aac", "-b:a", "160k", "-movflags", "+faststart", str(outfile)], "mux")
-    log.info("match breakdown built %s [%s] %.1fs %d KB", outfile.name, aspect, sum(holds), outfile.stat().st_size // 1024)
+    music.mux(silent, bed, outfile, ff, bitrate="160k")
+    log.info("match breakdown built %s [%s] %.1fs %d KB music=%s", outfile.name, aspect, total,
+             outfile.stat().st_size // 1024, music.MUSIC_FILE)
     return outfile
 
 
 def build_show(matches: list[dict], outfile: Path, *, assets: Path, work: Path | None = None, aspect: str = "16:9",
-               voice_clips: list[Path] | None = None, pack: dict | None = None, photos: list | None = None,
-               day: str | None = None, polish: bool | None = None, extras: dict | None = None) -> Path:
-    return render(prepare(matches, assets=assets, work=work, voice_clips=voice_clips, pack=pack, photos=photos, day=day,
-                          polish=polish, extras=extras), outfile, aspect)
+               pack: dict | None = None, photos: list | None = None,
+               day: str | None = None, extras: dict | None = None) -> Path:
+    return render(prepare(matches, assets=assets, work=work, pack=pack, photos=photos, day=day,
+                          extras=extras), outfile, aspect)
 
 
 def build_show_both(matches: list[dict], out_16x9: Path, out_9x16: Path, *, assets: Path, work: Path | None = None,
-                    voice_clips: list[Path] | None = None, pack: dict | None = None, photos: list | None = None,
-                    day: str | None = None, polish: bool | None = None, extras: dict | None = None) -> tuple[Path, Path, Prepared]:
-    """Both aspect ratios from the SAME narration audio, photos and slides content."""
-    prep = prepare(matches, assets=assets, work=work, voice_clips=voice_clips, pack=pack, photos=photos, day=day,
-                   polish=polish, extras=extras)
+                    pack: dict | None = None, photos: list | None = None,
+                    day: str | None = None, extras: dict | None = None) -> tuple[Path, Path, Prepared]:
+    """Both aspect ratios from the SAME slides, photos and timings (one music bed each)."""
+    prep = prepare(matches, assets=assets, work=work, pack=pack, photos=photos, day=day,
+                   extras=extras)
     return render(prep, out_16x9, "16:9"), render(prep, out_9x16, "9:16"), prep
 
 

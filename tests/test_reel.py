@@ -1,4 +1,4 @@
-"""Reel timing: one voice clip per slide, no music, goals/corners/bookings only."""
+"""Reel timing: silent slides over one music bed, each slide held for its own reading time."""
 from __future__ import annotations
 
 from pathlib import Path
@@ -35,14 +35,14 @@ def test_reel_picks_carry_only_over15_team_goals_corners_and_bookings():
     assert "A" not in [p["home"] for p in skipped] and "I" not in [p["home"] for p in skipped]
 
 
-def test_hold_never_cuts_speech_and_intro_is_five_seconds():
+def test_hold_keeps_the_intro_floor_and_the_tail():
     assert reel.hold_seconds(0, 3.0) == 5.0
     assert reel.hold_seconds(0, 6.2) == 6.2 + reel.TAIL
     assert reel.hold_seconds(1, 9.81) == 9.81 + reel.TAIL
     assert reel.hold_seconds(7, 12.4) == 12.4 + reel.TAIL
 
 
-def test_frame_hold_rounds_up_so_video_is_never_shorter_than_voice():
+def test_frame_hold_rounds_up_so_video_is_never_shorter_than_the_words():
     assert reel.frame_hold(5.0) == 5.0
     # 9.81 + 0.70 = 10.51; 10.51 * 30 = 315.3 frames → 316/30
     h = reel.frame_hold(9.81 + reel.TAIL)
@@ -111,98 +111,41 @@ def test_raw_shortlist_key_resolves_both_club_badges():
     assert reel.badges_for_pick(pick, [fixture]) == fixture["badges"]
 
 
-def test_espeak_fallback_uses_male_voice(monkeypatch, tmp_path):
-    captured = {}
+def test_reading_time_is_words_at_the_old_narration_pace():
+    import music
 
-    monkeypatch.setenv("PLAYREPORT_ALLOW_ESPEAK", "1")
-    monkeypatch.delenv("EDGE_TTS_PYTHON", raising=False)
-    monkeypatch.delenv("PIPER_MODEL_PATH", raising=False)
-    monkeypatch.delenv("PIPER_CONFIG_PATH", raising=False)
-
-    def fake_run(cmd, **_kwargs):
-        captured["cmd"] = cmd
-        with open(cmd[cmd.index("-w") + 1], "wb") as wav:
-            wav.write(b"RIFF test")
-        return type("Result", (), {"returncode": 0, "stdout": ""})()
-
-    monkeypatch.setattr(reel.shutil, "which", lambda _name: "/usr/bin/espeak-ng")
-    monkeypatch.setattr(reel.subprocess, "run", fake_run)
-    reel.synthesize_speech("Good morning.", tmp_path / "voice.wav")
-    cmd = captured["cmd"]
-    assert cmd[cmd.index("-v") + 1] == "en-gb"
-    assert "f3" not in cmd[cmd.index("-v") + 1]
-    assert cmd[cmd.index("-s") + 1] == str(reel.ESPEAK_SPEED)
-    assert cmd[cmd.index("-p") + 1] == str(reel.ESPEAK_PITCH)
-    assert reel.ESPEAK_PITCH <= 50
+    short = music.reading_seconds("Over 1.5 goals.")
+    assert short == pytest.approx(music.MIN_SLIDE)                 # a two-word slide still gets a beat
+    long = music.reading_seconds("word " * int(music.READ_WPS * 10))
+    assert long == pytest.approx(10.0, abs=0.5)                     # ten seconds of words at the house pace
+    assert music.reading_seconds("") == pytest.approx(music.MIN_SLIDE)
+    assert music.reading_seconds("word " * 100000) == pytest.approx(music.MAX_SLIDE)   # recap pages still move on
+    assert music.reading_seconds("one two three four five") < music.reading_seconds("one two three four five " * 4)
 
 
-def test_a_robotic_voice_is_never_published_by_accident(monkeypatch, tmp_path):
-    """No neural voice and no explicit opt-in: the build fails loudly instead of shipping eSpeak."""
-    monkeypatch.delenv("PLAYREPORT_ALLOW_ESPEAK", raising=False)
-    monkeypatch.delenv("EDGE_TTS_PYTHON", raising=False)
-    monkeypatch.delenv("PIPER_MODEL_PATH", raising=False)
-    monkeypatch.delenv("PIPER_CONFIG_PATH", raising=False)
-    monkeypatch.setattr(reel.shutil, "which", lambda _name: "/usr/bin/espeak-ng")
-    with pytest.raises(reel.VoiceUnavailable):
-        reel.synthesize_speech("Good morning.", tmp_path / "voice.wav")
+def test_music_bed_loops_the_track_to_the_exact_video_length(tmp_path):
+    import music
+
+    try:
+        ff = reel._ffmpeg()
+    except Exception:  # noqa: BLE001
+        pytest.skip("ffmpeg not available")
+    src = Path(__file__).resolve().parent.parent / "assets" / "reel" / music.MUSIC_FILE
+    assert src.exists(), "the one music track must be committed in assets/reel"
+    dest = tmp_path / "bed.m4a"
+    music.bed(7.0, dest, ff, music=src)
+    assert dest.exists() and dest.stat().st_size > 1000
+    assert abs(reel._probe(dest, ff) - 7.0) < 0.5                   # looped/cut to the picture, never left long
 
 
-def test_one_voice_and_one_pacing_seed_for_every_slide(monkeypatch, tmp_path):
-    """Every clip in every video of the run uses the same voice and the same pacing seed."""
-    reel.set_voice_seed()
-    seed = reel.voice_identity()["seed"]
-    reel.set_voice_seed(seed)
-    assert reel.voice_identity()["seed"] == seed
+def test_a_missing_music_track_fails_loudly(tmp_path):
+    import music
 
-    seen = []
-
-    def fake_sentence(sentence, edge_py, dest, voice=None):
-        seen.append(voice)
-        import numpy as np
-        import voice_polish as vp
-        vp.write_wav(dest, np.zeros(24000, dtype=np.float32) + 0.01, vp.SR)
-        return True
-
-    monkeypatch.setenv("EDGE_TTS_PYTHON", str(Path(__file__)))
-    monkeypatch.setattr(reel, "_edge_sentence", fake_sentence)
-    monkeypatch.setattr(reel, "_ffmpeg", lambda: "/usr/bin/ffmpeg")
-    assert reel._edge_voice_candidates()[0] == reel.EDGE_TTS_VOICE
-    assert len(set(reel._edge_voice_candidates())) == len(reel._edge_voice_candidates())
-    assert "en-GB-RyanNeural" in reel.EDGE_TTS_VOICES      # the CI voice stays first, never eSpeak
+    with pytest.raises(FileNotFoundError):
+        music.bed(5.0, tmp_path / "bed.m4a", "/usr/bin/ffmpeg", music=tmp_path / "nope.mp3")
 
 
-def test_piper_neural_voice_is_used_when_configured(monkeypatch, tmp_path):
-    from pathlib import Path
-
-    model = tmp_path / "voice.onnx"
-    config = tmp_path / "voice.onnx.json"
-    model.write_bytes(b"model")
-    config.write_text("{}", encoding="utf-8")
-    monkeypatch.delenv("EDGE_TTS_PYTHON", raising=False)
-    monkeypatch.setenv("PIPER_PYTHON", "/tmp/piper-venv/bin/python")
-    monkeypatch.setenv("PIPER_MODEL_PATH", str(model))
-    monkeypatch.setenv("PIPER_CONFIG_PATH", str(config))
-    captured = {}
-
-    def fake_run(cmd, **_kwargs):
-        captured["cmd"] = cmd
-        Path(cmd[cmd.index("-f") + 1]).write_bytes(b"wav")
-        return type("Result", (), {"returncode": 0, "stdout": ""})()
-
-    monkeypatch.setattr(reel.subprocess, "run", fake_run)
-    out = tmp_path / "neural.wav"
-    reel.synthesize_speech("Good morning.", out)
-
-    cmd = captured["cmd"]
-    assert cmd[0] == "/tmp/piper-venv/bin/python"
-    assert cmd[cmd.index("-m", 2) + 1] == str(model)
-    assert cmd[cmd.index("-c") + 1] == str(config)
-    assert cmd[cmd.index("-f") + 1] == str(out)
-    assert cmd[-2:] == ["--", "Good morning."]
-    assert out.exists()
-
-
-def test_short_reel_does_not_add_trailing_silence(monkeypatch, tmp_path):
+def test_short_reel_is_silent_slides_over_one_music_bed(monkeypatch, tmp_path):
     from pathlib import Path
 
     assets = tmp_path / "assets"
@@ -219,25 +162,41 @@ def test_short_reel_does_not_add_trailing_silence(monkeypatch, tmp_path):
     monkeypatch.setattr(reel, "render_disclaimer", touch_render)
     monkeypatch.setattr(reel, "render_pick", touch_render)
     monkeypatch.setattr(reel, "render_closer", touch_render)
-    monkeypatch.setattr(reel, "synthesize_speech", lambda _text, wav: wav.write_bytes(b"audio"))
-    monkeypatch.setattr(reel, "_probe", lambda _path, _ff: 1.0)
-    padded_calls = []
 
-    def pad(src, dest, _duration, _ff):
-        assert src != dest, "FFmpeg must never pad a WAV file in place"
-        dest.parent.mkdir(parents=True, exist_ok=True)
-        dest.write_bytes(b"audio")
-        padded_calls.append((src, dest))
+    seen_texts = []
 
-    monkeypatch.setattr(reel, "pad_audio", pad)
+    def reading(text, **_kw):
+        seen_texts.append(text)
+        return 3.0
+
+    monkeypatch.setattr(reel.music, "reading_seconds", reading)
     video_holds = []
 
-    def touch_still(_img, dest, _duration, _ff):
-        video_holds.append(_duration)
+    def touch_still(_img, dest, duration, _ff):
+        video_holds.append(duration)
         dest.parent.mkdir(parents=True, exist_ok=True)
         dest.write_bytes(b"video")
 
     monkeypatch.setattr(reel, "still_clip", touch_still)
+
+    beds = []
+    muxed = []
+
+    def fake_bed(duration, dest, _ff, **_kw):
+        beds.append(duration)
+        Path(dest).parent.mkdir(parents=True, exist_ok=True)
+        Path(dest).write_bytes(b"audio")
+        return Path(dest)
+
+    def fake_mux(video, audio, out, _ff, **_kw):
+        muxed.append((Path(video).name, Path(audio).name))
+        out = Path(out)
+        out.parent.mkdir(parents=True, exist_ok=True)
+        out.write_bytes(b"video")
+        return out
+
+    monkeypatch.setattr(reel.music, "bed", fake_bed)
+    monkeypatch.setattr(reel.music, "mux", fake_mux)
 
     def fake_run(cmd, _label):
         Path(cmd[-1]).parent.mkdir(parents=True, exist_ok=True)
@@ -255,14 +214,16 @@ def test_short_reel_does_not_add_trailing_silence(monkeypatch, tmp_path):
     )
 
     assert outfile.exists()
-    assert not any(dest.name == "a-final-padded.wav" for _, dest in padded_calls)
-    # intro 5s + disclaimer/pick/closer each 1s speech + 0.70 tail
-    expected = reel.frame_hold(5.0) + 3 * reel.frame_hold(1.0 + reel.TAIL)
-    assert abs(sum(video_holds) - expected) < 0.01
-    assert len(video_holds) == 4
+    assert len(seen_texts) == 4                                     # intro, disclaimer, pick, closer
+    assert not any(hasattr(reel, n) for n in ("synthesize_speech", "pad_audio", "voice_identity"))
+    # intro 5s floor, the other three 3s of words + 0.70 tail
+    expected = [reel.frame_hold(reel.hold_seconds(0, 3.0))] + [reel.frame_hold(3.0 + reel.TAIL)] * 3
+    assert video_holds == expected
+    assert beds == [pytest.approx(sum(expected))]                   # ONE bed for the whole video
+    assert len(muxed) == 1                                          # one mux, picture copied
 
 
-def test_workflows_match_actions_lock_and_scan_keeps_male_ci_voice():
+def test_workflows_match_actions_lock_and_scan_has_no_voice_install():
     import re
     from pathlib import Path
 
@@ -303,9 +264,10 @@ def test_workflows_match_actions_lock_and_scan_keeps_male_ci_voice():
         assert used == locked[rel], f"{rel} uses {sorted(used)} != actions.lock {sorted(locked[rel])}"
 
     scan_text = (wf_dir / "scan.yml").read_text(encoding="utf-8")
-    assert "en_US-amy-medium" not in scan_text
-    assert "en_GB-alan-medium.onnx" in scan_text
-    assert "en-GB-RyanNeural" in scan_text
+    # no voice anywhere in the pipeline: ffmpeg is all the videos need
+    for gone in ("espeak-ng", "edge-tts", "piper", "PIPER_", "EDGE_TTS", "en_GB-alan-medium"):
+        assert gone not in scan_text, gone
+    assert "apt-get install -y -qq ffmpeg" in scan_text
 
 
 def test_widescreen_16x9_dimensions_and_slide_renders(tmp_path):
@@ -370,9 +332,14 @@ def test_yesterday_results_recap_starts_before_todays_selections(monkeypatch, tm
     monkeypatch.setattr(reel, "render_closer", rec_render("closer"))
 
     spoken_scripts = []
-    monkeypatch.setattr(reel, "synthesize_speech", lambda text, wav: (spoken_scripts.append(text), wav.write_bytes(b"audio")))
-    monkeypatch.setattr(reel, "_probe", lambda _path, _ff: 1.0)
-    monkeypatch.setattr(reel, "pad_audio", lambda _src, dest, _dur, _ff: dest.write_bytes(b"audio"))
+
+    def reading(text, **_kw):
+        spoken_scripts.append(text)
+        return 1.0
+
+    monkeypatch.setattr(reel.music, "reading_seconds", reading)
+    monkeypatch.setattr(reel.music, "bed", lambda dur, dest, _ff, **_kw: (Path(dest).write_bytes(b"audio"), Path(dest))[1])
+    monkeypatch.setattr(reel.music, "mux", lambda _v, _a, out, _ff, **_kw: (Path(out).write_bytes(b"video"), Path(out))[1])
     monkeypatch.setattr(reel, "still_clip", lambda _img, dest, _dur, _ff: dest.write_bytes(b"video"))
     monkeypatch.setattr(reel, "_run", lambda cmd, _label: Path(cmd[-1]).write_bytes(b"video"))
     monkeypatch.setattr(reel, "_ffmpeg", lambda: "/usr/bin/ffmpeg")
@@ -505,7 +472,7 @@ def test_spoken_kickoff_and_spoken_text_naturalness():
     assert "Kick-off at 7 PM." in clean
 
 
-def test_dual_resolutions_16x9_and_9x16_share_single_consistent_voice(monkeypatch, tmp_path):
+def test_dual_resolutions_16x9_and_9x16_share_the_same_slides_and_music(monkeypatch, tmp_path):
     from pathlib import Path
     from PIL import Image
 
@@ -538,18 +505,30 @@ def test_dual_resolutions_16x9_and_9x16_share_single_consistent_voice(monkeypatc
         with Image.open(p) as im:
             assert im.size == (1080, 1920)
 
-    # Verify build_both synthesizes speech ONCE and reuses the exact audio for the 9:16 reel
+    # Both cuts keep the same picks and each gets the same one-track bed
     assets = tmp_path / "assets"
     assets.mkdir()
     Image.new("RGBA", (256, 256), (0, 200, 111, 255)).save(assets / "logo.png")
     for name in ("bg_stadium.jpg", "bg_pitch.jpg", "bg_lights.jpg"):
         Image.new("RGB", (640, 360), (7, 17, 29)).save(assets / name)
 
-    synth_calls = []
-    monkeypatch.setattr(reel, "synthesize_speech", lambda text, wav: (synth_calls.append(text), wav.write_bytes(b"RIFFvoice")))
-    monkeypatch.setattr(reel, "_probe", lambda _path, _ff: 1.0)
-    monkeypatch.setattr(reel, "pad_audio", lambda _src, dest, _dur, _ff: dest.write_bytes(b"audio"))
-    monkeypatch.setattr(reel, "still_clip", lambda _img, dest, _dur, _ff: dest.write_bytes(b"video"))
+    beds = []
+    holds = []
+
+    def fake_bed(dur, dest, _ff, **_kw):
+        beds.append(round(dur, 3))
+        Path(dest).parent.mkdir(parents=True, exist_ok=True)
+        Path(dest).write_bytes(b"audio")
+        return Path(dest)
+
+    def fake_still(_img, dest, dur, _ff):
+        holds.append(dur)
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        dest.write_bytes(b"video")
+
+    monkeypatch.setattr(reel.music, "bed", fake_bed)
+    monkeypatch.setattr(reel.music, "mux", lambda _v, _a, out, _ff, **_kw: (Path(out).write_bytes(b"out"), Path(out))[1])
+    monkeypatch.setattr(reel, "still_clip", fake_still)
     monkeypatch.setattr(reel, "_run", lambda cmd, _label: Path(cmd[-1]).write_bytes(b"out"))
     monkeypatch.setattr(reel, "_ffmpeg", lambda: "/usr/bin/ffmpeg")
 
@@ -564,8 +543,10 @@ def test_dual_resolutions_16x9_and_9x16_share_single_consistent_voice(monkeypatc
         fixtures=[],
     )
     assert out16.exists() and out9.exists()
-    # Intro + Disclaimer + 1 Pick + Closer = 4 slides; synthesized ONCE for 16:9 and reused for 9:16
-    assert len(synth_calls) == 4
+    # Intro + Disclaimer + 1 Pick + Closer = 4 slides per cut, same timings, one bed each
+    assert len(holds) == 8
+    assert holds[:4] == holds[4:]
+    assert beds[0] == beds[1] == pytest.approx(sum(holds[:4]))
 
 
 
@@ -573,7 +554,7 @@ def test_dual_resolutions_16x9_and_9x16_share_single_consistent_voice(monkeypatc
 
 
 def _capture_build(monkeypatch, tmp_path, picks, *, yesterday=None, recap=True, name="b.mp4"):
-    """Run build() with fakes and return (slide order, spoken texts, recap rows per slide)."""
+    """Run build() with fakes and return (slide order, slide texts, recap rows per slide)."""
     assets = tmp_path / "assets"
     assets.mkdir(exist_ok=True)
     (assets / "logo.png").write_bytes(b"logo")
@@ -597,9 +578,17 @@ def _capture_build(monkeypatch, tmp_path, picks, *, yesterday=None, recap=True, 
     monkeypatch.setattr(reel, "render_results", rec("results"))
     monkeypatch.setattr(reel, "render_pick", rec("pick"))
     monkeypatch.setattr(reel, "render_closer", rec("closer"))
-    monkeypatch.setattr(reel, "synthesize_speech", lambda text, wav: (texts.append(text), wav.write_bytes(b"audio")))
-    monkeypatch.setattr(reel, "_probe", lambda _path, _ff: 1.0)
-    monkeypatch.setattr(reel, "pad_audio", lambda _src, dest, _dur, _ff: dest.write_bytes(b"audio"))
+    def reading(text, **_kw):
+        texts.append(text)
+        return 1.0
+
+    monkeypatch.setattr(reel.music, "reading_seconds", reading)
+    monkeypatch.setattr(reel.music, "bed",
+                        lambda dur, dest, _ff, **_kw: (Path(dest).parent.mkdir(parents=True, exist_ok=True),
+                                                       Path(dest).write_bytes(b"audio"), Path(dest))[2])
+    monkeypatch.setattr(reel.music, "mux",
+                        lambda _v, _a, out, _ff, **_kw: (Path(out).parent.mkdir(parents=True, exist_ok=True),
+                                                         Path(out).write_bytes(b"video"), Path(out))[2])
     monkeypatch.setattr(reel, "still_clip", lambda _img, dest, _dur, _ff: dest.write_bytes(b"video"))
     monkeypatch.setattr(reel, "_run", lambda cmd, _label: Path(cmd[-1]).write_bytes(b"video"))
     monkeypatch.setattr(reel, "_ffmpeg", lambda: "/usr/bin/ffmpeg")

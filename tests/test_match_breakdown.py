@@ -143,41 +143,68 @@ def test_overrides_fill_odds_and_pick_from_the_live_snapshot():
     assert "to score at least once, at 1.21" in out["matches"][1]["v"]          # untouched match keeps its auto text
 
 
-# ------------------------------------------------------------------ audio alignment
+# ------------------------------------------------------------------ slide timing
 
-def test_align_boundaries_finds_the_start_of_each_part_even_with_misheard_words():
-    parts = ["First up, Spain's league. Depor are eighth.", "Head to head, they met twice. Both scored.", "So, my pick for this one: Depor."]
-    words = [("First", 0, .3), ("up,", .3, .6), ("Spain's", .7, 1.0), ("league.", 1.0, 1.4), ("Dipper", 1.8, 2.0), ("are", 2.0, 2.1),
-             ("8th.", 2.1, 2.6), ("Head", 3.4, 3.6), ("to", 3.6, 3.7), ("head,", 3.7, 4.0), ("they", 4.1, 4.2), ("met", 4.2, 4.4),
-             ("twice.", 4.4, 4.9), ("Both", 5.0, 5.2), ("scored.", 5.2, 5.7), ("So", 6.5, 6.7), ("my", 6.7, 6.8), ("pick", 6.8, 7.0),
-             ("for", 7.0, 7.1), ("this", 7.1, 7.2), ("one", 7.2, 7.4), ("Depor.", 7.5, 8.0)]
-    cuts = mb.align_boundaries(words, parts)
-    assert cuts is not None and len(cuts) == 2
-    assert 2.6 < cuts[0] < 3.4 and 5.7 < cuts[1] < 6.5
-
-
-def _tone_clip(path: Path, ff: str) -> None:
-    # 4.0s tone, 0.6s pause, 4.0s tone, 0.6s pause, 3.0s tone
-    subprocess.run([ff, "-y", "-f", "lavfi", "-i",
-                    "sine=frequency=300:duration=4.0,apad=pad_dur=0.6[a];sine=frequency=320:duration=4.0,apad=pad_dur=0.6[b];sine=frequency=340:duration=3.0[c];"
-                    "[a][b][c]concat=n=3:v=0:a=1", str(path)], capture_output=True)
+def test_slide_timing_comes_from_each_slides_own_words():
+    """No voice: a slide lasts as long as its words take to read, so length matches the narrated cut."""
+    ms = _featured(5)
+    pack = mb.auto_pack(ms, day="2026-10-16")
+    slides = mb._slides_for(ms, pack)
+    holds = mb._holds(slides)
+    assert len(holds) == len(slides) == 2 + 3 * len(ms)
+    for s, h in zip(slides, holds):
+        assert h >= mb.reel.hold_seconds(0, 0) - 1e-6
+        assert h == pytest.approx(mb.reel.frame_hold(h), abs=1e-6)
+    assert holds[0] >= mb.reel.INTRO_MIN                     # logo sting keeps its floor
+    order = sorted(range(len(slides)), key=lambda i: len(slides[i]["text"]))
+    assert holds[order[-1]] >= holds[order[0]]
 
 
-def test_split_clip_without_speech_recognition_falls_back_to_the_real_pauses(tmp_path, monkeypatch):
+def test_prepare_records_holds_and_no_audio(monkeypatch, tmp_path):
+    """prepare() must not record anything: no wavs, just per-slide seconds."""
+    ms = _featured(3)
+    monkeypatch.setattr(mb.reel, "fetch_badge", lambda *a, **k: tmp_path / "none.png")
+    monkeypatch.setattr(mb, "_gather_photos", lambda *a, **k: [[], [], []])
+    (tmp_path / "none.png").write_bytes(b"x")
+    prep = mb.prepare(ms, assets=tmp_path, work=tmp_path / "w", day="2026-10-16")
+    assert not hasattr(prep, "wavs")
+    assert len(prep.holds) == len(prep.slides)
+    assert sum(prep.holds) <= mb.MAX_SECONDS
+    assert prep.holds == mb._holds(prep.slides)
+
+
+def test_render_muxes_one_music_bed_over_the_silent_slides(tmp_path, monkeypatch):
+    """The finished breakdown is picture + one track: no wavs, no voice, picture copied."""
     try:
-        ff = reel._ffmpeg()
+        ff = mb.reel._ffmpeg()
     except Exception:  # noqa: BLE001
         pytest.skip("ffmpeg not available")
-    src = tmp_path / "clip.wav"
-    _tone_clip(src, ff)
-    if not src.exists() or src.stat().st_size < 1000:
-        pytest.skip("ffmpeg lavfi unavailable")
-    monkeypatch.setattr(mb, "asr_words", lambda *_a, **_k: None)
-    parts = ["x" * 400, "y" * 400, "z" * 300]
-    dests = [tmp_path / f"p{i}.wav" for i in range(3)]
-    cuts = mb.split_clip(src, parts, dests, ff)
-    assert len(cuts) == 2 and 3.8 < cuts[0] < 4.9 and 8.4 < cuts[1] < 9.4
-    assert all(d.exists() for d in dests)
+    from PIL import Image
+
+    assets = tmp_path / "assets"
+    assets.mkdir()
+    slide_a, slide_b = tmp_path / "a.jpg", tmp_path / "b.jpg"
+    Image.new("RGB", (640, 360), (7, 17, 29)).save(slide_a)
+    Image.new("RGB", (640, 360), (8, 22, 38)).save(slide_b)
+    monkeypatch.setattr(mb.reel, "_ACTIVE_SIZE", (640, 360))
+    prep = mb.Prepared(
+        matches=[], pack={"matches": []},
+        slides=[{"kind": "intro", "i": None, "text": "Short intro."},
+                {"kind": "closer", "i": None, "text": "That is the list, take them as singles."}],
+        holds=[3.0, 3.0], work=tmp_path / "w", assets=assets, ff=ff,
+    )
+    for sub in ("slides", "crests", "venues"):
+        (prep.work / sub).mkdir(parents=True, exist_ok=True)
+    monkeypatch.setattr(mb, "render_slides", lambda *_a, **_k: [slide_a, slide_b])
+    monkeypatch.setattr(mb.music, "music_path", lambda _assets: tmp_path / "track.mp3")
+    import shutil
+    shutil.copy(Path(__file__).resolve().parent.parent / "assets" / "reel" / "under_the_stadium_lights.mp3",
+                tmp_path / "track.mp3")
+
+    out = tmp_path / "breakdown.mp4"
+    mb.render(prep, out, "16:9")
+    assert out.exists() and out.stat().st_size > 1000
+    assert abs(mb.reel._probe(out, ff) - 6.0) < 0.6
 
 
 # ------------------------------------------------------------------ slides
