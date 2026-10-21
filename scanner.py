@@ -94,6 +94,11 @@ try:
 except Exception:  # noqa: BLE001 - requests missing / import problem: the scan keeps publishing to Telegram
     yt_mod = None
 
+try:
+    import drive_handoff as drive_mod
+except Exception:  # noqa: BLE001 - the Drive lane is optional: a broken import must not stop the scan
+    drive_mod = None
+
 # ----------------------------------------------------------------------------- paths
 ROOT = Path(__file__).resolve().parent
 # machine-written state (ledgers, archives, app data, reports) lives in STATE_DIR — on GitHub that is the `data`
@@ -2730,10 +2735,12 @@ def maybe_send_daily_reel(sl_pub: dict, now: datetime) -> None:
             reel_mod.build_both(
                 prim_enriched, out_16x9, out_9x16, assets=assets, work=work, fixtures=fixtures,
                 yesterday_results=yres, recap=recap_needed,
+                fx_dir=APP_FILE.parent / "fx", leagues_dir=APP_FILE.parent / "leagues",
             )
         else:
             reel_mod.build(prim_enriched, out_16x9, assets=assets, work=work, fixtures=fixtures,
-                           yesterday_results=yres, recap=recap_needed)
+                           yesterday_results=yres, recap=recap_needed,
+                           fx_dir=APP_FILE.parent / "fx", leagues_dir=APP_FILE.parent / "leagues")
     except Exception as exc:  # noqa: BLE001 - a build failure must never take the scan down
         log.warning("Daily reel skipped: %s", exc)
         return
@@ -2751,6 +2758,15 @@ def maybe_send_daily_reel(sl_pub: dict, now: datetime) -> None:
                 log.info("YouTube: shortlist live as %s (%s)", posted.get("id"), posted.get("privacy"))
         except Exception as exc:  # noqa: BLE001 - YouTube must never take the scan or the Telegram send down
             log.warning("YouTube upload skipped: %s", exc)
+    # Third delivery lane: the Drive handoff. The finished 16:9 video is copied into the "PlayReport → YouTube"
+    # folder, where a free Zapier Zap picks it up and publishes it. Off unless DRIVE_HANDOFF=1 plus the service
+    # account and folder secrets, so a repository without them behaves exactly as before. Runs before Telegram,
+    # which deletes the local file on success.
+    if drive_mod is not None:
+        try:
+            drive_mod.handoff(out_16x9, notify=send_telegram)
+        except Exception as exc:  # noqa: BLE001 - Drive must never take the scan or the Telegram send down
+            log.warning("Drive handoff skipped: %s", exc)
     ok_16x9 = send_telegram_video(
         out_16x9,
         f"🎬 PlayReport 16:9 widescreen shortlist — {now:%a %d %b}. {recap_caption}Today: {len(prim_enriched)} selection(s). "
