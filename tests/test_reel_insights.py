@@ -190,3 +190,54 @@ def test_the_reel_ranks_the_strongest_allowed_market_per_match():
     # within a percentage point the old preference wins, so a video is not twelve corners lines
     tie_corners = {**strong, "p": 0.705}
     assert reel.reel_picks([weak, tie_corners])[0]["sel"] == "HO05"
+
+
+# ------------------------------------------------------------------ featuring the strongest market
+
+def test_a_stronger_market_in_the_detail_becomes_the_featured_pick():
+    pick = {k: v for k, v in PICK.items()}                     # the board chose HO05 at 79%
+    detail = json.loads(json.dumps(DETAIL))
+    detail["sels"].append(["AO05", 0.88, 0.88, 0.85, 1.18, 0, 4.0, 0.02])   # but the away side is stronger
+    up = ri.featured_pick(pick, detail)
+    assert up["sel"] == "AO05" and up["p"] == 0.88 and up["odds"] == 1.18
+    assert up["label"] == "Orlando Pirates to score" and up["market"] == "team"
+    assert up["upgraded_from"] == "HO05"
+    assert pick["sel"] == "HO05"                                 # the caller's dict is never modified
+    rows = ri.chart_rows(detail, up)
+    assert rows[0]["sel"] == "AO05" and rows[0]["picked"] is True
+    assert rows[0]["p"] == max(r["p"] for r in rows)             # the featured market IS the tallest bar
+
+
+def test_the_pick_is_kept_when_it_is_already_the_strongest():
+    # in this fixture Over 1.5 at 86% IS the strongest market the video may show, so it becomes the featured pick
+    assert ri.featured_pick(PICK, DETAIL)["sel"] == "O15"
+    # …and when nothing beats the board's pick, the pick stands unchanged
+    flat = {"sels": [["HO05", 0.79, 0.79, 0.74, 1.31, 0, 5.0, 0.03], ["AO05", 0.71, 0.71, 0.69, 1.42, 0, 2.0, 0.01]]}
+    assert ri.featured_pick(PICK, flat) == PICK
+    # a market below the 65% bar or without a usable price never takes over
+    thin = {"sels": [["HO05", 0.79, 0.79, 0.74, 1.31, 0, 5.0, 0.03], ["AO05", 0.90, 0.90, 0.8, 1.10, 0, 6.0, 0.03],
+                     ["CO85", 0.60, 0.60, 0.6, 1.6, 0, 1.0, 0.01]]}
+    assert ri.featured_pick(PICK, thin)["sel"] == "HO05"
+    assert ri.featured_pick(PICK, None)["sel"] == "HO05"         # no detail: nothing to upgrade from
+
+
+def test_a_team_goals_pick_quotes_that_clubs_shutout_rate_not_a_goals_line():
+    detail = json.loads(json.dumps(DETAIL))
+    detail["teams"]["home"]["fts"] = 0.21
+    detail["teams"]["away"]["fts"] = 0.35
+    home_pick = {**PICK, "sel": "HO05", "market": "team"}
+    away_pick = {**PICK, "sel": "AO05", "market": "team"}
+    assert "Mixco" not in " ".join(ri.reasons(home_pick, detail, None))   # names come from the pick, not the detail
+    assert any("Kaizer Chiefs have failed to score in only 21%" in b for b in ri.reasons(home_pick, detail, None))
+    assert any("Orlando Pirates have failed to score in 35%" in b for b in ri.reasons(away_pick, detail, None))
+    # a total-goals pick keeps the goals-line sentence
+    assert any("Over 1.5 has landed" in b for b in ri.reasons({**PICK, "sel": "O15", "market": "goals"}, detail, None))
+
+
+def test_the_plain_language_ladder_matches_the_percentages():
+    assert ri.chance_phrase(0.95) == "better than nine in ten"
+    assert ri.chance_phrase(0.86) == "around nine in ten"
+    assert ri.chance_phrase(0.74) == "about three in four"
+    assert ri.chance_phrase(0.66) == "about two in three"
+    assert ri.chance_phrase(0.55) == "better than half"
+    assert ri.chance_phrase(None) == "unknown"
