@@ -37,9 +37,10 @@ Android app and Telegram — no servers, no API keys, and it runs while your pho
 * **Season backfill** — up to two earlier seasons of every covered competition are archived from Livescore once,
   so head-to-head, form and league pages are complete outside football-data's leagues.
 * **Delivery** — full report (Markdown + PDF) at 07:00 / 12:00 / 17:00 SAST on Telegram; three shortlist videos a
-  day (05:00–07:19, 11:00–12:19, 16:00–17:19 SAST) in 16:9 and 9:16, no background music, each slide holding until
-  that line's voice-over ends — the first video of the day opens with every result from every video of the day
-  before, then today's matches one at a time with the reason for each, then one "if you combine them" slide; files
+  day (05:00–07:19, 11:00–12:19, 16:00–17:19 SAST) in 16:9 and 9:16, no voice, one music bed
+  (`assets/reel/under_the_stadium_lights.mp3`), each slide holding for as long as its own words take to read — the
+  first video of the day opens with every result from every video of the day before, then today's matches one at a
+  time with the reason for each; files
   are deleted after a successful send; app data on the `data` branch (`data/app/latest.json`, per-match files,
   60-day history); a weekly performance digest on Mondays.
 
@@ -136,31 +137,35 @@ button in the app, no acca or combine slide in the videos, no acca block in `ver
 BTTS, Over 2.5 and 1X2 picks are out, and the in-app briefing player uses the same filter. Tests:
 `tests/test_strong_markets.py`.
 
-### Videos: a natural voice, a full recap first, and no repeated read-out (2026-10-20)
-Four user-commissioned fixes to the shortlist and breakdown videos. **Voice.** The narration is the Edge neural
-voice (`en-GB-RyanNeural` first, then `en-GB-ThomasNeural`, `en-US-AndrewNeural`), spoken sentence by sentence and
-re-paced by `voice_polish` (varied pauses, tempo and level drift, room tone, one loudness). One pacing seed is set
-once per run (`reel.set_voice_seed(day)`) and used by every clip, every slide and both aspect ratios, so nothing
-jumps performer mid-video, and the voice actually used is logged (`Narration voice used: …`) and returned by
-`reel.voice_identity()`. **eSpeak is gone**: without a neural voice the builder now raises `VoiceUnavailable` and the
-video is skipped with a log line instead of publishing a robot voice (`PLAYREPORT_ALLOW_ESPEAK=1` opts in for a
-deliberate test); `scripts/setup_voice.sh` installs edge-tts + the Piper fallback locally and prints the env to
-export. **Recap.** The first video of the day (morning, or a manual `FORCE_DAILY_REEL`) recaps *every* selection
-from *all* of yesterday's videos — the history is already merged per day across morning, noon and evening — paged
-`RECAP_ROWS` (9) at a time, headed `YESTERDAY'S CARD · EVERY VIDEO · PART n OF m`. It is read as the record plus the
-standout win and the one that got away, never match by match (that is what the slide is for); later pages get one
-line each. The noon and evening videos carry no recap (`recap=False`). **No repetition.** Each match is introduced
-once — competition, match, kick-off, selection, price, then its reasons (`reel.pick_reason_script`: the model's
-chance, its projected goals, recent form, the base rate, never a percentage or a table) — and the accumulators now
-are gone (2026-10-21): the video ends on the closer, with no combine or acca slide at all. The list keeps the
-board's own order — one selection per match, 65 %+, and only Over 1.5 / team goals / corners / bookings. Levers: `REEL_MIN_P` (0.65), `MAX_PICKS` (12),
-`RECAP_ROWS`, `MAX_RECAP`, `EDGE_TTS_VOICE`, `EDGE_TTS_RATE`, `EDGE_TTS_PITCH`, `PLAYREPORT_POLISH=0`.
+### Videos: no voice at all — one music bed, a full recap first, and no repeated read-out (2026-10-21)
+The user retired the AI narration: **every video now carries one track and nothing else.**
+`assets/reel/under_the_stadium_lights.mp3` is the permanent soundtrack — not a library, not a rotation. `music.bed()`
+loops it to the video's exact length, fades in 1.5 s, fades out 2.5 s, normalises to −18 LUFS and hands it to
+`music.mux()`; the picture is copied, never re-encoded. Both the shortlist reel (`shortlist_reel.build` /
+`build_both`) and the match breakdown (`match_breakdown.render`) use it, so 16:9 and 9:16 are silent apart from the
+same track. A missing track raises instead of publishing a mute video, and the workflow no longer installs espeak-ng,
+edge-tts or Piper. **Slide timing.** With nothing spoken, a slide lasts as long as its own words take to read:
+`music.reading_seconds(text)` counts words at the old narration pace (2.6 words/s, `REEL_READ_WPS` to tune), clamped
+to 2.6–40 s per slide, then `reel.hold_seconds` / `frame_hold` keep the old shape (intro ≥ `INTRO_MIN`, `TAIL` after
+every slide, whole frames). Video length and format are therefore the length and format of the narrated cut. The
+breakdown no longer speeds anything up (`MAX_TEMPO` is gone): when the script would run past `MAX_SECONDS` it drops
+trailing matches down to `MIN_MATCHES`. **Recap.** The first video of the day (morning, or a manual `FORCE_DAILY_REEL`)
+covers *every* selection from *all* of yesterday's videos — the history is merged per day across morning, noon and
+evening — paged `RECAP_ROWS` (9) at a time, headed `YESTERDAY'S CARD · EVERY VIDEO · PART n OF m`. It is the record
+plus the standout win and the one that got away, never match by match; later pages get one line each. The noon and
+evening videos carry no recap (`recap=False`). **No repetition.** Each match appears once — competition, match,
+kick-off, selection, price, then its reasons (`reel.pick_reason_script`: the model's chance, its projected goals,
+recent form, the base rate, never a percentage or a table) — and the video ends on the closer, with no combine or
+acca slide at all. The list keeps the board's own order — one selection per match, 65 %+, and only Over 1.5 / team
+goals / corners / bookings. Levers: `REEL_MIN_P` (0.65), `MAX_PICKS` (12), `RECAP_ROWS`, `MAX_RECAP`,
+`REEL_READ_WPS`. Retired with the voice: `voice_polish.py`, `scripts/setup_voice.sh`, the `EDGE_TTS_*` / `PIPER_*` /
+`ESPEAK_*` env vars and the workflow's "Prepare neural narration voice" step.
 
 ### Briefing videos go to Telegram, then the file is deleted (2026-10-13)
-Shortlist briefing videos are sent with `send_telegram_video` (same `TELEGRAM_BOT_TOKEN` / `TELEGRAM_CHAT_ID` as the text picks). After a successful send the local file is unlinked. They are never committed, never published on the `data` branch, and never uploaded to Drive. Pass `PLAYREPORT_BRIEFING_VIDEO` on a report run to send one. The voice is minted by the workflow itself (edge-tts + Piper, `Prepare neural narration voice`).
+Shortlist briefing videos are sent with `send_telegram_video` (same `TELEGRAM_BOT_TOKEN` / `TELEGRAM_CHAT_ID` as the text picks). After a successful send the local file is unlinked. They are never committed, never published on the `data` branch, and never uploaded to Drive. Pass `PLAYREPORT_BRIEFING_VIDEO` on a report run to send one. The sound is the committed music track, looped to the picture (`music.bed`); nothing is synthesised in the workflow any more.
 
 ### Sportybet names no longer mix matches + shortlist briefing (2026-10-13)
-`attach_prices` looked up Sportybet events by `zip(todays.index, rows)`. The depth gate drops thin fixtures from `rows` but not from `todays`, so every later event slid onto the wrong match — `home_long` then painted the bookmaker name (Kaizer Chiefs on Bristol City) across the app. Lookup is now by fixture identity; `event_fits` refuses a name that is not the same club; matching is exclusive; carried cache events are dropped when they do not fit. The client ignores `home_long` / Sportybet deep-links that fail the same check, so an already-published file stops lying on update. Shortlist tab: **Tonight's briefing** — a video-style player with a male voiceover and a download (WebM when the WebView can record, otherwise a self-contained HTML briefing).
+`attach_prices` looked up Sportybet events by `zip(todays.index, rows)`. The depth gate drops thin fixtures from `rows` but not from `todays`, so every later event slid onto the wrong match — `home_long` then painted the bookmaker name (Kaizer Chiefs on Bristol City) across the app. Lookup is now by fixture identity; `event_fits` refuses a name that is not the same club; matching is exclusive; carried cache events are dropped when they do not fit. The client ignores `home_long` / Sportybet deep-links that fail the same check, so an already-published file stops lying on update. Shortlist tab: **Tonight's briefing** — a silent video-style player (same slide timing, no phone TTS) and a download (WebM when the WebView can record, otherwise a self-contained HTML briefing).
 
 ### Wrong-match fix, new sounds, corner & booking prices, focused trends (2026-10-13)
 Four user-commissioned changes. **Wrong-match bug**: the client now verifies identity at every layer — a detail file must carry the tapped fixture's id AND its team names before it is rendered (`loadDetail`, `matchPage`), day-archive fallbacks are pinned by country (same-name pairs in two countries can never cross), and the on-phone cache moved to a fresh namespace (`pr_d:`) with a one-time sweep of the legacy `pr_c:*` entries, so data poisoned by pre-1.6.57 builds is gone on update. `tools/app_click_identity.mjs` boots the real app in jsdom against the live publication, taps every surface and asserts the right match opens — including poisoned-cache scenarios. **Notification sounds**: the whole `res/raw/pr_*.wav` family was re-synthesised (numpy additive synthesis, soft attack, exponential decay) to match each channel's meaning, and the channel ids were bumped to `_v4` (Android freezes a channel's sound at creation; old channels are deleted). **Corners & bookings prices**: `LIST_MARKETS` now includes Sportybet's total-corners (166) and bookings (139) markets — probed: the list endpoint carries both, so every priced fixture gets the ladders with no extra requests; `selections()` prices total corner/card lines from the list feed (per-event full list still wins) and adds team corner/card selections (`CH/CA/KH/KA` + O/U + line); `_sb_from_sels` rebuilds them across fetch outages; labels updated server- and client-side. **Trends**: non-Trends surfaces (match Overview) show only the 3 strongest trends by the strength score `s`; the Trends tabs keep everything.

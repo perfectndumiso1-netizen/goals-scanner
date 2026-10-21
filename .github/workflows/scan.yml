@@ -66,10 +66,10 @@ jobs:
 
       - name: Install dependencies
         # wheels only + retries: a PyPI hiccup once made pip fall back to building pandas from source and the run failed
-        # ffmpeg + espeak-ng: daily 16:9 video (slides locked to each VO clip; no music; male en-gb voice).
+        # ffmpeg only: the videos are silent slides over the committed music track (no voice since 2026-10-21).
         run: |
           sudo apt-get update -qq
-          sudo apt-get install -y -qq ffmpeg espeak-ng
+          sudo apt-get install -y -qq ffmpeg
           for i in 1 2 3; do
             pip install --require-hashes --only-binary=:all: --retries 10 --timeout 60 -r requirements.txt && break
             echo "pip attempt $i failed, retrying"; sleep 20
@@ -91,28 +91,6 @@ jobs:
           with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as fh:
               fh.write(f"can_send_reel={'true' if ((morning or force) and configured) else 'false'}\n")
           PY
-
-      - name: Prepare neural narration voice
-        if: steps.reel_window.outputs.can_send_reel == 'true'
-        run: |
-          set -e
-          python -m venv "$RUNNER_TEMP/piper-venv"
-          "$RUNNER_TEMP/piper-venv/bin/pip" install --only-binary=:all: --retries 10 --timeout 60 -q edge-tts piper-tts==1.8.0
-          mkdir -p "$RUNNER_TEMP/piper-voices"
-          MODEL="$RUNNER_TEMP/piper-voices/en_GB-alan-medium.onnx"
-          CONFIG="$RUNNER_TEMP/piper-voices/en_GB-alan-medium.onnx.json"
-          if [ ! -f "$MODEL" ] || [ ! -f "$CONFIG" ]; then
-            curl -fsSL -o "$MODEL" https://huggingface.co/rhasspy/piper-voices/resolve/v1.0.0/en/en_GB/alan/medium/en_GB-alan-medium.onnx
-            curl -fsSL -o "$CONFIG" https://huggingface.co/rhasspy/piper-voices/resolve/v1.0.0/en/en_GB/alan/medium/en_GB-alan-medium.onnx.json
-          fi
-          printf '%s  %s\n' \
-            "0a309668932205e762801f1efc2736cd4b0120329622adf62be09e56339d3330" "$MODEL" \
-            "c0f0d124e5895c00e7c03b35dcc8287f319a6998a365b182deb5c8e752ee8c1e" "$CONFIG" | sha256sum -c -
-          echo "EDGE_TTS_PYTHON=$RUNNER_TEMP/piper-venv/bin/python" >> "$GITHUB_ENV"
-          echo "EDGE_TTS_VOICE=en-GB-RyanNeural" >> "$GITHUB_ENV"
-          echo "PIPER_PYTHON=$RUNNER_TEMP/piper-venv/bin/python" >> "$GITHUB_ENV"
-          echo "PIPER_MODEL_PATH=$MODEL" >> "$GITHUB_ENV"
-          echo "PIPER_CONFIG_PATH=$CONFIG" >> "$GITHUB_ENV"
 
       - name: Restore state (data branch)
         run: |
