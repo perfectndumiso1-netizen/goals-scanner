@@ -89,6 +89,11 @@ try:
 except Exception:  # noqa: BLE001 - pillow / ffmpeg missing: scan still publishes
     breakdown_mod = None
 
+try:
+    import youtube_post as yt_mod
+except Exception:  # noqa: BLE001 - requests missing / import problem: the scan keeps publishing to Telegram
+    yt_mod = None
+
 # ----------------------------------------------------------------------------- paths
 ROOT = Path(__file__).resolve().parent
 # machine-written state (ledgers, archives, app data, reports) lives in STATE_DIR — on GitHub that is the `data`
@@ -2736,6 +2741,16 @@ def maybe_send_daily_reel(sl_pub: dict, now: datetime) -> None:
     hits_recap = sum(1 for r in settled_recap if r.get("result") == "hit")
     recap_caption = (f"Yesterday (all videos): {hits_recap}/{len(settled_recap)} won · "
                      if settled_recap and recap_needed else "")
+    # Second delivery lane: YouTube. Off unless YT_UPLOAD=1 plus the three channel secrets, so a repository without
+    # them behaves exactly as before. Uploaded before Telegram, which deletes the local file on success.
+    if yt_mod is not None:
+        try:
+            posted = yt_mod.publish_shortlist(out_16x9, day=today, picks=prim_enriched, slot=slot,
+                                              recap=recap_caption.strip(" ·"))
+            if posted:
+                log.info("YouTube: shortlist live as %s (%s)", posted.get("id"), posted.get("privacy"))
+        except Exception as exc:  # noqa: BLE001 - YouTube must never take the scan or the Telegram send down
+            log.warning("YouTube upload skipped: %s", exc)
     ok_16x9 = send_telegram_video(
         out_16x9,
         f"🎬 PlayReport 16:9 widescreen shortlist — {now:%a %d %b}. {recap_caption}Today: {len(prim_enriched)} selection(s). "
@@ -2809,6 +2824,14 @@ def maybe_send_daily_breakdown(sl_pub: dict, now: datetime) -> None:
     except Exception as exc:  # noqa: BLE001 - a build failure must never take the scan down
         log.warning("Match breakdown video skipped: %s", exc)
         return
+    if yt_mod is not None:
+        try:
+            posted = yt_mod.publish_breakdown(out16, day=today, matches=prep.matches,
+                                              credits=breakdown_mod.credits_text(prep) or "")
+            if posted:
+                log.info("YouTube: breakdown live as %s (%s)", posted.get("id"), posted.get("privacy"))
+        except Exception as exc:  # noqa: BLE001 - YouTube must never take the scan or the Telegram send down
+            log.warning("YouTube breakdown upload skipped: %s", exc)
     tail = (f"{now:%a %d %b} · {len(prep.matches)} matches. Recent form, home and away splits, head to head, "
             f"team news and my pick for each. 18+.")
     ok16 = send_telegram_video(out16, f"🎬 PlayReport match breakdowns (16:9) — {tail}", width=1920, height=1080)

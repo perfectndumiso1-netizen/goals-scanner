@@ -54,6 +54,15 @@ jobs:
       TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}   # optional
       TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}       # optional
       FORCE_DAILY_REEL: ${{ github.event.inputs.send_reel || 'false' }}
+      # YouTube auto-poster (youtube_post.py). Inert unless the three channel secrets exist: an empty secret makes
+      # the module report "not configured" and the scan behaves exactly as before. YT_UPLOAD=1 is the master switch.
+      YT_UPLOAD: "1"
+      YT_SLOTS: "morning"                       # only the first video of the day; widen to morning,noon,evening
+      YT_UPLOAD_BREAKDOWN: "1"                  # the daily match breakdown also goes up
+      YT_PRIVACY: "public"                      # set to unlisted while trialling, private until the audit clears
+      YT_CLIENT_ID: ${{ secrets.YT_CLIENT_ID }}
+      YT_CLIENT_SECRET: ${{ secrets.YT_CLIENT_SECRET }}
+      YT_REFRESH_TOKEN: ${{ secrets.YT_REFRESH_TOKEN }}
     steps:
       - name: Check out code
         uses: actions/checkout@v4.4.0

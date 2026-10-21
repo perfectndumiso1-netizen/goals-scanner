@@ -161,6 +161,57 @@ goals / corners / bookings. Levers: `REEL_MIN_P` (0.65), `MAX_PICKS` (12), `RECA
 `REEL_READ_WPS`. Retired with the voice: `voice_polish.py`, `scripts/setup_voice.sh`, the `EDGE_TTS_*` / `PIPER_*` /
 `ESPEAK_*` env vars and the workflow's "Prepare neural narration voice" step.
 
+### YouTube auto-poster: probe first, then two videos a day (2026-10-21)
+`youtube_post.py` is the second delivery lane, next to Telegram. It uses the YouTube Data API over plain `requests`
+(no extra pip dependency) and is **inert until it is configured**: without `YT_CLIENT_ID`, `YT_CLIENT_SECRET` and
+`YT_REFRESH_TOKEN` it reports "not configured" and the scan behaves exactly as before.
+
+**What goes up.** By default the morning shortlist in 16:9 (`YT_SLOTS=morning`) and the daily match breakdown
+(`YT_UPLOAD_BREAKDOWN=1`) — two uploads a day, not six, because daily near-identical uploads are what YouTube's
+inauthentic-content policy targets. The 9:16 reel stays Telegram/TikTok: it runs past three minutes and is not a
+Short. Widen with `YT_SLOTS=morning,noon,evening`. `YT_UPLOAD=1` is the master switch, `YT_PRIVACY` the default
+visibility (public / unlisted / private). Metadata is written next to each mp4 as `<video>.mp4.json`
+(`youtube_post.write_meta`) so the text can be inspected without re-rendering: no bookmaker names, no links, always
+the 18+ "statistical information, not betting advice" line, sports category, not made for kids.
+
+**Setting the three secrets.** Google Cloud → new project → enable **YouTube Data API v3** → OAuth consent screen
+(external, add your own account as a test user) → Credentials → **OAuth client ID → Desktop app**. Then, on your own
+machine:
+
+```bash
+export YT_CLIENT_ID='...apps.googleusercontent.com'
+export YT_CLIENT_SECRET='...'
+python scripts/yt_auth.py          # opens the consent screen, prints YT_REFRESH_TOKEN
+python youtube_post.py info        # channel, subscriber count, granted scopes
+python youtube_post.py probe       # ← the important one
+```
+
+`scripts/yt_auth.py` catches the redirect on `http://127.0.0.1:8765/` and asks for the `youtube` scope (upload, read
+status, update, delete — the probe deletes its own clip), with `access_type=offline` so it gets a refresh token.
+Sign in with the account that owns the channel. `--manual` is for a machine with no browser.
+
+**Why the probe comes before the poster.** A Google Cloud project created after 28 July 2020 that has not passed
+YouTube's compliance audit cannot publish: `videos.insert` succeeds, the video is pinned **private**, and that state
+cannot be appealed or changed by hand — Google's own help page says the video has to be re-uploaded through an
+audited client or the YouTube site. `probe` uploads a three-second black clip as *unlisted*, reads back the privacy
+YouTube actually gave it, then deletes it, and prints one of:
+
+* `OK — uploads can publish` → the project is fine, nothing else to do;
+* `LOCKED — the API project is not audited` → either finish the audit
+  (https://support.google.com/youtube/contact/yt_api_form), or post through the YouTube site by hand, or use a
+  verified third-party uploader (Zapier/Make/Buffer run on their own audited projects).
+
+While an audit is pending, set `YT_PRIVACY=unlisted` or `private` so nothing misleading reaches the channel; nothing
+uploaded can earn or count before it is public, and private uploads never count toward the Partner Program.
+
+**Commission realities, recorded here so nobody is surprised later.** Auto-posting is not penalised — the API is
+just a delivery method — but the channel still needs 1,000 subscribers plus 4,000 public watch hours (or 10M Shorts
+views) and doubles to 8,000 hours on 1 February 2027 for new applicants. Betting content is age-restricted and
+usually earns *limited* ads, and since March 2025 no uncertified gambling service may be linked, shown or mentioned.
+So YouTube is distribution for the app and Telegram; treat ad revenue as a bonus, never the plan. The one music
+track must also be free of Content ID claims: upload one video unlisted and check Studio's Copyright column before
+letting the poster publish.
+
 ### Briefing videos go to Telegram, then the file is deleted (2026-10-13)
 Shortlist briefing videos are sent with `send_telegram_video` (same `TELEGRAM_BOT_TOKEN` / `TELEGRAM_CHAT_ID` as the text picks). After a successful send the local file is unlinked. They are never committed, never published on the `data` branch, and never uploaded to Drive. Pass `PLAYREPORT_BRIEFING_VIDEO` on a report run to send one. The sound is the committed music track, looped to the picture (`music.bed`); nothing is synthesised in the workflow any more.
 
