@@ -6,10 +6,11 @@ normalised by `music.bed`). Slide lengths come from how long each slide's words 
 narration used to speak them, so the length and the format of the videos are unchanged.
 
 The morning video opens with the settled results of *every* video from yesterday (morning, noon and evening),
-then walks today's matches one at a time — the match, the selection, the price and the reason it made the list.
-Videos carry Over 1.5 total goals, team goals, corners and bookings only, and no accumulator is built, shown or
-shown anywhere (user rules 2026-10-21). Each slide lasts as long as its own words take to read (plus TAIL), so the
-next match never appears while the previous one is still being read.
+then walks today's matches one at a time. Without a voice, each match is up to three short slides — THE PICK (the
+selection, its price and a chart of every market the video covers, with the featured one as the tallest bar), WHY
+IT'S HERE (reasons, trends, league standing and venue splits) and THE RECORD (head to head and both teams' last
+five); see `reel_insights` for where every number comes from. Videos carry Over 1.5 total goals, team goals, corners
+and bookings only, and no accumulator is built, shown or mentioned anywhere (user rules 2026-10-21).
 """
 from __future__ import annotations
 
@@ -26,6 +27,7 @@ import urllib.request
 from pathlib import Path
 
 import music
+import reel_insights
 
 log = logging.getLogger("scanner")
 
@@ -576,6 +578,456 @@ def render_pick(pick: dict, i: int, n: int, bg: Path, home_b: Path, away_b: Path
     im.convert("RGB").save(dest, quality=92)
 
 
+# ============================================================================ deeper pick slides
+# Since the voice was retired (2026-10-21) a pick is shown as three short slides instead of one long one: the pick
+# and the market chart it tops, the evidence behind it (reasons, trends, league standing, venue splits) and the
+# record (head to head plus both teams' recent results). The screen changes every few seconds, and every number on
+# it comes from the app's own fixture detail — see reel_insights.
+
+STAGE_FLOOR = {"pick": 5.0, "evidence": 5.6, "record": 6.0}
+
+
+def _ellip(d, s: str, fnt, max_w: int) -> str:
+    """One line, cut with an ellipsis if it will not fit — never a clipped or overflowing row."""
+    s = str(s or "")
+    if _tw(d, s, fnt) <= max_w:
+        return s
+    while s and _tw(d, s + "…", fnt) > max_w:
+        s = s[:-1]
+    return (s.rstrip() + "…") if s else ""
+
+
+def _fit(rows: int, avail: int, lo: int, hi: int) -> int:
+    """Row height that spreads `rows` over `avail` pixels — few rows get bigger, many rows get tighter."""
+    if rows <= 0:
+        return hi
+    return max(lo, min(hi, int(avail / rows)))
+
+
+def _heading(d, x: int, y: int, text: str, *, size: int = 20, colour=GREEN) -> int:
+    d.text((x, y), str(text).upper(), fill=colour, font=_font(size, True))
+    return y + int(size * 1.75)
+
+
+def _stage_header(d, cw: int, ch: int, stage: str, i: int, n: int, comp: str, *, wide: bool) -> int:
+    """Wordmark, the match counter, the competition and the stage name — the same furniture on every slide."""
+    _wordmark(d, 26 if wide else 56, width=cw)
+    kicker = f"MATCH {i} OF {n}  ·  {stage.upper()}"
+    kf = _font(24 if wide else 26, True)
+    d.text(((cw - _tw(d, kicker, kf)) // 2, 92 if wide else 132), kicker, fill=GREEN, font=kf)
+    y = 126 if wide else 176
+    if comp:
+        cf = _font(21 if wide else 24, False)
+        for line in _wrap(d, comp, cf, cw - 160, 1):
+            d.text(((cw - _tw(d, line, cf)) // 2, y), line, fill=MUTED, font=cf)
+        y += 30 if wide else 34
+    return y
+
+
+def _stage_footer(d, cw: int, ch: int, *, wide: bool) -> None:
+    foot = "PlayReport  ·  not betting advice  ·  18+"
+    f = _font(20 if wide else 22, False)
+    d.text(((cw - _tw(d, foot, f)) // 2, ch - (58 if wide else 92)), foot, fill=MUTED, font=f)
+
+
+def _progress_bar(d, cw: int, ch: int, i: int, n: int, *, wide: bool) -> None:
+    x0, x1 = (110, cw - 110) if wide else (76, cw - 76)
+    y = ch - (112 if wide else 148)
+    d.rectangle((x0, y, x1, y + 12), fill=(20, 48, 74))
+    d.rectangle((x0, y, x0 + int(i / max(n, 1) * (x1 - x0)), y + 12), fill=GREEN)
+
+
+def _chart(d, rows: list[dict], box: tuple[int, int, int, int], *, wide: bool) -> None:
+    """Horizontal probability bars for every market the video covers.
+
+    The scale runs from 50% to 100% rather than from zero: every market in a video is 65%+ by rule, so a zero-based
+    axis would draw six near-identical bars and hide the differences the reader is here to see. The axis is labelled,
+    so the truncation is never hidden. In portrait each bar gets its own label line above it (`stacked`) — a 9:16
+    frame cannot fit a market name beside a bar without cutting the name in half.
+    """
+    x0, y0, x1, y1 = box
+    if not rows:
+        return
+    top_p = max(r.get("p", 0.0) for r in rows)
+    picked_top = bool(rows[0].get("picked"))
+    title = _heading(d, x0, y0, "Model probability by market", size=19 if wide else 22)
+    note = ("the selection tops this match's markets" if picked_top
+            else f"the highest is {rows[0].get('label')} at {100 * top_p:.0f}% — ours is in green")
+    nf = _font(15 if wide else 19, False)
+    if wide:
+        d.text((x1 - _tw(d, note, nf), y0 + 4), note, fill=GREEN if picked_top else MUTED, font=nf)
+    else:
+        d.text((x0, y0 + 34), _ellip(d, note, nf, x1 - x0), fill=GREEN if picked_top else MUTED, font=nf)
+        title += 14
+
+    top = title + (4 if wide else 10)
+    axis_h = 28 if wide else 34
+    avail = max(60, (y1 - axis_h) - top)
+    rowh = _fit(len(rows), avail, 34 if wide else 58, 74 if wide else 104)
+    top += max(0, (avail - rowh * len(rows)) // 2)          # a short chart sits mid-panel, not at its top
+    pct_w = 78
+    label_w = int((x1 - x0) * 0.34)
+    track_x0 = x0 if not wide else x0 + label_w
+    track_x1 = x1 - (pct_w if wide else pct_w + 4)
+    track_w = max(40, track_x1 - track_x0)
+    bar_h = max(16, min(34, int(rowh * (0.46 if wide else 0.3))))
+    fs = int(min(26, max(19, rowh * (0.42 if wide else 0.3))))
+    lf, lfb = _font(fs, False), _font(fs, True)
+    pf = _font(int(min(28, max(20, fs * 1.05))), True)
+
+    def place(p: float) -> int:
+        return track_x0 + int(track_w * max(0.0, min(1.0, (p - 0.5) / 0.5)))
+
+    for idx, row in enumerate(rows):
+        slot_y = top + idx * rowh
+        picked = bool(row.get("picked"))
+        label = row.get("label") or ""
+        pct = f"{100 * row.get('p', 0):.0f}%"
+        if wide:
+            cy = slot_y + rowh // 2
+            d.text((x0, cy - lf.size // 2 - 2), _ellip(d, label, lfb if picked else lf, label_w - 24),
+                   fill=WHITE if picked else MUTED, font=lfb if picked else lf)
+        else:
+            cy = slot_y + int(rowh * 0.62)
+            d.text((x0, slot_y), _ellip(d, label, lfb if picked else lf, x1 - x0 - 120),
+                   fill=WHITE if picked else MUTED, font=lfb if picked else lf)
+        d.rounded_rectangle((track_x0, cy - bar_h // 2, track_x1, cy + bar_h // 2), bar_h // 2,
+                            fill=(16, 46, 38) if picked else (18, 38, 60))
+        w = max(8, place(row.get("p", 0.0)) - track_x0)
+        d.rounded_rectangle((track_x0, cy - bar_h // 2, track_x0 + w, cy + bar_h // 2), bar_h // 2,
+                            fill=GREEN if picked else (66, 96, 132))
+        d.text((track_x1 + 14, cy - pf.size // 2 - 2), pct, fill=WHITE if picked else MUTED, font=pf)
+        if picked:
+            if wide:
+                d.text((track_x1 + 14, cy + pf.size // 2 - 2), "PICK", fill=GREEN, font=_font(13, True))
+            else:
+                d.text((x1 - _tw(d, "PICK", _font(15, True)), slot_y), "PICK", fill=GREEN, font=_font(15, True))
+
+    axis_y = top + len(rows) * rowh + (4 if wide else 10)
+    af = _font(14 if wide else 18, False)
+    for frac, lab in ((0.0, "50%"), (0.5, "75%"), (1.0, "100%")):
+        x = track_x0 + int(track_w * frac)
+        d.line((x, axis_y, x, axis_y + 6), fill=(70, 100, 130), width=2)
+        d.text((x - _tw(d, lab, af) // 2, axis_y + 8), lab, fill=(120, 148, 175), font=af)
+
+
+def _team_form_block(d, pick: dict, x: int, y: int, w: int, *, wide: bool) -> int:
+    """Team names with their last-five pills, side by side."""
+    f = _font(22 if wide else 26, True)
+    half = w // 2
+    for idx, key in enumerate(("form_h", "form_a")):
+        name = _ellip(d, str(pick.get("home") if idx == 0 else pick.get("away") or ""), f, half - 20)
+        cx = x + idx * half + half // 2
+        d.text((cx - _tw(d, name, f) // 2, y), name, fill=WHITE, font=f)
+        form = str(pick.get(key) or "")
+        if form:
+            _draw_form_pills(d, form, cx, y + (34 if wide else 40))
+    return y + (74 if wide else 86)
+
+
+def _venue_lines(pick: dict, detail: dict | None) -> list[str]:
+    teams = (detail or {}).get("teams") or {}
+    home, away = teams.get("home") or {}, teams.get("away") or {}
+    out = []
+    hgf, hga = home.get("venue_gf"), home.get("venue_ga")
+    if hgf is not None and hga is not None:
+        out.append(f"At home: {hgf:.2f} scored · {hga:.2f} conceded")
+    agf, aga = away.get("venue_gf"), away.get("venue_ga")
+    if agf is not None and aga is not None:
+        out.append(f"Away: {agf:.2f} scored · {aga:.2f} conceded")
+    return out
+
+
+def render_pick_overview(pick: dict, i: int, n: int, bg: Path, home_b: Path, away_b: Path, dest: Path,
+                         *, aspect: str | None = None, size: tuple[int, int] | None = None,
+                         chart: list[dict] | None = None) -> None:
+    """Slide 1 of a match: the selection and its price up top, every market's probability filling the frame."""
+    from PIL import ImageDraw
+    cw, ch = _resolve_size(aspect, size)
+    wide = cw >= ch
+    im = _cover(bg, 0.62, size=(cw, ch))
+    d = ImageDraw.Draw(im)
+    _stage_header(d, cw, ch, "the pick", i, n, competition_line(pick), wide=wide)
+
+    # ---- top left: the two clubs, their form and the kick-off
+    bsize = 132 if wide else 150
+    gap = 110 if wide else 140
+    left_x0 = 80 if wide else 60
+    left_w = 700 if wide else cw - 120
+    total = bsize * 2 + gap
+    x0 = left_x0 + (left_w - total) // 2
+    y0 = 196 if wide else 250
+    hb, ab = _circle_badge(home_b, bsize), _circle_badge(away_b, bsize)
+    im.paste(hb, (x0, y0), hb)
+    im.paste(ab, (x0 + bsize + gap, y0), ab)
+    d = ImageDraw.Draw(im)
+    vf = _font(28 if wide else 32, True)
+    d.text((x0 + bsize + (gap - _tw(d, "VS", vf)) // 2, y0 + bsize // 2 - 16), "VS", fill=WHITE, font=vf)
+    _team_form_block(d, pick, left_x0, y0 + bsize + (22 if wide else 30), left_w, wide=wide)
+
+    ko = str(pick.get("kickoff") or "")[11:16]
+    kt = f"KICK-OFF  {ko} SAST" if ko else "TODAY  ·  SAST"
+    kf = _font(25 if wide else 30, True)
+    kw = _tw(d, kt, kf) + (48 if wide else 60)
+    kcx = left_x0 + left_w // 2
+    kby = y0 + bsize + (92 if wide else 120)
+    d.rounded_rectangle((kcx - kw // 2, kby, kcx + kw // 2, kby + (46 if wide else 56)), 16,
+                        fill=(16, 40, 66), outline=GOLD, width=2)
+    d.text((kcx - _tw(d, kt, kf) // 2, kby + (9 if wide else 12)), kt, fill=GOLD, font=kf)
+
+    # ---- top right: the selection card
+    pv, od = pick.get("p"), pick.get("odds")
+    if wide:
+        cx0, cy0, cx1, cy1 = 880, 190, cw - 54, 392
+    else:
+        cx0, cy0, cx1, cy1 = 60, 640, cw - 60, 900
+    d.rounded_rectangle((cx0, cy0, cx1, cy1), 26 if wide else 30, fill=CARD_BG, outline=GREEN, width=3)
+    d.text((cx0 + 32, cy0 + 20), "THE SELECTION", fill=GREEN, font=_font(18 if wide else 20, True))
+    label_f = _font(40 if wide else 42, True)
+    od_txt = f"{od:.2f}" if isinstance(od, (int, float)) else "N/A"
+    label_w = (cx1 - cx0) - 260 if wide else (cx1 - cx0) - 70
+    y = cy0 + (52 if wide else 55)
+    for line in _wrap(d, pick.get("label") or "", label_f, label_w, 2):
+        d.text((cx0 + 32, y), line, fill=WHITE, font=label_f)
+        y += 46 if wide else 50
+    odds_f = _font(84 if wide else 76, True)
+    if wide:
+        d.text((cx1 - 32 - _tw(d, od_txt, odds_f), cy0 + 38), od_txt, fill=GREEN, font=odds_f)
+        d.text((cx1 - 32 - _tw(d, "SPORTYBET PRICE", _font(15, True)), cy0 + 132), "SPORTYBET PRICE",
+               fill=MUTED, font=_font(15, True))
+    else:
+        d.text((cx0 + 32, y + 8), od_txt, fill=GREEN, font=odds_f)
+        d.text((cx0 + 32 + _tw(d, od_txt, odds_f) + 18, y + 60), "SPORTYBET PRICE", fill=MUTED,
+               font=_font(17, True))
+    if isinstance(pv, (int, float)):
+        chip = f"MODEL {100 * pv:.0f}%"
+        cf = _font(19 if wide else 22, True)
+        cwid = _tw(d, chip, cf) + 30
+        bx = (cx1 - 32 - cwid) if wide else (cx0 + 32)
+        by = (cy1 - 52) if wide else (cy1 - 52)
+        d.rounded_rectangle((bx, by, bx + cwid, by + (36 if wide else 42)), 12, fill=(16, 52, 40),
+                            outline=GREEN, width=2)
+        d.text((bx + 15, by + (7 if wide else 9)), chip, fill=GREEN, font=cf)
+
+    # ---- the chart across the whole width: this is the slide's point, so it gets the room
+    chart_box = (80, 506, cw - 54, ch - 150) if wide else (60, 960, cw - 60, ch - 175)
+    _chart(d, chart or [], chart_box, wide=wide)
+    _progress_bar(d, cw, ch, i, n, wide=wide)
+    _stage_footer(d, cw, ch, wide=wide)
+    im.convert("RGB").save(dest, quality=92)
+
+
+def _fill_slots(d, box: tuple[int, int, int, int], heading: str, slots: list, *, wide: bool,
+                pad: int, cap: int = 96, lo: int = 17, hi: int = 32, rule: bool = False) -> None:
+    """Lay a card out under its heading, using the card instead of pooling in the top third.
+
+    `slots` are callables taking (x, y, w, h). Each gets an equal share of the space under the heading, but never
+    more than `cap` — a two-line card is centred rather than dragged apart — and the whole group is centred in the
+    card vertically. Fonts are sized from the slot height so the two cards stay balanced with each other.
+    """
+    _heading(d, box[0] + pad, box[1] + pad, heading, size=19 if wide else 22)
+    top = box[1] + pad + int((19 if wide else 22) * 1.75)
+    avail = max(1, (box[3] - pad) - top)
+    h = max(1, min(cap or avail, avail // max(1, len(slots))))
+    size = max(lo, min(hi, int(h * 0.46)))
+    y = top + max(0, (avail - h * len(slots)) // 2)
+    for idx, fn in enumerate(slots):
+        if rule and idx:
+            d.line((box[0] + pad, y + 1, box[2] - pad, y + 1), fill=(26, 52, 80), width=1)
+        fn(box[0] + pad, y, (box[2] - box[0]) - pad * 2, h, size)
+        y += h
+
+
+def render_pick_evidence(pick: dict, i: int, n: int, bg: Path, dest: Path, *,
+                         aspect: str | None = None, size: tuple[int, int] | None = None,
+                         reasons: list[str] | None = None, trends: list[str] | None = None,
+                         table: dict | None = None, detail: dict | None = None) -> None:
+    """Slide 2 of a match: why it is on the list — reasons, trends, standing and the venue splits."""
+    from PIL import ImageDraw
+    cw, ch = _resolve_size(aspect, size)
+    wide = cw >= ch
+    im = _cover(bg, 0.66, size=(cw, ch))
+    d = ImageDraw.Draw(im)
+    _stage_header(d, cw, ch, "why it's here", i, n, competition_line(pick), wide=wide)
+    reasons, trends = reasons or [], trends or []
+    pad = 26 if wide else 30
+
+    if wide:
+        lx0, ly0, lx1, ly1 = 80, 186, 900, ch - 150
+        rx0, ry0, rx1, ry1 = 930, 186, cw - 54, ch - 150
+    else:
+        lx0, ly0, lx1, ly1 = 50, 235, cw - 50, 905
+        rx0, ry0, rx1, ry1 = 50, 935, cw - 50, ch - 185
+    for box in ((lx0, ly0, lx1, ly1), (rx0, ry0, rx1, ry1)):
+        d.rounded_rectangle(box, 24 if wide else 28, fill=CARD_BG, outline=(30, 62, 96), width=2)
+
+    teams = (table or {}).get("teams") or {}
+    size_n = (table or {}).get("size") or 0
+    venue = _venue_lines(pick, detail)
+
+    # ---- left: each club's standing, its form and its home/away numbers, as four rows per club
+    left_slots = []
+    for idx, key in enumerate(("home", "away")):
+        row = teams.get(key)
+        name = str(pick.get(key if key == "home" else "away") or "")
+        stand = reel_insights.standing_line(row, size_n) if row else "No league table published for this competition"
+        form = str((row or {}).get("form") or pick.get("form_h" if idx == 0 else "form_a") or "")
+        venue_line = venue[idx] if idx < len(venue) else ""
+
+        def name_slot(x, y, w, h, size, name=name):
+            d.text((x, y + int(h * 0.04)), _ellip(d, name, _font(int(size * 1.18), True), w),
+                   fill=WHITE, font=_font(int(size * 1.18), True))
+
+        def stand_slot(x, y, w, h, size, stand=stand):
+            f = _font(size, False)
+            d.text((x, y + int(h * 0.1)), _ellip(d, stand, f, w), fill=MUTED, font=f)
+
+        def form_slot(x, y, w, h, size, form=form):
+            if form:
+                _draw_form_pills(d, form, x + 90, y + int(h * 0.08))
+
+        def venue_slot(x, y, w, h, size, venue_line=venue_line):
+            if not venue_line:
+                return
+            f = _font(size, False)
+            d.text((x, y + int(h * 0.1)), _ellip(d, venue_line, f, w), fill=WHITE, font=f)
+
+        left_slots += [name_slot, stand_slot, form_slot, venue_slot]
+    _fill_slots(d, (lx0, ly0, lx1, ly1), "League standing & venue", left_slots, wide=wide, pad=pad, cap=92)
+
+    # ---- right: the reasons and the trends
+    right_slots = []
+    for bit in reasons[:4]:
+        def reason_slot(x, y, w, h, size, bit=bit):
+            f = _font(int(size * 1.02), False)
+            lines = _wrap(d, bit, f, w - 24, 2)
+            ly = y + max(0, (h - len(lines) * int(f.size * 1.25)) // 2)
+            d.rectangle((x, ly + 4, x + 6, ly + 6 + int(f.size * 1.05)), fill=GREEN)
+            for part in lines:
+                d.text((x + 22, ly), part, fill=WHITE, font=f)
+                ly += int(f.size * 1.25)
+        right_slots.append(reason_slot)
+    for t in trends[:3]:
+        def trend_slot(x, y, w, h, size, t=t):
+            f = _font(int(size * 0.92), False)
+            lines = _wrap(d, f"•  {t}", f, w, 2)
+            ly = y + max(0, (h - len(lines) * int(f.size * 1.25)) // 2)
+            for part in lines:
+                d.text((x, ly), part, fill=MUTED, font=f)
+                ly += int(f.size * 1.25)
+        right_slots.append(trend_slot)
+    heading = "Why this pick" + ("  ·  trends" if trends else "")
+    _fill_slots(d, (rx0, ry0, rx1, ry1), heading, right_slots, wide=wide, pad=pad, cap=100)
+
+    _progress_bar(d, cw, ch, i, n, wide=wide)
+    _stage_footer(d, cw, ch, wide=wide)
+    im.convert("RGB").save(dest, quality=92)
+
+
+def _result_pill(d, x: int, y: int, res: str, size: int) -> None:
+    col = {"W": (34, 197, 94), "D": (100, 116, 139), "L": (239, 68, 68)}.get(res, (100, 116, 139))
+    d.rounded_rectangle((x, y, x + size, y + size), 7, fill=col)
+    f = _font(int(size * 0.62), True)
+    d.text((x + (size - _tw(d, res, f)) // 2, y + int(size * 0.14)), res, fill=NAVY if res == "W" else WHITE, font=f)
+
+
+def render_pick_record(pick: dict, i: int, n: int, bg: Path, dest: Path, *,
+                       aspect: str | None = None, size: tuple[int, int] | None = None,
+                       home_recent: list[dict] | None = None, away_recent: list[dict] | None = None,
+                       h2h: dict | None = None) -> None:
+    """Slide 3 of a match: head to head on the left, both teams' last results on the right."""
+    from PIL import ImageDraw
+    cw, ch = _resolve_size(aspect, size)
+    wide = cw >= ch
+    im = _cover(bg, 0.68, size=(cw, ch))
+    d = ImageDraw.Draw(im)
+    _stage_header(d, cw, ch, "the record", i, n, competition_line(pick), wide=wide)
+    home_recent, away_recent = home_recent or [], away_recent or []
+    pad = 26 if wide else 30
+
+    if wide:
+        lx0, ly0, lx1, ly1 = 80, 186, 900, ch - 150
+        rx0, ry0, rx1, ry1 = 930, 186, cw - 54, ch - 150
+    else:
+        lx0, ly0, lx1, ly1 = 50, 235, cw - 50, 880
+        rx0, ry0, rx1, ry1 = 50, 910, cw - 50, ch - 185
+    for box in ((lx0, ly0, lx1, ly1), (rx0, ry0, rx1, ry1)):
+        d.rounded_rectangle(box, 24 if wide else 28, fill=CARD_BG, outline=(30, 62, 96), width=2)
+
+    h2h_rows = (h2h or {}).get("rows") or []
+    left_slots = []
+    if h2h:
+        def summary_slot(x, y, w, h, size, line=h2h["line"]):
+            f = _font(int(size * 0.9), False)
+            d.text((x, y + int(h * 0.2)), _ellip(d, line, f, w), fill=GREEN, font=f)
+        left_slots.append(summary_slot)
+    for r in h2h_rows[:5]:
+        def h2h_slot(x, y, w, h, size, r=r):
+            pill = max(24, min(40, int(h * 0.52)))
+            f = _font(int(size * 0.86), False)
+            ty = y + (h - f.size) // 2 - 2
+            df = _font(int(size * 0.72), False)
+            d.text((x, ty + 2), r["date"], fill=MUTED, font=df)
+            dx = x + _tw(d, r["date"], df) + 18
+            d.text((dx, ty), _ellip(d, f"{r['home']} v {r['away']}", f, w - (dx - x) - 122),
+                   fill=WHITE, font=f)
+            score = f"{r['hg']}–{r['ag']}"
+            d.text((x + w - 96 - _tw(d, score, f), ty), score, fill=WHITE, font=f)
+            _result_pill(d, x + w - 74, ty - 2, r["res"], pill)
+        left_slots.append(h2h_slot)
+    if not left_slots:
+        left_slots.append(lambda x, y, w, h, size: d.text((x, y), "No meetings on record",
+                                                          fill=MUTED, font=_font(size, False)))
+    _fill_slots(d, (lx0, ly0, lx1, ly1), "Head to head", left_slots, wide=wide, pad=pad, cap=0, hi=30, rule=True)
+
+    # ---- right: two columns, one per club
+    rows = max(len(home_recent), len(away_recent), 1)
+    right_slots = []
+    for idx in range(rows):
+        def recent_slot(x, y, w, h, size, idx=idx):
+            col_w = (w - 30) // 2
+            for side, (name, team_rows) in enumerate(((pick.get("home"), home_recent),
+                                                      (pick.get("away"), away_recent))):
+                bx = x + side * (col_w + 30)
+                nf = _font(int(size * 1.0), True)
+                row_top = y
+                if idx == 0:                     # the club's name sits above its first result
+                    d.text((bx, y), _ellip(d, str(name or ""), nf, col_w), fill=WHITE, font=nf)
+                    row_top = y + int(nf.size * 1.5)
+                r = team_rows[idx] if idx < len(team_rows) else None
+                if not r:
+                    continue
+                pill = max(24, min(38, int(h * 0.5)))
+                f = _font(int(size * 0.86), False)
+                ry = row_top + max(0, (h - int(nf.size * 1.5) - f.size) // 2) if idx == 0 \
+                    else row_top + (h - f.size) // 2 - 2
+                d.text((bx, ry + 2), _ellip(d, r["opp"], f, col_w - 112), fill=MUTED, font=f)
+                sc = f"{r['gf']}–{r['ga']}"
+                d.text((bx + col_w - 92 - _tw(d, sc, f), ry + 2), sc, fill=WHITE, font=f)
+                _result_pill(d, bx + col_w - 70, ry, r["res"], pill)
+        right_slots.append(recent_slot)
+    _fill_slots(d, (rx0, ry0, rx1, ry1), "Recent matches", right_slots, wide=wide, pad=pad, cap=0, hi=30, rule=True)
+
+    _progress_bar(d, cw, ch, i, n, wide=wide)
+    _stage_footer(d, cw, ch, wide=wide)
+    im.convert("RGB").save(dest, quality=92)
+
+
+def stage_seconds(stage: str, *, bars: int = 0, lines: int = 0) -> float:
+    """How long a slide stays up: scaled to how much is on it, floored so nothing flashes past.
+
+    These slides are dense (a six-bar chart, or five meetings plus ten results), so the pace is roughly a line per
+    second — not the old 2.6-words-a-second narration pace. A slide is never shorter than its floor and never longer
+    than 11 s, which is what keeps the screen moving between selections.
+    """
+    floor = STAGE_FLOOR.get(stage, 5.6)
+    if stage == "pick":
+        secs = 4.2 + 0.28 * bars
+    else:
+        secs = 2.4 + 0.5 * max(1, lines)
+    return float(min(11.0, max(floor, secs)))
+
+
 def render_closer(logo: Path, bg: Path, dest: Path, *, aspect: str | None = None, size: tuple[int, int] | None = None) -> None:
     from PIL import Image, ImageDraw
     cw, ch = _resolve_size(aspect, size)
@@ -1010,9 +1462,36 @@ def _match_key(p: dict) -> tuple:
     return (str(p.get("kickoff") or ""), str(p.get("home") or ""), str(p.get("away") or ""))
 
 
+_REEL_RANK = {"O15": 0, "HO05": 1, "AO05": 1, "HO15": 1, "AO15": 1}
+
+
+def _stronger(a: dict, b: dict) -> bool:
+    """True when pick `a` is the better one to feature for the same match.
+
+    Since 2026-10-21 the video draws a chart of every market for the match and the featured market has to be the
+    tallest bar on it, so the strongest model probability wins. Within a percentage point the old preference order
+    decides (Over 1.5 first, then team goals) so a video does not turn into twelve identical markets.
+    """
+    pa, pb = _reel_p(a), _reel_p(b)
+    if pa is None:
+        return False
+    if pb is None:
+        return True
+    if abs(pa - pb) >= 0.01:
+        return pa > pb
+    ra = _REEL_RANK.get(str(a.get("sel") or "").upper(), 9)
+    rb = _REEL_RANK.get(str(b.get("sel") or "").upper(), 9)
+    if ra != rb:
+        return ra < rb
+    return pa > pb
+
+
 def reel_picks(picks: list, *, used: set | None = None) -> list:
-    """At least twelve when the pool allows: one selection per match, 65%+, never a match already shown today."""
-    rank = {"O15": 0, "HO05": 1, "AO05": 1, "HO15": 1, "AO15": 1}
+    """At least twelve when the pool allows: one selection per match, 65%+, never a match already shown today.
+
+    Per match the strongest market the video is allowed to show is featured (`_stronger`), which is what lets THE
+    PICK slide's highlighted bar also be its highest bar.
+    """
     skip = used or set()
     best = {}
     order = []
@@ -1029,9 +1508,8 @@ def reel_picks(picks: list, *, used: set | None = None) -> list:
         if prev is None:
             best[k] = p
             order.append(k)
-        else:
-            if rank.get(str(p.get("sel") or "").upper(), 9) < rank.get(str(prev.get("sel") or "").upper(), 9):
-                best[k] = p
+        elif _stronger(p, prev):
+            best[k] = p
     out = [best[k] for k in order]
     return out[:MAX_PICKS]
 
@@ -1041,14 +1519,46 @@ def overs_only(picks: list) -> list:
     return reel_picks(picks)
 
 
+def _fx_key(pick: dict) -> str:
+    """The fixture id the app uses: date|country|home|away, hashed to the detail filename (`appdata.detail_key`)."""
+    import hashlib
+    date = str(pick.get("kickoff") or "")[:10] or str(pick.get("date") or "")[:10]
+    fid = f"{date}|{pick.get('country') or ''}|{pick.get('home') or ''}|{pick.get('away') or ''}"
+    return hashlib.sha1(fid.encode("utf-8")).hexdigest()[:12]
+
+
+def load_detail(pick: dict, fx_dir: Path | None) -> dict | None:
+    """The app's own fixture detail for this pick, or None when the file is not there.
+
+    Every number on the deeper slides comes from here, so a missing file simply means fewer slides — never a made-up
+    figure. The scanner writes these files in the same run, a few lines before the video is built.
+    """
+    if not fx_dir:
+        return None
+    path = Path(fx_dir) / f"{_fx_key(pick)}.json"
+    try:
+        return json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return None
+
+
+def _data_dir(*parts: str) -> Path | None:
+    root = Path(os.getenv("PLAYREPORT_DATA_DIR") or "data")
+    path = root.joinpath("app", *parts)
+    return path if path.exists() else None
+
+
 def build(picks: list, outfile: Path, *, assets: Path, work: Path | None = None,
           fixtures: list | None = None, yesterday_results: dict | list | None = None,
-          aspect: str = "16:9", recap: bool = True) -> Path:
+          aspect: str = "16:9", recap: bool = True, fx_dir: Path | None = None,
+          leagues_dir: Path | None = None) -> Path:
     """Build a 16:9 widescreen (1920x1080) or 9:16 vertical reel (1080x1920) video.
 
-    Order: intro, disclaimer, yesterday's full card (first video of the day only), today's matches one at a time with
-    the reason for each. Each pick appears once. Slide length = its words' reading time + TAIL (intro at least
-    INTRO_MIN), muxed over one looped music bed. No voice, no accumulator slide.
+    Order: intro, disclaimer, yesterday's full card (first video of the day only), then each match as three short
+    slides — THE PICK (selection, price and the market chart), WHY IT'S HERE (reasons, trends, standing, venue
+    splits) and THE RECORD (head to head and both teams' last five). Each pick appears once. Talking slides are timed
+    from their words' reading time + TAIL (intro at least INTRO_MIN); the new slides are timed by what is on them
+    (`stage_seconds`). No voice, no accumulator slide.
     """
     from PIL import Image  # noqa: F401  — imported for a clear error if missing
 
@@ -1067,6 +1577,9 @@ def build(picks: list, outfile: Path, *, assets: Path, work: Path | None = None,
         logo = assets / "logo.png"
         bgs = [assets / "bg_stadium.jpg", assets / "bg_pitch.jpg", assets / "bg_lights.jpg"]
         fixtures = fixtures or []
+        fx_dir = Path(fx_dir) if fx_dir else _data_dir("fx")
+        leagues_dir = Path(leagues_dir) if leagues_dir else _data_dir("leagues")
+        tables = reel_insights.league_tables(leagues_dir)
 
         work = Path(work) if work else Path(tempfile.mkdtemp(prefix="pr-reel-"))
         work.mkdir(parents=True, exist_ok=True)
@@ -1092,7 +1605,8 @@ def build(picks: list, outfile: Path, *, assets: Path, work: Path | None = None,
                 images.append(res_img)
                 texts.append(results_script(recap_rows, page=pageno, pages=len(pages), rows=page_rows))
 
-        # Every match is introduced once — match, selection, price and the reason it is on the list.
+        # Every match is introduced once, as up to three slides. Nothing is spoken, so each slide carries its own
+        # evidence and stays up only as long as there is something new to read (`stage_seconds`).
         pi = 0
         for p in picks:
             pi += 1
@@ -1100,17 +1614,35 @@ def build(picks: list, outfile: Path, *, assets: Path, work: Path | None = None,
             badges = p.get("badges") or fx.get("badges") or {}
             hb = fetch_badge(badges.get("home"), crests / f"h{pi}.png", logo)
             ab = fetch_badge(badges.get("away"), crests / f"a{pi}.png", logo)
-            p_img = slides_dir / f"p{pi:02d}.jpg"
-            render_pick(p, pi, n, bgs[pi % 3], hb, ab, p_img)
-            images.append(p_img)
-            texts.append(pick_script(p, pi, n))
+            detail = load_detail(p, fx_dir)
+            table = reel_insights.standing(tables, p) if tables else None
+            ev = reel_insights.evidence_lines(detail, p, table)
+            bars = reel_insights.market_rows(detail, p)
+            for stage in reel_insights.slide_plan(p, detail, table):
+                p_img = slides_dir / f"p{pi:02d}-{stage}.jpg"
+                if stage == "pick":
+                    render_pick_overview(p, pi, n, bgs[pi % 3], hb, ab, p_img,
+                                         chart=reel_insights.chart_rows(detail, p))
+                    texts.append(stage_seconds("pick", bars=len(bars)))
+                elif stage == "evidence":
+                    render_pick_evidence(p, pi, n, bgs[(pi + 1) % 3], p_img, reasons=ev["reasons"],
+                                         trends=ev["trends"], table=table, detail=detail)
+                    texts.append(stage_seconds("evidence", lines=len(ev["reasons"]) + len(ev["trends"])))
+                else:
+                    render_pick_record(p, pi, n, bgs[(pi + 2) % 3], p_img, home_recent=ev["home_recent"],
+                                       away_recent=ev["away_recent"], h2h=ev["h2h"])
+                    rows = max(len(ev["home_recent"]), len(ev["away_recent"]))
+                    texts.append(stage_seconds("record", lines=rows + (len(ev["h2h"]["rows"]) if ev["h2h"] else 0)))
+                images.append(p_img)
 
         render_closer(logo, bgs[2], slides_dir / "closer.jpg")
         images.append(slides_dir / "closer.jpg")
         texts.append(CLOSER_SCRIPT)
 
-        durations = [frame_hold(hold_seconds(i, music.reading_seconds(text)))
-                     for i, text in enumerate(texts)]
+        # A float in `texts` is a fixed hold (the chart/evidence slides, which nobody reads aloud); a string is timed
+        # by how long its words take at the old narration pace.
+        durations = [frame_hold(t if isinstance(t, float) else hold_seconds(i, music.reading_seconds(t)))
+                     for i, t in enumerate(texts)]
 
         total = sum(durations)
         max_allowed = MAX_TOTAL + (180.0 if recap_rows else 0.0)
@@ -1119,6 +1651,7 @@ def build(picks: list, outfile: Path, *, assets: Path, work: Path | None = None,
             return build(
                 picks[:-3], outfile, assets=assets, work=work,
                 fixtures=fixtures, yesterday_results=yesterday_results, aspect=aspect, recap=recap,
+                fx_dir=fx_dir, leagues_dir=leagues_dir,
             )
 
         # build_both reads this to give the 9:16 cut the same picks the 16:9 cut kept.
@@ -1150,7 +1683,8 @@ def build(picks: list, outfile: Path, *, assets: Path, work: Path | None = None,
 
 def build_both(picks: list, out_16x9: Path, out_9x16: Path, *, assets: Path, work: Path | None = None,
                fixtures: list | None = None, yesterday_results: dict | list | None = None,
-               recap: bool = True) -> tuple[Path, Path]:
+               recap: bool = True, fx_dir: Path | None = None,
+               leagues_dir: Path | None = None) -> tuple[Path, Path]:
     """Build both 16:9 widescreen (1920x1080) and 9:16 vertical reel (1080x1920) with the same slides and music.
 
     The 9:16 cut uses the picks the 16:9 cut actually kept (the length cap can drop the last three), and its
@@ -1160,7 +1694,7 @@ def build_both(picks: list, out_16x9: Path, out_9x16: Path, *, assets: Path, wor
     w16 = base_work / "w16x9"
     w9 = base_work / "w9x16"
     p16 = build(
-        picks, out_16x9, assets=assets, work=w16,
+        picks, out_16x9, assets=assets, work=w16, fx_dir=fx_dir, leagues_dir=leagues_dir,
         fixtures=fixtures, yesterday_results=yesterday_results, aspect="16:9", recap=recap,
     )
     used_picks = reel_picks(picks)
@@ -1171,15 +1705,17 @@ def build_both(picks: list, out_16x9: Path, out_9x16: Path, *, assets: Path, wor
             used_picks = used_picks[: int(meta.get("picks_count", len(used_picks)))]
         except (OSError, ValueError):
             pass
+    add = {"fx_dir": fx_dir, "leagues_dir": leagues_dir}
     p9 = build(
-        used_picks, out_9x16, assets=assets, work=w9,
-        fixtures=fixtures, yesterday_results=yesterday_results, aspect="9:16", recap=recap,
+        used_picks, out_9x16, assets=assets, work=w9, fixtures=fixtures,
+        yesterday_results=yesterday_results, aspect="9:16", recap=recap, **add,
     )
     return p16, p9
 
 
 def from_shortlist(sl_pub: dict, fixtures: list, outfile: Path, assets: Path, work: Path | None = None,
-                   yesterday_results: dict | list | None = None, *, aspect: str = "16:9", recap: bool = True) -> Path:
+                   yesterday_results: dict | list | None = None, *, aspect: str = "16:9", recap: bool = True,
+                   fx_dir: Path | None = None, leagues_dir: Path | None = None) -> Path:
     sl = sl_pub or {}
     prim = [dict(p) for p in (sl.get("primary") or [])]
     art_by_id = {
@@ -1196,5 +1732,5 @@ def from_shortlist(sl_pub: dict, fixtures: list, outfile: Path, assets: Path, wo
             p["form_a"] = form["a"]
     yres = yesterday_results if yesterday_results is not None else sl.get("yesterday_results")
     return build(prim, outfile, assets=assets, work=work, fixtures=fixtures, yesterday_results=yres,
-                 aspect=aspect, recap=recap)
+                 aspect=aspect, recap=recap, fx_dir=fx_dir, leagues_dir=leagues_dir)
 

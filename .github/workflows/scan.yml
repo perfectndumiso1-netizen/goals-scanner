@@ -63,6 +63,12 @@ jobs:
       YT_CLIENT_ID: ${{ secrets.YT_CLIENT_ID }}
       YT_CLIENT_SECRET: ${{ secrets.YT_CLIENT_SECRET }}
       YT_REFRESH_TOKEN: ${{ secrets.YT_REFRESH_TOKEN }}
+      # Google Drive handoff (drive_handoff.py): the finished 16:9 video is copied into a Drive folder, where a free
+      # Zapier Zap (Drive "New File in Folder" -> YouTube "Upload Video") publishes it. Inert unless both secrets
+      # exist; DRIVE_HANDOFF=1 is the master switch.
+      DRIVE_HANDOFF: "1"
+      GDRIVE_SA_JSON: ${{ secrets.GDRIVE_SA_JSON }}
+      GDRIVE_FOLDER_ID: ${{ secrets.GDRIVE_FOLDER_ID }}
     steps:
       - name: Check out code
         uses: actions/checkout@v4.4.0

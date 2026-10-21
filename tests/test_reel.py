@@ -154,13 +154,15 @@ def test_short_reel_is_silent_slides_over_one_music_bed(monkeypatch, tmp_path):
     for name in ("bg_stadium.jpg", "bg_pitch.jpg", "bg_lights.jpg"):
         (assets / name).write_bytes(b"background")
 
-    def touch_render(*args):
+    def touch_render(*args, **_kwargs):
         args[-1].parent.mkdir(parents=True, exist_ok=True)
         args[-1].write_bytes(b"image")
 
     monkeypatch.setattr(reel, "render_intro", touch_render)
     monkeypatch.setattr(reel, "render_disclaimer", touch_render)
-    monkeypatch.setattr(reel, "render_pick", touch_render)
+    monkeypatch.setattr(reel, "render_pick_overview", touch_render)
+    monkeypatch.setattr(reel, "render_pick_evidence", touch_render)
+    monkeypatch.setattr(reel, "render_pick_record", touch_render)
     monkeypatch.setattr(reel, "render_closer", touch_render)
 
     seen_texts = []
@@ -214,10 +216,13 @@ def test_short_reel_is_silent_slides_over_one_music_bed(monkeypatch, tmp_path):
     )
 
     assert outfile.exists()
-    assert len(seen_texts) == 4                                     # intro, disclaimer, pick, closer
+    # intro, disclaimer and the closer are the only slides that carry words now; the pick slides are silent
+    assert len(seen_texts) == 3
     assert not any(hasattr(reel, n) for n in ("synthesize_speech", "pad_audio", "voice_identity"))
-    # intro 5s floor, the other three 3s of words + 0.70 tail
-    expected = [reel.frame_hold(reel.hold_seconds(0, 3.0))] + [reel.frame_hold(3.0 + reel.TAIL)] * 3
+    # intro 5s floor, disclaimer + closer 3s of words + tail, the pick slide its own fixed hold
+    expected = [reel.frame_hold(reel.hold_seconds(0, 3.0)), reel.frame_hold(3.0 + reel.TAIL),
+                reel.frame_hold(reel.stage_seconds("pick")), reel.frame_hold(reel.stage_seconds("evidence")),
+                reel.frame_hold(3.0 + reel.TAIL)]
     assert video_holds == expected
     assert beds == [pytest.approx(sum(expected))]                   # ONE bed for the whole video
     assert len(muxed) == 1                                          # one mux, picture copied
@@ -328,7 +333,9 @@ def test_yesterday_results_recap_starts_before_todays_selections(monkeypatch, tm
     monkeypatch.setattr(reel, "render_intro", rec_render("intro"))
     monkeypatch.setattr(reel, "render_disclaimer", rec_render("disclaimer"))
     monkeypatch.setattr(reel, "render_results", rec_render("results"))
-    monkeypatch.setattr(reel, "render_pick", rec_render("pick"))
+    monkeypatch.setattr(reel, "render_pick_overview", rec_render("pick"))
+    monkeypatch.setattr(reel, "render_pick_evidence", rec_render("evidence"))
+    monkeypatch.setattr(reel, "render_pick_record", rec_render("record"))
     monkeypatch.setattr(reel, "render_closer", rec_render("closer"))
 
     spoken_scripts = []
@@ -361,13 +368,14 @@ def test_yesterday_results_recap_starts_before_todays_selections(monkeypatch, tm
         yesterday_results=yres,
     )
 
-    assert slide_order == ["intro", "disclaimer", "results", "pick", "closer"]
-    assert len(spoken_scripts) == 5
+    # a pick is three slides when it has evidence and a record; with no fixture detail it still earns
+    # THE PICK and WHY IT'S HERE (the model line), and THE RECORD is skipped because there is nothing to show
+    assert slide_order == ["intro", "disclaimer", "results", "pick", "evidence", "closer"]
+    assert len(spoken_scripts) == 4                                 # only the recap and the furniture say anything
     assert "look back at yesterday" in spoken_scripts[2] and "We went one from two." in spoken_scripts[2]
     assert "Flamengo against Botafogo" in spoken_scripts[2] and "two-one" in spoken_scripts[2]
     assert "Now, today's shortlist." in spoken_scripts[2]
     assert "percent" not in spoken_scripts[2].lower() and "%" not in spoken_scripts[2]
-    assert "Lyon" in spoken_scripts[3] and "Crystal Palace" in spoken_scripts[3]
 
 
 def test_shortlist_yesterday_results_extraction():
@@ -543,10 +551,10 @@ def test_dual_resolutions_16x9_and_9x16_share_the_same_slides_and_music(monkeypa
         fixtures=[],
     )
     assert out16.exists() and out9.exists()
-    # Intro + Disclaimer + 1 Pick + Closer = 4 slides per cut, same timings, one bed each
-    assert len(holds) == 8
-    assert holds[:4] == holds[4:]
-    assert beds[0] == beds[1] == pytest.approx(sum(holds[:4]))
+    # Intro + Disclaimer + THE PICK + WHY IT'S HERE + Closer = 5 slides per cut, same timings, one bed each
+    assert len(holds) == 10
+    assert holds[:5] == holds[5:]
+    assert beds[0] == beds[1] == pytest.approx(sum(holds[:5]), abs=0.01)
 
 
 
@@ -576,7 +584,9 @@ def _capture_build(monkeypatch, tmp_path, picks, *, yesterday=None, recap=True, 
     monkeypatch.setattr(reel, "render_intro", rec("intro"))
     monkeypatch.setattr(reel, "render_disclaimer", rec("disclaimer"))
     monkeypatch.setattr(reel, "render_results", rec("results"))
-    monkeypatch.setattr(reel, "render_pick", rec("pick"))
+    monkeypatch.setattr(reel, "render_pick_overview", rec("pick"))
+    monkeypatch.setattr(reel, "render_pick_evidence", rec("evidence"))
+    monkeypatch.setattr(reel, "render_pick_record", rec("record"))
     monkeypatch.setattr(reel, "render_closer", rec("closer"))
     def reading(text, **_kw):
         texts.append(text)
@@ -617,7 +627,7 @@ def test_only_the_first_video_of_the_day_carries_the_recap(monkeypatch, tmp_path
     order_noon, texts_noon, pages_noon = _capture_build(monkeypatch, tmp_path, picks, yesterday=yesterday,
                                                         recap=False, name="noon.mp4")
     assert "results" not in order_noon and not pages_noon
-    assert "yesterday" not in " ".join(texts_noon).lower()
+    assert "yesterday" not in " ".join(t for t in texts_noon if isinstance(t, str)).lower()
 
 
 def test_the_morning_recap_covers_every_video_from_yesterday_across_pages(monkeypatch, tmp_path):
@@ -644,7 +654,7 @@ def test_no_combine_slide_and_each_match_said_once(monkeypatch, tmp_path):
     assert order.count("pick") == 6
     assert order[0] == "intro" and order[1] == "disclaimer" and order[-1] == "closer"
     assert "combine" not in order                                  # accumulators are gone from the video
-    assert not any("combine" in t.lower() or "treble" in t.lower() for t in texts)
-    for i in range(1, 7):
-        said = [t for t in texts if f"Home {i}" in t and "The model has that at" in t]
-        assert len(said) == 1, said
+    said_texts = [t for t in texts if isinstance(t, str)]
+    assert not any("combine" in t.lower() or "treble" in t.lower() for t in said_texts)
+    # every match gets its own THE PICK slide and its own evidence slide, once each
+    assert order.count("pick") == 6 and order.count("evidence") == 6

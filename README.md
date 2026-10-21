@@ -147,19 +147,65 @@ same track. A missing track raises instead of publishing a mute video, and the w
 edge-tts or Piper. **Slide timing.** With nothing spoken, a slide lasts as long as its own words take to read:
 `music.reading_seconds(text)` counts words at the old narration pace (2.6 words/s, `REEL_READ_WPS` to tune), clamped
 to 2.6–40 s per slide, then `reel.hold_seconds` / `frame_hold` keep the old shape (intro ≥ `INTRO_MIN`, `TAIL` after
-every slide, whole frames). Video length and format are therefore the length and format of the narrated cut. The
+every slide, whole frames). **The pick slides are timed by what is on them, not by words** (`reel.stage_seconds`,
+5–11 s: a few tenths of a second per chart bar or evidence line, never less than the stage's floor), so the screen
+changes every few seconds instead of holding one card. The
 breakdown no longer speeds anything up (`MAX_TEMPO` is gone): when the script would run past `MAX_SECONDS` it drops
 trailing matches down to `MIN_MATCHES`. **Recap.** The first video of the day (morning, or a manual `FORCE_DAILY_REEL`)
 covers *every* selection from *all* of yesterday's videos — the history is merged per day across morning, noon and
 evening — paged `RECAP_ROWS` (9) at a time, headed `YESTERDAY'S CARD · EVERY VIDEO · PART n OF m`. It is the record
 plus the standout win and the one that got away, never match by match; later pages get one line each. The noon and
-evening videos carry no recap (`recap=False`). **No repetition.** Each match appears once — competition, match,
-kick-off, selection, price, then its reasons (`reel.pick_reason_script`: the model's chance, its projected goals,
-recent form, the base rate, never a percentage or a table) — and the video ends on the closer, with no combine or
-acca slide at all. The list keeps the board's own order — one selection per match, 65 %+, and only Over 1.5 / team
+evening videos carry no recap (`recap=False`). **No repetition.** Each match appears once, as the three
+slides described in the next section (pick + market chart, evidence, record) — and the video ends on the closer,
+with no combine or acca slide at all. The list keeps the board's own order — one selection per match, 65 %+, and only Over 1.5 / team
 goals / corners / bookings. Levers: `REEL_MIN_P` (0.65), `MAX_PICKS` (12), `RECAP_ROWS`, `MAX_RECAP`,
 `REEL_READ_WPS`. Retired with the voice: `voice_polish.py`, `scripts/setup_voice.sh`, the `EDGE_TTS_*` / `PIPER_*` /
 `ESPEAK_*` env vars and the workflow's "Prepare neural narration voice" step.
+
+### Each match is three short slides: the pick, the evidence, the record (2026-10-21)
+With no voice to explain a selection, the screen has to. Every match now gets up to three slides, all drawn from the
+same numbers the app shows (`reel_insights.py`, reading `data/app/fx/<key>.json` and `data/app/leagues/*`):
+
+* **THE PICK** — the clubs, their form, the kick-off, the selection and its SportyBet price, and a horizontal bar
+  chart of *every market the video covers for that match*, highest model probability first. The featured market is
+  the green bar; because `reel.reel_picks` now features the strongest allowed market per match, it is also the
+  tallest bar. The axis is labelled 50 %–100 % rather than 0–100 %: every market in a video is 65 %+ by rule, so a
+  zero-based axis would draw six identical bars and hide the differences. The pick is always on its own chart even
+  when the fixture detail is missing.
+* **WHY IT'S HERE** — each club's league position, points, games played and last-five pills, its home/away scoring
+  and conceding rates, then the reasons (`reel_insights.reasons`: model probability, projected goals, the base rate,
+  the table position, the edge in points) and this fixture's own trend lines.
+* **THE RECORD** — head to head with scores and W/D/L plus the aggregate line, and both clubs' last five results.
+
+Cards are laid out with `reel._fill_slots`, which spreads their contents over the card (capped, so a two-line card
+is centred rather than dragged apart) and sizes the fonts from the space available — no more content pooled in the
+top third of a card. A slide with nothing to show is **skipped, never left empty** (`reel_insights.slide_plan`).
+Portrait stacks each chart bar's label above its bar, because a 9:16 frame cannot fit a market name beside one.
+Tests: `tests/test_reel_insights.py`.
+
+### Google Drive handoff: Drive → Zapier → YouTube (2026-10-21)
+`drive_handoff.py` is the third lane and the one the user chose to publish through: the finished **16:9** video is
+copied into a Drive folder, and a free two-step Zapier Zap (Drive *New File in Folder* → YouTube *Upload Video*)
+publishes it. It uses a **service account** (`GDRIVE_SA_JSON`, the whole JSON key) and `GDRIVE_FOLDER_ID`, with
+`DRIVE_HANDOFF=1` as the master switch — without both secrets it reports "not configured" and the scan behaves
+exactly as before. Share the Drive folder with the service account's `client_email` as **Editor**, then:
+
+```bash
+export GDRIVE_SA_JSON="$(cat service-account.json)"
+export GDRIVE_FOLDER_ID='...'
+python drive_handoff.py info      # account, folder, and whether it may add files
+python drive_handoff.py check     # dry run: a 2 KB stand-in through the whole path
+python drive_handoff.py upload /tmp/briefing-16x9.mp4
+```
+
+Notes that drove the design. **No crypto dependency:** the hashed `requirements.txt` has none, so the RS256 JWT is
+signed with plain integer maths from the standard library (`drive_handoff.sign_rs256`, PKCS#1 v1.5 + SHA-256) —
+tested against a hand-built key. **Resumable upload**, because Google's multipart endpoint stops at 5 MB and a video
+is bigger. **The title has no extension** and the mime type is `video/mp4`, which is what makes the Zapier→YouTube
+step publish a playable video rather than a file. Zapier's free plan has no third step, so nothing moves or deletes
+the Drive file afterwards: the folder is the permanent receipt log, and the ~100 MB file ceiling is why the videos
+stay small. Telegram gets one line either way — `📤 YouTube handoff: <file> → PlayReport/YouTube`, or a warning if it
+failed — and a Drive failure never stops the Telegram send. Tests: `tests/test_drive_handoff.py`.
 
 ### YouTube auto-poster: probe first, then two videos a day (2026-10-21)
 `youtube_post.py` is the second delivery lane, next to Telegram. It uses the YouTube Data API over plain `requests`
