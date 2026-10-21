@@ -43,8 +43,12 @@ MAX_BETS = 50
 # (now from 55%) and bookings never appeared. As on the bets-of-the-day card, each market now CLAIMS its own matches,
 # rarest first, and Over 1.5 (with the other goals lines) takes what is left, up to MAX_BETS in total.
 SAFE_LANES = os.getenv("SAFE_LANES", "1") != "0"
-SAFE_LANE_ORDER = ("cards", "corners", "o25", "btts", "goals")
-SAFE_LANE_CAP = {"cards": 6, "corners": 4, "o25": 10, "btts": 10, "goals": MAX_BETS}
+# 2026-10-21: totals and team lines are separate lanes. One "corners" lane at 4 slots meant the three team-corner
+# lines (which sit at higher probabilities on strong sides) took every slot, and the match-total corners — the
+# market the user actually wants — never reached the board. Each family now claims its own matches: the total
+# market first, then the team lines, so a corner-heavy fixture's total always has a slot of its own.
+SAFE_LANE_ORDER = ("cards", "cards_team", "corners", "corners_team", "o25", "btts", "goals")
+SAFE_LANE_CAP = {"cards": 4, "cards_team": 2, "corners": 4, "corners_team": 2, "o25": 10, "btts": 10, "goals": MAX_BETS}
 
 
 def safe_lane(sel: str) -> str:
@@ -53,9 +57,9 @@ def safe_lane(sel: str) -> str:
     if sel == "BTTS":
         return "btts"
     if sel[:1] == "K":
-        return "cards"
+        return "cards_team" if sel[1:2] in ("H", "A") else "cards"
     if sel[:1] == "C":
-        return "corners"
+        return "corners_team" if sel[1:2] in ("H", "A") else "corners"
     return "goals"
 DIFF_FLAG = 0.12     # model and Sportybet views differ by more than this -> flag
 
@@ -905,15 +909,14 @@ def _stats(df: pd.DataFrame, won_label: str) -> dict:
             "avg_odds": float(odds.mean()) if n else None, "roi": ret}
 
 
-def summary(bets: pd.DataFrame, accas: pd.DataFrame, today: datetime) -> dict:
+def summary(bets: pd.DataFrame, today: datetime) -> dict:
+    """Record of the board. Accumulators are retired (2026-10-21), so no acca line is published."""
     cut = (today - timedelta(days=30)).strftime("%Y-%m-%d")
     all_bets = bets
     if not bets.empty and "kind" in bets.columns:
         bets = bets[bets["kind"].fillna("safe").replace("", "safe") != "botd"]     # the safest-bet record proper
     out = {"bets": {"all": _stats(bets, "hit"), "30d": _stats(bets[bets["match_date"] >= cut], "hit"),
-                    "pending": int((bets["status"] == "pending").sum()) if not bets.empty else 0},
-           "accas": {"all": _stats(accas, "won"), "30d": _stats(accas[accas["created"] >= cut], "won"),
-                     "pending": int((accas["status"] == "pending").sum()) if not accas.empty else 0}}
+                    "pending": int((bets["status"] == "pending").sum()) if not bets.empty else 0}}
     by_group = {}
     if not bets.empty:
         for g in GROUPS:

@@ -1,9 +1,9 @@
 """PlayReport shortlist video — 16:9 widescreen (1920x1080), narrated slides, no bed music or trailing silence.
 
 The morning video opens with the settled results of *every* video from yesterday (morning, noon and evening),
-then walks today's matches one at a time — the match, the selection, the price and the reason it made the list —
-and only at the end shows how the picks could be combined. Nothing is said twice: the per-match read-out is not
-repeated by the accumulator slide. Each slide lasts exactly as long as its own voice clip (plus a short tail),
+then walks today's matches one at a time — the match, the selection, the price and the reason it made the list.
+Videos carry Over 1.5 total goals, team goals, corners and bookings only, and no accumulator is built, shown or
+spoken anywhere (user rules 2026-10-21). Each slide lasts exactly as long as its own voice clip (plus a short tail),
 so the next match never appears while the previous one is still being read.
 """
 from __future__ import annotations
@@ -88,15 +88,10 @@ DISCLAIMER_SCRIPT = (
     "Never use money you can't afford to lose, and remember, there's no such thing as a sure bet."
 )
 CLOSER_SCRIPT = (
-    "That's the list. Combine as few or as many as you like, or take a different market if that suits you better. "
+    "That's the list. Take them as singles, take fewer, or skip the ones you don't like. "
     "If this helped, give it a like, share it with a mate, and subscribe for tomorrow's list. "
     "PlayReport. All rights reserved."
 )
-COMBINE_NOTE = ("One way to combine these — not the only way. Build your own multiple, "
-                "or take a different market. Your call.")
-
-
-
 def hold_seconds(index: int, speech: float) -> float:
     """Slide length = this clip's speech. Intro never shorter than 5s. Never trim speech."""
     speech = max(0.0, float(speech or 0.0))
@@ -576,110 +571,6 @@ def render_pick(pick: dict, i: int, n: int, bg: Path, home_b: Path, away_b: Path
         d.rectangle((110, ch - 115, 110 + int(i / max(n, 1) * (cw - 220)), ch - 103), fill=GREEN)
         foot = "PlayReport  ·  not betting advice  ·  18+"
         d.text(((cw - _tw(d, foot, _font(20, False))) // 2, ch - 64), foot, fill=MUTED, font=_font(20, False))
-    im.convert("RGB").save(dest, quality=92)
-
-
-def render_acca(group: dict, idx: int, total: int, bg: Path, dest: Path, logo: Path) -> None:
-    """One treble: three legs and the combined Sportybet price."""
-    from PIL import Image, ImageDraw
-    cw, ch = _ACTIVE_SIZE
-    im = _cover(bg, 0.58, size=(cw, ch))
-    d = ImageDraw.Draw(im)
-    _wordmark(d, 50 if cw > ch else 90, width=cw)
-    title = f"TREBLE  {idx} OF {total}"
-    d.text(((cw - _tw(d, title, _font(28, True))) // 2, 140 if cw > ch else 180), title, fill=GREEN, font=_font(28, True))
-    legs = group.get("legs") or []
-    comb = group.get("combined")
-    od = f"{comb:.2f}" if isinstance(comb, (int, float)) else "N/A"
-    box_top = 210 if cw > ch else 280
-    y = box_top
-    for i, p in enumerate(legs, 1):
-        line1 = f"{i}. {p.get('home') or ''}  v  {p.get('away') or ''}"
-        line2 = f"{p.get('label') or ''}   @   {p.get('odds') if p.get('odds') is not None else 'N/A'}"
-        d.text((80, y), line1, fill=WHITE, font=_font(32 if cw < ch else 28, True))
-        d.text((80, y + 40), line2, fill=GOLD, font=_font(26 if cw < ch else 24, True))
-        y += 110 if cw < ch else 90
-    cap = "COMBINED PRICE"
-    d.text(((cw - _tw(d, cap, _font(20, True))) // 2, y + 10), cap, fill=MUTED, font=_font(20, True))
-    d.text(((cw - _tw(d, od, _font(96, True))) // 2, y + 40), od, fill=GREEN, font=_font(96, True))
-    foot = "PlayReport  ·  three selections  ·  not betting advice  ·  18+"
-    d.text(((cw - _tw(d, foot, _font(20, False))) // 2, ch - 80), foot, fill=MUTED, font=_font(20, False))
-    im.convert("RGB").save(dest, quality=92)
-
-
-
-def render_combine(plan: dict, logo: Path, bg: Path, dest: Path, *, aspect: str | None = None,
-                   size: tuple[int, int] | None = None) -> None:
-    """One closing slide: how the card could be combined, and the plain statement that it is only one way."""
-    from PIL import ImageDraw
-    cw, ch = _resolve_size(aspect, size)
-    im = _cover(bg, 0.62, size=(cw, ch))
-    d = ImageDraw.Draw(im)
-    portrait = cw < ch
-    _wordmark(d, 90 if portrait else 36, width=cw)
-
-    title_font = _font(34 if portrait else 30, True)
-    title = "IF YOU COMBINE THEM"
-    d.text(((cw - _tw(d, title, title_font)) // 2, 190 if portrait else 104), title, fill=GREEN, font=title_font)
-    sub = "One way to do it — not the only way"
-    sub_font = _font(24 if portrait else 21, False)
-    d.text(((cw - _tw(d, sub, sub_font)) // 2, 238 if portrait else 146), sub, fill=MUTED, font=sub_font)
-
-    groups = (plan or {}).get("groups") or []
-    singles = (plan or {}).get("singles") or []
-
-    # Lay the rows out first so the card is only as tall as its content and sits in the middle of the frame.
-    pad_x = 56 if portrait else 110
-    card_x0, card_x1 = pad_x, cw - pad_x
-    name_w = 150 if portrait else 190
-    price_w = 130 if portrait else 165
-    legs_font = _font(24 if portrait else 23, True)
-    legs_x0 = card_x0 + 40 + name_w
-    legs_x1 = card_x1 - price_w - 30
-    rows = []
-    for g in groups:
-        legs = g.get("legs") or []
-        text = "  ·  ".join(f"{p.get('home') or ''} v {p.get('away') or ''}" for p in legs)
-        lines = _wrap(d, text, legs_font, max(140, legs_x1 - legs_x0), 3)
-        rows.append((g, lines, max(78, 34 + len(lines) * 32)))
-    singles_lines = _wrap(d, "Left as singles: " + ", ".join(
-        f"{q.get('home') or ''} v {q.get('away') or ''}" for q in singles), _font(20, False), card_x1 - card_x0 - 80, 2) if singles else []
-    content_h = sum(r[2] + 6 for r in rows) + (len(singles_lines) * 28 + 26 if singles_lines else 0)
-    top_limit = 300 if portrait else 205
-    bottom_limit = ch - (330 if portrait else 215)
-    card_h = min(bottom_limit - top_limit, content_h + 56)
-    card_y0 = top_limit + max(0, (bottom_limit - top_limit - card_h) // 2)
-    d.rounded_rectangle((card_x0, card_y0, card_x1, card_y0 + card_h), 28, fill=CARD_BG, outline=GREEN, width=3)
-
-    y = card_y0 + 30
-    for idx, (g, lines, row_h) in enumerate(rows):
-        d.text((card_x0 + 40, y + 8), g.get("name") or "TREBLE", fill=GREEN, font=_font(20, True))
-        yy = y + 4
-        for ln in lines:
-            d.text((legs_x0, yy), ln, fill=WHITE, font=legs_font)
-            yy += 32
-        comb = g.get("combined")
-        od = f"{comb:.2f}" if isinstance(comb, (int, float)) else "N/A"
-        pf = _font(38 if portrait else 32, True)
-        d.text((card_x1 - 40 - _tw(d, od, pf), y + 8), od, fill=GOLD, font=pf)
-        cap = "COMBINED"
-        cf = _font(15, True)
-        d.text((card_x1 - 40 - _tw(d, cap, cf), y + 54), cap, fill=MUTED, font=cf)
-        y += row_h + 6
-        if idx < len(rows) - 1:
-            d.rectangle((card_x0 + 40, y - 4, card_x1 - 40, y - 3), fill=(20, 48, 74))
-    if singles_lines:
-        y += 8
-        for ln in singles_lines:
-            d.text((card_x0 + 40, y), ln, fill=MUTED, font=_font(20, False))
-            y += 28
-
-    note_font = _font(23 if portrait else 21, False)
-    ny = ch - 260 if portrait else ch - 160
-    for i, ln in enumerate(_wrap(d, COMBINE_NOTE, note_font, cw - 200, 3)):
-        d.text(((cw - _tw(d, ln, note_font)) // 2, ny + i * 30), ln, fill=WHITE, font=note_font)
-    foot = "PlayReport  ·  not betting advice  ·  18+"
-    d.text(((cw - _tw(d, foot, _font(20, False))) // 2, ch - 90), foot, fill=MUTED, font=_font(20, False))
     im.convert("RGB").save(dest, quality=92)
 
 
@@ -1300,23 +1191,19 @@ def _reel_p(p: dict) -> float | None:
     return None
 
 
+REEL_MARKET_RE = re.compile(r"^(?:O15|[HA]O\d+|C[HA]?O\d+|K[HA]?O\d+)$")
+
+
 def is_reel_market(p: dict) -> bool:
-    """Videos: Overs-side markets (1X2, BTTS, Over 2.5, team goals, corners, bookings). Unders stay out."""
+    """Videos carry Over 1.5 total goals, team goals, corners and bookings — nothing else (user rule 2026-10-21).
+
+    BTTS, Over 2.5, 1X2 and every under are out, and no accumulator is built from the picks any more.
+    """
     sel = str(p.get("sel") or "").upper()
-    blob = " ".join(str(p.get(k) or "") for k in ("label", "sel", "market", "group")).lower()
-    if "under" in blob or sel in ("U15", "U25", "U35", "NBTTS", "1X", "12", "X2") or sel.endswith("U05") or sel.endswith("U15") or sel.endswith("U25"):
+    blob = " ".join(str(p.get(k) or "") for k in ("label", "market", "group")).lower()
+    if "under" in blob or "no btts" in blob:
         return False
-    if sel in ("H", "D", "A"):
-        return True
-    if sel == "BTTS" or "btts" in blob or "both teams" in blob:
-        return True
-    if sel in ("O15", "O25", "O35") or "over" in blob:
-        return True
-    if sel[:2] in ("HO", "AO") and sel[2:].isdigit():
-        return True
-    if any(w in blob for w in ("corner", "card", "booking", "yellow", "team goal", "to score", "goals")):
-        return True
-    return False
+    return bool(REEL_MARKET_RE.match(sel))
 
 
 def _match_key(p: dict) -> tuple:
@@ -1325,7 +1212,7 @@ def _match_key(p: dict) -> tuple:
 
 def reel_picks(picks: list, *, used: set | None = None) -> list:
     """At least twelve when the pool allows: one selection per match, 65%+, never a match already shown today."""
-    rank = {"O25": 0, "BTTS": 1, "HO05": 2, "AO05": 2, "H": 3, "A": 3, "D": 4}
+    rank = {"O15": 0, "HO05": 1, "AO05": 1, "HO15": 1, "AO15": 1}
     skip = used or set()
     best = {}
     order = []
@@ -1354,116 +1241,14 @@ def overs_only(picks: list) -> list:
     return reel_picks(picks)
 
 
-def pack_accas(picks: list, size: int = 3) -> list:
-    """Group picks into 3-fold accas. Same match never appears twice in one treble. Combined odds = product of prices."""
-    remaining = list(picks or [])
-    groups = []
-    while remaining:
-        g, matches, rest = [], set(), []
-        for p in remaining:
-            mk = _match_key(p)
-            if mk in matches or len(g) >= size:
-                rest.append(p)
-                continue
-            g.append(p)
-            matches.add(mk)
-        if len(g) < size:
-            break
-        combined = 1.0
-        ok = True
-        for p in g:
-            od = p.get("odds")
-            if not isinstance(od, (int, float)) or od <= 1:
-                ok = False
-                break
-            combined *= float(od)
-        groups.append({"legs": g, "combined": round(combined, 2) if ok else None})
-        remaining = rest
-    return groups
-
-
-def acca_script(group: dict, idx: int, total: int) -> str:
-    import spoken as sp
-    legs = group.get("legs") or []
-    n = len(legs)
-    comb = group.get("combined")
-    od = f"{comb:.2f}" if isinstance(comb, (int, float)) else "N/A"
-    bits = []
-    for p in legs:
-        home, away = p.get("home") or "", p.get("away") or ""
-        mk = sp.market_phrase(p.get("label"), home, away)
-        price = p.get("odds")
-        ps = f"{float(price):.2f}" if isinstance(price, (int, float)) else "N/A"
-        bits.append(f"{sp.team(home)} against {sp.team(away)}, {mk} at {ps}")
-    body = "; ".join(bits[:-1]) + (", and " + bits[-1] if len(bits) > 1 else (bits[0] if bits else ""))
-    head = "First treble" if idx == 1 else ("Last treble" if idx == total else f"Treble number {sp.words(idx)}")
-    return (f"{head}. Three selections: {body}. "
-            f"Together that's about {od}. Statistical information, not a sure thing.")
-
-
-def combine_plan(picks: list, size: int = 3) -> dict:
-    """One suggested way to combine the card: trebles, a double for what is left, and singles after that.
-
-    This is a suggestion on screen only — the narration says plainly that the viewer can combine any legs, in any
-    number, or take a different market.
-    """
-    groups = pack_accas(picks, size)
-    used = {id(p) for g in groups for p in g["legs"]}
-    rest = [p for p in picks if id(p) not in used]
-    if len(rest) >= 2 and sum(1 for p in rest[:2] if _as_odds(p.get("odds"))) == 2:
-        legs = rest[:2]
-        groups.append({"legs": legs, "combined": round(float(legs[0]["odds"]) * float(legs[1]["odds"]), 2), "double": True})
-        used |= {id(p) for p in legs}
-        rest = [p for p in rest if id(p) not in used]
-    for gi, g in enumerate(groups, 1):
-        if g.get("double"):
-            g["name"] = "DOUBLE"
-        else:
-            g["name"] = f"TREBLE {gi}" if len(groups) > 1 else "TREBLE"
-    return {"groups": groups, "singles": rest}
-
-
-def combine_script(plan: dict) -> str:
-    """The accumulator section, said once and only at the end: the legs by name and the combined price.
-
-    Each leg's market and price were already said in full during its own match, so they are not repeated here.
-    """
-    import spoken as sp
-
-    groups = (plan or {}).get("groups") or []
-    singles = (plan or {}).get("singles") or []
-    bits = []
-    for g in groups:
-        legs = g.get("legs") or []
-        comb = g.get("combined")
-        names = sp.join_list([sp.team(p.get("home")) for p in legs])
-        label = "Double" if g.get("double") else "Treble"
-        if len(groups) > 1 and not g.get("double"):
-            label = f"Treble {sp.words(groups.index(g) + 1)}"
-        when = "together come to about" if len(legs) > 1 else "comes to about"
-        price = f"{comb:.2f}" if isinstance(comb, (int, float)) else "N/A"
-        bits.append(f"{label}: {names} {when} {price}")
-    head = "Now, if you like combining, here's one way to do it."
-    tail = ("That's only one way. Combine any of these however you like, take fewer legs, or pick a different market "
-            "altogether — it's your call. Nothing here is a sure thing.")
-    if singles:
-        tail = (f"{sp.cap(sp.join_list([sp.team(p.get('home')) for p in singles]))} "
-                f"{'are' if len(singles) > 1 else 'is'} best left as a single. " + tail)
-    if not bits:
-        return ("There's nothing worth combining today — take these as singles if you play at all. "
-                "Nothing here is a sure thing.")
-    body = ". ".join(bits) + "."
-    return f"{head} {body} {tail}"
-
-
 def build(picks: list, outfile: Path, *, assets: Path, work: Path | None = None,
           voice_clips: list[Path] | None = None, fixtures: list | None = None,
           yesterday_results: dict | list | None = None, aspect: str = "16:9", recap: bool = True) -> Path:
     """Build a 16:9 widescreen (1920x1080) or 9:16 vertical reel (1080x1920) video.
 
     Order: intro, disclaimer, yesterday's full card (first video of the day only), today's matches one at a time with
-    the reason for each, then one "how you could combine these" slide. Each pick is said once. Slide length = that
-    clip's duration + TAIL (intro at least INTRO_MIN). No music.
+    the reason for each. Each pick is said once. Slide length = that clip's duration + TAIL (intro at least
+    INTRO_MIN). No music, no accumulator slide.
     """
     from PIL import Image  # noqa: F401  — imported for a clear error if missing
 
@@ -1521,14 +1306,6 @@ def build(picks: list, outfile: Path, *, assets: Path, work: Path | None = None,
             render_pick(p, pi, n, bgs[pi % 3], hb, ab, p_img)
             images.append(p_img)
             texts.append(pick_script(p, pi, n))
-
-        # ...and only then, once, how they could be combined — with the choice left to the viewer.
-        plan = combine_plan(picks)
-        if plan.get("groups"):
-            c_img = slides_dir / "combine.jpg"
-            render_combine(plan, logo, bgs[2], c_img)
-            images.append(c_img)
-            texts.append(combine_script(plan))
 
         render_closer(logo, bgs[2], slides_dir / "closer.jpg")
         images.append(slides_dir / "closer.jpg")

@@ -2025,43 +2025,6 @@ def render_safest(ctx: dict) -> list[str]:
             L += shortlist_mod.markdown(ctx["shortlist"])
         except Exception:  # noqa: BLE001 - report section is optional
             pass
-    # ---- the daily accas: three builds at the target price, built only from legs that pass every gate
-    ac = ctx.get("accas") or {}
-    if ac:
-        L.append(f"### 🎯 The daily accas — {ac['target']:.2f} target")
-        L.append("")
-        L.append("_Built from the gated pool: a match the pipeline trusts, a real price, and a model probability that beats "
-                 "the de-vigged market by "
-                 f"{ac['edge_range'][0] * 100:.0f}–{ac['edge_range'][1] * 100:.0f} pp. Fewest legs to the price (2 legs cost about "
-                 "15% in vig where 3 cost about 22%), one leg per match, and the builds never share a match. Nothing is padded "
-                 f"to reach the price. Pool this run: {ac['pool']} eligible legs._")
-        L.append("")
-        if ac["plans"]:
-            for i, legs in enumerate(ac["plans"], 1):
-                price = acca_mod.acca_odds(legs)
-                pm = acca_mod.acca_p(legs)
-                pk = acca_mod.acca_p_market(legs)
-                aid = ac["ids"][i - 1] if i - 1 < len(ac["ids"]) else ""
-                L.append(f"**Acca {i}** — {len(legs)} legs @ **{price:.2f}** · model {pct(pm)} vs market {pct(pk)} "
-                         f"· if the model is right **{pm * price - 1:+.0%}**, if the market is right **{pk * price - 1:+.0%}**"
-                         f"{f' · `{aid}`' if aid else ''}")
-                L.append("")
-                L.append("| Kick-off | Match | Competition | Selection | Price | Model % | Market % | Edge (pp) |")
-                L.append("|---|---|---|---|---|---|---|---|")
-                for b in legs:
-                    L.append(f"| {b.kickoff[11:]} | **{b.home} v {b.away}** | {b.league} | **{b.label}** | **{b.odds:.2f}** | "
-                             f"{pct(b.p_model)} | {pct(b.p_sb)} | {100 * (b.p_model - b.p_sb):+.1f} |")
-                L.append("")
-        else:
-            L.append(f"_No build was possible this run: {ac['pool']} eligible legs, none of them priced to reach "
-                     f"{ac['target']:.2f} with {ac['legs_min']}–{ac['legs_max']} legs. The honest answer is no acca — not a worse one._")
-            L.append("")
-        ssum = (ac.get("summary") or {}).get("all") or {}
-        if ssum.get("n"):
-            L.append(f"_Acca record: {ssum.get('won', 0)}/{ssum.get('n', 0)} won ({pct(ssum.get('rate'))}, "
-                     f"expected {pct(ssum.get('exp_rate'))}) · ROI {ssum.get('roi', 0):+.1%} on "
-                     f"{ssum.get('n', 0)} settled build(s), graded in `data/accas.csv`._")
-            L.append("")
     bets = sf.get("bets") or []
     L.append(f"### High-probability singles (model ≥70%) — top {min(len(bets), 25)} of {len(bets)}")
     L.append("")
@@ -3462,42 +3425,20 @@ def main() -> None:
     bets_df.to_csv(SAFE_BETS_FILE, index=False)
     safe_res["ids"] = []
     ctx["safe"] = safe_res
-    ctx["safe_summary"] = safe_mod.summary(bets_df, accas_df, now)
+    ctx["safe_summary"] = safe_mod.summary(bets_df, now)
     botd_card = safe_mod.bets_of_the_day(bets_df, now)
     ctx["botd"], ctx["botd_groups"] = botd_card["bets"], botd_card["groups"]
     log.info("Safest: %d bets (%d new), bets of the day: %d", len(safe_res["bets"]), len(new_bets), len(ctx["botd"]))
 
-    # ---- the daily accas: three builds at ~3.00 from the gated pool, written to their own record and settled there
-    accas_book = acca_mod.load(ACCAS_FILE)
-    if not accas_book.empty and (accas_book["status"] == "pending").any():
-        accas_book = acca_mod.settle(accas_book, results_s, now)
-        accas_book.to_csv(ACCAS_FILE, index=False)
-    acca_pool = acca_mod.pool_from_rows(rows, now, ctx["app_end"])   # the window the user sees, not the next report hour
-    acca_plans = acca_mod.plan(acca_pool, acca_mod.TARGET, acca_mod.N_ACCAS)
-    accas_book, acca_ids = acca_mod.add(accas_book, acca_plans, now, run_label, ctx["app_end"])
-    if acca_ids:
-        accas_book.to_csv(ACCAS_FILE, index=False)
-    # ---- safer doubles (2026-10-11 upgrade): a second family at ~2.00, two legs, same gates,
-    #      never sharing a match with the 3.00 builds, tracked in its own ledger
-    used3 = {b.key for a in acca_plans for b in a}
-    acca2_pool = [b for b in acca_pool if b.key not in used3]
-    acca2_plans = acca_mod.plan(acca2_pool, 2.00, acca_mod.N_ACCAS, min_legs=2, max_legs=2, tol=0.10)
-    acca2_book = acca_mod.load(ACCAS2_FILE)
-    if not acca2_book.empty and (acca2_book["status"] == "pending").any():
-        acca2_book = acca_mod.settle(acca2_book, results_s, now)
-        acca2_book.to_csv(ACCAS2_FILE, index=False)
-    acca2_book, acca2_ids = acca_mod.add(acca2_book, acca2_plans, now, run_label, ctx["app_end"], target=2.00)
-    if acca2_ids:
-        acca2_book.to_csv(ACCAS2_FILE, index=False)
-    ctx["accas"] = {"target": acca_mod.TARGET, "pool": len(acca_pool), "plans": acca_plans, "ids": acca_ids,
-                    "summary": acca_mod.summary(accas_book, now), "recent": acca_mod.recent(accas_book),
-                    "legs_min": acca_mod.MIN_LEGS, "legs_max": acca_mod.MAX_LEGS,
-                    "edge_range": (acca_mod.MIN_EDGE, acca_mod.MAX_EDGE), "vig": acca_mod.VIG,
-                    "doubles_plans": acca2_plans, "doubles_ids": acca2_ids,
-                    "doubles_summary": acca_mod.summary(acca2_book, now), "doubles_recent": acca_mod.recent(acca2_book),
-                    "doubles_target": 2.00}
-    log.info("Accas: %d legs eligible, %d build(s) at %.2f, %d settled so far",
-             len(acca_pool), len(acca_ids), acca_mod.TARGET, ctx["accas"]["summary"]["all"].get("n", 0))
+    # ---- accumulators retired (user rule 2026-10-21): no acca is built, published or spoken anywhere.
+    #      The historical ledgers are still settled so old records keep honest results, and nothing else reads them.
+    for _file, _book in ((ACCAS_FILE, None), (ACCAS2_FILE, None)):
+        try:
+            _df = acca_mod.load(_file)
+            if not _df.empty and (_df["status"] == "pending").any():
+                acca_mod.settle(_df, results_s, now).to_csv(_file, index=False)
+        except Exception as exc:  # noqa: BLE001 - a retired ledger must never break a run
+            log.warning("Acca ledger %s not settled: %s", _file.name, exc)
 
     # ---- predicted line-ups (user rule 2026-10-12): when the official XI is not out yet, the app shows a
     #      projection built from the club's own archived confirmed XIs (never invented, never "official")
@@ -3542,14 +3483,12 @@ def main() -> None:
             sl_book, now, video_picks=_tg_st.get("briefing_history")
         )
         ctx["shortlist"] = sl_pub
-        ctx["accas"]["cal"] = cal_map
         c = sl_board["counts"]
         log.info("Shortlist: analysed %d, screened %d, primary %d, watchlist %d, rejected %d (%d decision(s) logged)",
                  c["analysed"], c["screened"], c["primary"], c["watchlist"], c["rejected"], sl_new)
     except Exception as exc:  # noqa: BLE001 - the shortlist is an add-on; it must never break the pipeline
         log.warning("Shortlist skipped: %s", exc)
         ctx["shortlist"] = {}
-        ctx["accas"]["cal"] = None
 
     # ---- alerts for the app (new safest bets), kept in state
     alerts_file = DATA_DIR / "app" / "alerts.json"
@@ -3599,7 +3538,7 @@ def main() -> None:
     days_index = []
     if days is not None:
         try:
-            days.annotate(tracker, ledger, accas_df, bets_df)
+            days.annotate(tracker, ledger, accas_df.iloc[0:0], bets_df)
             days_index = days.summarise()
             log.info("History: %d day file(s) written", days.write())
             days.days.clear()   # on disk now — free the 60-day in-memory archive before the team-page export

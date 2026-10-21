@@ -151,35 +151,3 @@ def test_summary_reports_the_scoreboard_in_units_per_unit():
     assert summ["all"]["n"] == 1 and summ["all"]["won"] == 1
     assert summ["all"]["roi"] == pytest.approx(2.99 - 1, abs=0.01)   # 1u staked, 3.00-ish returned
     assert "ROI" in summ["break_even_note"]
-
-
-# ------------------------------------------------------------------ the app payload
-class FakeBet(Bet):
-    pass
-
-
-def test_payload_shape_the_app_reads():
-    plans = [[bet(0, 1.73, 0.80, 0.74), bet(1, 1.73, 0.82, 0.76)]]
-    ctx = {"accas": {"target": 3.0, "pool": 17, "plans": plans, "ids": ["A20261003-01"],
-                     "summary": {"all": {"n": 3, "won": 1}}, "recent": [], "legs_min": 2, "legs_max": 3,
-                     "edge_range": (0.02, 0.12), "vig": 0.086}}
-    ids_by_key = {b.key: f"2026-10-03|Testland|{b.home}|{b.away}" for b in plans[0]}
-    tracked: set = set()
-    out = appdata.accas_payload(ctx, ids_by_key, tracked, {"Home0": "b0.png"}, lambda d, c, h, a: f"{d}|{c}|{h}|{a}")
-    assert out["target"] == 3.0 and out["pool"] == 17 and out["legs"] == [2, 3]
-    assert len(out["bets"]) == 1
-    b = out["bets"][0]
-    assert b["id"] == "A20261003-01" and b["n_legs"] == 2
-    assert b["odds"] == pytest.approx(2.99, abs=0.01)
-    assert b["p"] == pytest.approx(0.80 * 0.82, abs=1e-4)
-    assert b["p_market"] == pytest.approx(0.74 * 0.76, abs=1e-3)   # _f() rounds to 3 dp
-    assert b["if_model_right"] < b["if_no_edge"] + 1          # the honest pair of numbers is rendered
-    assert all(leg["fixture"] for leg in b["legs"])
-    assert b["legs"][0]["badges"]["home"] == "b0.png"
-    assert len(tracked) == 2, "the app must follow every acca leg in the live feed"
-
-
-def test_payload_is_empty_and_harmless_when_there_is_no_plan():
-    out = appdata.accas_payload({"accas": {}}, {}, set(), {}, lambda *a: "x")
-    assert out["bets"] == [] and out["recent"] == []
-    assert json.dumps(out)          # JSON-serialisable like the rest of the payload

@@ -242,7 +242,7 @@
       parts.push(`<div class="card compact"><div class="row"><div class="grow"><div class="b">📋 Yesterday’s shortlist (${esc(yr.day || '')})</div><div class="tiny muted">${yr.hits} of ${yr.settled} settled selection${yr.settled === 1 ? '' : 's'} won (${pct(yr.hit_rate)})</div></div><span class="pill ${yr.hit_rate >= 0.7 ? 'hi' : 'mid'}">${yr.hits}/${yr.settled}</span></div></div>`);
     }
     if (np) {
-      parts.push(`<div class="card compact briefing-cta"><div class="row"><div class="grow"><div class="b">${icon('sparkle', 'sm')} Tonight's 16:9 briefing</div><div class="tiny muted">Opens with yesterday’s full card — every selection from every video — then today’s matches one by one with the reason for each, and one combined-acca suggestion at the end. Male voiceover, kick-off times in SAST. A shortlist for your review — never an instruction to bet.</div></div></div>
+      parts.push(`<div class="card compact briefing-cta"><div class="row"><div class="grow"><div class="b">${icon('sparkle', 'sm')} Tonight's 16:9 briefing</div><div class="tiny muted">Opens with yesterday’s full card — every selection from every video — then today’s Over 1.5, corner and booking selections one by one with the reason for each. No accumulators. Male voiceover, kick-off times in SAST. A shortlist for your review — never an instruction to bet.</div></div></div>
         <div class="row" style="gap:8px;margin-top:8px"><button class="btn" id="btn-briefing">${icon('live', 'sm')} Watch briefing</button><button class="btn" id="btn-briefing-dl">${icon('download', 'sm')} Download 16:9 video</button></div></div>`);
     }
     if (!sl.counts) {
@@ -418,6 +418,29 @@
     const mo = $('#home-more'); if (mo) mo.onclick = () => { const y = window.scrollY; state.homeShow = (state.homeShow || 100) + 100; PR.render(); window.scrollTo(0, y); };
   }
 
+  // ------------------------------------------------------------------ STRONG MARKETS FOR THE DAY (2026-10-21)
+  // One home section, defined by the user: model probability at least 75%, a real Sportybet price of 1.16 or more,
+  // and only Over 1.5 total goals, team goals, corners and bookings. Built server-side in appdata.strong_markets_payload
+  // from policy.is_strong_market, so the filter lives in one place. Totals get their own room: the caps in
+  // appdata.STRONG_CAPS stop the team-corner lines from filling the section. No accumulators anywhere.
+  function strongMarketsCard(d) {
+    const sm = d.strong_markets || {};
+    const bets = sm.bets || [];
+    const pMin = sm.min_p || 0.75, oMin = sm.min_odds || 1.16;
+    const kick = `<div class="section-head"><h2><span class="ico amber">${icon('star')}</span>Strong markets for the day</h2><span class="tiny muted">${bets.length} selection${bets.length === 1 ? '' : 's'} · ${pct(pMin)}+ · ${f2(oMin)}+</span></div>`;
+    if (!bets.length) {
+      return kick + `<div class="card empty small">Nothing clears <b>${pct(pMin)}</b> at a real price of <b>${f2(oMin)}</b> or better yet today. This section only carries Over 1.5 goals, team goals, corners and bookings — it fills as prices and probabilities firm up.</div>`;
+    }
+    const fam = { corner_total: 'Total corners', corner_team: 'Team corners', card_total: 'Total bookings', card_team: 'Team bookings', o15: 'Over 1.5 goals', team_goal: 'Team goals' };
+    const rows = bets.map((x) => `<tr class="tap" data-fx="${esc(x.id)}">
+      <td class="tiny muted nowrap">${esc(koTime(x.kickoff))}</td>
+      <td><div class="b">${esc(x.label || x.sel)}</div><div class="tiny muted">${flag(x.country)} ${teamSpan(x.home, x.country)} v ${teamSpan(x.away, x.country)} · ${esc(fam[x.family] || '')}</div></td>
+      <td class="right nowrap"><b>${f2(x.odds)}</b><div class="tiny muted">price</div></td>
+      <td class="right nowrap">${pill(x.p, 0.85, 0.75)}<div class="tiny muted">model</div></td></tr>`).join('');
+    return kick + `<div class="card compact"><table class="tbl head"><tr><th>Time</th><th>Match · market</th><th class="right">Sportybet</th><th class="right">Model</th></tr>${rows}</table>
+      <div class="tiny muted" style="padding:6px 0 2px">Model probability <b>${pct(pMin)} or more</b> and a real price of <b>${f2(oMin)}+</b>, in Over 1.5 total goals, team goals, corners and bookings only. One row per market; no accumulators. A probability is not a certainty — this is information for your review, never an instruction to bet.</div></div>`;
+  }
+
   // ------------------------------------------------------------------ HOME
   PR.views.home = function () {
     const d = state.data, m = d.meta, sf = d.safe || { bets: [] }; const parts = [];
@@ -436,11 +459,10 @@
       <div class="hero-nums matchday-stats"><div><b>${m.fixtures}</b><span>Fixtures</span></div><div><b>${d.fixtures.filter((f) => f.data_ok).length}</b><span>Analysed</span></div><div><b>${safe.length}</b><span>Signals</span></div><div><b>${liveN}</b><span>Live</span></div></div>
       <div class="matchday-foot"><span>Next update <b>${esc(koTime(m.next_run || ''))}</b></span><span class="coverage-line">${cov.priced || 0} priced${m.odds_asof ? ` · prices from ${esc(koTime(m.odds_asof))} (book refresh blocked)` : ' by Sportybet'}</span></div>
       ${inPlay.length ? `<div class="live-strip" data-tab-go="live"><span class="status-dot live"></span><div class="grow"><b>${inPlay.length} tracked in play</b> · ${inPlay.slice(0, 2).map((f) => { const s = live.for(f); return `${esc(f.home)} ${s.hg}–${s.ag} ${esc(f.away)}`; }).join(' · ')}${inPlay.length > 2 ? ' …' : ''}</div>${icon('next', 'sm')}</div>` : ''}</section>`);
-    // accas stay one tap away at the top (compact summary, user choice 2026-10-09)
-    if (((d.accas || {}).bets || []).length) parts.push(`<div class="card compact tap" data-page-go="accas"><div class="row"><span class="ico">${icon('ticket')}</span><div class="grow"><div class="b">Today\u2019s accas · ${(d.accas.bets || []).length} build${(d.accas.bets || []).length === 1 ? '' : 's'} at ~${f2(d.accas.target || 3)}</div><div class="tiny muted">Gated legs, tracked to settlement → tap to open</div></div>${icon('next')}</div></div>`);
+    parts.push(strongMarketsCard(d));
     if (PR.APP_VERSION && settings.seenVersion !== PR.APP_VERSION) {
       parts.push(`<div class="card whatsnew"><div class="row"><div class="grow"><b>${icon('sparkle', 'sm')} New in PlayReport ${esc(PR.APP_VERSION)}</b></div><button class="link" id="wn-close">${icon('x')}</button></div>
-        <ul><li>📊 <b>Sheet tab on every match</b> — your Google Sheet V1 bookmaker model, filled with that match's data, next to PlayReport (comparison only). Download the filled sheet as CSV.</li><li>🐛 <b>Fixed: match names from another game</b> — Sportybet events were shifted onto the wrong fixtures (Kaizer Chiefs painted on Bristol City). Names and “Open in Sportybet” now have to be the same clubs.</li><li>🎬 <b>Shortlist briefing</b> — watch today’s picks as a video with a male voice and download it from the Shortlist tab.</li><li>🐛 <b>Fixed: match taps could open another match's data</b> — every page now proves it belongs to the match you tapped, and the phone's cache was swept clean of anything older builds left behind.</li><li>🔔 <b>New notification sounds</b> — softer, shorter chimes that match the moment: rising arpeggio for goals, warm marimba for picks, calm resolve for full-time.</li><li>🚩🟨 <b>Sportybet prices now cover corners &amp; bookings</b> — total corner and card lines on every priced match, team lines where listed.</li><li>📈 <b>Three strongest trends</b> on the match Overview (the Trends tab keeps everything).</li><li>🇪🇺 <b>UEFA competitions in</b> + 📋 <b>predicted line-ups</b> when the official XI is not out — clearly labelled, never official.</li><li>🎚️ Calibrated probabilities + safer doubles · 📣 Telegram picks &amp; reports · ⏰ Sequences · 📅 today-only shortlist · ⬆️ Overs only.</li></ul></div>`);
+        <ul><li>💪 <b>Strong markets for the day</b> — one section on the home page: <b>75%+</b> model probability at a real price of <b>1.16+</b>, in Over 1.5 goals, team goals, corners and bookings only. Total corners now get their own room instead of the team-corner lines taking every slot.</li><li>🚫 <b>Accumulators removed</b> — no accas in the app, in the videos or in the report; the picks stand on their own.</li><li>📊 <b>Sheet tab on every match</b> — your Google Sheet V1 bookmaker model, filled with that match's data, next to PlayReport (comparison only). Download the filled sheet as CSV.</li><li>🐛 <b>Fixed: match names from another game</b> — Sportybet events were shifted onto the wrong fixtures (Kaizer Chiefs painted on Bristol City). Names and “Open in Sportybet” now have to be the same clubs.</li><li>🎬 <b>Shortlist briefing</b> — watch today’s picks as a video with a male voice and download it from the Shortlist tab.</li><li>🐛 <b>Fixed: match taps could open another match's data</b> — every page now proves it belongs to the match you tapped, and the phone's cache was swept clean of anything older builds left behind.</li><li>🔔 <b>New notification sounds</b> — softer, shorter chimes that match the moment: rising arpeggio for goals, warm marimba for picks, calm resolve for full-time.</li><li>🚩🟨 <b>Sportybet prices now cover corners &amp; bookings</b> — total corner and card lines on every priced match, team lines where listed.</li><li>📈 <b>Three strongest trends</b> on the match Overview (the Trends tab keeps everything).</li><li>🇪🇺 <b>UEFA competitions in</b> + 📋 <b>predicted line-ups</b> when the official XI is not out — clearly labelled, never official.</li><li>🎚️ Calibrated probabilities · 📣 Telegram picks &amp; reports · ⏰ Sequences · 📅 today-only shortlist · ⬆️ Overs only.</li></ul></div>`);
     }
     const favs = (PR.favList ? PR.favList() : []).map((x) => fx(x.fixture)).filter(Boolean).sort((a, b) => a.kickoff.localeCompare(b.kickoff));
     if (favs.length) parts.push(`<div class="section-head"><h2><span class="ico amber">${icon('star')}</span>Your matches</h2><button class="link" data-tab-go="matches" data-mf-go="fav">All ${favs.length} ${icon('next')}</button></div><div class="card compact">${favs.slice(0, 5).map((f) => { const s = live.for(f); return matchRow(f, { live: s, sub: `${flag(f.country)} ${esc(f.competition)}${f.safe ? ` · 📈 <b>${esc(selShort(f.safe[0]))}</b> ${pct(f.safe[1])}` : ''}`, right: s && s.hg != null ? '' : `<span class="pill ${f.p.O25 >= 0.6 ? 'hi' : ''}">O2.5 ${pct(f.p.O25)}</span>` }); }).join('')}</div>`);
@@ -888,7 +910,6 @@
     ]));
     parts.push(group('Your activity', [
       row('ticket', 'Tickets', pendingTickets ? `${pendingTickets} awaiting result` : 'My selections &amp; history', 'data-page-go="tickets"', pendingTickets ? `<span class="cnt">${pendingTickets}</span>` : undefined),
-      row('ticket', 'Today’s accas', `${((d.accas || {}).bets || []).length} build${((d.accas || {}).bets || []).length === 1 ? '' : 's'} at ~3.00 · tracked &amp; settled`, 'data-page-go="accas"'),
     ]));
     parts.push(group('App & support', [
       row('settings', 'Settings', 'App preferences', 'data-page-go="settings"'),

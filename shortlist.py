@@ -85,12 +85,22 @@ KEEP_DAYS = 120
 # first, and Over 1.5 (and the other goals lines) takes what is left; each lane keeps its best `max_per_market`.
 # A match cut from one lane can still be claimed by a later one (its Over 1.5), and nothing is padded.
 LANES = os.getenv("SHORTLIST_LANES", "1") != "0"
-LANE_ORDER = ("o25", "btts", "cards", "corners", "result", "goals")
+# 2026-10-21: the match-total corner and card markets get their own lanes, ahead of the team lines. One shared
+# "corners" lane let the three team-corner lines fill every slot, so the total market never reached the shortlist —
+# and therefore never reached the videos. Totals claim first; the team lanes keep a smaller cap.
+LANE_ORDER = ("o25", "btts", "cards", "cards_team", "corners", "corners_team", "result", "goals")
+LANE_CAP = {"cards_team": 5, "corners_team": 5}
 
 
 def lane_of(x: dict) -> str:
-    """The lane a evaluated selection competes in: Over 2.5 on its own, every other goals line together."""
-    return "o25" if x.get("sel") == "O25" else x["market"]
+    """The lane an evaluated selection competes in: Over 2.5 on its own, totals and team lines apart, every other
+    goals line together."""
+    if x.get("sel") == "O25":
+        return "o25"
+    market = x["market"]
+    if market in ("corners", "cards") and str(x.get("sel") or "")[1:2] in ("H", "A"):
+        return f"{market}_team"
+    return market
 
 COLS = ["day", "decided", "match_date", "kickoff", "country", "league", "home", "away", "sel", "label", "market",
         "odds", "p", "p_sb", "implied_raw", "edge_pp", "ev", "quality", "confidence", "status", "reasons",
@@ -359,7 +369,7 @@ def build(rows: list, now: datetime, window_end: datetime | None = None,
                 if cands:
                     pool.append(max(cands, key=lambda x: x["score"]))
             pool.sort(key=lambda x: -x["score"])
-            for x in pool[:max_per_market]:
+            for x in pool[:LANE_CAP.get(lane, max_per_market)]:
                 claimed[x["key"]] = x
         for m in per_match:
             x = claimed.get(m["best"]["key"])

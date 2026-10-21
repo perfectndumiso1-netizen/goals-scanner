@@ -1,3 +1,10 @@
+## What's new — strong markets for the day, total corners, and no accumulators
+- 💪 **New: Strong markets for the day.** The home page opens with the day's strongest markets: **75%+** model probability at a real Sportybet price of **1.16 or better**, in **Over 1.5 goals, team goals, corners and bookings** only. Ordered strongest first, with the price and the model number on every row, and at most two markets per match.
+- 🚩 **Total corners are finally on the board.** The model only ever looked at 8.5+ total corners, so an average 10-corner match could never show a 75% total — and one shared corner slot meant the team-corner lines took everything. Total corners now start at **over 7.5** and have **their own slots**, separate from team corners (same for bookings).
+- 🚫 **Accumulators removed everywhere.** No acca or combine slide in the videos, no acca page, no acca card on the home page, no acca entry in the menu or the search, and no "load legs to slip" button. The picks stand on their own.
+- 🎬 **Videos: Over 1.5, corners and bookings only.** BTTS, Over 2.5 and 1X2 picks no longer go into the reels; each match is still introduced once, with its reason.
+- 🛠️ **Fixed: a broken report line in the tennis pages** that stopped part of the test suite from loading.
+
 ## What's new — the videos: a real voice, yesterday's whole card, and no repetition
 - 🎙️ **A natural voice, the same one all the way through.** The narration no longer falls back to the robotic synth — if no natural voice is available the video is skipped and logged instead of published. One voice and one pacing for every slide, and both aspect ratios share the exact same audio.
 - 📊 **The first video of the day recaps everything.** Morning starts with **every result from every video yesterday** (morning, noon and evening) — the full card on screen, paged when it is long, read as the day's record plus the standout win and the one that got away. Noon and evening go straight to today's matches.

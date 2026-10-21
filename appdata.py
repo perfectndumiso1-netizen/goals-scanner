@@ -251,89 +251,58 @@ def shortlist_payload(sl: dict, ids_by_key: dict, fixture_id) -> dict:
     return out
 
 
+# --------------------------------------------------------------------------- strong markets for the day (2026-10-21)
+# One home-page section, defined by the user: model probability >= 75%, a real Sportybet price of 1.16 or more, and
+# only Over 1.5 total goals, team goals, corners and bookings. Totals get room of their own (the corner board used to
+# be all team corners); the list is still ordered by probability, strongest first.
+STRONG_CAPS = {"corner_total": 8, "card_total": 6, "o15": 10, "team_goal": 6, "corner_team": 3, "card_team": 3}
+STRONG_MAX = 30
+STRONG_PER_MATCH = 2
+
+
+def strong_family(sel: str) -> str:
+    """The section's display family for one selection code ('' when it is not a strong-market code)."""
+    sel = (sel or "").upper()
+    if not policy.is_strong_market(sel):
+        return ""
+    if sel == "O15":
+        return "o15"
+    if sel[:2] in ("HO", "AO"):
+        return "team_goal"
+    if sel[0] == "C":
+        return "corner_team" if sel[1:2] in ("H", "A") else "corner_total"
+    return "card_team" if sel[1:2] in ("H", "A") else "card_total"
+
+
+def strong_markets_payload(items: list[dict], limit: int = STRONG_MAX) -> list[dict]:
+    """Filter, cap and order the day's strong markets. `items` are candidate dicts with sel / p / odds / id."""
+    keep: list[dict] = []
+    n_family: dict[str, int] = {}
+    n_match: dict[str, int] = {}
+    for x in sorted(items, key=lambda d: (-float(d.get("p") or 0), -float(d.get("odds") or 0))):
+        fam = strong_family(x.get("sel"))
+        try:
+            p, odds = float(x.get("p")), float(x.get("odds") or 0)
+        except (TypeError, ValueError):
+            continue
+        if not fam or not (policy.STRONG_P_MIN <= p < 1) or odds < policy.STRONG_ODDS_MIN:
+            continue
+        if n_family.get(fam, 0) >= STRONG_CAPS[fam] or n_match.get(x.get("id"), 0) >= STRONG_PER_MATCH:
+            continue
+        n_family[fam] = n_family.get(fam, 0) + 1
+        n_match[x.get("id")] = n_match.get(x.get("id"), 0) + 1
+        keep.append(dict(x, family=fam))
+        if len(keep) >= limit:
+            break
+    return keep
+
+
 def safe_group(sel: str) -> str:
     try:
         import safe as _safe
         return _safe.group(sel)
     except Exception:  # noqa: BLE001
         return (sel or "")[:2]
-
-
-def accas_payload(ctx: dict, ids_by_key: dict, tracked: set, badges: dict, fixture_id) -> dict:
-    """The daily acca builds in publication shape: this run's three (with their fixture ids) plus the
-    settled record. Kept out of export() so the shape can be tested without the whole pipeline."""
-    ac = ctx.get("accas") or {}
-    accas_out = {"target": _f(ac.get("target")), "pool": ac.get("pool", 0), "bets": [], "recent": ac.get("recent") or [],
-                 "summary": ac.get("summary") or {}, "legs": [ac.get("legs_min"), ac.get("legs_max")],
-                 "edge_pp": [_f(100 * (ac.get("edge_range") or (0, 0))[0]), _f(100 * (ac.get("edge_range") or (0, 0))[1])],
-                 "vig": _f(ac.get("vig")), "ids": ac.get("ids") or []}
-    # calibration (2026-10-11): composite calibrated probability where a validated map exists
-    cal = ac.get("cal")
-    import sys as _sys
-    calib = _sys.modules.get("calibration")
-    def _p_cal(legs) -> float | None:
-        if calib is None or not cal:
-            return None
-        vals = [calib.apply_map(b.p, safe_group(b.sel), cal) for b in legs]
-        if any(v is None for v in vals):
-            return None
-        out = 1.0
-        for v in vals:
-            out *= v
-        return round(out, 4)
-    for i, a in enumerate(ac.get("plans") or []):
-        legs_out = []
-        for b in a:
-            fid = ids_by_key.get(b.key) or fixture_id(*b.key)
-            tracked.add(fid)
-            legs_out.append({"fixture": fid, "home": b.home, "away": b.away, "country": b.key[1], "div": b.div,
-                             "league": b.league, "kickoff": b.kickoff, "sel": b.sel, "label": b.label,
-                             "p": _f(b.p), "p_model": _f(b.p_model), "p_sb": _f(b.p_sb),
-                             "edge_pp": _f(100 * (b.p_model - b.p_sb)) if b.p_sb is not None else None,
-                             "odds": _f(b.odds, 2), "fair": _f(1 / b.p, 2) if b.p else None,
-                             "badges": {"home": badges.get(b.home), "away": badges.get(b.away)}})
-        p_model = math.prod(b.p for b in a)
-        p_market = math.prod((b.p_sb if b.p_sb is not None else 1 / b.odds) for b in a)
-        price = acca_odds_of(a)
-        accas_out["bets"].append({"id": accas_out["ids"][i] if i < len(accas_out["ids"]) else None,
-                                  "odds": _f(price, 2), "p": _f(p_model), "p_cal": _p_cal(a), "p_market": _f(p_market),
-                                  "n_legs": len(a), "status": "pending", "legs": legs_out,
-                                  "if_model_right": _f(p_model * price - 1, 3),
-                                  "if_no_edge": _f(p_market * price - 1, 3)})
-    # ---- the safer-doubles family (2 legs, ~2.00), same shape, its own record
-    dt = _f(ac.get("doubles_target"))
-    if dt:
-        fam = {"target": dt, "bets": []}
-        for i, a in enumerate(ac.get("doubles_plans") or []):
-            legs_out = []
-            for b in a:
-                fid = ids_by_key.get(b.key) or fixture_id(*b.key)
-                tracked.add(fid)
-                legs_out.append({"fixture": fid, "home": b.home, "away": b.away, "country": b.key[1], "div": b.div,
-                                 "league": b.league, "kickoff": b.kickoff, "sel": b.sel, "label": b.label,
-                                 "p": _f(b.p), "p_model": _f(b.p_model), "p_sb": _f(b.p_sb),
-                                 "edge_pp": _f(100 * (b.p_model - b.p_sb)) if b.p_sb is not None else None,
-                                 "odds": _f(b.odds, 2), "fair": _f(1 / b.p, 2) if b.p else None,
-                                 "badges": {"home": badges.get(b.home), "away": badges.get(b.away)}})
-            p_model = math.prod(b.p for b in a)
-            p_market = math.prod((b.p_sb if b.p_sb is not None else 1 / b.odds) for b in a)
-            price = acca_odds_of(a)
-            fam["bets"].append({"id": (ac.get("doubles_ids") or [None] * (i + 1))[i],
-                                "odds": _f(price, 2), "p": _f(p_model), "p_cal": _p_cal(a), "p_market": _f(p_market),
-                                "n_legs": len(a), "status": "pending", "legs": legs_out,
-                                "if_model_right": _f(p_model * price - 1, 3),
-                                "if_no_edge": _f(p_market * price - 1, 3)})
-        fam["summary"] = ac.get("doubles_summary") or {}
-        fam["recent"] = ac.get("doubles_recent") or []
-        accas_out["doubles"] = fam
-    return accas_out
-
-
-def acca_odds_of(legs) -> float:
-    o = 1.0
-    for b in legs:
-        o *= b.odds
-    return o
 
 
 def _write(path: Path, data) -> None:
@@ -383,6 +352,7 @@ def export(path: Path, *, ctx: dict, rows: list, all_rows: list | None = None, p
     # model beats that price). Presentation only — probabilities are the unchanged model probabilities.
     strong_picks: list[dict] = []
     value_picks: list[dict] = []
+    strong_candidates: list[dict] = []     # the home page's "strong markets for the day" (policy.is_strong_market)
     _today = now.strftime("%Y-%m-%d")     # the Today boards only ever show this day's matches
     for r in rows:
         fx = r.fx
@@ -419,6 +389,16 @@ def export(path: Path, *, ctx: dict, rows: list, all_rows: list | None = None, p
             # both boards are titled "Today", so only this day's matches qualify
             if date != _today:
                 continue
+            # strong markets (user rule 2026-10-21): 75%+, price 1.16+, and only Over 1.5 / team goals / corners /
+            # bookings — the filter itself lives in policy.py; the caps and ordering in strong_markets_payload()
+            _ko = fx["kickoff"].replace(tzinfo=None) if getattr(fx["kickoff"], "tzinfo", None) else fx["kickoff"]
+            if policy.is_strong_market(d.get("sel")) and d.get("odds") and p >= policy.STRONG_P_MIN \
+                    and float(d["odds"]) >= policy.STRONG_ODDS_MIN and _qo != "Low" \
+                    and _ko > now.replace(tzinfo=None) + timedelta(minutes=10):
+                strong_candidates.append({"id": fid, "sel": d.get("sel"), "label": d.get("label") or d.get("sel"),
+                                          "home": fx["home"], "away": fx["away"], "kickoff": fx["kickoff"].strftime("%Y-%m-%d %H:%M"),
+                                          "league": fx["league"], "country": fx["country"], "g": d.get("group"),
+                                          "p": round(p, 3), "odds": round(float(d["odds"]), 2), "q": _qo})
             if p >= policy.min_p(d.get("sel"), 0.70) and _qo != "Low":
                 strong_picks.append(base)
             _ev = d.get("ev")
@@ -542,7 +522,8 @@ def export(path: Path, *, ctx: dict, rows: list, all_rows: list | None = None, p
         bkey = (b["kickoff"][:10], b["country"], b["home"], b["away"])
         safe_out["today"]["bets"].append({**b, "fixture": fid, "q": quality_by_key.get(bkey), "conf": conf_by_key.get(bkey),
                                           "badges": {"home": badges.get(b["home"]), "away": badges.get(b["away"])}})
-    accas_out = accas_payload(ctx, ids_by_key, tracked, badges, fixture_id)
+    strong_out = strong_markets_payload(strong_candidates)
+    log.info("App data: %d strong market(s) for the day (75%%+, 1.16+)", len(strong_out))
     frozen = carry_over(prev, index, safe_out["bets"], tracked, now)
     if frozen:
         log.info("App data: %d started fixture(s) carried over from the previous publication", frozen)
@@ -582,7 +563,9 @@ def export(path: Path, *, ctx: dict, rows: list, all_rows: list | None = None, p
     value_picks.sort(key=lambda x: -x["ev"])
     data = {
         "version": VERSION, "meta": meta,
-        "fixtures": index, "picks": picks_out, "safe": safe_out, "tracker": tracker_out, "accas": accas_out,
+        "fixtures": index, "picks": picks_out, "safe": safe_out, "tracker": tracker_out,
+        "strong_markets": {"min_p": policy.STRONG_P_MIN, "min_odds": policy.STRONG_ODDS_MIN,
+                           "date": now.strftime("%Y-%m-%d"), "bets": strong_out},
         "shortlist": shortlist_payload(ctx.get("shortlist") or {}, ids_by_key, fixture_id),
         "groups": {"strong": strong_picks[:60], "value": value_picks[:40]},
         "tracked": sorted(tracked), "history": {"reports": reports, "days": days_index or []},
