@@ -6,10 +6,16 @@ folder doubles as the permanent receipt log: nothing is moved or deleted afterwa
 
 Design notes
 ------------
-* **Service account, not OAuth.** The scan runs unattended, so it authenticates as a Google service account
-  (`GDRIVE_SA_JSON`) and uploads into a folder shared with that account's address as Editor (`GDRIVE_FOLDER_ID`).
-* **Nothing happens unless it is switched on** (`DRIVE_HANDOFF=1` plus both secrets). A repository without them
-  behaves exactly as before — the same rule the YouTube poster follows.
+* **Two ways to authenticate, your own account first.** A service account (`GDRIVE_SA_JSON`) only works when the
+  folder lives in a Workspace Shared Drive, because a service account has no storage quota of its own — in a personal
+  My Drive Google refuses the upload with *"Service Accounts do not have storage quota"*. So the preferred mode is
+  **your own account** (`GDRIVE_CLIENT_ID` / `GDRIVE_CLIENT_SECRET` / `GDRIVE_REFRESH_TOKEN`, made once with
+  `scripts/drive_auth.py`); the service account stays as a fallback for a Shared Drive. `GDRIVE_FOLDER_ID` is
+  required either way, and `mode()` says which one is in use.
+* **Nothing happens unless it is switched on** (`DRIVE_HANDOFF=1` plus credentials). A repository without them
+  behaves exactly as before — the same rule the YouTube poster follows. The difference is that a switched-on but
+  incomplete handoff is now **loud**: `describe()` names the missing secrets, and the scan sends that to Telegram
+  once a day, so a misconfigured lane can never look like a working one again (it did for a whole day).
 * **No new dependency.** The hashed requirements carry no crypto library, so the RS256 JWT is signed with plain
   integer maths from the standard library (PKCS#1 v1.5 + SHA-256). The key never leaves this process.
 * **Resumable upload.** Google's multipart endpoint stops at 5 MB; a video is bigger, so the file goes up through
@@ -19,7 +25,8 @@ Design notes
 
 Commands (all read the same env):
 
-    python drive_handoff.py info                 # is it configured, which folder, does the account see it
+    python drive_handoff.py info                 # configured? which account, which folder, can it add files?
+    python drive_handoff.py diagnose             # exactly what is missing, without touching the network
     python drive_handoff.py check                # dry run: build a 2 KB stand-in and verify the whole path
     python drive_handoff.py upload FILE [--name NAME] [--dry-run]
 """
@@ -58,6 +65,15 @@ def _truthy(v: str | None) -> bool:
     return str(v or "").strip().lower() in ("1", "true", "yes", "on")
 
 
+def _env(*names: str) -> str:
+    """First non-empty value among `names` — lets the Drive lane reuse the YouTube OAuth client when it is there."""
+    for n in names:
+        v = (os.getenv(n) or "").strip()
+        if v:
+            return v
+    return ""
+
+
 def service_account() -> dict | None:
     """The parsed service-account JSON from `GDRIVE_SA_JSON`, or None when it is absent or unusable."""
     raw = (os.getenv("GDRIVE_SA_JSON") or "").strip()
@@ -76,13 +92,66 @@ def folder_id() -> str:
     return (os.getenv("GDRIVE_FOLDER_ID") or "").strip()
 
 
+def user_creds() -> tuple[str, str, str] | None:
+    """(client_id, client_secret, refresh_token) for acting **as you**, which is what a personal My Drive needs.
+
+    A service account has no storage quota of its own, so Drive refuses uploads into a personal folder ("Service
+    Accounts do not have storage quota"). Acting as the folder's owner avoids that entirely and needs no sharing.
+    The OAuth client can be the same one the YouTube poster uses — only the refresh token is scope-specific.
+    """
+    cid = _env("GDRIVE_CLIENT_ID", "YT_CLIENT_ID")
+    secret = _env("GDRIVE_CLIENT_SECRET", "YT_CLIENT_SECRET")
+    refresh = _env("GDRIVE_REFRESH_TOKEN", "DRIVE_REFRESH_TOKEN")
+    if not (cid and secret and refresh):
+        return None
+    return cid, secret, refresh
+
+
+def mode() -> str:
+    """'user' (your own account), 'service-account', or 'none'."""
+    if user_creds() is not None:
+        return "user"
+    if service_account() is not None:
+        return "service-account"
+    return "none"
+
+
 def configured() -> bool:
-    return service_account() is not None and bool(folder_id())
+    return bool(folder_id()) and mode() != "none"
 
 
 def enabled() -> bool:
-    """`DRIVE_HANDOFF=1` plus both secrets: the scan only hands off when everything says yes."""
+    """`DRIVE_HANDOFF=1` plus credentials: the scan only hands off when everything says yes."""
     return _truthy(os.getenv("DRIVE_HANDOFF")) and configured()
+
+
+def missing() -> list[str]:
+    """The names of the settings that still have to be added, in the order they should be added."""
+    out: list[str] = []
+    if mode() == "none":
+        out += ["GDRIVE_CLIENT_ID", "GDRIVE_CLIENT_SECRET", "GDRIVE_REFRESH_TOKEN"]
+    if not folder_id():
+        out.append("GDRIVE_FOLDER_ID")
+    return out
+
+
+def status() -> dict:
+    """Everything a log line or a Telegram message needs to explain why the handoff did or did not run."""
+    on = _truthy(os.getenv("DRIVE_HANDOFF"))
+    return {"switch_on": on, "mode": mode(), "folder": folder_id() or None,
+            "configured": configured(), "enabled": on and configured(), "missing": missing()}
+
+
+def describe() -> str:
+    """One sentence, safe to show a person. Never contains key material."""
+    st = status()
+    if st["enabled"]:
+        who = "your Google account" if st["mode"] == "user" else "the service account"
+        return f"Drive handoff is ON — uploading as {who} into folder {st['folder']}"
+    if not st["switch_on"]:
+        return "Drive handoff is OFF (DRIVE_HANDOFF is not set to 1)"
+    return ("Drive handoff is ON but NOT configured — missing " + ", ".join(st["missing"])
+            + ". Videos will keep going to Telegram only.")
 
 
 # ------------------------------------------------------------------ RS256 without a crypto library
@@ -186,6 +255,25 @@ def _request(method: str, url: str, **kw) -> requests.Response:
     return requests.request(method, url, **kw)
 
 
+def _explain(resp: requests.Response, what: str = "upload start") -> str:
+    """A Drive failure as an operator can act on — the quota refusal above all, because it looks like a
+    permissions problem and is not."""
+    text = (resp.text or "")[:600]
+    low = text.lower()
+    if "storage quota" in low or "storagequotaexceeded" in low:
+        return ("upload failed (403): a service account has no storage quota of its own, which is what Google "
+                "reports for a folder in a personal My Drive. Use your own account instead: run "
+                "scripts/drive_auth.py once and set GDRIVE_CLIENT_ID / GDRIVE_CLIENT_SECRET / "
+                "GDRIVE_REFRESH_TOKEN, or move the folder into a Shared Drive. Raw: " + text[:240])
+    if resp.status_code == 404:
+        return (f"{what} failed (404): the folder is not visible to the {mode()} credentials. Share it with the "
+                f"service account as Editor, or use your own account via scripts/drive_auth.py. Raw: " + text[:240])
+    if resp.status_code == 401:
+        return (f"{what} failed (401): the credentials were rejected — run scripts/drive_auth.py again. "
+                f"Raw: {text[:240]}")
+    return f"{what} failed ({resp.status_code}): {text[:400]}"
+
+
 def _json(resp: requests.Response, what: str) -> dict:
     if resp.status_code >= 400:
         raise DriveError(f"{what} failed ({resp.status_code}): {resp.text[:400]}")
@@ -195,7 +283,24 @@ def _json(resp: requests.Response, what: str) -> dict:
         raise DriveError(f"{what} returned non-JSON: {resp.text[:200]}") from exc
 
 
-def access_token(sa: dict) -> str:
+def access_token(sa: dict | None = None) -> str:
+    """An access token for whichever mode is configured: your own account first, then a service account."""
+    creds = user_creds()
+    if creds is not None:
+        cid, secret, refresh = creds
+        resp = _request("POST", TOKEN_URL, data={
+            "client_id": cid, "client_secret": secret, "refresh_token": refresh,
+            "grant_type": "refresh_token",
+        })
+        body = _json(resp, "user token refresh")
+        tok = body.get("access_token")
+        if not tok:
+            raise DriveError("token refresh returned no access_token: the refresh token may belong to a deleted "
+                             "OAuth client or have been revoked — run scripts/drive_auth.py again.")
+        return str(tok)
+    sa = sa or service_account()
+    if sa is None:
+        raise DriveError("no Drive credentials: set GDRIVE_REFRESH_TOKEN (preferred) or GDRIVE_SA_JSON")
     resp = _request("POST", sa.get("token_uri") or TOKEN_URL, data={
         "grant_type": "urn:ietf:params:oauth:grant-type:jwt-bearer",
         "assertion": assertion(sa),
@@ -245,7 +350,7 @@ def upload_bytes(token: str, payload: bytes, name: str, *, fid: str | None = Non
                               "X-Upload-Content-Type": mime, "X-Upload-Content-Length": str(len(payload))},
                      data=json.dumps(meta))
     if start.status_code >= 400:
-        raise DriveError(f"upload start failed ({start.status_code}): {start.text[:400]}")
+        raise DriveError(_explain(start))
     location = start.headers.get("Location") or start.headers.get("location")
     if not location:
         raise DriveError("upload start returned no Location header")
@@ -274,10 +379,9 @@ def upload_video(path: Path, *, name: str | None = None, dry_run: bool = False,
     if dry_run:
         name = f"{name} (dry run)"
     if token is None:
-        sa = service_account()
-        if sa is None:
-            raise DriveError("GDRIVE_SA_JSON is missing or unusable")
-        token = access_token(sa)
+        if mode() == "none":
+            raise DriveError("no Drive credentials — set GDRIVE_REFRESH_TOKEN (scripts/drive_auth.py) or GDRIVE_SA_JSON")
+        token = access_token()
     out = upload_bytes(token, payload, name, fid=fid, mime=mime)
     out["dry_run"] = dry_run
     return out
@@ -315,7 +419,8 @@ def handoff(path: Path, *, dry_run: bool = False, notify=None) -> dict | None:
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description="Hand a finished PlayReport video to Google Drive for the YouTube Zap.")
     sub = ap.add_subparsers(dest="cmd", required=True)
-    sub.add_parser("info", help="is it configured, and can the account see the folder")
+    sub.add_parser("diagnose", help="what is configured and what is missing (no network)")
+    sub.add_parser("info", help="which account, which folder, and can it add files")
     ck = sub.add_parser("check", help="dry run: a 2 KB stand-in through the whole path")
     ck.add_argument("--folder", default=None)
     up = sub.add_parser("upload", help="upload a video")
@@ -326,14 +431,27 @@ def main(argv: list[str] | None = None) -> int:
     args = ap.parse_args(argv)
 
     logging.basicConfig(level=logging.INFO, format="%(message)s")
+    if args.cmd == "diagnose":
+        st = status()
+        print(f"switch:   {'on' if st['switch_on'] else 'off'}  (DRIVE_HANDOFF)")
+        print(f"mode:     {st['mode']}")
+        print(f"folder:   {st['folder'] or '(unset)'}  (GDRIVE_FOLDER_ID)")
+        print(f"ready:    {'yes' if st['enabled'] else 'no'}")
+        if st["missing"]:
+            print("missing:  " + ", ".join(st["missing"]))
+        print(describe())
+        return 0 if st["enabled"] else 2
+
     if not configured():
-        print("Drive handoff is NOT configured: set GDRIVE_SA_JSON and GDRIVE_FOLDER_ID.")
+        print("Drive handoff is NOT configured — " + describe())
         return 2
-    sa = service_account() or {}
-    print(f"service account: {sa.get('client_email')}")
+    if mode() == "user":
+        print("account:         your own Google account (OAuth refresh token)")
+    else:
+        print(f"service account: {(service_account() or {}).get('client_email')}")
     print(f"folder id:       {folder_id() or '(unset)'}")
     try:
-        token = access_token(sa)
+        token = access_token()
     except DriveError as exc:
         print(f"auth failed: {exc}")
         return 1

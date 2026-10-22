@@ -67,8 +67,14 @@ jobs:
       # Zapier Zap (Drive "New File in Folder" -> YouTube "Upload Video") publishes it. Inert unless both secrets
       # exist; DRIVE_HANDOFF=1 is the master switch.
       DRIVE_HANDOFF: "1"
-      GDRIVE_SA_JSON: ${{ secrets.GDRIVE_SA_JSON }}
       GDRIVE_FOLDER_ID: ${{ secrets.GDRIVE_FOLDER_ID }}
+      # Preferred: act as the user's own account (scripts/drive_auth.py), because a service account has no storage
+      # quota and Drive refuses it in a personal My Drive. The service-account key stays as the fallback, and only
+      # matters for a Workspace Shared Drive.
+      GDRIVE_CLIENT_ID: ${{ secrets.GDRIVE_CLIENT_ID }}
+      GDRIVE_CLIENT_SECRET: ${{ secrets.GDRIVE_CLIENT_SECRET }}
+      GDRIVE_REFRESH_TOKEN: ${{ secrets.GDRIVE_REFRESH_TOKEN }}
+      GDRIVE_SA_JSON: ${{ secrets.GDRIVE_SA_JSON }}
     steps:
       - name: Check out code
         uses: actions/checkout@v4.4.0
