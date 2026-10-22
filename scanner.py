@@ -2759,12 +2759,26 @@ def maybe_send_daily_reel(sl_pub: dict, now: datetime) -> None:
         except Exception as exc:  # noqa: BLE001 - YouTube must never take the scan or the Telegram send down
             log.warning("YouTube upload skipped: %s", exc)
     # Third delivery lane: the Drive handoff. The finished 16:9 video is copied into the "PlayReport → YouTube"
-    # folder, where a free Zapier Zap picks it up and publishes it. Off unless DRIVE_HANDOFF=1 plus the service
-    # account and folder secrets, so a repository without them behaves exactly as before. Runs before Telegram,
-    # which deletes the local file on success.
+    # folder, where a free Zapier Zap ("New File in Folder" -> "Upload Video") picks it up and publishes it. Off
+    # unless DRIVE_HANDOFF=1 plus credentials, so a repository without them behaves exactly as before — but a lane
+    # that is switched ON and cannot run is never silent again: the reason goes to the log every run and to
+    # Telegram once a day. Runs before Telegram, which deletes the local file on success.
     if drive_mod is not None:
         try:
-            drive_mod.handoff(out_16x9, notify=send_telegram)
+            if drive_mod.enabled():
+                drive_mod.handoff(out_16x9, notify=send_telegram)
+            else:
+                why = drive_mod.describe()
+                log.warning("Drive handoff did not run: %s", why)
+                if drive_mod.status().get("switch_on") and st.get("drive_handoff_warned") != today:
+                    send_telegram(f"⚠️ {why}\nAdd the missing GitHub Actions secrets and the next video will "
+                                  f"land in Drive for Zapier.")
+                    st["drive_handoff_warned"] = today          # once a day, not once per video slot
+                    try:
+                        path.parent.mkdir(parents=True, exist_ok=True)
+                        path.write_text(json.dumps(st, ensure_ascii=False), encoding="utf-8")
+                    except OSError:
+                        pass
         except Exception as exc:  # noqa: BLE001 - Drive must never take the scan or the Telegram send down
             log.warning("Drive handoff skipped: %s", exc)
     ok_16x9 = send_telegram_video(

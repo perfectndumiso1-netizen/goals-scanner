@@ -65,17 +65,101 @@ def _sa(**over) -> dict:
 
 # ------------------------------------------------------------------ configuration
 
-def test_nothing_is_configured_without_the_secrets(monkeypatch):
-    for name in ("GDRIVE_SA_JSON", "GDRIVE_FOLDER_ID", "DRIVE_HANDOFF"):
+CRED_VARS = ("GDRIVE_SA_JSON", "GDRIVE_FOLDER_ID", "DRIVE_HANDOFF", "GDRIVE_CLIENT_ID",
+             "GDRIVE_CLIENT_SECRET", "GDRIVE_REFRESH_TOKEN", "YT_CLIENT_ID", "YT_CLIENT_SECRET")
+
+
+def _clear(monkeypatch):
+    for name in CRED_VARS:
         monkeypatch.delenv(name, raising=False)
+
+
+def test_nothing_is_configured_without_the_secrets(monkeypatch):
+    _clear(monkeypatch)
     assert dh.service_account() is None and dh.folder_id() == ""
     assert dh.configured() is False and dh.enabled() is False
+    assert dh.mode() == "none"
+
+
+def test_a_switched_on_but_incomplete_lane_says_so_out_loud(monkeypatch):
+    """The bug this guards: for a whole day the handoff was ON, unconfigured, and silent — the videos only
+    reached Telegram and nothing anywhere said why."""
+    _clear(monkeypatch)
+    monkeypatch.setenv("DRIVE_HANDOFF", "1")
+    st = dh.status()
+    assert st["switch_on"] is True and st["enabled"] is False
+    assert st["missing"] == ["GDRIVE_CLIENT_ID", "GDRIVE_CLIENT_SECRET", "GDRIVE_REFRESH_TOKEN", "GDRIVE_FOLDER_ID"]
+    said = dh.describe()
+    assert "ON but NOT configured" in said and "GDRIVE_REFRESH_TOKEN" in said
+    assert "Telegram only" in said
+
+
+def test_switched_off_says_it_is_off_rather_than_missing_secrets(monkeypatch):
+    _clear(monkeypatch)
+    assert dh.describe() == "Drive handoff is OFF (DRIVE_HANDOFF is not set to 1)"
+
+
+def test_the_users_own_account_is_the_preferred_mode(monkeypatch):
+    _clear(monkeypatch)
+    monkeypatch.setenv("GDRIVE_CLIENT_ID", "cid")
+    monkeypatch.setenv("GDRIVE_CLIENT_SECRET", "secret")
+    monkeypatch.setenv("GDRIVE_REFRESH_TOKEN", "refresh")
+    monkeypatch.setenv("GDRIVE_FOLDER_ID", "folder-123")
+    monkeypatch.setenv("DRIVE_HANDOFF", "1")
+    assert dh.mode() == "user"
+    assert dh.enabled() is True and dh.missing() == []
+    assert "your Google account" in dh.describe()
+
+
+def test_the_youtube_oauth_client_can_be_reused(monkeypatch):
+    _clear(monkeypatch)
+    monkeypatch.setenv("YT_CLIENT_ID", "cid")
+    monkeypatch.setenv("YT_CLIENT_SECRET", "secret")
+    monkeypatch.setenv("GDRIVE_REFRESH_TOKEN", "refresh")
+    monkeypatch.setenv("GDRIVE_FOLDER_ID", "folder-123")
+    assert dh.mode() == "user" and dh.configured() is True
+
+
+def test_a_user_refresh_token_is_exchanged_and_wins_over_the_service_account(monkeypatch):
+    _clear(monkeypatch)
+    monkeypatch.setenv("GDRIVE_CLIENT_ID", "cid")
+    monkeypatch.setenv("GDRIVE_CLIENT_SECRET", "secret")
+    monkeypatch.setenv("GDRIVE_REFRESH_TOKEN", "refresh")
+    monkeypatch.setenv("GDRIVE_SA_JSON", json.dumps(_sa()))
+    seen = {}
+
+    def fake_request(method, url, **kw):
+        seen.update(kw.get("data") or {})
+        return FakeResp(200, {"access_token": "user-token"})
+
+    monkeypatch.setattr(dh, "_request", fake_request)
+    assert dh.access_token() == "user-token"
+    assert seen["grant_type"] == "refresh_token" and seen["refresh_token"] == "refresh"
+
+
+def test_the_quota_refusal_explains_the_fix(monkeypatch):
+    """Google's 'Service Accounts do not have storage quota' is the trap for a personal My Drive."""
+    body = {"error": {"errors": [{"reason": "storageQuotaExceeded"}],
+                      "message": "Service Accounts do not have storage quota. Leverage shared drives."}}
+    monkeypatch.setattr(dh, "_request", lambda *a, **k: FakeResp(403, body, text=json.dumps(body)))
+    with pytest.raises(dh.DriveError) as exc:
+        dh.upload_bytes("tok", b"data", "name", fid="folder-123")
+    msg = str(exc.value)
+    assert "no storage quota" in msg and "scripts/drive_auth.py" in msg
+
+
+def test_a_missing_folder_points_at_sharing(monkeypatch):
+    monkeypatch.setattr(dh, "_request", lambda *a, **k: FakeResp(404, {"error": "nf"}, text="not found"))
+    with pytest.raises(dh.DriveError) as exc:
+        dh.upload_bytes("tok", b"data", "name", fid="folder-123")
+    assert "404" in str(exc.value) and "Share it" in str(exc.value)
 
 
 def test_the_switch_needs_both_the_secrets_and_the_flag(monkeypatch):
+    _clear(monkeypatch)
     monkeypatch.setenv("GDRIVE_SA_JSON", json.dumps(_sa()))
     monkeypatch.setenv("GDRIVE_FOLDER_ID", "folder-123")
-    monkeypatch.delenv("DRIVE_HANDOFF", raising=False)
+    assert dh.mode() == "service-account"
     assert dh.configured() is True and dh.enabled() is False
     monkeypatch.setenv("DRIVE_HANDOFF", "1")
     assert dh.enabled() is True
@@ -83,6 +167,7 @@ def test_the_switch_needs_both_the_secrets_and_the_flag(monkeypatch):
 
 def test_a_broken_or_partial_json_is_treated_as_unconfigured(monkeypatch):
     for bad in ("{not json", json.dumps({"client_email": "x@y"}), json.dumps({"private_key": "k"})):
+        _clear(monkeypatch)
         monkeypatch.setenv("GDRIVE_SA_JSON", bad)
         monkeypatch.setenv("GDRIVE_FOLDER_ID", "folder-123")
         monkeypatch.setenv("DRIVE_HANDOFF", "1")
@@ -192,13 +277,13 @@ def test_a_missing_video_is_an_error_but_not_a_crash(monkeypatch, tmp_path):
 # ------------------------------------------------------------------ scan hook
 
 def test_the_hook_does_nothing_when_the_switch_is_off(monkeypatch, tmp_path):
-    for name in ("GDRIVE_SA_JSON", "GDRIVE_FOLDER_ID", "DRIVE_HANDOFF"):
-        monkeypatch.delenv(name, raising=False)
+    _clear(monkeypatch)
     monkeypatch.setattr(dh, "upload_video", lambda *a, **k: pytest.fail("uploaded with the switch off"))
     assert dh.handoff(tmp_path / "video.mp4") is None
 
 
 def test_the_hook_uploads_then_tells_telegram(monkeypatch, tmp_path):
+    _clear(monkeypatch)
     monkeypatch.setenv("GDRIVE_SA_JSON", json.dumps(_sa()))
     monkeypatch.setenv("GDRIVE_FOLDER_ID", "folder-123")
     monkeypatch.setenv("DRIVE_HANDOFF", "1")
@@ -211,6 +296,7 @@ def test_the_hook_uploads_then_tells_telegram(monkeypatch, tmp_path):
 
 
 def test_a_drive_failure_is_reported_and_swallowed(monkeypatch, tmp_path):
+    _clear(monkeypatch)
     monkeypatch.setenv("GDRIVE_SA_JSON", json.dumps(_sa()))
     monkeypatch.setenv("GDRIVE_FOLDER_ID", "folder-123")
     monkeypatch.setenv("DRIVE_HANDOFF", "1")
@@ -228,3 +314,37 @@ def test_the_scanner_calls_the_handoff_before_it_sends_to_telegram():
     src = (Path(__file__).resolve().parent.parent / "scanner.py").read_text(encoding="utf-8")
     assert "import drive_handoff as drive_mod" in src
     assert src.index("drive_mod.handoff(out_16x9") < src.index("ok_16x9 = send_telegram_video(")
+
+
+def test_the_scanner_warns_when_the_lane_is_on_but_unconfigured():
+    """A silent skip is what let a switched-on-but-unconfigured handoff look healthy; the scan must say why."""
+    src = (Path(__file__).resolve().parent.parent / "scanner.py").read_text(encoding="utf-8")
+    assert "if drive_mod.enabled():" in src
+    assert "drive_mod.describe()" in src
+    assert "drive_handoff_warned" in src              # once a day, not once per video slot
+    assert "Drive handoff did not run" in src
+
+
+def test_the_workflow_passes_the_user_credentials_through():
+    from pathlib import Path as _P
+    wf = (_P(__file__).resolve().parent.parent / ".github" / "workflows" / "scan.yml").read_text(encoding="utf-8")
+    for name in ("GDRIVE_CLIENT_ID", "GDRIVE_CLIENT_SECRET", "GDRIVE_REFRESH_TOKEN",
+                 "GDRIVE_FOLDER_ID", "GDRIVE_SA_JSON", "DRIVE_HANDOFF"):
+        assert f"{name}:" in wf, name
+
+
+# ------------------------------------------------------------------ the one-time authorisation helper
+
+def test_the_auth_helper_asks_for_the_right_scope_and_redirect():
+    sys_path = str(Path(__file__).resolve().parent.parent / "scripts")
+    import importlib.util
+    spec = importlib.util.spec_from_file_location("drive_auth", Path(sys_path) / "drive_auth.py")
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    url = mod.auth_url("cid.apps.googleusercontent.com")
+    assert "accounts.google.com/o/oauth2/v2/auth" in url
+    assert "drive.file" in url and "access_type=offline" in url
+    assert f"127.0.0.1%3A{mod.PORT}" in url
+    assert mod.PORT != 8765                       # never collide with scripts/yt_auth.py
+    assert mod._code_from("http://127.0.0.1:8766/?code=abc123&scope=x") == "abc123"
+    assert mod._code_from("  abc123  ") == "abc123"

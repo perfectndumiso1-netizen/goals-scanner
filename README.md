@@ -193,29 +193,47 @@ trends and venue splits, then the record. Its holds are content-based like `stag
 results recap is paged 9 rows at a time and a text card is capped at 16 s, so nothing sits still; the fixture detail
 files are warmed before the player builds, and a failed fetch means fewer slides rather than a blank one.
 
-### Google Drive handoff: Drive → Zapier → YouTube (2026-10-21)
+### Google Drive handoff: Drive → Zapier → YouTube (2026-10-21, reworked 2026-10-21 evening)
 `drive_handoff.py` is the third lane and the one the user chose to publish through: the finished **16:9** video is
 copied into a Drive folder, and a free two-step Zapier Zap (Drive *New File in Folder* → YouTube *Upload Video*)
-publishes it. It uses a **service account** (`GDRIVE_SA_JSON`, the whole JSON key) and `GDRIVE_FOLDER_ID`, with
-`DRIVE_HANDOFF=1` as the master switch — without both secrets it reports "not configured" and the scan behaves
-exactly as before. Share the Drive folder with the service account's `client_email` as **Editor**, then:
+publishes it. **Zapier discovers files by polling that folder**, so the only thing that matters is that the file
+really lands in it.
+
+**Act as your own Google account, not a service account.** This is the important correction: a service account has
+no storage quota of its own, and Drive refuses an upload into a personal My Drive folder with *"Service Accounts do
+not have storage quota"*. So the preferred mode is a **user refresh token**, made once with `scripts/drive_auth.py`
+(scope `drive.file`: the app may only manage the files it creates and the folders you give it):
 
 ```bash
-export GDRIVE_SA_JSON="$(cat service-account.json)"
-export GDRIVE_FOLDER_ID='...'
-python drive_handoff.py info      # account, folder, and whether it may add files
+export GDRIVE_CLIENT_ID='...apps.googleusercontent.com'   # any Desktop-app OAuth client; the YouTube one is fine
+export GDRIVE_CLIENT_SECRET='...'
+python scripts/drive_auth.py       # prints GDRIVE_REFRESH_TOKEN
+```
+
+Add `GDRIVE_CLIENT_ID`, `GDRIVE_CLIENT_SECRET`, `GDRIVE_REFRESH_TOKEN` and `GDRIVE_FOLDER_ID` as Actions secrets.
+`DRIVE_HANDOFF=1` is the master switch. A service-account key (`GDRIVE_SA_JSON`, folder shared with its
+`client_email` as Editor) still works, but only for a Workspace **Shared Drive** — `mode()` reports which is in use:
+
+```bash
+python drive_handoff.py diagnose  # what is set and what is missing — no network
+python drive_handoff.py info      # which account, which folder, can it add files
 python drive_handoff.py check     # dry run: a 2 KB stand-in through the whole path
 python drive_handoff.py upload /tmp/briefing-16x9.mp4
 ```
 
-Notes that drove the design. **No crypto dependency:** the hashed `requirements.txt` has none, so the RS256 JWT is
-signed with plain integer maths from the standard library (`drive_handoff.sign_rs256`, PKCS#1 v1.5 + SHA-256) —
-tested against a hand-built key. **Resumable upload**, because Google's multipart endpoint stops at 5 MB and a video
-is bigger. **The title has no extension** and the mime type is `video/mp4`, which is what makes the Zapier→YouTube
-step publish a playable video rather than a file. Zapier's free plan has no third step, so nothing moves or deletes
-the Drive file afterwards: the folder is the permanent receipt log, and the ~100 MB file ceiling is why the videos
-stay small. Telegram gets one line either way — `📤 YouTube handoff: <file> → PlayReport/YouTube`, or a warning if it
-failed — and a Drive failure never stops the Telegram send. Tests: `tests/test_drive_handoff.py`.
+**A misconfigured lane is never silent again.** It was: on 2026-10-21 the handoff shipped switched on but with no
+credentials, returned `None` without a log line, and a whole day of videos went to Telegram only. Now `describe()`
+names the missing secrets, the scan logs the reason on every run and sends it to Telegram **once a day**, and the
+quota/404/401 failures each come back with the fix rather than a raw API body.
+
+Other design notes. **No crypto dependency:** the hashed `requirements.txt` has none, so the service-account path
+signs its RS256 JWT with plain integer maths from the standard library (`drive_handoff.sign_rs256`, PKCS#1 v1.5 +
+SHA-256) — tested against a hand-built key. **Resumable upload**, because Google's multipart endpoint stops at 5 MB
+and a video is bigger. **The title has no extension** and the mime type is `video/mp4`, which is what makes the
+Zapier→YouTube step publish a playable video rather than a file. Zapier's free plan has no third step, so nothing
+moves or deletes the Drive file afterwards: the folder is the permanent receipt log, and the ~100 MB file ceiling is
+why the videos stay small. Telegram gets one line either way — `📤 YouTube handoff: <file> → PlayReport/YouTube`, or
+a warning if it failed — and a Drive failure never stops the Telegram send. Tests: `tests/test_drive_handoff.py`.
 
 ### YouTube auto-poster: probe first, then two videos a day (2026-10-21)
 `youtube_post.py` is the second delivery lane, next to Telegram. It uses the YouTube Data API over plain `requests`
