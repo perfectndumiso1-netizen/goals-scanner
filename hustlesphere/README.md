@@ -12,7 +12,7 @@ This is a separate Android application in `hustlesphere/`. It does not replace o
 - Blocking, database-backed in-app notifications and account deletion through a caller-authenticated Edge Function.
 - Row-level security, narrow table grants and database-side messaging/notification workflows.
 
-Source code and SQL are implemented, but a hosted Supabase project, Google OAuth credentials and email delivery are not included. A successful APK compilation does not prove that live authentication, RLS, OAuth, messaging or deletion works. See **Verification status** below and run the database tests before production use.
+Source code and SQL are implemented, but a hosted Supabase project, Google OAuth credentials and email delivery are not included. CI has applied the migrations to a disposable local Supabase stack and passed the synthetic multi-account RLS/messaging suite; this does not prove hosted authentication, OAuth, email delivery, or account deletion. See **Verification status** below before production use.
 
 ## Build a debug APK
 
@@ -64,7 +64,7 @@ supabase db reset
 supabase test db
 ```
 
-For a hosted-project smoke test, create at least three test accounts. Make one profile private and verify it is absent from another account's Explore/feed results while its owner can still see it; create a public message request, accept it from the recipient account, verify both participants can read messages, and verify a third account cannot. Repeat with decline and then block; the blocked pair must lose conversation access. Do not use production personal accounts for this test. The SQL pgTAP test is authored but cannot be considered passed until it is run against a real Supabase database.
+The GitHub Actions workflow runs this suite in a disposable local Supabase stack. The latest workflow run passed all 18 pgTAP assertions using three synthetic authenticated identities, covering public/private visibility, message-request authorization, accepted-message access, non-member denial, blocking and decline. This tests real PostgreSQL RLS locally, but is not a hosted-project or real-email-account smoke test. For that, create at least three dedicated test accounts and repeat the same scenarios in a configured Supabase project; do not use production personal accounts.
 
 ## Security boundaries and limitations
 
@@ -76,7 +76,7 @@ For a hosted-project smoke test, create at least three test accounts. Make one p
 
 ## Verification status
 
-This checkout does not include Supabase project credentials, Google OAuth credentials, or email SMTP settings. Live account, OAuth, multi-account RLS/messaging, notification, and account-deletion tests therefore remain pending configuration. CI builds a debug APK and runs Kotlin unit tests; run the pgTAP suite against local/hosted Supabase to verify backend behavior before calling those features production-ready.
+GitHub Actions run [39993488332](https://github.com/perfectndumiso1-netizen/goals-scanner/actions/runs/39993488332) passed the Android debug build, Kotlin unit tests, clean local Supabase migration/reset, and all 18 pgTAP assertions across three synthetic authenticated identities. The RLS/messaging suite covers private-profile/post visibility, request authorization, accepted-chat access, third-party denial, blocking, decline, and database notification rows. It is a local database integration test—not a hosted-project or real-email-account smoke test. Hosted email/password and Google OAuth, SMTP delivery, end-to-end Android messaging/notifications, deployed Edge Function account deletion, and production release signing remain unverified. Supply the Supabase URL/client key, Google OAuth Web client ID/secret, and SMTP configuration described above, then test those flows in a dedicated hosted test project before launch.
 
 ## Potential costs
 

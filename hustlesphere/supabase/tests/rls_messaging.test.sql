@@ -1,4 +1,4 @@
--- Run with `supabase test db` after applying migrations 0001 and 0002.
+-- Run with `supabase test db` after `supabase db reset` applies migrations 0001–0003.
 -- Three synthetic identities exercise real authenticated-role RLS in one transaction.
 create extension if not exists pgtap with schema extensions;
 begin;
