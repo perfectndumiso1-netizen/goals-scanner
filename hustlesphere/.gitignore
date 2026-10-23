@@ -9,3 +9,7 @@ local.properties
 secrets.properties
 *.jks
 *.keystore
+
+# Supabase local-development state
+supabase/.temp/
+supabase/.branches/
