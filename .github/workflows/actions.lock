@@ -8,6 +8,11 @@ workflows:
         - 'actions/setup-java@v4.9.1'
         - 'actions/upload-artifact@v4.6.2'
         - 'gradle/actions@v3.5.0'
+    '.github/workflows/hustlesphere-android-build.yml':
+        - 'actions/checkout@v4.4.0'
+        - 'actions/setup-java@v4.9.1'
+        - 'actions/upload-artifact@v4.6.2'
+        - 'gradle/actions@v3.5.0'
     '.github/workflows/python-tests.yml':
         - 'actions/checkout@v4.4.0'
         - 'actions/setup-python@v5.6.0'
