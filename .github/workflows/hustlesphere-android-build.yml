@@ -72,3 +72,39 @@ jobs:
       - name: Run multi-account RLS and messaging tests
         working-directory: hustlesphere
         run: supabase test db
+
+  publish-debug-release:
+    # Provide a direct, anonymous download for this session branch without touching the latest PlayReport release.
+    if: github.event_name == 'push' && github.ref == 'refs/heads/arena/a2cb6a9a-goals-scanner'
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      contents: write
+    steps:
+      - name: Download the built APK
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh run download "$GITHUB_RUN_ID" \
+            --repo "$GITHUB_REPOSITORY" \
+            --name HustleSphere-debug-apk \
+            --dir ./release
+          test -s ./release/app-debug.apk
+
+      - name: Publish a public debug prerelease
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          tag="hustlesphere-debug-${GITHUB_SHA::7}"
+          if gh release view "$tag" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh release upload "$tag" "./release/app-debug.apk#HustleSphere-debug.apk" \
+              --repo "$GITHUB_REPOSITORY" --clobber
+          else
+            gh release create "$tag" "./release/app-debug.apk#HustleSphere-debug.apk" \
+              --repo "$GITHUB_REPOSITORY" \
+              --target "$GITHUB_SHA" \
+              --title "HustleSphere debug APK (${GITHUB_SHA::7})" \
+              --notes "Debug build for evaluation only. It is not production-signed or preconfigured with Supabase. Configure the Supabase URL and anon/publishable client key before use. No service-role key is included." \
+              --prerelease
+          fi
