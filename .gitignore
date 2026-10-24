@@ -30,3 +30,12 @@ secrets/
 backtest/cache_boost/
 node_modules/
 tmp/
+# African Wildlife Book - large print-ready files kept on GDrive, not in git
+african_book/interior/*.pdf
+african_book/cover/full_cover_temp.jpg
+african_book_full_package*.zip
+african_book_illustrations_*.zip
+african_book/illustrations/*.png
+african_book/illustrations_hd/*.png
+african_book/previews/*.png
+african_book/previews/*.jpg
