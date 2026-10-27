@@ -42,6 +42,7 @@ import os
 import re
 import shutil
 import tempfile
+import traceback
 import time
 from dataclasses import dataclass, field
 from datetime import datetime, time as dtime, timedelta
@@ -3658,6 +3659,8 @@ def main() -> None:
     # The publication carries only the APP_WINDOW_HOURS window (the Matches tab is "today"); the rest of
     # the coverage window lives in the day files (browseable per day) and feeds the model / tracker.
     staging = APP_FILE.parent / "_staging"
+    pub_status = {"at": now.strftime("%Y-%m-%d %H:%M"), "run_id": ctx.get("run_id"), "published": None,
+                  "note": "the app export did not finish this run"}
     try:
         def build_staged_app() -> None:
             appdata.export(staging / APP_FILE.name, ctx=ctx, rows=app_rows, all_rows=rows, picks=picks, tracker_summary=summary, notes=notes, ls_map=ls_map,
@@ -3676,6 +3679,12 @@ def main() -> None:
             lambda: verify.check_publication(staging, APP_FILE.parent, SAFE_BETS_FILE, now, expect_fixtures=len(app_rows)),
             lambda: promote_publication(staging, APP_FILE.parent, now),
         )
+        # The publication outcome is written to the state branch, not just the log: a rejected publication means the
+        # app keeps serving the previous payload, and on 2026-10-27 that froze the app for hours because the reason
+        # lived only in a log nobody could read from a phone. `data/publication_status.json` now says why.
+        pub_status = {"at": now.strftime("%Y-%m-%d %H:%M"), "run_id": ctx.get("run_id"),
+                      "published": bool(result.published), "fixtures": len(app_rows),
+                      "errors": list(result.errors[:30]), "warnings": list(result.warnings[:40])}
         for w in result.warnings[:20]:
             log.warning("Data check: %s", w)
         if result.errors:
@@ -3690,6 +3699,13 @@ def main() -> None:
             log.info("App data: %s (validated, %d warning(s))", APP_FILE, len(result.warnings))
     except Exception as exc:  # noqa: BLE001 - never lose the run because of the app export
         log.exception("App data export failed: %s", exc)
+        pub_status = {"at": now.strftime("%Y-%m-%d %H:%M"), "run_id": ctx.get("run_id"), "published": False,
+                      "exception": f"{type(exc).__name__}: {exc}", "traceback": traceback.format_exc()[-4000:]}
+    try:
+        (DATA_DIR / "publication_status.json").write_text(
+            json.dumps(pub_status, ensure_ascii=False, indent=1, default=str) + "\n", encoding="utf-8")
+    except (OSError, ValueError):
+        pass
     if os.getenv("README_AUTO") == "1":
         update_readme(render_readme_block(ctx, rows, picks, summary, f"reports/{today_str}.md"))
 
