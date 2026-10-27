@@ -894,15 +894,13 @@
       <div class="mkt-types">
         <button class="mkt-type" data-mkt-go="goals">${icon('ball')}<span>O1.5</span></button>
         <button class="mkt-type" data-mkt-go="goals">${icon('trend')}<span>O2.5</span></button>
-        <button class="mkt-type" data-mkt-go="goals">${icon('target')}<span>BTTS</span></button>
         <button class="mkt-type" data-mkt-go="top">${icon('shield')}<span>1X2</span></button>
         <button class="mkt-type" data-mkt-go="corners">${icon('corner')}<span>Corners</span></button>
-        <button class="mkt-type" data-mkt-go="cards">${icon('card')}<span>Cards</span></button>
       </div></div>`);
     const row = (name, s, wonKey) => s && s.n ? `<tr><td>${name}</td><td class="right">${s[wonKey || 'won']}/${s.n}</td><td class="right"><b>${pct(s.rate)}</b></td><td class="right muted">${pct(s.exp_rate)}</td><td class="right">${f2(s.avg_odds)}</td><td class="right ${s.roi > 0 ? 'good' : s.roi < 0 ? 'bad' : ''}"><b>${signed(s.roi)}</b></td></tr>` : `<tr><td>${name}</td><td class="right muted">0/0</td><td class="right muted">–</td><td class="right muted">–</td><td class="right muted">–</td><td class="right muted">–</td></tr>`;
     const tbl = (rows) => `<table class="tbl head perf" style="margin-top:6px"><tr><th>Scope</th><th class="right">Won</th><th class="right">Hit</th><th class="right">Exp.</th><th class="right">Odds</th><th class="right">Return</th></tr>${rows}</table>`;
     const bo = sf.botd || {};
-    parts.push(`<div class="card"><div class="row"><span class="ico amber">${icon('star')}</span><b>Bets of the day</b></div>${tbl(row('All time', bo.all) + row('Last 30 days', bo['30d']) + Object.values(bo.by_section || {}).map((s) => row(s.title || '', s)).join(''))}<div class="tiny muted">${bo.pending || 0} pending. Up to three picks per section (1X2 · Over 1.5 & team goals · BTTS · Over 2.5 · Bookings · Corners), overs only.</div></div>`);
+    parts.push(`<div class="card"><div class="row"><span class="ico amber">${icon('star')}</span><b>Bets of the day</b></div>${tbl(row('All time', bo.all) + row('Last 30 days', bo['30d']) + Object.values(bo.by_section || {}).map((s) => row(s.title || '', s)).join(''))}<div class="tiny muted">${bo.pending || 0} pending. Up to three picks per section (1X2 · Over 1.5 · Over 2.5 · Corners), overs only.</div></div>`);
     const bg = (sf.bets || {}).by_group || {};
     parts.push(`<div class="card"><div class="row"><span class="ico green">${icon('trend')}</span><b>High-probability selections</b></div>${tbl(row('All time', (sf.bets || {}).all) + row('Last 30 days', (sf.bets || {})['30d']) + Object.entries(bg).map(([g, s]) => row(GROUPS[g] || g, s)).join(''))}<div class="tiny muted">${(sf.bets || {}).pending || 0} pending. "Exp." is the model's own predicted hit rate — if the real rate stays below it for weeks, the model is over-confident. Return = flat-stake profit per unit staked.</div></div>`);
     const t = d.tracker || {};
@@ -954,7 +952,7 @@ view().innerHTML = parts.join('');
     $$('[data-mkt-go]').forEach((b) => { b.onclick = () => { state.betsView = b.dataset.mktGo; PR.setTab('bets'); }; });
   };
 
-  // ------------------------------------------------------------------ PAGE: all markets (today's six groups, strongest first)
+  // ------------------------------------------------------------------ PAGE: all markets (today's groups, strongest first)
   PR.pages.marketsboard = function () {
     const d = state.data || {};
     const today = ymd(tzNow());
@@ -971,8 +969,9 @@ view().innerHTML = parts.join('');
     const tableOf = (rows) => `<table class="tbl head" style="margin-top:4px"><tr><th>Kick-off</th><th>Match · selection</th><th class="right">Market</th><th class="right">Model</th></tr>${rows.map((r) => selRow(r.f, r.s)).join('')}</table>`;
     const gather = (test) => all.flatMap((f) => (f.sels || []).filter((s) => okP(s) && test(s)).map((s) => ({ f, s })))
       .sort((a, b) => b.s.p - a.s.p);
-    // every one of the six groups renders every single time — a group with nothing in it stays in
-    // place as an empty card (user rule, 2026-10-01), so the page never reshuffles around gaps
+    // every group renders every single time — a group with nothing in it stays in place as an empty card
+    // (user rule, 2026-10-01), so the page never reshuffles around gaps. Four groups since 2026-10-27: the
+    // bookings and BTTS families are gone, so their cards would be empty forever.
     const shell = (title, ico, label, sub, body) =>
       `<div class="card compact" style="margin-top:8px"><div class="row"><span class="ico">${ico}</span><div class="grow b">${title}</div>
         <span class="tiny muted">${body ? label : 'empty · nothing qualifies'}</span></div>
@@ -998,15 +997,13 @@ view().innerHTML = parts.join('');
       total += rows.length;
       parts.push(shell(title, ico, `${rows.length} pick${rows.length === 1 ? '' : 's'} · high to low`, sub, rows.length ? tableOf(rows) : ''));
     };
-    add('Bookings', '🟨', (s) => selGroup(s.sel) === 'cards', 'Total cards (yellow 1 · red 2 on Sportybet) — modelled where the league publishes card statistics.');
     add('Corners', '🚩', (s) => selGroup(s.sel) === 'corners', 'Total corners — modelled for leagues with corner statistics.');
-    add('BTTS', '🔁', (s) => s.sel === 'BTTS', 'Both teams to score — yes (Overs-only board: no “no BTTS”).');
     add('Over 2.5', '⚽', (s) => s.sel === 'O25', 'Total goals 2.5 — over only (starts from a 55% model probability).');
     add('Over 1.5', '⚽', (s) => s.sel === 'O15', 'Total goals 1.5 — over only.');
     if (all.length) {
       parts.splice(1, 0, `<div class="card tiny muted"><b>${all.length} analysed match${all.length === 1 ? '' : 'es'} today</b> · ${total} selections across the groups below · every group sorted by <b>model probability, high → low</b>. Prices set the anchor of the published probability and nothing priced under <b>1.16</b> is offered.</div>`);
     } else {
-      parts.push(`<div class="card empty">No analysed matches for today yet — the six groups will fill in as the analysis publishes.</div>`);
+      parts.push(`<div class="card empty">No analysed matches for today yet — the groups will fill in as the analysis publishes.</div>`);
     }
     const hidden = all.reduce((n, f) => n + (f.sels || []).filter((s) => PR.isOutlier(s)).length, 0);
     if (hidden) parts.push(`<div class="card tiny muted"><b>${hidden}</b> selection${hidden === 1 ? '' : 's'} on this board ${hidden === 1 ? 'is' : 'are'} <b>quarantined</b>: the model rates ${hidden === 1 ? 'it' : 'them'} 15+ points above the price, and a gap that wide is a data fault (a friendly or a cup qualifier the model cannot rate), not value. They are not shown as picks anywhere.</div>`);
@@ -1052,7 +1049,7 @@ view().innerHTML = parts.join('');
 
   // ------------------------------------------------------------------ BEST OF THE DAY (☰ dropdown)
   // The day's best bets, sectioned by market. Every pick clears a model bar first (results ≥60%,
-  // goals ≥70%, corners/bookings ≥65%, priced — odds never filter); home/away wins are
+  // goals ≥70%, corners ≥65%, priced at 1.16+ — odds never filter); home/away wins are
   // then confirmed against the clubs' own venue/road runs from the detail file. All performance
   // numbers below are presentation only — no model maths lives on this page.
   PR.pages.best = function () {
@@ -1076,30 +1073,31 @@ view().innerHTML = parts.join('');
       return { f, p: e.p, odds: e.odds, ev: e.ev, sel: code };
     }).filter(Boolean).sort((a, b) => b.p - a.p);
 
-    const goalCand = []; const coCand = []; const koCand = [];
+    // 2026-10-27: bookings left the policy, so the card carries four blocks — goals, Over 2.5, 1X2, corners.
+    const goalCand = []; const coCand = [];
     all.forEach((f) => {
       (f.hi || []).forEach((h) => {
         const [code, p, odds] = h;
         if (p == null || !odds) return;
         const g = selGroup(code);
-        if (g === 'goals' || g === 'btts' || g === 'team') {
+        if (g === 'goals') {
           const e = selsOf(f).find((s) => s.sel === code);
           goalCand.push({ f, p, odds, ev: e ? e.ev : null, sel: code });
         }
       });
-      ['CO', 'KO'].forEach((pref) => {
+      ['CO'].forEach((pref) => {
         const list = selsOf(f).filter((s) => s.sel.startsWith(pref) && s.p != null && s.p >= 0.65 && s.p < 1 &&
           s.odds && f.q !== 'Low');
         if (!list.length) return;
         const e = list.sort((a, b) => b.p - a.p)[0];
-        (pref === 'CO' ? coCand : koCand).push({ f, p: e.p, odds: e.odds, ev: e.ev, sel: e.sel });
+        coCand.push({ f, p: e.p, odds: e.odds, ev: e.ev, sel: e.sel });
       });
     });
-    goalCand.sort((a, b) => b.p - a.p); coCand.sort((a, b) => b.p - a.p); koCand.sort((a, b) => b.p - a.p);
+    goalCand.sort((a, b) => b.p - a.p); coCand.sort((a, b) => b.p - a.p);
     // goals: strongest few of each family so one market can't flood the card
     const famN = {};
     const goalsShown = goalCand.filter((it) => {
-      const fam = selGroup(it.sel) === 'team' ? 'team' : it.sel === 'BTTS' ? 'BTTS' : it.sel === 'O15' ? 'O15' : 'O25+';
+      const fam = it.sel === 'O15' ? 'O15' : 'O25+';
       famN[fam] = (famN[fam] || 0) + 1;
       return famN[fam] <= 3;
     });
@@ -1183,7 +1181,6 @@ view().innerHTML = parts.join('');
       away: state.expanded.bw_a ? away : away.slice(0, 10),
       goals: state.expanded.bw_goals ? goalCand : goalsShown,
       co: state.expanded.bw_co ? coCand : coCand.slice(0, 8),
-      ko: state.expanded.bw_ko ? koCand : koCand.slice(0, 8),
     };
     let budget = 18;
     const kick = (f) => {
@@ -1200,7 +1197,7 @@ view().innerHTML = parts.join('');
     Object.keys(shown).forEach((kk) => shown[kk].forEach((it) => { if (!seenK.has(it.f.id)) { seenK.add(it.f.id); kick(it.f); } }));
 
     // ---- render
-    parts.push(`<div class="card small"><b>How these picks are made</b><div class="muted" style="margin-top:4px">Each pick clears its model bar first — home/away wins <b>≥60%</b>, goals <b>≥70%</b> (Over 2.5 and BTTS from <b>55%</b>), corners <b>≥65%</b>, with a Sportybet price of <b>1.16 or more</b> on (bookings, team goals, BTTS and double chance left the board in the 2026-10-27 audit). Home and away wins are then confirmed against the clubs' own runs: one side's <b>venue form</b> against the other's <b>road form</b> — the kind of streak you'd back yourself. Prices are Sportybet's; the model itself never changes.</div></div>`);
+    parts.push(`<div class="card small"><b>How these picks are made</b><div class="muted" style="margin-top:4px">Each pick clears its model bar first — home/away wins <b>≥60%</b>, goals <b>≥70%</b> (Over 2.5 from <b>55%</b>), corners <b>≥65%</b> — and a Sportybet price of <b>1.16 or more</b> (bookings, team goals, BTTS, double chance and Over 0.5 left the board in the 2026-10-27 audit). The probability shown is <b>25 % model / 75 % de-vigged market</b>: the market had been out-forecasting the model. Home and away wins are then confirmed against the clubs' own runs: one side's <b>venue form</b> against the other's <b>road form</b> — the kind of streak you'd back yourself. Prices are Sportybet's; the model itself never changes.</div></div>`);
     const secHead = (ico, title, n) => `<div class="section-head"><h2><span class="ico">${icon(ico)}</span>${title}</h2>${n ? `<span class="tiny muted">${n} pick${n === 1 ? '' : 's'}</span>` : ''}</div>`;
     const pickRow = (it) => {
       const f = it.f;
@@ -1216,8 +1213,7 @@ view().innerHTML = parts.join('');
       const max = state.expanded[key] ? rows.length : capN;
       const rowWith = (it) => pickRow(Object.assign({}, it, { why: it.why != null ? it.why
         : kind === 'goals' ? goalsWhy(it)
-          : kind === 'co' ? statsWhy(it, 'corners')
-            : kind === 'ko' ? statsWhy(it, 'cards') : '' }));
+          : kind === 'co' ? statsWhy(it, 'corners') : '' }));
       return `<div class="card compact"><table class="tbl head">${rows.slice(0, max).map(rowWith).join('')}</table>${rows.length > max
         ? `<button class="btn wide" data-more="${key}">Show all ${rows.length}</button>`
         : (state.expanded[key] ? `<button class="btn wide" data-less="${key}">Show less</button>` : '')}</div>`;
@@ -1230,9 +1226,8 @@ view().innerHTML = parts.join('');
     section('shield', 'Home wins', home, 'bw_h', 10, 'No home-win pick clears 60% with the club runs behind it right now.');
     section('swap', 'Away wins', away, 'bw_a', 10, 'No away-win pick clears 60% with the club runs behind it right now.');
     const goalsRows = state.expanded.bw_goals ? goalCand : goalsShown;
-    section('ball', 'Goals · over & BTTS', goalsRows, 'bw_goals', 12, 'No goals pick at 70%+ with a price right now.', 'goals');
+    section('ball', 'Goals · Over 1.5 & Over 2.5', goalsRows, 'bw_goals', 12, 'No goals pick at 70%+ with a price right now.', 'goals');
     section('corner', 'Corners', coCand, 'bw_co', 8, 'No corners pick at 65%+ — corner stats cover the modelled leagues only.', 'co');
-    section('card', 'Bookings', koCand, 'bw_ko', 8, 'No bookings pick at 65%+ right now.', 'ko');
     parts.push(`<div class="note">A probability is not a certainty — a 70% pick still loses three times in ten. Statistical information, not betting advice. 18+.</div>`);
     view().innerHTML = parts.join('');
     wireBack();
@@ -1246,15 +1241,15 @@ view().innerHTML = parts.join('');
     const parts = [head('Guide', 'Markets, probabilities and how to read PlayReport')];
     const sec = (ico, title, body) => `<div class="card guide"><div class="row"><span class="ico">${icon(ico)}</span><b>${title}</b></div><div class="small" style="margin-top:6px">${body}</div></div>`;
     parts.push(sec('ball', 'Over goals', `<p><b>Over 1.5</b> wins when the match has 2 or more goals; <b>Over 2.5</b> needs 3 or more. The half-goal line means there is never a push. Own goals count, extra time does not (90 minutes plus stoppage time only).</p><p>Typical prices: Over 1.5 around 1.20–1.40 in open leagues; Over 2.5 around 1.70–2.10.</p>`));
-    parts.push(sec('swap', 'Both teams to score (BTTS / GG)', `<p><b>Yes</b> wins if each team scores at least once, whatever the result — 1-1 and 3-2 win, 2-0 loses. <b>No</b> is the opposite. On Sportybet this is the "GG / NG" market.</p><p>PlayReport's BTTS shortlist looks for two teams that both score and both concede regularly.</p>`));
-    parts.push(sec('target', 'What PlayReport no longer offers', `<p>Since 17 October, <b>team goals</b>, <b>double chance</b> and <b>every under</b> (under goals, no-BTTS, under corners, under cards) are dropped altogether — the focus is <b>Over 1.5, Over 2.5, BTTS and bookings</b>. Over 2.5 and BTTS start from a <b>55%</b> model probability; every other market keeps its own bar. Old tickets and the track record still settle and display normally.</p>`));
+    parts.push(sec('swap', 'Both teams to score (BTTS / GG)', `<p><b>Yes</b> wins if each team scores at least once, whatever the result — 1-1 and 3-2 win, 2-0 loses. <b>No</b> is the opposite. On Sportybet this is the "GG / NG" market.</p><p><b>PlayReport no longer publishes BTTS picks</b> (2026-10-27 audit): the family returned −7.0 % over 183 priced bets, and the unpriced forward test was 15 points too optimistic. The probability still appears on the match page for context; it is not offered as a selection.</p>`));
+    parts.push(sec('target', 'What PlayReport no longer offers', `<p>The 2026-10-27 audit re-graded every settled pick and turned families off for good: <b>double chance</b> (−16.7 % over 300 priced bets), <b>team goals</b> (−6.4 %, home team to score −10.1 %), <b>cards / bookings</b> (−9.4 %), <b>BTTS</b> (−7.0 %) and <b>Over 0.5</b> (−5.9 %) — plus <b>every under</b> (user rule). The boards now compete in <b>Over 1.5, Over 2.5, corners and 1X2</b>, Over 2.5 and 1X2 start from <b>55%</b>, corners from <b>65%</b>, <b>nothing priced under 1.16 is offered</b>, and a pick priced under 95 % of its own fair price waits on the watchlist. Old tickets and the track record still settle and display normally.</p>`));
     parts.push(sec('corner', 'Corners', `<p><b>Over 9.5 corners</b> wins with 10 or more corners in the match (both teams together). Corners awarded but not taken before the final whistle still count. Modelled for the 22 main European leagues, from each team's corners for and against; average is about 10 per match.</p>`));
-    parts.push(sec('card', 'Cards / bookings', `<p><b>Over 3.5 cards</b> wins with 4 or more cards. On Sportybet a yellow counts 1 and a straight red 2 (a second yellow = yellow + red = 3 for that player); some books use "booking points" (10/25) instead — check the market name. Cards to the bench or after the whistle usually do not count. Modelled from team and referee averages in the main European leagues.</p>`));
-    parts.push(sec('shield', 'Match result', `<p><b>1X2</b>: home win, draw or away win after 90 minutes. Shown on every match page for context; PlayReport's high-probability selections stay in the goals, corners and bookings markets.</p>`));
-    parts.push(sec('trend', 'How the probabilities are made (data-first)', `<p>Every probability starts from <b>football data</b> and is then anchored to the price — a 25 % model / 75 % de-vigged-market blend (2026-10-27 audit: the market forecast better than the model over 3,910 settled priced picks, and the blend scored best on Brier and log-loss). The raw model number is shown beside it as <b>model</b>. Each team gets a time-weighted attack and defence rating from its last 60 competitive matches (recent games weighted most, league-normalised, home and away blended, shrunk towards the league average when the sample is small). League baseline × attack × opponent's defence gives the <b>Model xG</b> of each team, and a Dixon-Coles Poisson score matrix turns that into a probability for every line.</p><p>Bookmaker prices have two jobs: the margin is removed and the implied probability shown with the difference in points and the EV, and — since the audit — that de-vigged number <b>sets the anchor for the published probability</b>. The blend is capped at market + 3 points and at 90 % (80 % when nothing is priced), so a wild model value can never be published. <b>Market xG</b> (from the prices) is shown next to Model xG as a comparison.</p><p>Every statistic carries its sample size — Very small 1–4, Small 5–9, Moderate 10–19, Strong 20–39, Very strong 40+ — and each match has a <b>data quality</b> assessment (completeness, sample, recency, consistency, competition, home/away relevance, source) under the <b>Data</b> tab, with the raw matches used, the extreme results flagged and the model's own numbers. Data quality drives the confidence wording, never the probability. Missing data is shown as N/A, never as 0.</p><p><b>High-probability selection</b> = model probability ≥ 70%, goals/BTTS/team goals/corners/cards only — bookmaker prices and the model/market difference are shown for comparison but never used to filter — the single exception: a selection whose model odds and market price are both under 1.15 is dropped as worthless. <b>⭐ Bets of the day</b> = the best of those at 07:00, one market per match. <b>Low data</b> = fewer than four useful matches for a team; those games are shown but never selected. No selection is ever certain — a 75% probability loses one time in four.</p>`));
+    parts.push(sec('card', 'Cards / bookings', `<p><b>Over 3.5 cards</b> wins with 4 or more cards. On Sportybet a yellow counts 1 and a straight red 2 (a second yellow = yellow + red = 3 for that player); some books use "booking points" (10/25) instead — check the market name. Cards to the bench or after the whistle usually do not count. Modelled from team and referee averages in the main European leagues. <b>PlayReport no longer publishes card picks</b> (2026-10-27 — −9.4 % over the priced sample); the card statistics still feed the match page and the leagues browser.</p>`));
+    parts.push(sec('shield', 'Match result', `<p><b>1X2</b>: home win, draw or away win after 90 minutes. Shown on every match page for context; PlayReport's high-probability selections stay in the goals, corners and 1X2 markets, must carry a price of 1.16 or more, and are shown with the model-anchored probability.</p>`));
+    parts.push(sec('trend', 'How the probabilities are made (data-first)', `<p>Every probability starts from <b>football data</b> and is then anchored to the price — a 25 % model / 75 % de-vigged-market blend (2026-10-27 audit: the market forecast better than the model over 3,910 settled priced picks, and the blend scored best on Brier and log-loss). The raw model number is shown beside it as <b>model</b>. Each team gets a time-weighted attack and defence rating from its last 60 competitive matches (recent games weighted most, league-normalised, home and away blended, shrunk towards the league average when the sample is small). League baseline × attack × opponent's defence gives the <b>Model xG</b> of each team, and a Dixon-Coles Poisson score matrix turns that into a probability for every line.</p><p>Bookmaker prices have two jobs: the margin is removed and the implied probability shown with the difference in points and the EV, and — since the audit — that de-vigged number <b>sets the anchor for the published probability</b>. The blend is capped at market + 3 points and at 90 % (80 % when nothing is priced), so a wild model value can never be published. <b>Market xG</b> (from the prices) is shown next to Model xG as a comparison.</p><p>Every statistic carries its sample size — Very small 1–4, Small 5–9, Moderate 10–19, Strong 20–39, Very strong 40+ — and each match has a <b>data quality</b> assessment (completeness, sample, recency, consistency, competition, home/away relevance, source) under the <b>Data</b> tab, with the raw matches used, the extreme results flagged and the model's own numbers. Data quality drives the confidence wording, never the probability. Missing data is shown as N/A, never as 0.</p><p><b>High-probability selection</b> = published probability of at least 70% (its market bar, whichever is higher) in the goals, corners and 1X2 markets, <b>priced at 1.16 or more</b> and at least 95 % of its own fair price — the price anchors the probability now, so it is a gate as well as a display. <b>⭐ Bets of the day</b> = the best of those at 07:00, one market per match. <b>Low data</b> = fewer than four useful matches for a team; those games are shown but never selected. No selection is ever certain — a 75% probability loses one time in four.</p>`));
     parts.push(sec('ticket', 'Bet slip & tickets', `<p>Tap <b>+</b> next to any priced selection (match page › Markets, high-probability selections, bets of the day) to put it on your slip — one selection per match, like a real multiple. Press <b>Done</b> to lock the ticket: PlayReport multiplies the prices, records an optional stake, and then follows the scores. Goals markets settle from the final score; corners and cards settle from the match statistics a few hours after full time. You get a notification when the ticket is won or lost, and ☰ › <b>My tickets</b> keeps your record.</p><p>This is a private record on your phone — nothing is placed with a bookmaker.</p>`));
     parts.push(sec('info', 'Reading the numbers honestly', `<p>A 75% bet loses one time in four. A card of five 75% singles has all five winning only about 24% of the time — that is why PlayReport shows singles and grades every one of them, and does not build accumulators. Compare the <b>Hit</b> and <b>Exp.</b> columns under Performance: they should be close over a few weeks.</p><p>Coverage: every competition on the live feed, worldwide, including women's and youth leagues, priced by Sportybet South Africa. Prices move; check the price before you bet. Statistical information, not betting advice. 18+, bet responsibly.</p>`));
-    parts.push(sec('star', 'Bets of the day, favourites & alerts', `<p><b>⭐ Bets of the day</b> is built on Over 1.5, Over 2.5, BTTS and bookings (up to seven picks a block); <b>1X2 claims its matches first — up to five picks a day</b> — then <b>Over 2.5</b> gets its place, then the rest: 1X2 needs ≥70% and Over 2.5 and BTTS need ≥55%, all with recent form backing them; Corners and Bookings need ≥65%. Overs only, one market per match, picked by the first analysis of the day and graded separately — so the performance page can compare the markets fairly. Every match page has <b>Download stats (CSV)</b> and the ☰ menu downloads the whole day's analysis as a spreadsheet file. <b>Top leagues</b> ranks the major leagues by home wins, away wins, overs, corners and bookings.</p><p>Tap <b>☆</b> in a match header to make it a favourite: you get goal, half-time, full-time and kick-off alerts for it, it appears under Your matches on Home, and in the ★ filter of Matches.</p>`));
+    parts.push(sec('star', 'Bets of the day, favourites & alerts', `<p><b>⭐ Bets of the day</b> is built on Over 1.5, Over 2.5, 1X2 and corners (up to seven picks a block); <b>1X2 claims its matches first — up to five picks a day</b> — then <b>Over 2.5</b> gets its place, then the rest: 1X2 needs ≥70% and Over 2.5 needs ≥55%, all with recent form backing them; corners need ≥65%. Every one must carry a price of 1.16 or more. Overs only, one market per match, picked by the first analysis of the day and graded separately — so the performance page can compare the markets fairly. Every match page has <b>Download stats (CSV)</b> and the ☰ menu downloads the whole day's analysis as a spreadsheet file. <b>Top leagues</b> ranks the major leagues by home wins, away wins, overs, corners and bookings.</p><p>Tap <b>☆</b> in a match header to make it a favourite: you get goal, half-time, full-time and kick-off alerts for it, it appears under Your matches on Home, and in the ★ filter of Matches.</p>`));
     parts.push(PR.editorCard(false));
     parts.push(contactCard(false));
     view().innerHTML = parts.join('');
