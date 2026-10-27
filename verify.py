@@ -64,11 +64,15 @@ def _anchored(det: dict) -> tuple[float, bool]:
         return 0.0, False
     allow = 0.0
     for s in det.get("sels") or []:
-        if len(s) >= 4 and _num(s[1]) and _num(s[2]) and _num(s[3]):
-            want = policy.publish_p(float(s[2]), float(s[3]))
-            if want is None or abs(float(s[1]) - want) > 0.004:
-                return 0.0, False
-            allow = max(allow, abs(float(s[1]) - float(s[2])) * 100.0)
+        if len(s) < 3 or not (_num(s[1]) and _num(s[2])):
+            continue
+        # an unpriced selection has no anchor: its published number must be the model's own (or the unpriced cap of
+        # it). Checking it here too means a detail file without a `p` block still proves or breaks itself.
+        mkt = float(s[3]) if (len(s) >= 4 and _num(s[3]) and 0 < float(s[3]) < 1) else None
+        want = policy.publish_p(float(s[2]), mkt)
+        if want is None or abs(float(s[1]) - want) > 0.004:
+            return 0.0, False
+        allow = max(allow, abs(float(s[1]) - float(s[2])) * 100.0)
     p = det.get("p") or {}
     for key in ("O15", "O25", "O35", "BTTS"):
         pub, model = p.get(key), p.get(f"final_{key}")
