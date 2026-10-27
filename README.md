@@ -117,7 +117,13 @@ every probability band (<70 %: 70 % actual vs 65 % predicted … 85 %+: 87 % vs 
 plus the false losses, not a broken model. What did change on 2026-10-17 is volume and mix: the lanes added corners,
 bookings and 1X2, and the app now announces 20–110 picks on a busy day (45 on 2026-10-20) instead of a dozen.
 
-### Model review: the market was out-forecasting the model (2026-10-27)
+### The market was out-forecasting the model (2026-10-27)
+
+Why the board shrank, what was measured, and what the bookmakers have that we do not (shots/xG-based ratings, the
+closing line, team news, sample size — with what is actually reachable from this repo):
+[`docs/WHAT_BOOKIES_HAVE_2026-10-27.md`](docs/WHAT_BOOKIES_HAVE_2026-10-27.md).
+
+## Model review: the market was out-forecasting the model (2026-10-27)
 
 Full write-up: **`docs/MODEL_REVIEW_2026-10-27.md`** (3,910 priced settled selections, every graded row re-graded from
 its scoreline first — zero settlement disagreements). In one paragraph: the de-vigged market beat the model on Brier

@@ -306,3 +306,23 @@ def test_an_unpriced_pick_is_not_anchored_to_another_books_price():
            "xg": {"home": 1.4, "model_home": 1.4}}
     allowed, worst, _, _, _ = verify.context_budget(det)
     assert worst <= allowed + 1e-9, (allowed, worst)
+
+
+def test_an_unpriced_row_with_the_model_cap_still_verifies():
+    """The other half of the 2026-10-27 freeze: an unpriced O1.5 published at the 80 % cap.
+
+    `publish_p(0.854, None)` is 0.80, so the row is 5.4 pp "off the model" — legitimately. Before this was
+    understood, that gap was counted as evidence of contamination while the anchor could not explain it. The row is
+    verifiable on its own terms: unpriced means the published number must be the model's, capped.
+    """
+    import verify
+
+    det = {"context": {"market_anchor": policy.market_anchor_record()},
+           "sels": [["O15", policy.publish_p(0.854, None), 0.854, None, None, 0]],
+           "p": {}, "xg": {"home": 1.4, "model_home": 1.4}}
+    allowed, worst, _, _, _ = verify.context_budget(det)
+    assert worst <= allowed + 1e-9, (allowed, worst)
+    # and a number that is NOT what the rule produces from an unpriced selection is still rejected
+    det["sels"][0][1] = 0.87
+    allowed, worst, _, _, _ = verify.context_budget(det)
+    assert worst > allowed
