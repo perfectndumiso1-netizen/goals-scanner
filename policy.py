@@ -181,6 +181,20 @@ def publish_p(p_model, p_sb) -> float | None:
     return max(0.01, min(anchored, sb + EDGE_CAP, P_MAX_PRICED))
 
 
+def market_anchor_record() -> dict:
+    """The declaration the app's detail files carry for the published probability (verify.context_budget).
+
+    The publication gate exists to stop a bookmaker price creeping into a published probability without a record.
+    Anchoring to the market is now the *rule*, so the rule itself is declared — together with the inputs it must be
+    reproducible from (`final_*` and `market_*` in the detail file) — and the gate re-derives every published number
+    from those inputs. A number that does not come out of the formula is still treated as contamination.
+    """
+    return {"enabled": True, "rule": "p = (1 - weight) * model + weight * de_vigged_market, "
+                                    "capped at market + cap_pp and max_p",
+            "weight": MARKET_WEIGHT, "cap_pp": EDGE_CAP * 100.0, "max_p": P_MAX_PRICED,
+            "unpriced_max_p": P_MAX_UNPRICED, "since": "2026-10-27"}
+
+
 # ---------------------------------------------------------------- which families are on
 FAMILIES = ("unders", "dc", "team", "cards", "btts", "o05")
 

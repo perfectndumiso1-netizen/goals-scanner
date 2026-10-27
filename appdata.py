@@ -267,11 +267,26 @@ def _pp(r, key: str) -> float | None:
 
     Market-anchored (policy.publish_p: 25 % model / 75 % de-vigged market, capped), because the review found the
     de-vigged price out-forecasts the raw model. The raw number is still published beside it as `model_*`."""
+    # 2026-10-27: the selection list already carries this number (safe.Sel.p), so the match page reads it from
+    # there instead of re-deriving it — one published probability per selection, computed once, from the same
+    # de-vigged market the pick was priced against. Without this the headline O2.5 could anchor to the reference
+    # book's de-vigged price while the pick anchored to Sportybet's own, and the two screens disagreed.
+    d = (getattr(r, "sel_p", None) or {}).get(key)
+    if d and d.get("p") is not None:
+        return d["p"]
     raw = (getattr(r, "p_final", None) or {}).get(key)
     fair = (getattr(r, "fair", None) or {}).get(key)
     if fair is None and key == "O25":
         fair = getattr(r, "p_market_o25", None)
     return policy.publish_p(raw, fair)
+
+
+def _psb(r, key: str, fallback=None) -> float | None:
+    """The de-vigged market probability the published number was anchored to (the pick's own, else the fallback)."""
+    d = (getattr(r, "sel_p", None) or {}).get(key)
+    if d and d.get("p_sb") is not None:
+        return d["p_sb"]
+    return None if fallback is None or (isinstance(fallback, float) and math.isnan(fallback)) else fallback
 
 
 def strong_family(sel: str) -> str:
@@ -379,6 +394,9 @@ def export(path: Path, *, ctx: dict, rows: list, all_rows: list | None = None, p
         ls = ls_map.get(fx.name)
         x12 = r.extra.x12 or {}
         sels = selections(r)
+        # the published probability of every selection, computed once (safe.Sel.p): the match page and every board
+        # read the same number, and the detail file can prove how it was derived (verify.context_budget)
+        r.sel_p = {d["sel"]: d for d in sels if d.get("sel")}
         recommended_sels = _recommended_selections(r, sels, helpers.get("team_goal_form_ok"))
         top = _best(recommended_sels, None, 0.0)
         hi = sorted([[d["sel"], round(d["p"], 3), round(d["odds"], 2) if d.get("odds") else None] for d in recommended_sels
@@ -454,11 +472,19 @@ def export(path: Path, *, ctx: dict, rows: list, all_rows: list | None = None, p
                    "market_home": _f(r.mkt_h, 2), "market_away": _f(r.mkt_a, 2),
                    "market_total": None if math.isnan(r.mkt_h) else _f(r.mkt_h + r.mkt_a, 2),
                    "market_source": r.mkt_source or None},
+            # p = published (market-anchored); final_* = the model number the anchor was applied to (after the
+            # research layer); model_* = the raw statistical model; market_* = the de-vigged price it anchored to.
+            # verify.context_budget re-derives p from final_* and market_*, so an undeclared blend still blocks.
             "p": {"O15": _f(_pp(r, "O15")), "O25": _f(_pp(r, "O25")), "O35": _f(_pp(r, "O35")),
-                  "BTTS": _f(_pp(r, "BTTS")), "model_O15": _f(r.p_model["O15"]), "model_O25": _f(r.p_model["O25"]),
+                  "BTTS": _f(_pp(r, "BTTS")),
+                  "final_O15": _f((r.p_final or {}).get("O15")), "final_O25": _f((r.p_final or {}).get("O25")),
+                  "final_O35": _f((r.p_final or {}).get("O35")), "final_BTTS": _f((r.p_final or {}).get("BTTS")),
+                  "model_O15": _f(r.p_model["O15"]), "model_O25": _f(r.p_model["O25"]),
                   "model_O35": _f(r.p_model["O35"]), "model_BTTS": _f(r.p_model["BTTS"]),
-                  "market_O25": _f((r.fair or {}).get("O25", r.p_market_o25)), "market_O15": _f((r.fair or {}).get("O15")),
-                  "market_BTTS": _f((r.fair or {}).get("BTTS"))},
+                  "market_O25": _f(_psb(r, "O25", (r.fair or {}).get("O25", r.p_market_o25))),
+                  "market_O15": _f(_psb(r, "O15", (r.fair or {}).get("O15"))),
+                  "market_O35": _f(_psb(r, "O35", (r.fair or {}).get("O35"))),
+                  "market_BTTS": _f(_psb(r, "BTTS", (r.fair or {}).get("BTTS")))},
             "x12_market": ({k: _f(v) for k, v in r.x12_market.items() if k in ("H", "D", "A")} | {"source": r.x12_market.get("source")})
             if r.x12_market else None,
             "stars": {m: stars(_pp(r, m) or 0.0, m) for m in ("O15", "O25", "BTTS")},
@@ -488,7 +514,7 @@ def export(path: Path, *, ctx: dict, rows: list, all_rows: list | None = None, p
             "lineup_proj": getattr(r, "lineup_proj", None),
             # ---- live research / context layer (docs/RESEARCH.md): base vs final, the facts behind them, the
             # research grade and any conflict. Present only for researched fixtures; older app builds ignore it.
-            "context": (r.audit or {}).get("context"),
+            "context": dict((r.audit or {}).get("context") or {}, market_anchor=policy.market_anchor_record()),
             # ---- data-first engine: evidence, quality, explanation, warnings (quality.py)
             "quality": (r.audit or {}).get("quality"),
             "confidence": (r.audit or {}).get("confidence"),

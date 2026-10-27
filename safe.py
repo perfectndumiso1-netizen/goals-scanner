@@ -324,9 +324,16 @@ def _nan(x) -> bool:
 
 # ----------------------------------------------------------------------------- selections per fixture
 def _two_way(o1, o2) -> float | None:
+    """De-vigged probability of the first side of a two-way market.
+
+    2026-10-27: this is the number the published probability is anchored to, so it uses the same power method as
+    the 1X2 market (`markets.fair_two_way`) instead of plain proportional scaling — with one de-vig everywhere, the
+    match page's headline probability and the selection list can never disagree about what the market said.
+    """
     if not o1 or not o2 or o1 <= 1 or o2 <= 1:
         return None
-    return (1 / o1) / (1 / o1 + 1 / o2)
+    p = markets.fair_two_way(o1, o2)
+    return None if p is None or p != p else float(p)
 
 
 def _valid(p) -> bool:
