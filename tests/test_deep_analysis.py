@@ -36,7 +36,7 @@ def test_match_article_uses_real_numbers_and_na_never_invents():
     assert "22 tracked matches" in a["paras"][0] and "WDWLD" in a["paras"][0].replace(" ", "")
     assert "71%" in a["paras"][1] and "60%" in a["paras"][1] and "9.0 pp" in a["paras"][1]
     assert "2\u20131\u20130" in a["paras"][2].replace(" ", "")  # h2h W-D-L for Arsenal
-    assert "never a gate" in a["paras"][1]
+    assert "25 % model / 75 % de-vigged-market blend" in a["paras"][1]
     # missing pieces degrade to N/A instead of being invented
     row = _fake_row()
     row.h2h = []

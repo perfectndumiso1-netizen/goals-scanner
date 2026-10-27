@@ -53,6 +53,7 @@ import pandas as pd
 import requests
 
 import markets
+import policy
 import quality
 import research as research_mod
 import calibration as calib
@@ -1233,7 +1234,8 @@ class MatchRow:
     mkt_a: float
     p_model: dict         # market -> model probability
     p_market_o25: float   # bookmaker-implied P(over 2.5) (comparison only)
-    p_final: dict         # == p_model (the name is kept for the many callers; nothing else is ever blended in)
+    p_final: dict         # == p_model (the name is kept for the many callers). The PUBLISHED probability is
+                          # policy.publish_p(p_model, de-vigged market) — see policy.py, 2026-10-27
     hist: dict            # market -> average historical hit-rate of both teams (information only)
     h2h: list
     div_avg: DivAvg
@@ -1584,6 +1586,11 @@ def build_run_parlays(rows: list[MatchRow], now: datetime, window_end: datetime,
 def select_picks(rows: list[MatchRow]) -> dict[str, list[MatchRow]]:
     picks: dict[str, list[MatchRow]] = {}
     for mkt, thr in CONFIG["THRESHOLDS"].items():
+        if not policy.allowed(mkt):
+            # 2026-10-27: BTTS is still modelled and still tracked (the forward test is how it gets recalibrated) but
+            # it is no longer published as a pick — 15 pp optimistic without a price to anchor it.
+            picks[mkt] = []
+            continue
         # backtest: team hit-rate floors and model-vs-market filters added nothing once the
         # probabilities were calibrated, so the rule is simply "final probability >= threshold"
         cand = [r for r in rows if r.data_ok and r.p_final[mkt] >= thr["p"]]
@@ -2169,6 +2176,8 @@ def render_report(ctx: dict, rows: list[MatchRow], picks: dict, summary: dict, n
     L.append("## 🎯 Shortlist")
     L.append("")
     for mkt, name in MARKETS.items():
+        if not policy.allowed(mkt):
+            continue                       # dropped families (2026-10-27) are not published as picks
         thr = CONFIG["THRESHOLDS"][mkt]
         L.append(f"### {name} — {len(picks.get(mkt, []))} pick(s)")
         L.append(f"_Rule: final probability ≥ {pct(thr['p'])} (⭐⭐ ≥ {pct(thr['tiers'][0])}, ⭐⭐⭐ ≥ {pct(thr['tiers'][1])}). "
@@ -2240,9 +2249,11 @@ def render_report(ctx: dict, rows: list[MatchRow], picks: dict, summary: dict, n
         f"shrunk towards the league average (team strength K={CONFIG['SHRINK_K_STRENGTH']:g}, goal tempo K={CONFIG['SHRINK_K']:g} "
         "weighted matches). Expected goals = league venue average × attack × opponent defence; probabilities for every market "
         f"come from a Dixon-Coles adjusted Poisson score matrix (ρ={CONFIG['DC_RHO']:g}).",
-        "* **Market layer (separate):** bookmaker prices are de-margined and shown next to the model as implied probability, "
-        "difference in percentage points and EV, and as market-implied expected goals. They never feed the model and the "
-        "model is not tuned to agree with them.",
+        "* **Market layer:** bookmaker prices are de-margined and shown next to the model as implied probability, difference "
+        "in percentage points and EV, and as market-implied expected goals. Since the 2026-10-27 review the de-vigged price "
+        "also ANCHORS the published probability — 25 % model / 75 % de-vigged market, capped at market + 3 pp and at 90 % "
+        "(80 % when nothing is priced) — because it forecast better than the model over 3,910 settled priced selections. "
+        "The raw model number is still published beside it as `model_*`.",
         "* **Evidence & data quality:** every statistic carries its sample size (Very small 1–4, Small 5–9, Moderate 10–19, "
         "Strong 20–39, Very strong 40+); each match has a transparent data-quality assessment (completeness, sample, recency, "
         "consistency, competition, home/away relevance, source) that drives the confidence wording, never the probability. "

@@ -284,3 +284,30 @@ this data weeks before it was visible in the bankroll.
   an estimate (+3 % average), not measured — worth verifying against two books for a week before relying on it.
 * `score_rank` in `shortlist.csv` is the composite `score` value, not a rank (see `shortlist.py:532`); the quartiles
   above are quartiles of that score.
+
+---
+
+## 10. What was implemented (2026-10-27, same day)
+
+Every recommendation that does not depend on new market data is in code, in `policy.py` where a single gate reaches
+every surface (shortlist, high-probability board, bets of the day, match pages, videos, in-app briefing, app home).
+
+| # | rule | where |
+|---|---|---|
+| R1 | double chance (`1X`/`12`/`X2`) and cards (`K…`) dropped — not offered, shown, spoken or rendered | `policy.family_of` / `allowed` |
+| R2 | team goals dropped (`HO05`, `AO05`, `HO15`, `AU15`) | same |
+| R3 | `O05` dropped | same |
+| R4 | nothing priced below **1.16** is offered, at any layer | `policy.PRICE_FLOOR`, `safe.selections`, `shortlist.MIN_ODDS`, app `worth()` |
+| R5 | price check: under **95 % of the pick's own fair price** ⇒ watchlist, never a primary pick | `policy.price_check`, `shortlist.evaluate` |
+| R6 | published probability = **0.25 × model + 0.75 × de-vigged market**, capped at market + 3 pp and 90 % (80 % unpriced); raw model kept as `p_model` in every ledger | `policy.publish_p`, `safe.Sel.p`, `appdata._pp`, `shortlist` |
+| R7 | home-page strong markets: **78 %** floor (was 75 %), Over 1.5 and corners only | `policy.STRONG_P_MIN` / `STRONG_RE`, `appdata.STRONG_CAPS` |
+| R8 | BTTS off every board (still priced and shown as information on the match page) | `policy.allowed` |
+| R9 | shortlist score = market-anchored edge + price quality, not "distance above the bar" | `shortlist.evaluate` |
+| R10 | videos and the in-app briefing carry Over 1.5 + corners only | `shortlist_reel.REEL_MARKET_RE`, `pages.js reelMarket` |
+
+Not implemented, and deliberately: **R5's line shopping** needs a second bookmaker feed before it can be measured, and
+the +3 % assumption above is still an estimate. It is the one change worth doing next.
+
+Verification: the whole suite (`pytest tests/`, 413 tests including the new `tests/test_model_review_2026_10_27.py`)
+passes. Every old family assertion was rewritten to the new rule rather than deleted, so a rollback via
+`MODEL_MARKETS=all` is still covered by tests.

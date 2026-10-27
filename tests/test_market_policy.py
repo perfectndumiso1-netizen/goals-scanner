@@ -1,5 +1,8 @@
-"""Market policy (user rules 2026-10-17): no team goals, no double chance, no unders in any market;
-Over 1.5 / Over 2.5 / BTTS / bookings are the focus; Over 2.5 and BTTS START from a 55% probability."""
+"""Market policy: which selections may be offered, from what probability and at what price.
+
+2026-10-27 (docs/MODEL_REVIEW_2026-10-27.md): double chance, team goals, cards, BTTS and Over 0.5 joined the unders
+on the dropped list; nothing priced below 1.16 is offered; the published probability is a 25/75 model/market blend.
+Older assertions below are kept where they still describe the policy (labels, settlement, the 55 % Over-2.5 start)."""
 from datetime import datetime, timedelta
 from types import SimpleNamespace as NS
 
@@ -13,6 +16,9 @@ UNDERS = ["U15", "U25", "U35", "U45", "U55", "NBTTS", "HU15", "AU15", "CU85", "C
 OVERS = ["O05", "O15", "O25", "O35", "O45", "O55", "BTTS", "H", "D", "A", "CO85", "CO105", "CHO35", "CAO35", "KO35", "KHO25", "KAO25"]
 TEAM_GOALS = ["HO05", "AO05", "HO15", "AO15", "HU15", "AU15"]
 DOUBLE_CHANCE = ["1X", "12", "X2"]
+CARDS = ["KO35", "KU95", "KHO25", "KAU25", "KCO15" if False else "KO55"]
+BTTS = ["BTTS", "NBTTS"]
+DROPPED_2026_10_27 = TEAM_GOALS + DOUBLE_CHANCE + CARDS + BTTS + ["O05"]
 
 
 def test_every_under_in_every_market_is_recognised():
@@ -30,20 +36,32 @@ def test_team_goals_are_not_confused_with_team_corners_or_cards():
 
 
 def test_policy_allows_exactly_the_focus_markets():
-    assert [c for c in UNDERS + DOUBLE_CHANCE if policy.allowed(c)] == []
-    assert all(policy.allowed(c) for c in OVERS)
-    assert all(policy.allowed(c) for c in ("HO05", "AO05", "HO15", "AO15"))
-    assert not policy.allowed("HU15") and not policy.allowed("AU15")
+    # 2026-10-27: unders, double chance, cards, BTTS, Over 0.5 and team goals are all refused by default
+    assert [c for c in UNDERS + DOUBLE_CHANCE + CARDS + BTTS + TEAM_GOALS + ["O05"] if policy.allowed(c)] == []
+    for code in ("O15", "O25", "O35", "O45", "O55", "H", "D", "A", "CO85", "CO105", "CHO35", "CAO35"):
+        assert policy.allowed(code), code
+
+
+def test_every_dropped_family_is_named_by_family_of():
+    assert policy.family_of("1X") == "dc" and policy.family_of("KO35") == "cards"
+    assert policy.family_of("BTTS") == "btts"
+    assert policy.family_of("NBTTS") in ("btts", "unders")      # still refused either way
+    assert policy.family_of("HO05") == "team" and policy.family_of("O05") == "o05"
+    assert policy.family_of("U25") == "unders" and policy.family_of("CO85") == "" and policy.family_of("H") == ""
 
 
 def test_rollback_switch_restores_a_family(monkeypatch):
     monkeypatch.setattr(policy, "ALLOW", frozenset(("dc",)))
-    assert policy.allowed("1X") and policy.allowed("HO05") and not policy.allowed("U25")
+    assert policy.allowed("1X") and not policy.allowed("HO05") and not policy.allowed("U25")
     monkeypatch.setattr(policy, "ALLOW", frozenset(("unders", "team", "dc")))
     assert all(policy.allowed(c) for c in UNDERS + TEAM_GOALS + DOUBLE_CHANCE)
+    assert not policy.allowed("BTTS") and not policy.allowed("KO35")
+    monkeypatch.setattr(policy, "ALLOW", frozenset(policy.FAMILIES))
+    assert all(policy.allowed(c) for c in DROPPED_2026_10_27)
 
 
 def test_over25_and_btts_start_from_55_everything_else_keeps_its_floor():
+    # BTTS keeps its entry in SEL_MIN_P so a historical row still labels itself, even though the family is gone
     assert policy.min_p("O25", 0.70) == 0.55 and policy.min_p("BTTS", 0.70) == 0.55
     assert policy.min_p("O15", 0.70) == 0.70 and policy.min_p("O35", 0.70) == 0.70
     assert policy.min_p("CO85", 0.65) == 0.65 and policy.min_p("H", 0.60) == 0.55
@@ -69,12 +87,12 @@ def _full_row():
     )
 
 
-def test_selections_carry_no_unders_no_double_chance_team_goal_overs_on():
+def test_selections_carry_only_the_families_that_survived_the_review():
     codes = [s.sel for s in safe.selections(_full_row())]
-    assert codes, "the focus markets must still be there"
-    for bad in UNDERS + DOUBLE_CHANCE:
+    assert codes, "the kept markets must still be there"
+    for bad in DROPPED_2026_10_27:
         assert bad not in codes, bad
-    for good in ("H", "D", "A", "O15", "O25", "O35", "BTTS", "CO95", "KO35", "CHO45", "KHO15", "HO05", "AO05"):
+    for good in ("H", "D", "A", "O15", "O25", "O35", "CO95", "CHO45"):
         assert good in codes, good
 
 
@@ -90,6 +108,9 @@ def test_old_codes_still_label_and_settle():
 def _bet_row(code_p: dict, odds: dict | None = None):
     r = _full_row()
     r.p_final.update(code_p)
+    # a market view close enough to the model that the published blend can clear a floor (the 2026-10-27 publication
+    # is capped at market + 3 pp, so with a 1.85/1.95 Over-2.5 price nothing can ever reach 55 %)
+    r.sb = dict(r.sb, OU={0.5: (1.04, 9.0), 1.5: (1.28, 3.6), 2.5: (1.72, 2.10), 3.5: (3.0, 1.35)})
     return r
 
 
@@ -97,20 +118,24 @@ def _cands(row, signal=None):
     return safe.botd_candidates([row], datetime(2026, 10, 17, 12, 0), signal=signal)
 
 
-def test_botd_over25_and_btts_start_from_55():
+def test_botd_over25_starts_from_55_and_btts_is_no_longer_offered():
     r = _bet_row({"O25": 0.58, "BTTS": 0.56})
     sels = {b.sel: b for b in _cands(r, signal=lambda row, sel: True)}
-    assert "O25" in sels and "BTTS" in sels            # 58% / 56% — would both have been refused at 70%
+    assert "O25" in sels                                   # 58% — would have been refused at 70%
+    assert "BTTS" not in sels                              # dropped 2026-10-27 (-7.0 % ROI, 15 pp optimistic unpriced)
     r = _bet_row({"O25": 0.54, "BTTS": 0.54})
     sels = {b.sel for b in _cands(r, signal=lambda row, sel: True)}
-    assert "O25" not in sels and "BTTS" not in sels    # below 55%
+    assert "O25" not in sels and "BTTS" not in sels        # below 55% / not offered
 
 
 def test_botd_over15_keeps_its_70_percent_and_never_carries_team_goals():
-    sels = {b.sel for b in _cands(_bet_row({"O15": 0.66}))}
+    # the 70 % bar now applies to the PUBLISHED probability (25/75 blend with the de-vigged market), which is what the
+    # card claims: a 0.55 model view against a 0.74 market publishes at 0.69 and stays out
+    sels = {b.sel for b in _cands(_bet_row({"O15": 0.55}))}
     assert "O15" not in sels
     sels = {b.sel for b in _cands(_bet_row({"O15": 0.80}))}
     assert "O15" in sels and not (sels & set(TEAM_GOALS))
+    # the section list itself is unchanged (it is a display map); the dropped families simply never reach it
     assert [g[0] for g in safe.BOTD_GROUPS] == ["o15", "o25", "btts", "result", "corners", "cards"]
     assert safe.botd_group("HO05") is None
 
@@ -128,17 +153,16 @@ def test_botd_section_floors_are_what_the_card_shows():
 
 def test_safest_uses_the_per_selection_floor():
     now = datetime(2026, 10, 17, 12, 0)
-    r = _bet_row({"O15": 0.50, "O25": 0.58, "BTTS": 0.57})     # Over 1.5 below its bar, the other two above theirs
-    # make the match carry only O25 / BTTS so the one-market-per-match step shows them
+    r = _bet_row({"O15": 0.50, "O25": 0.60})       # Over 1.5 below its bar, Over 2.5 above its 55 % start
     for k in ("O05", "O35", "O45", "O55"):
         r.p_final[k] = 0.10
-    out = safe.safest([r], now, now + timedelta(days=1), groups=("goals", "btts"))
+    out = safe.safest([r], now, now + timedelta(days=1), groups=("goals",))
     assert [b.sel for b in out["bets"]] == ["O25"]              # most probable of the eligible ones, one per match
-    assert out["floors"]["O25"] == out["floors"]["BTTS"] == out["floors"]["H"] == 0.55 and out["min_p"] == 0.70
-    r2 = _bet_row({"O25": 0.54, "BTTS": 0.54, "O15": 0.60})
+    assert out["floors"]["O25"] == out["floors"]["H"] == 0.55 and out["min_p"] == 0.70
+    r2 = _bet_row({"O25": 0.54, "O15": 0.50})
     for k in ("O05", "O35", "O45", "O55"):
         r2.p_final[k] = 0.10
-    assert safe.safest([r2], now, now + timedelta(days=1), groups=("goals", "btts"))["bets"] == []
+    assert safe.safest([r2], now, now + timedelta(days=1), groups=("goals",))["bets"] == []
 
 
 def test_corners_and_1x2_stay_on_by_default_and_can_be_switched_off(monkeypatch):
@@ -146,7 +170,7 @@ def test_corners_and_1x2_stay_on_by_default_and_can_be_switched_off(monkeypatch)
     assert policy.allowed("CO85") and policy.allowed("CHO35") and policy.allowed("H") and policy.allowed("D")
     assert policy.describe()["kept_by_default"] == ["corners (overs)", "1X2 (home / away)"]
     monkeypatch.setattr(policy, "DROP", frozenset(("corners",)))
-    assert not policy.allowed("CO85") and not policy.allowed("CAO35") and policy.allowed("KO35") and policy.allowed("H")
+    assert not policy.allowed("CO85") and not policy.allowed("CAO35") and policy.allowed("O15") and policy.allowed("H")
     monkeypatch.setattr(policy, "DROP", frozenset(("result",)))
     assert not policy.allowed("H") and not policy.allowed("A") and policy.allowed("CO85") and policy.allowed("O15")
 
@@ -214,10 +238,13 @@ def test_the_apps_dropped_set_and_floors_match_the_python_policy():
     dropped = re.search(r"const isDropped = \(sel\) => ([^;]+);", js)
     assert dropped, "isDropped moved — update this test"
     expr = dropped.group(1)
-    assert "^[HA][OU]" not in expr and "isUnder(sel)" in expr
+    # 2026-10-27: the client mirror also hides team goals, cards, BTTS and Over 0.5, not just unders and double chance
+    assert "isUnder(sel)" in expr
     for dc in DOUBLE_CHANCE:
         assert f"sel === '{dc}'" in js
-    assert "HO05" not in expr
+    for code in ("BTTS", "O05"):
+        assert f"sel === '{code}'" in expr
+    assert "^K[HA]?[OU]" in expr and "^[HA][OU]" in expr
     floors = re.search(r"const SEL_FLOOR = \{ O25: ([0-9.]+), BTTS: ([0-9.]+)", js)
     assert floors and float(floors.group(1)) == policy.SEL_MIN_P["O25"] and float(floors.group(2)) == policy.SEL_MIN_P["BTTS"]
 
@@ -253,6 +280,8 @@ def test_no_workflow_sets_the_policy_levers_by_accident():
 # ---------------------------------------------------------------- Safest lanes: every market gets its own slots
 def _match(i, o15, o25=None, btts=None):
     r = _full_row()
+    # a live price view for the goals lines (the published probability is anchored to it, see policy.publish_p)
+    r.sb = dict(r.sb, OU={0.5: (1.04, 9.0), 1.5: (1.18, 5.0), 2.5: (1.62, 2.25), 3.5: (3.0, 1.35)})
     r.fx = dict(r.fx, home=f"H{i}", away=f"A{i}")
     r.extra.corner_p = None
     r.extra.card_p = None
@@ -267,11 +296,11 @@ def _safest(rows, **kw):
     return safe.safest(rows, now, now + timedelta(days=1), **kw)["bets"]
 
 
-def test_safest_gives_over25_and_btts_their_own_slots_one_market_per_match():
+def test_safest_gives_over25_its_own_lane_and_btts_is_gone():
     rows = [_match(i, 0.88, 0.70, 0.66) for i in range(14)] + [_match(20 + i, 0.88) for i in range(8)]
     bets = _safest(rows)
     mix = {k: sum(1 for b in bets if b.sel == k) for k in ("O25", "BTTS", "O15")}
-    assert mix["O25"] == 10 and mix["BTTS"] == 4 and mix["O15"] == 8, mix       # O2.5 claims 10, BTTS the next 4, O1.5 the rest
+    assert mix["O25"] == 10 and mix["BTTS"] == 0 and mix["O15"] == 12, mix      # O2.5 claims 10, O1.5 takes the rest
     assert len({b.key for b in bets}) == len(bets)                                # ONE market per match, still
     assert bets == sorted(bets, key=lambda b: (-b.p, -b.odds))                    # displayed by probability, as before
 
@@ -287,5 +316,5 @@ def test_safest_lane_caps_hold_and_the_total_is_bounded():
     bets = _safest(rows)
     assert len(bets) <= safe.MAX_BETS
     assert sum(1 for b in bets if b.sel == "O25") == safe.SAFE_LANE_CAP["o25"]
-    assert sum(1 for b in bets if b.sel == "BTTS") == safe.SAFE_LANE_CAP["btts"]
-    assert sum(1 for b in bets if b.sel == "O15") == safe.MAX_BETS - 20           # the rest of the board
+    assert sum(1 for b in bets if b.sel == "BTTS") == 0                            # dropped 2026-10-27
+    assert sum(1 for b in bets if b.sel == "O15") == safe.MAX_BETS - 10            # the rest of the board

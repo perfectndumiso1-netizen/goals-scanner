@@ -1,4 +1,7 @@
-"""Strong markets for the day (2026-10-21): 75%+, price 1.16+, and only Over 1.5 / team goals / corners / bookings.
+"""Strong markets for the day (2026-10-27): 78%+, price 1.16+, and only Over 1.5 total goals and corners.
+
+Team goals (-6.4 % ROI) and bookings (-9.4 %) left the section with their families in the model review; the bar moved
+75 % -> 78 % because the 75-80 % band was 993 selections at -2.8 %.
 
 Also covers the two changes that let total corners reach the board at all: the wider total-corner lines in the count
 model, and the separate lane that gives the match-total corner and card markets their own slots.
@@ -16,19 +19,18 @@ import shortlist
 
 
 # ---------------------------------------------------------------- the policy definition
-def test_strong_market_codes_are_the_four_families_the_user_named():
-    keep = ["O15", "HO05", "AO05", "HO15", "AO15", "CO75", "CO85", "CO95", "CHO35", "CAO45",
-            "KO25", "KO35", "KHO15", "KAO25"]
+def test_strong_market_codes_are_the_two_families_that_survived_the_review():
+    keep = ["O15", "CO75", "CO85", "CO95", "CHO35", "CAO45"]
     for code in keep:
         assert policy.is_strong_market(code), code
-    # everything else the model still lists is NOT a strong market: no Over 2.5, no BTTS, no result, no unders
+    # team goals and bookings are no longer strong markets (nor offered at all), and neither is anything else
     for code in ("O25", "O35", "BTTS", "NBTTS", "H", "D", "A", "1X", "12", "X2", "U15", "U25",
-                 "CU85", "CHU35", "KU35", "KAU25", "HU15"):
+                 "CU85", "CHU35", "CO05", "HO05", "AO05", "HO15", "AU15", "KO25", "KO35", "KHO15", "KAO25"):
         assert not policy.is_strong_market(code), code
 
 
-def test_the_strong_bar_is_75_percent_at_116_or_longer():
-    assert policy.STRONG_P_MIN == 0.75
+def test_the_strong_bar_is_78_percent_at_116_or_longer():
+    assert policy.STRONG_P_MIN == 0.78
     assert policy.STRONG_ODDS_MIN == 1.16
 
 
@@ -113,7 +115,7 @@ def test_the_board_fills_the_total_corner_lane_before_the_team_lines_and_never_w
     cards_team = [b for b in bets if b.sel[:2] in ("KH", "KA")]
     assert len(totals) == safe.SAFE_LANE_CAP["corners"] == 4        # the total market always gets its slots
     assert len(teams) == safe.SAFE_LANE_CAP["corners_team"]         # team corners cannot swallow them any more
-    assert len(cards_t) == safe.SAFE_LANE_CAP["cards"] and len(cards_team) == safe.SAFE_LANE_CAP["cards_team"]
+    assert not cards_t and not cards_team                       # bookings dropped 2026-10-27
     assert len({b.key for b in bets}) == len(bets)                  # still one market per match
     # a board with only team-corner candidates must not borrow the total lane's slots
     only_team = safe.safest([_row(i, corner_team=0.88) for i in range(10)], now, now + timedelta(days=1))["bets"]
@@ -128,20 +130,21 @@ def _item(sel, p, odds, fid="fx1", **over):
     return base
 
 
-def test_strong_markets_keeps_only_75_plus_at_116_plus_in_the_four_families():
+def test_strong_markets_keeps_only_78_plus_at_116_plus_in_the_two_families():
     items = [
         _item("O15", 0.80, 1.20, fid="a"),
-        _item("O15", 0.74, 1.20, fid="b"),          # below the probability bar
+        _item("O15", 0.76, 1.20, fid="b"),          # below the 78 % probability bar
         _item("O15", 0.90, 1.10, fid="c"),          # below the price bar
         _item("O25", 0.90, 1.30, fid="d"),          # not a named market
         _item("BTTS", 0.90, 1.30, fid="e"),         # not a named market
         _item("H", 0.90, 1.30, fid="f"),            # not a named market
         _item("CHO35", 0.88, 1.25, fid="g"),
-        _item("CO75", 0.79, 1.16, fid="h"),         # exactly on both bars: in
+        _item("KO35", 0.90, 1.25, fid="k"),         # bookings: not a strong market any more
+        _item("CO75", 0.78, 1.16, fid="h"),         # exactly on both bars: in
     ]
     out = appdata.strong_markets_payload(items)
     got = {(x["sel"], x["p"]) for x in out}
-    assert ("O15", 0.80) in got and ("CHO35", 0.88) in got and ("CO75", 0.79) in got
+    assert ("O15", 0.80) in got and ("CHO35", 0.88) in got and ("CO75", 0.78) in got
     assert len(out) == 3
     assert [x["p"] for x in out] == sorted((x["p"] for x in out), reverse=True)
 
@@ -149,12 +152,12 @@ def test_strong_markets_keeps_only_75_plus_at_116_plus_in_the_four_families():
 def test_strong_markets_gives_total_lines_room_and_caps_the_team_ones():
     items = [_item(f"CO75", 0.95, 1.20, fid=f"c{i}") for i in range(10)]
     items += [_item(f"CHO45", 0.94, 1.20, fid=f"t{i}") for i in range(10)]
-    items += [_item("KO35", 0.93, 1.25, fid=f"k{i}") for i in range(10)]
+    items += [_item("KO35", 0.93, 1.25, fid=f"k{i}") for i in range(10)]      # bookings: no longer a strong market
     out = appdata.strong_markets_payload(items)
     fams = [x["family"] for x in out]
+    assert set(appdata.STRONG_CAPS) == {"corner_total", "corner_team", "o15"}
     assert fams.count("corner_total") == appdata.STRONG_CAPS["corner_total"]
     assert fams.count("corner_team") == appdata.STRONG_CAPS["corner_team"]
-    assert fams.count("card_total") == appdata.STRONG_CAPS["card_total"]
     assert "corner_total" in fams, "the totals must not be crowded out by team corners"
 
 
@@ -169,10 +172,9 @@ def test_strong_markets_shows_at_most_two_markets_per_match():
 def test_strong_family_mapping_and_the_unknown_fallback():
     assert appdata.strong_family("CO75") == "corner_total"
     assert appdata.strong_family("CAO45") == "corner_team"
-    assert appdata.strong_family("KO35") == "card_total"
-    assert appdata.strong_family("KHO25") == "card_team"
     assert appdata.strong_family("O15") == "o15"
-    assert appdata.strong_family("AO15") == "team_goal"
+    for gone in ("KO35", "KHO25", "AO15", "HO05", "O25", "BTTS"):
+        assert appdata.strong_family(gone) == "", gone
     assert appdata.strong_family("BTTS") == ""
 
 

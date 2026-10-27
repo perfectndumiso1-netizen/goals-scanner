@@ -1,4 +1,5 @@
-"""v1.6.34 market rules: model+market both < 1.15 dropped everywhere; safest board drops O0.5 / U5.5."""
+"""Market rules: the 1.16 price floor (2026-10-27, was "model and market both < 1.15"), the dropped families,
+and the corners / bookings price plumbing."""
 from datetime import datetime, timedelta
 from types import SimpleNamespace as NS
 
@@ -22,25 +23,23 @@ def _codes(r):
     return [s.sel for s in safe.selections(r)]
 
 
-def test_both_under_115_dropped_everywhere():
-    # model odds 1/0.97 = 1.03 AND market 1.03 — both under 1.15 -> the selection disappears entirely
-    r = _row(p_over05=0.97, odds_over05=1.03)
-    assert "O05" not in _codes(r)
+def test_prices_below_the_floor_are_dropped_everywhere():
+    # 2026-10-27: a PRICE below 1.16 is not offered, whatever the model thinks of it
+    assert "O15" not in _codes(_row(odds_o15=1.15))
+    assert "O15" in _codes(_row(odds_o15=1.16))          # the floor is inclusive
     # the same match keeps its other markets
-    assert "O15" in _codes(r)
-    assert "H" in _codes(r)
+    assert "H" in _codes(_row(odds_o15=1.15))
 
 
-def test_market_at_or_above_115_survives():
-    # model odds 1.03 but the market prices it 1.20 -> kept (rule needs BOTH under 1.15)
-    r = _row(p_over05=0.97, odds_over05=1.20)
-    assert "O05" in _codes(r)
+def test_over05_is_dropped_as_a_family():
+    # -5.9 % over 42 priced bets; the market itself is still computed, it is just never offered
+    assert "O05" not in _codes(_row(p_over05=0.97, odds_over05=1.20))
 
 
 def test_unpriced_selection_survives():
-    # no market price at all -> cannot be "market under 1.15" -> kept
+    # no market price at all -> the floor cannot apply -> kept (it is published with the 80 % cap instead)
     r = _row(p_over05=0.97, odds_over05=None)
-    assert "O05" in _codes(r)
+    assert "O15" in _codes(r)
 
 
 def test_normal_priced_selections_untouched():
@@ -53,15 +52,15 @@ def test_normal_priced_selections_untouched():
 def test_safest_drops_over05_and_under55(monkeypatch):
     # disable the legacy overs-only flag so the assertions prove the EXPLICIT O05/U55 skips
     monkeypatch.setattr(safe, "OVERS_ONLY", False)
-    r = _row(p_over05=0.90, odds_over05=1.19)   # market 1.19 -> survives the <1.15 rule
-    r.p_final["O55"] = 0.08                      # -> U55 p = 0.92, priced 4.5 -> survives too
+    r = _row(p_over05=0.90, odds_over05=1.19, p_o15=0.82, odds_o15=1.20)
+    r.p_final["O55"] = 0.08                      # -> U55 p = 0.92, priced 4.5
     r.sb["OU"][5.5] = (1.18, 4.5)
     out = safe.safest([r], now=datetime(2026, 10, 1, 12, 0),
                       window_end=datetime(2026, 10, 1, 12, 0) + timedelta(days=1))
     codes = [b.sel for b in out["bets"]]
-    assert "O05" not in codes
-    assert "U55" not in codes
-    assert "O15" in codes  # the valuable market still represents the match
+    assert "O05" not in codes                     # dropped as a family (2026-10-27)
+    assert "U55" not in codes                     # no unders in any market
+    assert "O15" in codes                         # the kept market still represents the match
 
 
 # ---- corners & bookings join the odds feature (user rule 2026-10-13) -------------------------
@@ -80,12 +79,13 @@ def _sels(r):
     return {s.sel: s for s in safe.selections(r)}
 
 
-def test_total_corner_and_card_prices_come_from_the_list_feed(tmp_path=None):
+def test_total_corner_prices_come_from_the_list_feed(tmp_path=None):
     s = _sels(_count_row())
     assert "CO85" in s and s["CO85"].odds == 1.90      # priced although sb_full is EMPTY (list-level lines)
-    assert "KO35" in s and s["KO35"].odds == 1.53
     # user rule 2026-10-17: no unders in any market — the under side of a priced line is no longer offered
-    assert "CU85" not in s and "KU35" not in s
+    assert "CU85" not in s
+    # 2026-10-27: bookings are no longer offered at all (-9.4 % over the priced rows)
+    assert "KO35" not in s and "KU35" not in s
 
 
 def test_team_corner_and_card_selections_with_prices():
@@ -94,8 +94,7 @@ def test_team_corner_and_card_selections_with_prices():
     s = _sels(r)
     assert "CHO35" in s and s["CHO35"].odds == 2.10    # home corners over 3.5
     assert "CHU35" not in s                             # no unders, team-level included (2026-10-17)
-    assert "KAO15" in s and s["KAO15"].odds == 2.40    # away cards over 1.5
-    assert "KAU15" not in s
+    assert "KAO15" not in s and "KAU15" not in s        # bookings dropped 2026-10-27
     assert safe.label("CHO35", "Alpha", "Beta") == "Alpha over 3.5 corners"
     assert safe.label("CAU45", "Alpha", "Beta") == "Beta under 4.5 corners"
     assert safe.label("KHO15", "Alpha", "Beta") == "Alpha over 1.5 cards"

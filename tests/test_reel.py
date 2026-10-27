@@ -8,7 +8,7 @@ import pytest
 import shortlist_reel as reel
 
 
-def test_reel_picks_carry_only_over15_team_goals_corners_and_bookings():
+def test_reel_picks_carry_only_over15_and_corners():
     picks = [
         {"label": "Over 1.5 goals", "sel": "O15", "home": "A", "away": "Z", "kickoff": "1", "p": 0.82},
         {"label": "Under 2.5 cards", "sel": "KU25", "home": "B", "away": "Z", "kickoff": "2", "p": 0.80},
@@ -19,16 +19,17 @@ def test_reel_picks_carry_only_over15_team_goals_corners_and_bookings():
         {"label": "Over 3.5 cards", "sel": "KO35", "home": "H", "away": "Z", "kickoff": "7", "p": 0.71},
         {"label": "Over 9.5 corners", "sel": "CO95", "home": "I", "away": "Z", "kickoff": "8", "p": 0.74},
         {"label": "Home over 0.5 goals", "sel": "HO05", "home": "J", "away": "Z", "kickoff": "9", "p": 0.90},
+        {"label": "Home over 1.5 goals", "sel": "HO15", "home": "K", "away": "Z", "kickoff": "11", "p": 0.80},
     ] + [{"label": "Over 1.5 goals", "sel": "O15", "home": f"X{i}", "away": "Z", "kickoff": str(10 + i), "p": 0.70}
          for i in range(12)]
     out = reel.reel_picks(picks)
     homes = [p["home"] for p in out]
     assert all(reel.is_reel_market(p) for p in out)
     assert all((p.get("p") or 0) >= reel.REEL_MIN_P for p in out)
-    # no BTTS, no Over 2.5, no 1X2, no match result, no under — never in the video
-    for gone in ("B", "C", "E", "F", "G"):
+    # no BTTS, no Over 2.5, no 1X2, no match result, no under, no cards and no team goals — never in the video
+    for gone in ("B", "C", "E", "F", "G", "H", "J", "K"):
         assert gone not in homes, gone
-    assert {"A", "I", "J"} <= set(homes)
+    assert {"A", "I"} <= set(homes)
     assert len(out) == reel.MAX_PICKS
     assert reel.MAX_PICKS >= 12
     skipped = reel.reel_picks(picks, used={("A", "Z"), ("I", "Z")})
