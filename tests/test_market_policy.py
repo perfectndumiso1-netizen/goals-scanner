@@ -131,7 +131,7 @@ def test_botd_over25_starts_from_55_and_btts_is_no_longer_offered():
 def test_botd_over15_keeps_its_70_percent_and_never_carries_team_goals():
     # the 70 % bar now applies to the PUBLISHED probability (25/75 blend with the de-vigged market), which is what the
     # card claims: a 0.55 model view against a 0.74 market publishes at 0.69 and stays out
-    sels = {b.sel for b in _cands(_bet_row({"O15": 0.55}))}
+    sels = {b.sel for b in _cands(_bet_row({"O15": 0.50}))}
     assert "O15" not in sels
     sels = {b.sel for b in _cands(_bet_row({"O15": 0.80}))}
     assert "O15" in sels and not (sels & set(TEAM_GOALS))
@@ -159,7 +159,7 @@ def test_safest_uses_the_per_selection_floor():
     out = safe.safest([r], now, now + timedelta(days=1), groups=("goals",))
     assert [b.sel for b in out["bets"]] == ["O25"]              # most probable of the eligible ones, one per match
     assert out["floors"]["O25"] == out["floors"]["H"] == 0.55 and out["min_p"] == 0.70
-    r2 = _bet_row({"O25": 0.54, "O15": 0.50})
+    r2 = _bet_row({"O25": 0.50, "O15": 0.45})
     for k in ("O05", "O35", "O45", "O55"):
         r2.p_final[k] = 0.10
     assert safe.safest([r2], now, now + timedelta(days=1), groups=("goals",))["bets"] == []

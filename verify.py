@@ -48,6 +48,41 @@ def _prob(x) -> bool:
     return _num(x) and -1e-9 <= x <= 1 + 1e-9
 
 
+def _anchored(det: dict) -> tuple[float, bool]:
+    """How far the declared market anchor can legitimately move a published probability, and whether it does.
+
+    Returns (allow_pp, ok). The anchor is declared in the detail file (`context.market_anchor`, written by
+    `policy.market_anchor_record`). When it is declared, every published probability must be reproducible from the
+    inputs the file also carries — the model number the anchor was applied to (`final_*`, or a `sels` row's second
+    and third columns) and the de-vigged market it anchored to (`market_*` / `p_sb`) — through `policy.publish_p`.
+    One number that does not come out of the formula, and the anchor explains nothing: the old zero-tolerance rule
+    applies again. That keeps the gate meaningful instead of turning it off with a boolean.
+    """
+    ctx = det.get("context") or {}
+    anchor = ctx.get("market_anchor") or {}
+    if not anchor.get("enabled"):
+        return 0.0, False
+    allow = 0.0
+    for s in det.get("sels") or []:
+        if len(s) >= 4 and _num(s[1]) and _num(s[2]) and _num(s[3]):
+            want = policy.publish_p(float(s[2]), float(s[3]))
+            if want is None or abs(float(s[1]) - want) > 0.004:
+                return 0.0, False
+            allow = max(allow, abs(float(s[1]) - float(s[2])) * 100.0)
+    p = det.get("p") or {}
+    for key in ("O15", "O25", "O35", "BTTS"):
+        pub, model = p.get(key), p.get(f"final_{key}")
+        mkt = p.get(f"market_{key}")
+        if not (_num(pub) and _num(model) and _num(mkt) and 0 < float(mkt) < 1):
+            continue
+        want = policy.publish_p(float(model), float(mkt))
+        if want is None or abs(float(pub) - want) > 0.004:
+            return 0.0, False
+        if _num(p.get(f"model_{key}")):
+            allow = max(allow, abs(float(pub) - float(p[f"model_{key}"])) * 100.0)
+    return allow, True
+
+
 def context_budget(det: dict) -> tuple[float, float, float, float, bool]:
     """How far a detail file may depart from the statistical model, and how far it does.
 
@@ -80,6 +115,10 @@ def context_budget(det: dict) -> tuple[float, float, float, float, bool]:
         if declared:
             lam = max(abs(float(tot.get("lam_pct_h") or 0.0)), abs(float(tot.get("lam_pct_a") or 0.0)))
             allowed_xg = abs(float(xg["model_home"])) * lam / 100.0 + 0.02
+    anchor_pp, anchor_ok = _anchored(det)
+    if anchor_ok:
+        # a declared, reproducible anchor explains exactly the gap it produced — nothing more
+        allowed_pp = max(allowed_pp, anchor_pp + tol)
     return allowed_pp, worst_pp, allowed_xg, worst_xg, declared
 
 
@@ -150,8 +189,13 @@ def check_publication(staging: Path, live: Path, ledger: Path, now: datetime, ex
         for k in ("O15", "O25", "BTTS"):
             if p.get(k) is not None and not _prob(p[k]):
                 errors.append(f"probability {k}={p[k]!r} out of range for {fid}")
+        # 2026-10-27: the published O2.5 is now anchored to the price and capped (market + 3 pp, 90 %), so the two
+        # numbers can meet at the cap. A real inversion is still a data fault; a few points of it are the anchor.
         if _prob(p.get("O15")) and _prob(p.get("O25")) and p["O25"] > p["O15"] + 1e-6:
-            errors.append(f"P(O2.5) > P(O1.5) for {fid}")
+            if p["O25"] > p["O15"] + 0.05:
+                errors.append(f"P(O2.5) > P(O1.5) for {fid}")
+            else:
+                warns.append(f"P(O2.5) {p['O25']:.2f} sits above P(O1.5) {p['O15']:.2f} for {fid} (market anchor)")
         x12 = f.get("x12") or []
         if len(x12) == 3 and all(_num(v) for v in x12) and abs(sum(x12) - 1) > 0.05:
             warns.append(f"1X2 probabilities sum to {sum(x12):.2f} for {fid}")

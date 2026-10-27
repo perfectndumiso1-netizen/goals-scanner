@@ -150,13 +150,14 @@ match-total corner market: the count model only priced 8.5 and above while team 
 10-corner match could never show 75 %+ on a total), and the board gave the whole corner family one lane of four
 slots, which the three team lines took. `markets.CORNERS["lines_total"]` is now `(7.5 … 12.5)` — same distribution,
 same calibration, wider lines — and both boards split `corners` / `corners_team` and `cards` / `cards_team` into separate lanes — totals first —
-so the totals always get their slots: `safe.safe_lane()`/`SAFE_LANE_CAP` (bookings 4 + 2, corners 4 + 2) and
+so the totals always get their slots: `safe.safe_lane()`/`SAFE_LANE_CAP` (bookings 4 + 2 until the 2026-10-27 review, corners 4 + 2) and
 `shortlist.lane_of()`/`LANE_ORDER`/`LANE_CAP` (10 per total lane, 5 per team lane). **No
 accumulators.** Accas are retired everywhere: no build in `scanner.py`, no acca page, home card, menu entry or slip
 button in the app, no acca or combine slide in the videos, no acca block in `verify.py` and no acca line in
 `safe.summary()`. `accas.py` stays only to settle the historical `data/accas.csv` / `data/accas_doubles.csv` rows.
-**Videos** carry Over 1.5 total goals, team goals, corners and bookings only (`shortlist_reel.REEL_MARKET_RE`);
-BTTS, Over 2.5 and 1X2 picks are out, and the in-app briefing player uses the same filter. Tests:
+**Videos** carry Over 1.5 total goals and corners only (`shortlist_reel.REEL_MARKET_RE` = `^(?:O15|C[HA]?O\d+)$`
+since the 2026-10-27 review, which dropped team goals, bookings, BTTS and Over 2.5); the in-app briefing player uses
+the same filter. Tests:
 `tests/test_strong_markets.py`.
 
 ### Videos: no voice at all — one music bed, a full recap first, and no repeated read-out (2026-10-21)
@@ -179,8 +180,8 @@ evening — paged `RECAP_ROWS` (9) at a time, headed `YESTERDAY'S CARD · EVERY 
 plus the standout win and the one that got away, never match by match; later pages get one line each. The noon and
 evening videos carry no recap (`recap=False`). **No repetition.** Each match appears once, as the three
 slides described in the next section (pick + market chart, evidence, record) — and the video ends on the closer,
-with no combine or acca slide at all. The list keeps the board's own order — one selection per match, 65 %+, and only Over 1.5 / team
-goals / corners / bookings. Levers: `REEL_MIN_P` (0.65), `MAX_PICKS` (12), `RECAP_ROWS`, `MAX_RECAP`,
+with no combine or acca slide at all. The list keeps the board's own order — one selection per match, 65 %+, and only Over 1.5 / corners
+(team goals, bookings and BTTS left with their families on 2026-10-27). Levers: `REEL_MIN_P` (0.65), `MAX_PICKS` (12), `RECAP_ROWS`, `MAX_RECAP`,
 `REEL_READ_WPS`. Retired with the voice: `voice_polish.py`, `scripts/setup_voice.sh`, the `EDGE_TTS_*` / `PIPER_*` /
 `ESPEAK_*` env vars and the workflow's "Prepare neural narration voice" step.
 

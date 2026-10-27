@@ -196,3 +196,83 @@ def test_the_app_copy_carries_the_new_bars():
     pages = (ROOT / "android/app/src/main/assets/www/pages.js").read_text(encoding="utf-8")
     assert "s.odds < 1.16" in pages                              # the client-side price floor agrees
     assert "25 % model / 75 % de-vigged-market blend" in pages
+
+
+# ---------------------------------------------------------------- the publication gate and the anchor
+# The app publication is promoted only if verify.check_publication finds no errors. Anchoring the published
+# probability to the market made the detail files' probability differ from the model's — which that gate had always
+# treated as contamination. So the anchor is declared in the file and the gate re-derives every number; these tests
+# pin both halves, because getting it wrong silently freezes the app on its previous payload.
+def _detail(published, final, market, model=None):
+    return {"context": {"market_anchor": policy.market_anchor_record()},
+            "sels": [["O25", published, final, market, 1.90, 0]],
+            "p": {"O25": published, "final_O25": final, "market_O25": market,
+                  "model_O25": final if model is None else model},
+            "xg": {"home": 1.5, "model_home": 1.5}}
+
+
+def test_the_detail_file_declares_the_anchor_and_its_inputs():
+    rec = policy.market_anchor_record()
+    assert rec["enabled"] is True and rec["weight"] == policy.MARKET_WEIGHT
+    assert rec["cap_pp"] == pytest.approx(policy.EDGE_CAP * 100) and rec["max_p"] == policy.P_MAX_PRICED
+
+
+def test_the_gate_accepts_a_published_probability_it_can_re_derive():
+    import verify
+
+    want = policy.publish_p(0.60, 0.64)
+    allowed, worst, _, _, declared = verify.context_budget(_detail(want, 0.60, 0.64))
+    assert declared is False                     # no research-layer record: the anchor is not that
+    assert worst <= allowed + 1e-9                # a gap of several points is fine when it is the declared blend
+    assert allowed > 2.0
+
+
+def test_the_gate_still_blocks_a_number_that_does_not_come_out_of_the_formula():
+    import verify
+
+    # the anchor is declared, but 0.75 is not what the rule produces from a 0.60 model and a 0.64 market
+    allowed, worst, _, _, _ = verify.context_budget(_detail(0.75, 0.60, 0.64))
+    assert worst > allowed
+
+
+def test_the_gate_blocks_the_anchor_entirely_when_one_row_is_off():
+    import verify
+
+    det = _detail(policy.publish_p(0.60, 0.64), 0.60, 0.64)
+    det["sels"].append(["BTTS", 0.71, 0.60, 0.70, 1.9, 0])      # not publish_p(0.60, 0.70) = 0.675
+    allowed, worst, _, _, _ = verify.context_budget(det)
+    assert worst > allowed
+
+
+def test_the_match_page_reads_the_selection_probability_instead_of_re_deriving_it():
+    row = NS(p_final={"O25": 0.80, "O15": 0.90, "O35": 0.4, "BTTS": 0.7},
+             fair={"O25": 0.60}, p_market_o25=0.60, sel_p={"O25": {"sel": "O25", "p": 0.655, "p_sb": 0.60}})
+    assert appdata._pp(row, "O25") == 0.655              # exactly what the pick carries
+    assert appdata._psb(row, "O25") == 0.60              # and the market it anchored to
+    # a selection the book did not price has no pick entry: fall back to the declared formula
+    assert appdata._pp(row, "O15") == policy.publish_p(0.90, None)
+
+
+def test_an_anchor_tie_at_the_cap_is_a_warning_not_a_frozen_app(tmp_path):
+    """O2.5 and O1.5 can meet when the anchor caps O2.5 at the market + 3 pp / 90 % ceiling."""
+    import json
+    import verify
+    from datetime import datetime as _dt
+
+    staging = tmp_path / "app" / "_staging"
+    (staging / "fx").mkdir(parents=True)
+    now = _dt(2026, 10, 27, 20, 0)
+    fixture = {"id": "fx1", "kickoff": "2026-10-27 22:00", "home": "A", "away": "B", "d": "k1",
+               "p": {"O15": 0.89, "O25": 0.90, "BTTS": 0.6}, "x12": [0.5, 0.3, 0.2], "xg": [1.4, 1.1]}
+    (staging / "latest.json").write_text(json.dumps(
+        {"version": 3, "meta": {"generated": "2026-10-27 20:00", "run_id": "r"}, "fixtures": [fixture],
+         "safe": {"min_p": 0.7, "bets": [], "today": {"bets": []}}, "picks": {}}), encoding="utf-8")
+    (staging / "run_manifest.json").write_text(json.dumps(
+        {"schema_version": 3, "run_id": "r", "model_version": "m", "config_sha256": "a" * 64,
+         "generated_at": "2026-10-27 20:00", "feed_health": {}, "counts": {}}), encoding="utf-8")
+    for name in ("meta.json", "alerts.json", "badges.json"):
+        (staging / name).write_text("{}", encoding="utf-8")
+    errors, warns = verify.check_publication(staging, staging.parent / "live", staging / "none.csv",
+                                             now, expect_fixtures=1)
+    assert not [e for e in errors if "P(O2.5)" in e], errors
+    assert any("market anchor" in w for w in warns)
