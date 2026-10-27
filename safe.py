@@ -1,12 +1,19 @@
 """High-probability selections (internal name kept: "safe" bets) and the day card.
 
-Every fixture gets a list of *selections* across the modelled markets (match result, Over goals lines, BTTS,
-corners and cards overs — team goals, double chance and every under were dropped on 2026-10-17, see policy.py) with
-two separate views: the football-data MODEL probability and the probability
-IMPLIED by the Sportybet price (de-margined). Data-first engine (2026-09-28): the probability used for ranking and
-thresholds is the model probability alone (Sel.p == Sel.p_model). The market view is a comparison layer only:
-a disagreement of more than DIFF_FLAG is shown on the match page but never excludes a selection — odds never
-filter which matches can be bet (user decision 2026-10-01). The market never changes a model probability.
+Every fixture gets a list of *selections* across the modelled markets with two views: the football-data MODEL
+probability and the probability IMPLIED by the Sportybet price (de-margined).
+
+2026-10-27 (docs/MODEL_REVIEW_2026-10-27.md): the model stopped out-forecasting the market, so the two views are no
+longer kept apart at the top of the stack:
+
+    * Sel.p (what every surface ranks on, shows and publishes) is `policy.publish_p` — a 25/75 model/market blend
+      capped at market + 3 pp and 90 %, or the model capped at 80 % when the book has no price for the selection.
+    * Sel.p_model keeps the raw model number for the ledger and the calibration work. Sel.p_sb keeps the market.
+    * A priced selection below `policy.PRICE_FLOOR` (1.16) is not offered at all: at 1.12-1.15 the margin needs
+      ~89 % to break even, and that band lost even when the probability was right.
+
+Which families exist at all still lives in policy.py (double chance, team goals, cards, BTTS, Over 0.5 and every
+under are out from 2026-10-27).
 
 "High-probability selections" = priced selections with model probability >= MIN_P (Over 2.5 and BTTS start from
 55%), ranked by model probability
@@ -335,8 +342,11 @@ class Sel:
 
     @property
     def p(self) -> float:
-        """Ranking probability = the football-data model probability (never blended with the market)."""
-        return self.p_model
+        """The probability everything ranks on and publishes: the market-anchored blend (policy.publish_p).
+
+        `p_model` is the raw model number and is kept in every ledger; the market never *replaces* the model, it
+        sets the anchor (`policy.MARKET_WEIGHT`, 0.75) because it forecast better over the 3,910-row review."""
+        return policy.publish_p(self.p_model, self.p_sb)
 
     @property
     def diff_pp(self) -> float | None:
@@ -344,7 +354,12 @@ class Sel:
 
     @property
     def ev(self) -> float | None:
-        return None if not self.priced else self.p_model * self.odds - 1
+        return None if not self.priced else self.p * self.odds - 1
+
+    @property
+    def price_check(self) -> dict | None:
+        """How the offered price compares with the fair price of the probability we publish."""
+        return policy.price_check(self.p, self.odds) if self.priced else None
 
     @property
     def group(self) -> str:
@@ -370,9 +385,10 @@ def selections(r) -> list[Sel]:
         if not _valid(p_model):
             return
         price = float(odds) if odds and odds > 1 else None
-        # user rule (2026-10-01): when BOTH the model and the market price this under 1.15 odds, the
-        # selection is worthless — drop it everywhere (the match stays; its other markets remain listed)
-        if price is not None and price < 1.15 and (1.0 / float(p_model)) < 1.15:
+        # 2026-10-27 price floor (policy.py): nothing priced below 1.16 is offered, whatever the model thinks.
+        # At these odds the bookmaker's hold is 4-5 points of probability, so a short price cannot be beaten even
+        # when the probability is right; the old "both sides under 1.15" rule let 1.15-1.15 through and was too kind.
+        if price is not None and price < policy.PRICE_FLOOR:
             return
         out.append(Sel(code, float(p_model), float(p_sb) if _valid(p_sb) else None, price))
 
@@ -454,11 +470,13 @@ def selections(r) -> list[Sel]:
 def sel_dict(s: Sel, home: str, away: str) -> dict:
     """p / p_model = model probability; p_sb = market implied (comparison); fair = 1 / model probability;
     diff_pp = model − market in percentage points; ev = model probability × price − 1."""
+    check = s.price_check
     return {"sel": s.sel, "group": s.group, "label": label(s.sel, home, away), "p": round(s.p, 3),
             "p_model": round(s.p_model, 3), "p_sb": round(s.p_sb, 3) if s.p_sb is not None else None,
             "odds": round(s.odds, 2) if s.odds else None, "fair": round(1 / s.p, 2) if s.p > 0 else None,
             "diff": s.diff, "diff_pp": None if s.diff_pp is None else round(s.diff_pp, 1),
-            "ev": None if s.ev is None else round(s.ev, 3)}
+            "ev": None if s.ev is None else round(s.ev, 3),
+            "price_check": check}
 
 
 # ----------------------------------------------------------------------------- safest bets / trebles

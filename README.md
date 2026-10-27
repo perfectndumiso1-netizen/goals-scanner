@@ -10,12 +10,13 @@ Android app and Telegram — no servers, no API keys, and it runs while your pho
   and never feed the model. Every statistic carries its sample size (Very small 1–4 … Very strong 40+), every match
   has a transparent data-quality assessment, the raw matches used, extreme results flagged and the model's own
   numbers ("why 1.35 goals?") in the app's **Data** tab and in `python audit.py HOME AWAY`. Missing data is N/A, never 0.
-* **Goals shortlists** — Over 1.5, Over 2.5, Both Teams To Score, from the backtested and calibrated model.
-* **High-probability selections** — singles with model probability ≥ 70 % (**Over 2.5 and BTTS from 55 %**), priced by
-  Sportybet, in the Over-goals / BTTS / corners / bookings markets — no team goals, no double chance, no unders
-  (2026-10-17, see *Market policy* below). New ones are announced immediately (Telegram + app). Nothing is ever
-  labelled "safe" or "guaranteed".
-* **⭐ Bets of the day** — grouped card built on Over 1.5, Over 2.5, BTTS and bookings; 1X2 / BTTS / Over 2.5 only with strong supporting form; one market per match; graded separately.
+* **Goals shortlists** — Over 1.5 and Over 2.5 from the backtested and calibrated model (BTTS left the boards in the
+  2026-10-27 review).
+* **High-probability selections** — singles with a **published probability ≥ 70 %** (Over 2.5 from 55 %), a Sportybet
+  price of **≥ 1.16**, in the Over-goals and corners markets — no team goals, no double chance, no cards, no BTTS, no
+  Over 0.5, no unders (2026-10-27, see *Market policy* below). New ones are announced immediately (Telegram + app).
+  Nothing is ever labelled "safe" or "guaranteed".
+* **⭐ Bets of the day** — grouped card built on Over 1.5, Over 2.5, corners and 1X2; Over 2.5 only with strong supporting form; one market per match; graded separately.
 * **Trends, head-to-head and home/away form** on every match page; live scores, line-ups and match statistics for
   every match in play; squad values (Transfermarkt) for the main leagues.
 * **Live research & context** (Phase A: collected and shown, **not yet weighted**) — for the fixtures inside the
@@ -96,7 +97,7 @@ women's blocks, and **Australia stays banned**. Tests: `tests/test_diet.py` (Jap
 Australia still blocked).
 
 ### Market policy (2026-10-17)
-`policy.py` is the one place that decides which selections the model may recommend; `safe.selections()` asks it for every candidate, so the shortlist, high-probability selections, bets of the day, accas, the match pages and the app boards all inherit it (the app repeats the rule client-side so a payload published before a change cannot show a dropped market). **Dropped:** double chance (1X/12/X2) and **every under** — total goals, no-BTTS, team unders, corner and card unders (the old pattern missed team-level corner/card unders, which is how `CAU55` / `KHU25` reached bets of the day). **Focus:** Over 1.5, Over 2.5, BTTS and bookings; 1X2 and corner overs stay on (not asked to go). **Over 2.5 and BTTS start from a 55 % model probability** (`policy.SEL_MIN_P`, in the shortlist bars, bets of the day, the high-probability list and the app boards); every other market keeps its bar (goals lines 70 %, corners & bookings 65 %, 1X2 60 %). Old codes still label and settle, so bets placed earlier keep grading. **Lanes:** one selection per match stays the rule, but "the best candidate wins the match" gave Over 1.5 — always the likeliest of Over 1.5 / Over 2.5 / BTTS — 286 of 303 matches on the 2026-10-17 slate (and 40 of 40 high-probability slots), so Over 2.5 could never appear whatever its floor. Both the **shortlist** and the **high-probability selections** now work like the bets-of-the-day card: each market claims its own best matches in turn (shortlist: Over 2.5, BTTS, bookings, corners, 1X2, then Over 1.5 and the other goals lines, 10 each; selections: bookings 6, corners 4, Over 2.5 10, BTTS 10, then Over 1.5 up to 50 in total), and Over 1.5 takes what is left. Nothing is padded, a match cut from one lane can still be claimed by a later one, and the board is still shown by probability. Levers: `SHORTLIST_LANES=0` / `SAFE_LANES=0` restore the old single-ranking behaviour. Other levers: `MODEL_MARKETS=all` (or `unders,team,dc`) restores a dropped family, `MODEL_DROP=corners,result` switches those two off, `POLICY_MIN_P_O25` / `POLICY_MIN_P_BTTS` move the 55 % (not `MIN_P_O25` / `MIN_P_BTTS`: scan.yml already uses those, at 0.60, for the older Goals-shortlist star thresholds).
+`policy.py` is the one place that decides which selections the model may recommend, from what probability and at what price; `safe.selections()` asks it for every candidate, so the shortlist, high-probability selections, bets of the day, the match pages, the videos and the app boards all inherit it (the app repeats the rule client-side so a payload published before a change cannot show a dropped market). **Dropped (2026-10-27, measured in `docs/MODEL_REVIEW_2026-10-27.md`):** double chance (1X/12/X2, −16.7 % ROI), team goals (HO05/AO05/HO15/AU15, −6.4 %), cards (K…, −9.4 %), BTTS (−7.0 %) and Over 0.5 (−5.9 %) — plus **every under** in every market since 2026-10-17. **Kept:** total goals Overs from Over 1.5 up, total and team corners, and the 1X2 result board. **Probability floors:** Over 2.5 starts from 55 % (`policy.SEL_MIN_P`), 1X2 from 55 %, goals lines 70 %, corners 65 % — and they apply to the **published** probability, which is `policy.publish_p(p_model, p_sb)`: a 25 % model / 75 % de-vigged-market blend capped at market + 3 pp and 90 % (80 % when nothing is priced), because the market out-forecast the model over 3,910 settled priced selections. The raw model number survives in every ledger as `p_model`. **Price rules:** nothing priced below **1.16** is offered (`policy.PRICE_FLOOR`), and a pick priced below **95 % of its own fair price** is recorded as a watchlist row instead of being promoted to a primary pick (`policy.PRICE_VS_FAIR`; 65 % of the reviewed book failed that test). Old codes still label and settle, so bets placed earlier keep grading. **Lanes:** one selection per match stays the rule, but "the best candidate wins the match" gave Over 1.5 — always the likeliest of the goals lines — 286 of 303 matches on the 2026-10-17 slate, so each market claims its own best matches in turn (shortlist: Over 2.5, corners totals, corner team lines, 1X2, then Over 1.5 and the other goals lines) and Over 1.5 takes what is left. Nothing is padded and the board is still shown by probability. Levers: `MODEL_MARKETS=all` (or `btts,cards,team,dc,o05`) restores a dropped family, `MODEL_DROP=corners,result` switches those two off, `POLICY_MARKET_WEIGHT`, `POLICY_PRICE_FLOOR`, `POLICY_PRICE_VS_FAIR`, `POLICY_STRONG_P_MIN` move the new levers, and `POLICY_MIN_P_O25` / `POLICY_MIN_P_BTTS` move the 55 % (not `MIN_P_O25` / `MIN_P_BTTS`: scan.yml already uses those, at 0.60, for the older Goals-shortlist star thresholds).
 
 ### Settlement: team corners and team cards were graded backwards (2026-10-21)
 Reported as "I'm losing more bets than before". The picks were not the problem — the grader was. `safe.settle` read
@@ -116,13 +117,34 @@ every probability band (<70 %: 70 % actual vs 65 % predicted … 85 %+: 87 % vs 
 plus the false losses, not a broken model. What did change on 2026-10-17 is volume and mix: the lanes added corners,
 bookings and 1X2, and the app now announces 20–110 picks on a busy day (45 on 2026-10-20) instead of a dozen.
 
+### Model review: the market was out-forecasting the model (2026-10-27)
+
+Full write-up: **`docs/MODEL_REVIEW_2026-10-27.md`** (3,910 priced settled selections, every graded row re-graded from
+its scoreline first — zero settlement disagreements). In one paragraph: the de-vigged market beat the model on Brier
+(0.1879 vs 0.1916) and log-loss, the model was +4.6 pp overconfident, we held about **+2 pp** of real edge while paying
+about **5 %** of stake in margin, and 65 % of picks were bought below our own fair price. The damage sat where no price
+could correct it: double chance −16.7 %, team goals −6.4 % (home team to score −10.1 %), cards −9.4 %, BTTS −7.0 %,
+Over 0.5 −5.9 %; goals (−0.8 %) and corners (−0.5 %) were the only defensible lanes. Over 1.5 was never broken
+(`safe_bets` 83.3 % hit vs 82.7 % predicted, −0.3 %): the losing weeks were the short prices.
+
+What changed in code, all of it in `policy.py` so every surface inherits it: the five families above are dropped; the
+**price floor** is 1.16; the **published probability** is a 25/75 model/market blend capped at market + 3 pp and at 90 %
+(80 % unpriced) with the raw model kept as `p_model`; a pick priced under **95 % of its fair price** is demoted to the
+watchlist rather than promoted; the shortlist **score** ranks on the market-anchored edge and the price actually on
+offer instead of "distance above the bar" (the reviewed score quartiles ran −2.8 / −5.9 / **−9.6** / +4.5 %); the home
+page's strong-markets floor moved **75 % → 78 %**; and the videos and the in-app briefing carry Over 1.5 and corners
+only. Expected effect on the reviewed book, cumulative: −4.2 % → −3.1 % (drop double chance + cards) → −1.5 % (drop
+team goals, Over 0.5, sub-1.16 prices), and **+1.4 %** once prices are shopped ~3 % better — the largest single lever,
+which is why `best price` is now recorded beside `p_sb`. Tests: `tests/test_model_review_2026_10_27.py` plus the
+updated policy, shortlist, markets and strong-markets suites.
+
 ### Strong markets for the day, total corners, and no accumulators (2026-10-21)
 Three user rules in one pass. **Strong markets.** The home page now opens with one section, *Strong markets for the
-day*: model probability **≥ 75 %**, a real Sportybet price of **≥ 1.16**, and only **Over 1.5 total goals, team goals,
-corners and bookings**. `policy.is_strong_market()` is the definition, `appdata.strong_markets_payload()` filters,
+day*: model probability **≥ 78 %** (75 % until the 2026-10-27 review), a real Sportybet price of **≥ 1.16**, and only
+**Over 1.5 total goals and corners** (team goals and bookings were in the section until the 2026-10-27 review). `policy.is_strong_market()` is the definition, `appdata.strong_markets_payload()` filters,
 caps and orders the list, and the payload key is `strong_markets` (`min_p`, `min_odds`, `date`, `bets`). Team-corner
-lines used to crowd out the totals, so the section caps each family (`STRONG_CAPS`: total corners 8, total bookings
-6, Over 1.5 10, team goals 6, team corners 3, team bookings 3), shows at most two markets per match, and orders by
+lines used to crowd out the totals, so the section caps each family (`STRONG_CAPS`: total corners 8, Over 1.5 10, team
+corners 3), shows at most two markets per match, and orders by
 probability. Nothing else may appear there — no Over 2.5, BTTS, 1X2 or unders. **Total corners.** Two things hid the
 match-total corner market: the count model only priced 8.5 and above while team lines started at 3.5 (so an average
 10-corner match could never show 75 %+ on a total), and the board gave the whole corner family one lane of four
@@ -305,7 +327,7 @@ Two user-commissioned upgrades. **UEFA in**: `league_allowed` now admits the UEF
 ### Deep analysis + Telegram picks (2026-10-11) (`shortlist.match_article`) built only from its own MatchRow data — last-five form chips, a model-vs-bar-vs-market probability bar, goals per match, venue splits, head-to-head, and a verdict line; anything missing renders as N/A. The diet also filters the app-wide Leagues browser/fixtures index (`leagues.build(..., allow=league_allowed)`), so no off-diet competition appears anywhere. `scanner.telegram_shortlist()` pushes the day's primary picks (strongest market per match) to Telegram once per pick per day (`TELEGRAM_BOT_TOKEN`/`TELEGRAM_CHAT_ID`, deduped via `data/app/telegram_state.json`).
 
 ### High-conviction shortlist (`shortlist.py`)
-A strict filter over the day's board: hard gates (data checks, verified price, odds band 1.15–1.90, per-market probability bar, believable model/market gap) and soft gates (data quality, confidence, warnings, research conflicts, carried prices). EV and edge are displayed but never gate (user rule 2026-10-11) — value hunting lives on the Positive EV tab. At most 7 matches, one selection each; otherwise **NO QUALIFYING SELECTIONS**. Read-only: it never changes a probability. Every decision is logged to `data/shortlist.csv` before kick-off and settled for walk-forward evaluation. Levers: `SHORTLIST_MIN_ODDS`, `SHORTLIST_MAX`.
+A strict filter over the day's board: hard gates (data checks, verified price, odds band **1.16–1.90**, per-market probability bar on the published probability, believable model/market gap) and soft gates (data quality, confidence, warnings, research conflicts, carried prices, **and a price below 95 % of the pick's own fair price**, which keeps it on the watchlist rather than promoting it). EV and edge are displayed; since 2026-10-27 the *price* can also demote a pick — value hunting lives on the Positive EV tab. At most 7 matches, one selection each; otherwise **NO QUALIFYING SELECTIONS**. Read-only: it never changes a probability. Every decision is logged to `data/shortlist.csv` before kick-off and settled for walk-forward evaluation. Levers: `SHORTLIST_MIN_ODDS`, `SHORTLIST_MAX`.
 
 ### Sequences tab & selection rules
 User betting sequences (07–12, 12–16, 16–20, 20–00 SAST) get their own tab: the day's shortlist split into windows — the same gates, one strongest market per match across all markets, Sportybet price and model probability.

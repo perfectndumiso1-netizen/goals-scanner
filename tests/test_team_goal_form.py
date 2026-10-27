@@ -5,15 +5,23 @@ import sys
 from types import SimpleNamespace as NS
 
 import pandas as pd
+import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 import appdata  # noqa: E402
+import policy  # noqa: E402
 import safe  # noqa: E402
 import shortlist  # noqa: E402
 from safe import Sel  # noqa: E402
 
 NOW = datetime(2026, 10, 15, 10, 0)
+
+
+@pytest.fixture
+def team_family_on(monkeypatch):
+    """The team-goal form gate is still tested with the family switched back on (MODEL_MARKETS=team)."""
+    monkeypatch.setattr(policy, "ALLOW", frozenset(("team",)))
 
 
 def profile(name, gf, ga=None, venue_gf=None):
@@ -41,7 +49,12 @@ def match_row(home=None, away=None):
               away=away or profile("Away FC", [1, 1, 0, 0, 0], [1, 1, 1, 0, 0], [1, 0, 0]))
 
 
-def test_weak_attack_is_rejected_even_when_opponent_concedes_frequently():
+def test_the_team_goal_family_is_off_by_default():
+    """2026-10-27 model review: team goals (-6.4 %, home team to score -10.1 %) are no longer offered at all."""
+    assert not policy.allowed("HO05") and not policy.allowed("AO05") and not policy.allowed("HO15")
+
+
+def test_weak_attack_is_rejected_even_when_opponent_concedes_frequently(team_family_on):
     r = match_row(
         home=profile("Home FC", [1, 0, 0, 0, 0], [1, 1, 0, 1, 0], [1, 0, 0]),
         away=profile("Away FC", [1, 1, 0, 1, 0], [1, 1, 1, 1, 1], [1, 0, 0]),
@@ -49,10 +62,11 @@ def test_weak_attack_is_rejected_even_when_opponent_concedes_frequently():
     record = shortlist.evaluate(r, Sel("HO05", 0.82, 0.80, 1.50))
     assert record["status"] == "rejected"
     assert any("team scored in 1/5" in reason for reason in record["reasons"])
-    assert record["p"] == 0.82  # the gate does not alter the model's probability
+    assert record["p_model"] == 0.82                     # the raw model number survives in the record
+    assert record["p"] == 0.805                          # what is published is the anchored blend (0.82 / 0.80)
 
 
-def test_qualifying_team_pick_explains_overall_venue_and_opponent_form():
+def test_qualifying_team_pick_explains_overall_venue_and_opponent_form(team_family_on):
     r = match_row(home=profile("Home FC", [1, 1, 1, 1, 0], [1, 0, 1, 1, 0], [1, 1, 0]))
     record = shortlist.evaluate(r, Sel("HO05", 0.827, 0.80, 1.50))
     assert record["status"] == "primary", record["reasons"]

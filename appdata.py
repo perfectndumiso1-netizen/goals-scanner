@@ -251,13 +251,27 @@ def shortlist_payload(sl: dict, ids_by_key: dict, fixture_id) -> dict:
     return out
 
 
-# --------------------------------------------------------------------------- strong markets for the day (2026-10-21)
-# One home-page section, defined by the user: model probability >= 75%, a real Sportybet price of 1.16 or more, and
-# only Over 1.5 total goals, team goals, corners and bookings. Totals get room of their own (the corner board used to
-# be all team corners); the list is still ordered by probability, strongest first.
-STRONG_CAPS = {"corner_total": 8, "card_total": 6, "o15": 10, "team_goal": 6, "corner_team": 3, "card_team": 3}
+# --------------------------------------------------------------------------- strong markets for the day
+# One home-page section: published probability >= 78 % (75 % until the 2026-10-27 review), a real Sportybet price of
+# 1.16 or more, and only Over 1.5 total goals and corners — team goals and bookings left the section with their
+# families. Totals keep their own room (the corner board used to be all team corners) and the list is ordered by
+# probability, strongest first. Total corners hold the biggest corner allowance (user rule: total corners are the
+# preferred corner output).
+STRONG_CAPS = {"corner_total": 8, "o15": 10, "corner_team": 3}
 STRONG_MAX = 30
 STRONG_PER_MATCH = 2
+
+
+def _pp(r, key: str) -> float | None:
+    """The published probability for one of the model keys O15 / O25 / O35 / BTTS (2026-10-27).
+
+    Market-anchored (policy.publish_p: 25 % model / 75 % de-vigged market, capped), because the review found the
+    de-vigged price out-forecasts the raw model. The raw number is still published beside it as `model_*`."""
+    raw = (getattr(r, "p_final", None) or {}).get(key)
+    fair = (getattr(r, "fair", None) or {}).get(key)
+    if fair is None and key == "O25":
+        fair = getattr(r, "p_market_o25", None)
+    return policy.publish_p(raw, fair)
 
 
 def strong_family(sel: str) -> str:
@@ -267,11 +281,9 @@ def strong_family(sel: str) -> str:
         return ""
     if sel == "O15":
         return "o15"
-    if sel[:2] in ("HO", "AO"):
-        return "team_goal"
     if sel[0] == "C":
         return "corner_team" if sel[1:2] in ("H", "A") else "corner_total"
-    return "card_team" if sel[1:2] in ("H", "A") else "card_total"
+    return ""
 
 
 def strong_markets_payload(items: list[dict], limit: int = STRONG_MAX) -> list[dict]:
@@ -389,8 +401,8 @@ def export(path: Path, *, ctx: dict, rows: list, all_rows: list | None = None, p
             # both boards are titled "Today", so only this day's matches qualify
             if date != _today:
                 continue
-            # strong markets (user rule 2026-10-21): 75%+, price 1.16+, and only Over 1.5 / team goals / corners /
-            # bookings — the filter itself lives in policy.py; the caps and ordering in strong_markets_payload()
+            # strong markets (2026-10-27): 78%+, price 1.16+, and only Over 1.5 total goals and corners — the filter
+            # itself lives in policy.py; the caps and ordering in strong_markets_payload()
             _ko = fx["kickoff"].replace(tzinfo=None) if getattr(fx["kickoff"], "tzinfo", None) else fx["kickoff"]
             if policy.is_strong_market(d.get("sel")) and d.get("odds") and p >= policy.STRONG_P_MIN \
                     and float(d["odds"]) >= policy.STRONG_ODDS_MIN and _qo != "Low" \
@@ -417,7 +429,7 @@ def export(path: Path, *, ctx: dict, rows: list, all_rows: list | None = None, p
             "mxg": None if math.isnan(r.mkt_h) else [_f(r.mkt_h, 2), _f(r.mkt_a, 2)],
             "q": (((r.audit or {}).get("quality") or {}).get("overall")),
             "n": [int(r.home.n), int(r.away.n)],
-            "p": {"O15": _f(r.p_final["O15"]), "O25": _f(r.p_final["O25"]), "BTTS": _f(r.p_final["BTTS"])},
+            "p": {"O15": _f(_pp(r, "O15")), "O25": _f(_pp(r, "O25")), "BTTS": _f(_pp(r, "BTTS"))},
             "x12": [_f(x12.get("H")), _f(x12.get("D")), _f(x12.get("A"))],
             # sels: [sel, p (model), p_model, p_market (implied), odds, disagreement flag, diff pp, EV]
             "sels": [[d["sel"], d["p"], d["p_model"], d["p_sb"], d["odds"], 1 if d.get("diff") else 0, d.get("diff_pp"), d.get("ev")] for d in sels],
@@ -442,13 +454,14 @@ def export(path: Path, *, ctx: dict, rows: list, all_rows: list | None = None, p
                    "market_home": _f(r.mkt_h, 2), "market_away": _f(r.mkt_a, 2),
                    "market_total": None if math.isnan(r.mkt_h) else _f(r.mkt_h + r.mkt_a, 2),
                    "market_source": r.mkt_source or None},
-            "p": {"O15": _f(r.p_model["O15"]), "O25": _f(r.p_model["O25"]), "O35": _f(r.p_model["O35"]),
-                  "BTTS": _f(r.p_model["BTTS"]), "model_O25": _f(r.p_model["O25"]), "model_BTTS": _f(r.p_model["BTTS"]),
+            "p": {"O15": _f(_pp(r, "O15")), "O25": _f(_pp(r, "O25")), "O35": _f(_pp(r, "O35")),
+                  "BTTS": _f(_pp(r, "BTTS")), "model_O15": _f(r.p_model["O15"]), "model_O25": _f(r.p_model["O25"]),
+                  "model_O35": _f(r.p_model["O35"]), "model_BTTS": _f(r.p_model["BTTS"]),
                   "market_O25": _f((r.fair or {}).get("O25", r.p_market_o25)), "market_O15": _f((r.fair or {}).get("O15")),
                   "market_BTTS": _f((r.fair or {}).get("BTTS"))},
             "x12_market": ({k: _f(v) for k, v in r.x12_market.items() if k in ("H", "D", "A")} | {"source": r.x12_market.get("source")})
             if r.x12_market else None,
-            "stars": {m: stars(r.p_final[m], m) for m in ("O15", "O25", "BTTS")},
+            "stars": {m: stars(_pp(r, m) or 0.0, m) for m in ("O15", "O25", "BTTS")},
             "x12": {k: _f(v) for k, v in x12.items() if k in ("H", "D", "A", "1X", "12", "X2")} | (
                 {"source": x12.get("source")} if x12.get("source") else {}),
             "team_goals": {k: _f(v) for k, v in (r.extra.tg or {}).items()},
@@ -500,7 +513,7 @@ def export(path: Path, *, ctx: dict, rows: list, all_rows: list | None = None, p
             _key = (fx["date"].strftime("%Y-%m-%d"), fx["country"], fx["home"], fx["away"])
             fid = ids_by_key.get(_key) or fixture_id(*_key)   # fall back to the deterministic id if the map missed it
             tracked.add(fid)
-            picks_out[mkt].append({"fixture": fid, "p": _f(r.p_final[mkt]), "stars": stars(r.p_final[mkt], mkt),
+            picks_out[mkt].append({"fixture": fid, "p": _f(_pp(r, mkt)), "stars": stars(_pp(r, mkt) or 0.0, mkt),
                                    "sportybet": _f(helpers["sb_price"](r, mkt), 2)})
     # safest bets of this run + bets of the day
     safe_out = {"min_p": sf.get("min_p"), "groups": list(safe_groups),

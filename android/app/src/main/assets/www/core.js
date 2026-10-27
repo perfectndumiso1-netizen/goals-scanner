@@ -194,7 +194,11 @@ window.PR = (function () {
   /** user rules 2026-10-17: team goals (HO05, AU15 …) and double chance (1X, 12, X2) are dropped altogether, and
    *  Over 2.5 and BTTS START from a 55% model probability (everything else keeps its own bar). The server applies the
    *  same policy (policy.py); the app repeats it so a payload published before the change cannot show them either. */
-  const isDropped = (sel) => isUnder(sel) || sel === '1X' || sel === '12' || sel === 'X2';
+  // 2026-10-27 model review: the families the Python policy dropped (policy.family_of) — unders, double chance,
+  // cards / bookings, BTTS and Over 0.5 — are hidden client-side too, so an old cached payload cannot resurrect them.
+  const isDropped = (sel) => isUnder(sel) || sel === '1X' || sel === '12' || sel === 'X2'
+    || sel === 'BTTS' || sel === 'NBTTS' || sel === 'O05'
+    || /^K[HA]?[OU]\d+$/.test(sel || '') || /^[HA][OU]\d+$/.test(sel || '');
   const SEL_FLOOR = { O25: 0.55, BTTS: 0.55, H: 0.55, D: 0.55, A: 0.55 };
   function selGroup(sel) {
     if (sel === 'H' || sel === 'D' || sel === 'A') return 'result';

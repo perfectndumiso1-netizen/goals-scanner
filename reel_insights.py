@@ -13,7 +13,7 @@ Nothing here invents a number. Every value comes from `data/app/fx/<key>.json` (
 or `data/app/leagues/<slug>.json` (the same table the league page shows). Anything missing is simply left off the
 slide, and a slide with nothing to show is skipped rather than padded.
 
-The video only carries Over 1.5 total goals, team goals, corners and bookings (`shortlist_reel.is_reel_market`), so
+The video only carries Over 1.5 total goals and corners (`shortlist_reel.is_reel_market`, 2026-10-27), so
 the chart is built from that same family: the pick is the highest model probability **among the markets the video
 covers**, which is what makes it the top bar on the chart rather than a claim we have to dress up.
 """

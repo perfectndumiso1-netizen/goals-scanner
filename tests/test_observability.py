@@ -115,8 +115,8 @@ def test_appdata_export_writes_provenance_and_feed_manifest(tmp_path):
     assert latest["meta"]["run_id"] == manifest["run_id"] == "export-test"
     assert manifest["feed_health"]["sources"]["football_data"]["success"] == 1
     assert manifest["counts"]["all_coverage_fixtures"] == 0
-    # the home page's strong-markets section is published with its own bars (2026-10-21)
-    assert latest["strong_markets"]["min_p"] == 0.75 and latest["strong_markets"]["min_odds"] == 1.16
+    # the home page's strong-markets section is published with its own bars (2026-10-27: 78 %, not the old 75 %)
+    assert latest["strong_markets"]["min_p"] == 0.78 and latest["strong_markets"]["min_odds"] == 1.16
     assert latest["strong_markets"]["bets"] == []
     assert "accas" not in latest                     # accumulators are removed from the app payload
 

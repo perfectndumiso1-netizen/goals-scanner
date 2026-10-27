@@ -76,11 +76,13 @@ def _leagues(tmp_path: Path) -> Path:
 
 # ------------------------------------------------------------------ markets
 
-def test_video_markets_are_overs_only_and_never_a_match_result():
+def test_video_markets_are_over15_and_corners_only():
+    # 2026-10-27: the reel carries Over 1.5 and corners; team goals, bookings, Over 2.5, 1X2, BTTS and unders are out
+    # (HO05 is here only because it is the pick itself, and market_rows always keeps the pick on its own chart)
     rows = ri.market_rows(DETAIL, PICK)
     sels = {r["sel"] for r in rows}
-    assert {"O15", "HO05", "AO05", "CO85", "KO35"} == sels
-    assert not ({"O25", "H", "BTTS", "KU25"} & sels)          # goals line, 1X2, BTTS and unders are out
+    assert {"O15", "HO05", "CO85"} == sels
+    assert not ({"O25", "H", "BTTS", "KU25", "KO35", "AO05"} & sels)
     assert [r["p"] for r in rows] == sorted((r["p"] for r in rows), reverse=True)
 
 
@@ -184,12 +186,14 @@ def test_no_voice_and_no_accumulator_left_in_the_reel_module():
 
 def test_the_reel_ranks_the_strongest_allowed_market_per_match():
     # same match: the video features whichever allowed market the model rates highest
-    weak = {"home": "A", "away": "B", "sel": "HO05", "kickoff": "2026-10-21 18:00", "p": 0.70}
-    strong = {"home": "A", "away": "B", "sel": "KO35", "kickoff": "2026-10-21 18:00", "p": 0.84}
-    assert [p["sel"] for p in reel.reel_picks([weak, strong])] == ["KO35"]
-    # within a percentage point the old preference wins, so a video is not twelve corners lines
-    tie_corners = {**strong, "p": 0.705}
-    assert reel.reel_picks([weak, tie_corners])[0]["sel"] == "HO05"
+    weak = {"home": "A", "away": "B", "sel": "CO85", "kickoff": "2026-10-21 18:00", "p": 0.70}
+    strong = {"home": "A", "away": "B", "sel": "O15", "kickoff": "2026-10-21 18:00", "p": 0.84}
+    assert [p["sel"] for p in reel.reel_picks([weak, strong])] == ["O15"]
+    # within a percentage point the old preference wins (Over 1.5 first), so a video is not twelve corners lines
+    tie_corners = {**weak, "p": 0.845}
+    assert reel.reel_picks([tie_corners, {**strong, "p": 0.84}])[0]["sel"] == "O15"
+    # a dropped family never reaches a video, whatever it claims
+    assert reel.reel_picks([{**weak, "sel": "KO35", "p": 0.95}, {**weak, "sel": "HO05", "p": 0.95}]) == []
 
 
 # ------------------------------------------------------------------ featuring the strongest market
@@ -197,14 +201,14 @@ def test_the_reel_ranks_the_strongest_allowed_market_per_match():
 def test_a_stronger_market_in_the_detail_becomes_the_featured_pick():
     pick = {k: v for k, v in PICK.items()}                     # the board chose HO05 at 79%
     detail = json.loads(json.dumps(DETAIL))
-    detail["sels"].append(["AO05", 0.88, 0.88, 0.85, 1.18, 0, 4.0, 0.02])   # but the away side is stronger
+    detail["sels"].append(["CO105", 0.88, 0.88, 0.85, 1.18, 0, 4.0, 0.02])   # but a bigger corner line is stronger
     up = ri.featured_pick(pick, detail)
-    assert up["sel"] == "AO05" and up["p"] == 0.88 and up["odds"] == 1.18
-    assert up["label"] == "Orlando Pirates to score" and up["market"] == "team"
+    assert up["sel"] == "CO105" and up["p"] == 0.88 and up["odds"] == 1.18
+    assert up["label"] == "Over 10.5 corners" and up["market"] == "corners"
     assert up["upgraded_from"] == "HO05"
     assert pick["sel"] == "HO05"                                 # the caller's dict is never modified
     rows = ri.chart_rows(detail, up)
-    assert rows[0]["sel"] == "AO05" and rows[0]["picked"] is True
+    assert rows[0]["sel"] == "CO105" and rows[0]["picked"] is True
     assert rows[0]["p"] == max(r["p"] for r in rows)             # the featured market IS the tallest bar
 
 

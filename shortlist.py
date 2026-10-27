@@ -12,7 +12,8 @@ Over 2.5 and BTTS START from a 55% model probability instead of 70%:
   hard gates (fail one = REJECTED)
     H1  the match passed the pipeline's own data checks (data_ok)
     H2  a verified Sportybet price exists (unknown = "N/A", never assumed)
-    H3  odds inside the band: MIN_ODDS <= odds <= MAX_ODDS (1.15 to 1.90 — user rule)
+    H3  odds inside the band: MIN_ODDS <= odds <= MAX_ODDS (1.16 to 1.90 — user rule; the 1.15 floor moved
+        in the 2026-10-27 review, the ceiling did not)
     H4  model probability clears the bar for that market (stated explicitly in BARS)
     H5  the model/market gap is believable: <= MAX_EDGE over the de-vigged market (or the raw price when
         no de-vigged view exists). A much wider gap is the signature of a data fault, not strength
@@ -61,7 +62,9 @@ import calibration as calib
 import policy
 
 # ------------------------------------------------------------------ the rules (stated, applied consistently)
-MIN_ODDS = float(os.getenv("SHORTLIST_MIN_ODDS", "1.15"))     # band floor: odds below this are rejected
+MIN_ODDS = float(os.getenv("SHORTLIST_MIN_ODDS", str(policy.PRICE_FLOOR)))   # band floor: odds below this are rejected
+# 2026-10-27: the floor moved 1.15 -> 1.16 (policy.PRICE_FLOOR). At 1.12-1.15 the bookmaker's hold needs ~89 % to
+# break even, and the review's 1.12-1.15 band lost money even when the probability was right.
 MAX_ODDS = float(os.getenv("SHORTLIST_MAX_ODDS", "1.90"))     # band ceiling: odds above this are rejected
 # Probability bar per market group. A selection the policy names starts from its own floor instead:
 # Over 2.5, BTTS and 1X2 at 55% (policy.SEL_MIN_P); Over 1.5 and the other goals lines stay at 70%.
@@ -102,8 +105,11 @@ def lane_of(x: dict) -> str:
         return f"{market}_team"
     return market
 
+# `p` is the PUBLISHED probability (market-anchored blend, policy.publish_p); `p_model` is the raw model number, kept
+# so the calibration work and the review can still compare the two. `score_rank` is the composite `score` value
+# (it is not a rank — the name predates the lanes).
 COLS = ["day", "decided", "match_date", "kickoff", "country", "league", "home", "away", "sel", "label", "market",
-        "odds", "p", "p_sb", "implied_raw", "edge_pp", "ev", "quality", "confidence", "status", "reasons",
+        "odds", "p", "p_model", "p_sb", "implied_raw", "edge_pp", "ev", "quality", "confidence", "status", "reasons",
         "rank", "score_rank", "result", "score", "settled_on"]
 
 STATUS_PRIMARY, STATUS_WATCH, STATUS_REJECT = "primary", "watchlist", "rejected"
@@ -146,8 +152,13 @@ def evaluate(r, s, *, min_odds: float | None = None, max_odds: float | None = No
     group = safe_mod.group(s.sel)
     odds = s.odds if s.priced else None
     implied = (1 / odds) if odds else None
-    edge = None if s.p_sb is None else s.p_model - s.p_sb
-    ev = None if odds is None else s.p_model * odds - 1
+    # Two edges on purpose (2026-10-27):
+    #   `edge`     = published probability above the de-vigged market — what the pick is ranked and described on;
+    #   `raw_edge` = raw model probability above the market — still used as a DATA-FAULT guard, because the blend caps
+    #                the published number at market + 3 pp and would otherwise hide a wild model value.
+    edge = None if s.p_sb is None else s.p - s.p_sb
+    raw_edge = None if s.p_sb is None else s.p_model - s.p_sb
+    ev = None if odds is None else s.p * odds - 1
     ck = _conf_key(s.sel, group)
     conf = (audit.get("confidence") or {}).get(ck) if ck else None
     warns = [w for w in (audit.get("warnings") or []) if w.get("level") == "warn"]
@@ -159,6 +170,9 @@ def evaluate(r, s, *, min_odds: float | None = None, max_odds: float | None = No
     ceil = MAX_ODDS if max_odds is None else max_odds
 
     hard, soft = [], []
+    if not policy.allowed(s.sel):
+        # 2026-10-27 market policy: a dropped family can never reach a board, whoever built the Sel
+        hard.append(f"{s.sel} is no longer offered ({policy.family_of(s.sel)} was dropped in the model review)")
     if not r.data_ok:
         hard.append("failed the pipeline's data checks")
     if odds is None:
@@ -167,15 +181,15 @@ def evaluate(r, s, *, min_odds: float | None = None, max_odds: float | None = No
         hard.append(f"odds {odds:.2f} below the {floor:.2f} floor")
     elif odds > ceil:
         hard.append(f"odds {odds:.2f} above the {ceil:.2f} ceiling (band {floor:.2f}\u2013{ceil:.2f})")
-    if s.p_model < bar:
-        hard.append(f"probability {100 * s.p_model:.0f}% below the {100 * bar:.0f}% bar for {group}")
+    if s.p < bar:
+        hard.append(f"probability {100 * s.p:.0f}% below the {100 * bar:.0f}% bar for {group}")
     if s.sel in safe_mod.TEAM_GOAL_MARKETS:
         form_ok, form_reason = safe_mod.team_goal_form_status(r, s.sel)
         if not form_ok:
             hard.append(form_reason)
-    if edge is not None and edge > MAX_EDGE:
-        hard.append(f"model {100 * edge:.0f} pp above the market — data fault, not edge")
-    elif edge is None and implied is not None and s.p_model - implied > MAX_RAW_EDGE:
+    if raw_edge is not None and raw_edge > MAX_EDGE:
+        hard.append(f"model {100 * raw_edge:.0f} pp above the market — data fault, not edge")
+    elif raw_edge is None and implied is not None and s.p_model - implied > MAX_RAW_EDGE:
         hard.append(f"model {100 * (s.p_model - implied):.0f} pp above the raw price — data fault, not edge")
 
     qual = q.get("overall")
@@ -190,12 +204,23 @@ def evaluate(r, s, *, min_odds: float | None = None, max_odds: float | None = No
     if carried:
         soft.append(f"price carried forward from {carried} (the book blocked the fetch) — value claim is only as fresh as that")
 
+    # 2026-10-27 price check: a pick priced below 95 % of its own fair price is real but badly bought. It stays in
+    # the ledger as a watchlist row and never becomes a primary pick. 65 % of the reviewed book failed this.
+    check = policy.price_check(s.p, odds) if odds is not None else None
+    if check and check["verdict"] == "short":
+        soft.append(f"price {odds:.2f} is {100 * check['ratio']:.0f}% of our fair price ({check['fair']:.2f}) — "
+                    f"watchlist, not a primary pick")
     status = STATUS_REJECT if hard else STATUS_WATCH if soft else STATUS_PRIMARY
+
+    # Score (2026-10-27): the old 40 % term measured "how far above the bar" the model sat — the same quantity the
+    # model was overconfident about, which is why the reviewed score quartiles ran -2.8 / -5.9 / -9.6 / +4.5 % ROI.
+    # It now measures the MARKET-ANCHORED edge (5 pp = full marks) and pays for the price actually on offer
+    # (8 % of EV = full marks), which is the one thing the review found predictive.
     qscore = float(q.get("score") or 0.0)
     conf_score = {"High": 1.0, "Medium": 0.6}.get(conf, 0.3)
-    score = (0.40 * qscore
-             + 0.40 * min(max(s.p_model - bar, 0.0) / 0.20, 1.0)
-             + 0.20 * conf_score)
+    anchored = 0.0 if edge is None else min(max(edge, 0.0) / 0.05, 1.0)
+    price_q = 0.0 if ev is None else min(max(ev, 0.0) / 0.08, 1.0)
+    score = (0.35 * anchored + 0.30 * qscore + 0.20 * conf_score + 0.15 * price_q)
 
     support = []
     hist = r.hist or {}
@@ -208,7 +233,7 @@ def evaluate(r, s, *, min_odds: float | None = None, max_odds: float | None = No
     if n_min:
         support.append(f"{n_min}+ matches per team in the sample")
     if edge is not None and edge > 0:
-        support.append(f"model {100 * edge:.1f} pp above the de-vigged market")
+        support.append(f"published probability {100 * edge:.1f} pp above the de-vigged market")
     risk = (soft[0] if soft else
             f"one-in-{max(2, round(1 / max(1 - s.p_model, 0.01)))} miss rate even if the model is right"
             if s.p_model >= 0.5 else "less likely than not")
@@ -221,14 +246,14 @@ def evaluate(r, s, *, min_odds: float | None = None, max_odds: float | None = No
         "league": str(fx.get("league") or ""), "home": fx["home"], "away": fx["away"],
         "sel": s.sel, "label": safe_mod.label(s.sel, fx["home"], fx["away"]), "market": group,
         "odds": None if odds is None else round(odds, 2),
-        "p": round(s.p_model, 3), "p_cal": None,
+        "p": round(s.p, 3), "p_model": round(s.p_model, 3), "p_cal": None,
         "p_sb": None if s.p_sb is None else round(s.p_sb, 3),
         "implied_raw": None if implied is None else round(implied, 3),
         "edge_pp": None if edge is None else round(100 * edge, 1),
         "ev": None if ev is None else round(ev, 3),
         "quality": qual or "N/A", "quality_score": round(qscore, 2), "confidence": conf or "N/A",
         "bar": bar, "status": status, "reasons": hard or soft, "score": round(score, 3),
-        "support": support[:3], "risk": risk,
+        "price_check": check, "support": support[:3], "risk": risk,
     }
 
 
@@ -272,11 +297,13 @@ def match_article(r, x: dict) -> dict:
 
     edge = x.get("edge_pp")
     ev = x.get("ev")
-    p2 = (f"The model's read. The Dixon–Coles engine prices {x['label']} at {_pct(x.get('p'))} — "
+    p2 = (f"The published read. {x['label']} is published at {_pct(x.get('p'))} — "
           f"{'above' if (edge or 0) >= 0 else 'below'} the {_pct(x.get('bar'))} evidence bar this market must clear"
           + (f" by {abs(edge):.1f} pp." if edge is not None else ".")
-          + (f" Sportybet's de-vigged price implies {_pct(x.get('p_sb'))}, so the model sits {edge:.1f} pp "
-             f"{'above' if (edge or 0) >= 0 else 'below'} the market (EV {_num(ev) if ev is not None else 'N/A'} — displayed, never a gate)."
+          + (f" That number is the 25 % model / 75 % de-vigged-market blend (policy.py, 2026-10-27), not the raw model"
+             f" number: Sportybet's de-vigged price implies {_pct(x.get('p_sb'))}, so the published probability sits"
+             f" {edge:.1f} pp {'above' if (edge or 0) >= 0 else 'below'} the market"
+             f" (EV {_num(ev) if ev is not None else 'N/A'})."
              if x.get("p_sb") is not None else " No verified price view was available for this comparison."))
 
     p3 = ""
@@ -455,7 +482,7 @@ def build(rows: list, now: datetime, window_end: datetime | None = None,
 
 def _pattern(reason: str) -> str:
     r = reason.lower()
-    for key, name in (("odds n/a", "not priced"), ("floor", "odds under the 1.15 floor"), ("ceiling", "odds over the 1.90 ceiling"),
+    for key, name in (("odds n/a", "not priced"), ("floor", f"odds under the {MIN_ODDS:.2f} floor"), ("ceiling", "odds over the 1.90 ceiling"),
                       ("below the", "probability under its market bar"), ("price too short", "price too short (negative EV)"),
                       ("data fault", "implausible model/market gap"), ("data checks", "failed data checks"),
                       ("data quality", "data quality low"), ("confidence low", "low confidence"),
@@ -525,6 +552,7 @@ def record(df: pd.DataFrame, board: dict, now: datetime) -> tuple[pd.DataFrame, 
                     "kickoff": x["kickoff"], "country": x["country"], "league": x["league"], "home": x["home"],
                     "away": x["away"], "sel": x["sel"], "label": x["label"], "market": x["market"],
                     "odds": "" if x["odds"] is None else x["odds"], "p": x["p"],
+                    "p_model": "" if x.get("p_model") is None else x["p_model"],
                     "p_sb": "" if x["p_sb"] is None else x["p_sb"],
                     "implied_raw": "" if x["implied_raw"] is None else x["implied_raw"],
                     "edge_pp": "" if x["edge_pp"] is None else x["edge_pp"], "ev": "" if x["ev"] is None else x["ev"],

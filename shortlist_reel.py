@@ -1451,13 +1451,16 @@ def _reel_p(p: dict) -> float | None:
     return None
 
 
-REEL_MARKET_RE = re.compile(r"^(?:O15|[HA]O\d+|C[HA]?O\d+|K[HA]?O\d+)$")
+# 2026-10-27 (model review): the videos carry the two families that survived — Over 1.5 total goals and corners.
+# Team goals (-6.4 % ROI, home team to score -10.1 %) and bookings (-9.4 %) left with their families, so a payload
+# published before the change cannot put them back on screen.
+REEL_MARKET_RE = re.compile(r"^(?:O15|C[HA]?O\d+)$")
 
 
 def is_reel_market(p: dict) -> bool:
-    """Videos carry Over 1.5 total goals, team goals, corners and bookings — nothing else (user rule 2026-10-21).
+    """Videos carry Over 1.5 total goals and corners — nothing else (user rule 2026-10-27, was 2026-10-21).
 
-    BTTS, Over 2.5, 1X2 and every under are out, and no accumulator is built from the picks any more.
+    Team goals, bookings, BTTS, Over 2.5, 1X2 and every under are out, and no accumulator is built from the picks.
     """
     sel = str(p.get("sel") or "").upper()
     blob = " ".join(str(p.get(k) or "") for k in ("label", "market", "group")).lower()
