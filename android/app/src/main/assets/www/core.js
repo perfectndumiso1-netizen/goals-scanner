@@ -694,7 +694,7 @@ window.PR = (function () {
 
   // ------------------------------------------------------------------ shared UI fragments
   const EDITOR = { name: 'Ndumiso Msani', role: 'Founder & Football Analyst', place: 'Mthwalume, KwaZulu-Natal',
-    bio: 'Founder of PlayReport and a football analyst with a data-first approach. Ndumiso built the platform to turn thousands of match results, prices and team statistics into a small number of disciplined, graded selections every day — specialising in the goals, corners and bookings markets across world football. Every pick is published before kick-off and graded against the final result.' };
+    bio: 'Founder of PlayReport and a football analyst with a data-first approach. Ndumiso built the platform to turn thousands of match results, prices and team statistics into a small number of disciplined, graded selections every day — specialising in the goals and corners markets across world football. Every pick is published before kick-off and graded against the final result.' };
   function editorCard(compact) {
     // compact: round avatar next to the name (home page); full: portrait photo with the profile (About / Guide)
     if (!compact) return `<div class="card"><div class="editor full"><div class="portrait"><img src="editor.jpg" alt="${esc(EDITOR.name)}" onerror="this.parentNode.style.display='none'"></div><div class="grow"><div class="b" style="font-size:17px">${esc(EDITOR.name)}</div><div class="small muted">${esc(EDITOR.role)}</div><div class="small muted">${esc(EDITOR.place)}</div><div class="small" style="margin-top:8px">${esc(EDITOR.bio)}</div></div></div>
