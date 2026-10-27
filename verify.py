@@ -73,9 +73,12 @@ def _anchored(det: dict) -> tuple[float, bool]:
     for key in ("O15", "O25", "O35", "BTTS"):
         pub, model = p.get(key), p.get(f"final_{key}")
         mkt = p.get(f"market_{key}")
-        if not (_num(pub) and _num(model) and _num(mkt) and 0 < float(mkt) < 1):
+        if not (_num(pub) and _num(model)):
             continue
-        want = policy.publish_p(float(model), float(mkt))
+        # no market value means the selection was unpriced: the anchor is "none", and the number must be the
+        # model's own (or the unpriced cap of it) — a blend that needs a price cannot appear without one
+        anchored_to = float(mkt) if (_num(mkt) and 0 < float(mkt) < 1) else None
+        want = policy.publish_p(float(model), anchored_to)
         if want is None or abs(float(pub) - want) > 0.004:
             return 0.0, False
         if _num(p.get(f"model_{key}")):

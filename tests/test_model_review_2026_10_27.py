@@ -276,3 +276,33 @@ def test_an_anchor_tie_at_the_cap_is_a_warning_not_a_frozen_app(tmp_path):
                                              now, expect_fixtures=1)
     assert not [e for e in errors if "P(O2.5)" in e], errors
     assert any("market anchor" in w for w in warns)
+
+
+def test_an_unpriced_pick_is_not_anchored_to_another_books_price():
+    """The regression that froze the app for two runs (2026-10-27).
+
+    Sportybet did not price Over 2.5 on two fixtures while the *reference* book did. The detail file reported that
+    reference price as `market_O25` while the pick itself had no market to anchor to, so re-deriving the published
+    number produced a blend the app had never shown and the publication gate called it contamination. The published
+    number and the market value written beside it must always be the same pair.
+    """
+    import verify
+
+    sel_p = {"O25": {"sel": "O25", "p": 0.659, "p_model": 0.659, "p_sb": None}}
+    row = NS(p_final={"O15": 0.854, "O25": 0.659, "O35": 0.44, "BTTS": 0.295},
+             p_model={"O15": 0.854, "O25": 0.659, "O35": 0.44, "BTTS": 0.295},
+             fair={"O25": 0.62, "O15": 0.80}, p_market_o25=0.62, sel_p=sel_p)
+    block = appdata._published_block(row)
+    assert block["O25"] == 0.659            # the pick had no price, so the model's own number is published
+    assert block["market_O25"] is None      # and no market is claimed for it
+    # a key with no selection of its own may still use the reference price — and then reports it, so the gate can
+    # re-derive the number from exactly what was used
+    assert block["O15"] == pytest.approx(policy.publish_p(0.854, 0.80), abs=0.001)
+    assert block["market_O15"] == 0.80
+    det = {"context": {"market_anchor": policy.market_anchor_record()},
+           "sels": [["O25", 0.659, 0.659, None, None, 0]],
+           "p": {k: block[k] for k in ("O25", "final_O25", "market_O25", "model_O25",
+                                       "O15", "final_O15", "market_O15", "model_O15")},
+           "xg": {"home": 1.4, "model_home": 1.4}}
+    allowed, worst, _, _, _ = verify.context_budget(det)
+    assert worst <= allowed + 1e-9, (allowed, worst)

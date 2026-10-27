@@ -262,31 +262,61 @@ STRONG_MAX = 30
 STRONG_PER_MATCH = 2
 
 
-def _pp(r, key: str) -> float | None:
-    """The published probability for one of the model keys O15 / O25 / O35 / BTTS (2026-10-27).
+def _pp_pair(r, key: str, fallback=None) -> tuple[float | None, float | None]:
+    """(published probability, the de-vigged market it was anchored to) for one model key (2026-10-27).
 
-    Market-anchored (policy.publish_p: 25 % model / 75 % de-vigged market, capped), because the review found the
-    de-vigged price out-forecasts the raw model. The raw number is still published beside it as `model_*`."""
-    # 2026-10-27: the selection list already carries this number (safe.Sel.p), so the match page reads it from
-    # there instead of re-deriving it — one published probability per selection, computed once, from the same
-    # de-vigged market the pick was priced against. Without this the headline O2.5 could anchor to the reference
-    # book's de-vigged price while the pick anchored to Sportybet's own, and the two screens disagreed.
+    The published number is the market-anchored blend (`policy.publish_p`: 25 % model / 75 % de-vigged market,
+    capped), because the review found the de-vigged price out-forecasts the raw model. Both halves of that pair
+    come from the *same* place, which matters twice over:
+
+      * the app and the pick list must never disagree, so the number is read from the selection itself
+        (`safe.Sel.p`, computed once per row in `export`) rather than re-derived here;
+      * the publication gate (`verify.context_budget`) re-derives every published number from the inputs the detail
+        file carries, so the `market_*` value written beside it has to be the exact one `publish_p` was called
+        with. A reference-book price standing in for a selection Sportybet did not price would be a *different*
+        anchor and the re-derivation would look like contamination — which is what froze the app for two runs.
+
+    Without a selection of its own the model number rules (there is nothing to anchor to), and the fallback market
+    value is only used together with `policy.publish_p`, never reported as the anchor of a number it did not produce.
+    """
     d = (getattr(r, "sel_p", None) or {}).get(key)
     if d and d.get("p") is not None:
-        return d["p"]
+        return d["p"], d.get("p_sb")
     raw = (getattr(r, "p_final", None) or {}).get(key)
-    fair = (getattr(r, "fair", None) or {}).get(key)
-    if fair is None and key == "O25":
-        fair = getattr(r, "p_market_o25", None)
-    return policy.publish_p(raw, fair)
+    mkt = fallback
+    if mkt is None:
+        mkt = (getattr(r, "fair", None) or {}).get(key)
+    if mkt is None and key == "O25":
+        mkt = getattr(r, "p_market_o25", None)
+    if isinstance(mkt, float) and math.isnan(mkt):
+        mkt = None
+    return policy.publish_p(raw, mkt), mkt
+
+
+def _pp(r, key: str, fallback=None) -> float | None:
+    """The published probability for one of the model keys O15 / O25 / O35 / BTTS."""
+    return _pp_pair(r, key, fallback)[0]
 
 
 def _psb(r, key: str, fallback=None) -> float | None:
-    """The de-vigged market probability the published number was anchored to (the pick's own, else the fallback)."""
-    d = (getattr(r, "sel_p", None) or {}).get(key)
-    if d and d.get("p_sb") is not None:
-        return d["p_sb"]
-    return None if fallback is None or (isinstance(fallback, float) and math.isnan(fallback)) else fallback
+    """The de-vigged market probability that published number was anchored to (None when the pick was unpriced)."""
+    return _pp_pair(r, key, fallback)[1]
+
+
+def _published_block(r) -> dict:
+    """The `p` block of a detail file: the published numbers plus the exact inputs they were derived from.
+
+    `p` is what every screen shows; `final_*` is the model number the anchor was applied to (after the research
+    layer); `model_*` is the raw statistical model; `market_*` is the de-vigged price the anchor used — the pick's
+    own two-way, or empty when the book did not price it. `verify.context_budget` re-derives `p` from
+    `final_*` and `market_*`, so an undeclared blend still blocks the publication.
+    """
+    pair = {k: _pp_pair(r, k) for k in ("O15", "O25", "O35", "BTTS")}
+    out = {k: _f(v[0]) for k, v in pair.items()}
+    out.update({f"final_{k}": _f((getattr(r, "p_final", None) or {}).get(k)) for k in pair})
+    out.update({f"model_{k}": _f((getattr(r, "p_model", None) or {}).get(k)) for k in pair})
+    out.update({f"market_{k}": _f(v[1]) for k, v in pair.items()})
+    return out
 
 
 def strong_family(sel: str) -> str:
@@ -475,16 +505,7 @@ def export(path: Path, *, ctx: dict, rows: list, all_rows: list | None = None, p
             # p = published (market-anchored); final_* = the model number the anchor was applied to (after the
             # research layer); model_* = the raw statistical model; market_* = the de-vigged price it anchored to.
             # verify.context_budget re-derives p from final_* and market_*, so an undeclared blend still blocks.
-            "p": {"O15": _f(_pp(r, "O15")), "O25": _f(_pp(r, "O25")), "O35": _f(_pp(r, "O35")),
-                  "BTTS": _f(_pp(r, "BTTS")),
-                  "final_O15": _f((r.p_final or {}).get("O15")), "final_O25": _f((r.p_final or {}).get("O25")),
-                  "final_O35": _f((r.p_final or {}).get("O35")), "final_BTTS": _f((r.p_final or {}).get("BTTS")),
-                  "model_O15": _f(r.p_model["O15"]), "model_O25": _f(r.p_model["O25"]),
-                  "model_O35": _f(r.p_model["O35"]), "model_BTTS": _f(r.p_model["BTTS"]),
-                  "market_O25": _f(_psb(r, "O25", (r.fair or {}).get("O25", r.p_market_o25))),
-                  "market_O15": _f(_psb(r, "O15", (r.fair or {}).get("O15"))),
-                  "market_O35": _f(_psb(r, "O35", (r.fair or {}).get("O35"))),
-                  "market_BTTS": _f(_psb(r, "BTTS", (r.fair or {}).get("BTTS")))},
+            "p": {**_published_block(r)},
             "x12_market": ({k: _f(v) for k, v in r.x12_market.items() if k in ("H", "D", "A")} | {"source": r.x12_market.get("source")})
             if r.x12_market else None,
             "stars": {m: stars(_pp(r, m) or 0.0, m) for m in ("O15", "O25", "BTTS")},
