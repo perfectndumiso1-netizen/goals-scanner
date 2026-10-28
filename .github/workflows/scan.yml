@@ -53,6 +53,9 @@ jobs:
       STATE_URL: https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git
       TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}   # optional
       TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}       # optional
+      FACEBOOK_PAGE_ACCESS_TOKEN: ${{ secrets.FACEBOOK_PAGE_ACCESS_TOKEN }}
+      FACEBOOK_PAGE_ID: ${{ secrets.FACEBOOK_PAGE_ID }}
+      VIDEO_RECOVERY_DIR: ${{ github.workspace }}/tmp/video-recovery
       FORCE_DAILY_REEL: ${{ github.event.inputs.send_reel || 'false' }}
       # YouTube auto-poster (youtube_post.py). Inert unless the three channel secrets exist: an empty secret makes
       # the module report "not configured" and the scan behaves exactly as before. YT_UPLOAD=1 is the master switch.
@@ -130,6 +133,16 @@ jobs:
 
       - name: Run scanner
         run: python scanner.py
+
+      - name: Preserve videos after a Facebook publishing failure
+        if: always()
+        continue-on-error: true  # Artifact service trouble must not block the existing state publication.
+        uses: actions/upload-artifact@v4.6.2
+        with:
+          name: video-recovery-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ github.workspace }}/tmp/video-recovery/
+          if-no-files-found: ignore
+          retention-days: 7
 
       - name: Publish state
         run: |

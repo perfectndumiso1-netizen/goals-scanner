@@ -73,6 +73,7 @@ import publication
 import safe as safe_mod
 import accas as acca_mod
 import shortlist as shortlist_mod
+import facebook_post as facebook_mod
 import history as history_mod
 import teamstats
 
@@ -2561,15 +2562,17 @@ def send_telegram_video(
     width: int | None = None,
     height: int | None = None,
 ) -> bool:
-    """Send a shortlist briefing video to Telegram, then delete the local file.
+    """Publish to Facebook first, then Telegram; return Telegram's result as before.
 
-    Videos are never written to git, Drive, or the data branch. After a successful
-    send the file is unlinked (user rule 2026-10-13). A failed send keeps the file
-    so it can be retried.
+    Only delete after Telegram succeeds AND Facebook succeeded or is not configured.
+    Facebook failure never blocks Telegram and retains the source plus a recovery copy.
     """
-    token, chat = os.getenv("TELEGRAM_BOT_TOKEN"), os.getenv("TELEGRAM_CHAT_ID")
     path = Path(path) if path else None
-    if not token or not chat or path is None or not path.exists():
+    if path is None or not path.exists():
+        return False
+    facebook = facebook_mod.publish(path, caption)
+    token, chat = os.getenv("TELEGRAM_BOT_TOKEN"), os.getenv("TELEGRAM_CHAT_ID")
+    if not token or not chat:
         return False
     ok = False
     payload = {"chat_id": chat, "caption": (caption or "")[:1024], "supports_streaming": "true"}
@@ -2591,7 +2594,7 @@ def send_telegram_video(
             ok = True
     except (requests.RequestException, OSError) as exc:
         log.warning("Telegram video failed: %s", exc)
-    if delete_after and ok:
+    if delete_after and ok and facebook.status != "failed":
         try:
             path.unlink()
         except OSError as exc:
@@ -2701,7 +2704,8 @@ def maybe_send_daily_reel(sl_pub: dict, now: datetime) -> None:
     if reel_mod is None:
         return
     if not ((os.getenv("TELEGRAM_BOT_TOKEN") and os.getenv("TELEGRAM_CHAT_ID"))
-            or (drive_mod is not None and drive_mod.enabled()) or os.getenv("YT_UPLOAD") == "1"):
+            or (drive_mod is not None and drive_mod.enabled()) or os.getenv("YT_UPLOAD") == "1"
+            or facebook_mod.requested()):
         return
     force = os.getenv("FORCE_DAILY_REEL", "").strip().lower() in ("1", "true", "yes")
     slot = _reel_slot(now) or (("morning" if now.hour < 16 else "evening") if force else None)
@@ -2836,7 +2840,7 @@ def maybe_send_daily_reel(sl_pub: dict, now: datetime) -> None:
         width=1920,
         height=1080,
     )
-    if ok_16x9 or posted or handed_off:
+    if ok_16x9 or posted or handed_off or facebook_mod.published_id(out_16x9):
         st["briefing"] = today
         st["briefing_slots"] = {**slots, today: already + [slot]}
         st["briefing_history"] = record_briefing_picks(hist, today, prim_enriched)

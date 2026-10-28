@@ -30,3 +30,6 @@ secrets/
 backtest/cache_boost/
 node_modules/
 tmp/
+
+# Local Facebook delivery receipts (no generated publication artifacts in Git)
+*.facebook-upload.json

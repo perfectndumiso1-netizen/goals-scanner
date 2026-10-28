@@ -7,16 +7,21 @@ on:
 jobs:
   send:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4.4.0
       - name: Send videos then forget the files
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          FACEBOOK_PAGE_ACCESS_TOKEN: ${{ secrets.FACEBOOK_PAGE_ACCESS_TOKEN }}
+          FACEBOOK_PAGE_ID: ${{ secrets.FACEBOOK_PAGE_ID }}
+          VIDEO_RECOVERY_DIR: ${{ github.workspace }}/tmp/video-recovery
         run: |
           python3 - <<'PY'
           import os, sys, pathlib, urllib.request, urllib.parse, json
+          from facebook_post import publish
+          facebook_failures = []
           token, chat = os.getenv("TELEGRAM_BOT_TOKEN"), os.getenv("TELEGRAM_CHAT_ID")
           path_16x9 = pathlib.Path("tmp/briefing.mp4")
           path_9x16 = pathlib.Path("tmp/briefing-reel.mp4")
@@ -40,6 +45,9 @@ jobs:
           )
           credits_file = pathlib.Path("tmp/breakdown_credits.txt")
           def send_one(vpath, fname, cap, w, h):
+              facebook = publish(vpath, cap)
+              if facebook.status == "failed":
+                  facebook_failures.append(vpath.name)
               boundary = "----PlayReportBriefing"
               data = vpath.read_bytes()
               parts = []
@@ -71,7 +79,8 @@ jobs:
                   print("telegram", j)
                   sys.exit(1)
               print("sent", fname, j.get("result", {}).get("message_id"))
-              vpath.unlink(missing_ok=True)
+              if facebook.status != "failed":
+                  vpath.unlink(missing_ok=True)
           def send_text(text):
               body = urllib.parse.urlencode({"chat_id": chat, "text": text[:4000], "disable_web_page_preview": "true"}).encode()
               req = urllib.request.Request(f"https://api.telegram.org/bot{token}/sendMessage", data=body, method="POST")
@@ -90,4 +99,18 @@ jobs:
               send_one(bd_9x16, "PlayReport-match-breakdown-9x16-tiktok.mp4", bd_reel_cap, 1080, 1920)
           if credits_file.exists():
               send_text(credits_file.read_text(encoding="utf-8").strip())
+          if facebook_failures:
+              print("Facebook publishing failed; video files retained and Telegram sends attempted:", ", ".join(facebook_failures))
+              sys.exit(1)
           PY
+      - name: Preserve unsent or Facebook-failed videos
+        if: always()
+        uses: actions/upload-artifact@v4.6.2
+        with:
+          name: video-recovery-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            tmp/video-recovery/
+            tmp/briefing*.mp4
+            tmp/breakdown*.mp4
+          if-no-files-found: ignore
+          retention-days: 7
