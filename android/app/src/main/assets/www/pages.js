@@ -1774,36 +1774,72 @@ view().innerHTML = parts.join('');
   function briefingRecord(slides, done) {
     // Canvas webm — best-effort. Some WebViews cannot record; caller falls back to HTML.
     try {
-      const W = 1280, H = 720, fps = 4;
+      const W = 1280, H = 720, fps = 15;
       const c = document.createElement('canvas'); c.width = W; c.height = H;
       const g = c.getContext('2d');
+      const logo = new Image(); logo.src = 'logo.png';
       const stream = c.captureStream(fps);
       const rec = new MediaRecorder(stream, { mimeType: 'video/webm;codecs=vp8' });
       const chunks = [];
+      let animation = null;
       rec.ondataavailable = (e) => { if (e.data && e.data.size) chunks.push(e.data); };
-      rec.onstop = () => done(new Blob(chunks, { type: 'video/webm' }));
+      rec.onstop = () => { cancelAnimationFrame(animation); stream.getTracks().forEach((t) => t.stop()); done(new Blob(chunks, { type: 'video/webm' })); };
       rec.start();
       let i = 0;
+      const started = performance.now();
+      const wrapText = (text, x, y, width, step, maxLines) => {
+        let line = '', count = 0;
+        for (const word of String(text || '').split(/\s+/)) {
+          if (g.measureText(line+' '+word).width > width && line) {
+            g.fillText(line,x,y); y += step; count++; line = '';
+            if (count >= maxLines) return y;
+          }
+          line += (line ? ' ' : '')+word;
+        }
+        if (line) { g.fillText(line,x,y); y += step; }
+        return y;
+      };
       const paint = () => {
+        if (i >= slides.length || rec.state === 'inactive') return;
         const s = slides[i];
-        g.fillStyle = '#07111d'; g.fillRect(0, 0, W, H);
-        g.fillStyle = '#00c86f'; g.font = '700 28px sans-serif'; g.fillText(s.kicker, 80, 160);
-        g.fillStyle = '#e8f0fa'; g.font = '700 54px sans-serif';
-        const t = s.title.length > 42 ? s.title.slice(0, 40) + '…' : s.title;
-        g.fillText(t, 80, 250);
-        g.fillStyle = '#9fb3c8'; g.font = '28px sans-serif'; g.fillText(s.sub || '', 80, 320);
-        g.fillStyle = '#c9d6e6'; g.font = '24px sans-serif'; g.fillText(s.line || '', 80, 380);
-        g.fillStyle = '#00c86f'; g.fillRect(80, 640, Math.round((i + 1) / slides.length * (W - 160)), 6);
-        g.fillStyle = '#7f93a8'; g.font = '18px sans-serif'; g.fillText('PlayReport · not betting advice · 18+', 80, 680);
+        const gradient = g.createLinearGradient(0,0,W,H); gradient.addColorStop(0,'#090c1f'); gradient.addColorStop(1,'#163f50');
+        g.fillStyle = gradient; g.fillRect(0,0,W,H);
+        g.strokeStyle='#2ce1cc55'; g.strokeRect(35,35,W-70,H-70);
+        if (logo.complete && logo.naturalWidth) {
+          g.save(); g.translate(W-100,100); g.rotate((performance.now()-started)/8000*2*Math.PI);
+          g.beginPath();g.arc(0,0,40,0,Math.PI*2);g.clip();g.drawImage(logo,-40,-40,80,80);g.restore();
+        }
+        g.fillStyle='#2ce1cc';g.font='700 21px sans-serif';wrapText(s.kicker,65,80,W-220,26,1);
+        g.fillStyle='#f2f8ff';g.font='700 38px sans-serif';let y=wrapText(s.title,65,140,W-210,44,2)+10;
+        g.fillStyle='#bbd2df';g.font='23px sans-serif';y=wrapText(s.sub,65,y,W-130,29,2)+8;
+        g.fillStyle='#d6e4ef';g.font='20px sans-serif';y=wrapText(s.line,65,y,W-130,25,3)+8;
+        if ((s.bars || []).length) s.bars.forEach((bar) => {
+          g.fillStyle=bar.picked?'#2ce1cc':'#bbd2df';g.font='20px sans-serif';
+          g.fillText(`${bar.label} · ${Math.round(bar.p*100)}%`,65,y);
+          g.fillRect(65,y+10,Math.max(2,(bar.p-.5)*2)*(W-170),8);y+=55;
+        });
+        const lines = [...(s.bullets || [])];
+        (s.h2h || []).forEach((r) => lines.push(`${r.date} · ${r.home} v ${r.away}: ${r.hg}–${r.ag}`));
+        (s.recent || []).forEach((t) => { lines.push(t.team); t.rows.forEach((r) => lines.push(`${r.opp}: ${r.gf}–${r.ga} ${r.res}`)); });
+        // Two columns for the long record; retain all five results per club and the H2H.
+        const half=Math.ceil(lines.length/2), long=lines.length>9;
+        g.font=(long?'17':'20')+'px sans-serif';g.fillStyle='#d6e4ef';
+        lines.forEach((line,n) => {
+          const column=long && n>=half?1:0, row=column?n-half:n;
+          wrapText(line,65+column*585,y+row*(long?24:32),long?555:W-130,long?22:28,1);
+        });
+        if (s.note) {g.font='17px sans-serif';g.fillStyle='#bbd2df';wrapText(s.note,65,610,W-130,22,1);}
+        g.fillStyle='#2ce1cc';g.fillRect(65,645,(i+1)/slides.length*(W-130),4);
+        g.font='16px sans-serif';g.fillStyle='#bbd2df';g.fillText('PlayReport · Statistical information, not betting advice · 18+',65,680);
+        animation = requestAnimationFrame(paint);
       };
       paint();
       const step = () => {
         i += 1;
         if (i >= slides.length) { rec.stop(); return; }
-        paint();
-        setTimeout(step, briefingHold(slides[i]));
+        setTimeout(step,briefingHold(slides[i]));
       };
-      setTimeout(step, briefingHold(slides[i]));
+      setTimeout(step,briefingHold(slides[i]));
     } catch (e) { done(null); }
   }
   function saveBlob(name, blob, mime) {
