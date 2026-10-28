@@ -57,8 +57,8 @@ jobs:
       # YouTube auto-poster (youtube_post.py). Inert unless the three channel secrets exist: an empty secret makes
       # the module report "not configured" and the scan behaves exactly as before. YT_UPLOAD=1 is the master switch.
       YT_UPLOAD: "1"
-      YT_SLOTS: "morning"                       # only the first video of the day; widen to morning,noon,evening
-      YT_UPLOAD_BREAKDOWN: "1"                  # the daily match breakdown also goes up
+      YT_SLOTS: "morning,evening"                       # only the first video of the day; widen to morning,noon,evening
+      YT_UPLOAD_BREAKDOWN: "0"                  # the daily match breakdown also goes up
       YT_PRIVACY: "public"                      # set to unlisted while trialling, private until the audit clears
       YT_CLIENT_ID: ${{ secrets.YT_CLIENT_ID }}
       YT_CLIENT_SECRET: ${{ secrets.YT_CLIENT_SECRET }}
@@ -97,7 +97,7 @@ jobs:
           done
           python -c "import pandas, numpy, requests, reportlab, PIL; print(pandas.__version__, numpy.__version__)"
 
-      - name: Determine whether this scan can send the morning reel
+      - name: Determine whether this scan can send an Advisor video
         id: reel_window
         run: |
           python - <<'PY'
@@ -106,7 +106,7 @@ jobs:
           from zoneinfo import ZoneInfo
 
           now = datetime.now(ZoneInfo(os.environ["TIMEZONE"]))
-          morning = now.hour in (5, 6) or (now.hour == 7 and now.minute < 20)
+          morning = now.hour in (8, 16)
           force = os.environ.get("FORCE_DAILY_REEL", "").strip().lower() in ("1", "true", "yes")
           configured = bool(os.environ.get("TELEGRAM_BOT_TOKEN") and os.environ.get("TELEGRAM_CHAT_ID"))
           with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as fh:

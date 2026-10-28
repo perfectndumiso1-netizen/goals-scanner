@@ -60,8 +60,8 @@ def test_empty_publication_cannot_wipe_live_fixtures(tmp_path):
     assert any("wipe" in e for e in errors)
 
 
-def test_reel_slots_three_a_day():
-    assert scanner._reel_slot(datetime(2026, 10, 20, 6, 10)) == "morning"
-    assert scanner._reel_slot(datetime(2026, 10, 20, 12, 5)) == "noon"
-    assert scanner._reel_slot(datetime(2026, 10, 20, 17, 0)) == "evening"
+def test_reel_slots_two_a_day():
+    assert scanner._reel_slot(datetime(2026, 10, 20, 8, 0)) == "morning"
+    assert scanner._reel_slot(datetime(2026, 10, 20, 12, 5)) is None
+    assert scanner._reel_slot(datetime(2026, 10, 20, 16, 0)) == "evening"
     assert scanner._reel_slot(datetime(2026, 10, 20, 14, 0)) is None

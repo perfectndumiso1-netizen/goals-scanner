@@ -134,7 +134,7 @@ def market_rows(detail: dict | None, pick: dict) -> list[dict]:
                              "p": pv, "odds": odds, "p_sb": p_sb,
                              "picked": cand["sel"] == str(pick.get("sel") or "")}
     own = str(pick.get("sel") or "")
-    if own and _eligible({"sel": own}) and own not in rows:
+    if own and _eligible({"sel": own}):
         # the video's one market, when the detail does not carry it: the board's own number is still the truth we
         # publish, so it is drawn rather than invented from nothing
         pv = _f(pick.get("p"))
@@ -155,7 +155,7 @@ def chosen_market(detail: dict | None, pick: dict) -> dict | None:
     rows = market_rows(detail, pick)
     if not rows:
         return None
-    best = rows[0]
+    best = next((r for r in rows if r["sel"] == pick.get("sel")), rows[0])
     return {"sel": best["sel"], "label": best["label"], "p": best["p"],
             "odds": best["odds"] if best["odds"] is not None else pick.get("odds"),
             "p_sb": best["p_sb"]}
@@ -204,19 +204,8 @@ def featured_pick(pick: dict, detail: dict | None, *, min_p: float = 0.65,
     in step with the detail file the rest of the slides are drawn from, and only when that is a genuine improvement
     (65%+ and priced at 1.16+). Returns a copy; the caller's dict is never modified.
     """
-    rows = market_rows(detail, {**pick, "sel": ""})
-    own = str(pick.get("sel") or "").upper()
-    best = next((r for r in rows if r["p"] >= min_p and (r.get("odds") or 0) >= min_odds), None)
-    if best is None or best["sel"] == own:
-        return pick
-    base_p = _f(pick.get("p")) or 0.0
-    if best["p"] <= base_p + 0.005:                   # not worth changing the board's wording for a rounding
-        return pick
-    out = dict(pick)
-    out.update({"sel": best["sel"], "label": best["label"], "p": best["p"], "odds": best["odds"],
-                "p_sb": best["p_sb"], "market": market_group(best["sel"]) or pick.get("market") or "",
-                "upgraded_from": own})
-    return out
+    return dict(pick)  # the card planner locked the selection and its published price
+
 
 
 # ----------------------------------------------------------------------------- standings
@@ -377,10 +366,10 @@ def reasons(pick: dict, detail: dict | None, table: dict | None) -> list[str]:
         fts = _f(prof.get("fts"))
         if fts is not None:
             out.append(f"{team} have failed to score in {'only ' if fts <= 0.25 else ''}{_pct(fts)} of their matches")
-    elif isinstance(prof, dict):
-        rate = _f(prof.get("o15"))
+    elif isinstance(prof, dict) and sel in ("O15", "O25"):
+        rate = _f(prof.get(sel.lower()))
         if rate is not None:
-            out.append(f"Over 1.5 has landed in {_pct(rate)} of {pick.get('home')}’s matches")
+            out.append(f"{short_market(sel)} has landed in {_pct(rate)} of {pick.get('home')}’s matches")
     if table:
         row = (table.get("teams") or {}).get("home")
         line = standing_line(row, table.get("size") or 0)
@@ -398,7 +387,7 @@ def evidence_lines(detail: dict | None, pick: dict, table: dict | None) -> dict:
     """Everything the evidence and record slides need, gathered once."""
     return {
         "reasons": reasons(pick, detail, table),
-        "trends": trend_lines(detail),
+        "trends": [t for t in trend_lines(detail) if "under" not in t.lower() and (not str(pick.get("sel", "")).startswith("C") or "corner" in t.lower())],
         "table": table,
         "home_recent": recent_rows(detail, "home"),
         "away_recent": recent_rows(detail, "away"),

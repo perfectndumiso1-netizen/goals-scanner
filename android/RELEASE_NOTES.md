@@ -1,3 +1,14 @@
+## What's new — PlayReport 1.6.84 · Bet Advisor editions
+
+- Two daily Bet Advisor videos: **08:00 and 16:00 SAST**. The extra match-breakdown video is retired. GitHub scheduling and processing can delay delivery.
+- Every edition needs **5–8 distinct verified matches**. Over 1.5 goals and corner overs first; Over 2.5 only as a fallback when already offered in Bet Advisor. Recent results, head-to-head and internet checks remain in place; corners also need recorded corner samples.
+- Combined decimal odds target **2.50**, strictly **2.00–3.30**. The final screen shows every selection, each price, and their multiplication. No qualifying card means no video; no invented prices or filler matches.
+- The existing **app logo** now spins like a disc. New teal/indigo broadcast styling, cleaner panels, and readable pacing; the same supplied music track, no narration.
+- **Advisor live record**: wins, losses, pending/void selections, hit rate, 1-unit singles profit/ROI, per-market breakdown, and a recent ledger. First published odds/probabilities are frozen, with no historical backfill. Missing corner statistics are not treated as losses.
+- APK release safeguards: explicit v1/v2/v3 signing, archive/alignment/signature/package checks, comparison with the existing release certificate, and a real Android emulator install-and-upgrade test before publishing. Versioned APK filename prevents confusion with older downloads. These checks cannot diagnose an individual phone's installation error without its exact message.
+
+---
+
 ## What's new — Over 1.5 only, verified before it is filmed, and slow enough to read
 - ⚽ **The videos carry Over 1.5 total goals and nothing else.** Corners have left the videos (they stay on the shortlist board). One market per match, so the pick slide shows the two numbers that matter: the model's chance and the market's, side by side.
 - 📊 **No match without recent stats and a recent head to head.** A match only reaches a video when **both clubs have at least five completed results with scores** (and the newest is current) **and there are at least two head-to-head meetings with scores, the latest inside three years.** No head to head, or nothing for years, and the match is left out instead of being shown half-explained.

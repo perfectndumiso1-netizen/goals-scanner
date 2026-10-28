@@ -1022,3 +1022,17 @@ body::before { content: ''; position: fixed; inset: 0; z-index: -1; pointer-even
 @media (prefers-reduced-motion: reduce) {
   #view.enter > *, #tabs button, .btn, .tap { animation: none !important; transition: none !important; }
 }
+
+/* 1.6.84 — Aurora broadcast: teal light, indigo panels, restrained motion. */
+:root { --brand: #087f8c; --brand-text: #087f8c; --brand-soft: rgba(8,127,140,.12); --r: 22px; }
+[data-theme="dark"] { --brand: #2ce1cc; --brand-text: #2ce1cc; --brand-soft: rgba(44,225,204,.12); --card: #111730; --card-2: #171e3a; }
+.briefing-cta { background: linear-gradient(125deg, var(--card), var(--brand-soft)); border-color: var(--brand); }
+.advisor-hero { background: linear-gradient(125deg,#111730,#163f50); color:#f2f8ff; padding:22px; border-radius:22px; margin-bottom:14px; }
+.advisor-hero .muted { color:#bbd2df; }
+.advisor-metrics { display:grid; grid-template-columns:repeat(3,1fr); gap:10px; margin-top:16px; }
+.advisor-metrics b { display:block; font-size:23px; color:#2ce1cc; }
+.advisor-metrics span { font-size:11px; color:#bbd2df; }
+.brief-stage { position:relative; background:linear-gradient(135deg,#090c1f,#172742); border:1px solid #2ce1cc55; border-radius:22px; }
+.pr-disc { width:44px; height:44px; object-fit:cover; border-radius:50%; border:2px solid #2ce1cc; animation:pr-disc-spin 8s linear infinite; float:right; margin:0 0 10px 12px; }
+@keyframes pr-disc-spin { to { transform:rotate(360deg); } }
+@media (prefers-reduced-motion:reduce) { .pr-disc { animation:none; } }

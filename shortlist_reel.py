@@ -47,20 +47,20 @@ def _resolve_size(aspect: str | None = None, size: tuple[int, int] | None = None
         if a in ("16:9", "16x9", "widescreen", "landscape", "horizontal"):
             return W, H
     return _ACTIVE_SIZE
-GREEN = (0, 200, 111)
+GREEN = (44, 225, 204)
 RED = (239, 68, 68)
 WHITE = (242, 248, 255)
 MUTED = (170, 190, 210)
 GOLD = (251, 191, 36)
-NAVY = (7, 17, 29)
-CARD_BG = (8, 22, 38)
+NAVY = (9, 12, 31)
+CARD_BG = (17, 23, 48)
 BADGE_BASE = "https://lsm-static-prod.livescore.com/medium/"
 TAIL = 0.70          # extra hold after a slide's words so the next one never lands on top of the last line
 INTRO_MIN = 5.0      # logo sting, seconds
 # 2026-10-27 (user): the videos carry Over 1.5 only, and they were too fast to read. Fewer matches, each on screen
 # long enough to take in: eight matches at three slides is a full video without racing the reader.
 MAX_PICKS = 8
-MAX_TOTAL = 300.0
+MAX_TOTAL = 600.0
 RECAP_ROWS = 9       # results per recap slide (readable in both 16:9 and 9:16)
 MAX_RECAP = 60       # every selection from yesterday's three videos, with a hard ceiling
 
@@ -185,7 +185,15 @@ def _cover(path: Path, dark: float = 0.55, *, size: tuple[int, int] | None = Non
     y = (im.height - ch) // 2
     im = im.crop((x, y, x + cw, y + ch))
     overlay = Image.new("RGB", im.size, NAVY)
-    return Image.blend(im, overlay, dark)
+    im = Image.blend(im, overlay, dark)
+    from PIL import ImageDraw
+    ink = ImageDraw.Draw(im)
+    w, h = im.size
+    ink.line((0, h-12, w, h-12), fill=GREEN, width=4)
+    ink.line((0, 12, w//3, 12), fill=GOLD, width=4)
+    for x in range(w//2, w+200, 140):
+        ink.line((x, 0, x-240, h), fill=(28, 37, 61), width=1)
+    return im
 
 
 def _circle_badge(path: Path, d: int):
@@ -1149,9 +1157,44 @@ def badges_for_pick(pick: dict, fixtures: list | None) -> dict:
     return pick.get("badges") or fixture.get("badges") or {}
 
 
+def render_card_summary(picks, bg, dest):
+    """Final screen: multiply every displayed decimal price, with no payout promises."""
+    from PIL import ImageDraw
+    from video_card import combined_odds
+    cw, ch = _resolve_size()
+    im = _cover(bg, .83, size=(cw, ch))
+    d = ImageDraw.Draw(im)
+    pad = 70
+    d.rounded_rectangle((pad, 100, cw-pad, ch-100), 32, fill=(13, 27, 49), outline=GREEN, width=3)
+    d.text((pad+35, 140), "BET ADVISOR | THE FULL CARD", font=_font(32, True), fill=GREEN)
+    y = 215
+    for i, p in enumerate(picks, 1):
+        label = f"{i}. {p['home']} v {p['away']} · {p.get('label') or p['sel']} @ {float(p['odds']):.2f}"
+        for line in _wrap(d, label, _font(24), cw-2*pad-70, 2):
+            d.text((pad+35, y), line, font=_font(24), fill=WHITE)
+            y += 30
+        y += 6
+    formula = " × ".join(f"{float(p['odds']):.2f}" for p in picks)
+    d.text((pad+35, y+20), formula, font=_font(25), fill=MUTED)
+    d.text((pad+35, y+75), f"COMBINED ODDS  {combined_odds(picks):.2f}", font=_font(42, True), fill=GREEN)
+    d.text((pad+35, ch-160), "Prices can change. All legs must win. 18+ | No guaranteed return.", font=_font(20), fill=MUTED)
+    im.convert("RGB").save(dest, quality=94)
+
+
 def still_clip(img: Path, dest: Path, duration: float, ff: str, *, aspect: str | None = None,
-               size: tuple[int, int] | None = None) -> None:
+               size: tuple[int, int] | None = None, logo: Path | None = None) -> None:
     cw, ch = _resolve_size(aspect, size)
+    if logo is not None:
+        _run([
+            ff, "-y", "-loop", "1", "-framerate", str(FPS), "-t", f"{duration:.3f}", "-i", str(img),
+            "-loop", "1", "-framerate", str(FPS), "-i", str(logo),
+            "-filter_complex_threads", "1", "-filter_complex",
+            f"[0:v]scale={cw}:{ch}[bg];[1:v]scale=88:88,format=rgba,rotate=2*PI*t/8:c=none:ow=124:oh=124[disc];"
+            "[bg][disc]overlay=W-w-24:24:shortest=1,format=yuv420p[v]",
+            "-map", "[v]", "-t", f"{duration:.3f}", "-r", str(FPS), "-c:v", "libx264",
+            "-preset", "ultrafast", "-pix_fmt", "yuv420p", "-an", str(dest),
+        ], "rotating app logo")
+        return
     _run([
         ff, "-y", "-loop", "1", "-framerate", str(FPS), "-t", f"{duration:.3f}", "-i", str(img),
         "-vf", f"scale={cw}:{ch},format=yuv420p", "-r", str(FPS),
@@ -1477,14 +1520,11 @@ def _reel_p(p: dict) -> float | None:
 # this change — the point of the videos is the one market the record actually supports, explained properly — and the
 # families dropped by the model review (team goals, bookings, BTTS, Over 2.5, 1X2, unders) were never coming back.
 # A payload published before any of these changes cannot put a dropped market on screen.
-REEL_MARKET_RE = re.compile(r"^O15$")
+REEL_MARKET_RE = re.compile(r"^(O15|O25|C[HA]?O\d+)$")
 
 
 def is_reel_market(p: dict) -> bool:
-    """Videos carry Over 1.5 total goals — nothing else (user rule 2026-10-27, was Over 1.5 + corners).
-
-    Corners, team goals, bookings, BTTS, Over 2.5, 1X2 and every under are out, and no accumulator is built.
-    """
+    """Advisor video markets: Over 1.5, corner overs, and Over 2.5 fallback. Never unders or cards."""
     sel = str(p.get("sel") or "").upper()
     blob = " ".join(str(p.get(k) or "") for k in ("label", "market", "group")).lower()
     if "under" in blob or "no btts" in blob:
@@ -1553,7 +1593,7 @@ def reel_picks(picks: list, *, used: set | None = None) -> list:
         if not is_reel_market(p):
             continue
         pr = _reel_p(p)
-        if pr is None or pr < REEL_MIN_P:
+        if pr is None or pr < (0.55 if p.get("sel") == "O25" else REEL_MIN_P):
             continue
         k = _match_key(p)
         if k in skip or k[::-1] in skip:
@@ -1584,22 +1624,38 @@ def video_picks(picks: list, *, used: set | None = None, fx_dir: Path | None = N
     """
     import reel_verify
 
-    clean = reel_picks(picks, used=used)
+    import video_card
+    from datetime import timezone
+    now = now or datetime.now(timezone.utc)
+    excluded = set()
+    for item in used or set():
+        pair = tuple(item)[-2:]
+        if len(pair) == 2:
+            excluded.add(video_card.match_key({"home": pair[0], "away": pair[1]}))
+    clean = []
+    for p in picks or []:
+        if not video_card.eligible(p) or video_card.match_key(p) in excluded:
+            continue
+        try:
+            ko = datetime.fromisoformat(str(p.get("kickoff") or ""))
+            reference = now.replace(tzinfo=ko.tzinfo) if ko.tzinfo is None or now.tzinfo is None else now
+            if ko <= reference:
+                continue
+        except ValueError:
+            continue  # unknown kick-off: cannot promise a future selection
+        clean.append(p)
     root = Path(fx_dir) if fx_dir else _data_dir("fx")
     if root is None or not root.exists():
-        # Nothing to check against. In the pipeline this never happens — the scan publishes the fixture details a few
-        # lines before it builds the video — so it is a loud warning, not a silent pass.
-        log.warning("video check: no fixture details at %s — the matches cannot be verified", root)
-        return clean, []
+        log.warning("video check: missing fixture details — fail closed")
+        return [], [{"reasons": ["missing fixture details"]}]
     kept, skipped = reel_verify.select(
         clean, load_detail=lambda p: load_detail(p, root),
         now=now, search=search, require_confirmation=require_confirmation,
     )
-    kept = reel_picks(kept, used=used)          # one per match still, in the verified order
-    for row in skipped:
-        log.info("video check: %s v %s left out — %s", row.get("home"), row.get("away"),
-                 "; ".join(row.get("reasons") or []) or "not verified")
-    return kept, skipped
+    card = video_card.choose(kept)
+    if not card:
+        log.warning("Video skipped: need 5+ verified Advisor matches at combined odds 2.00–3.30; %d eligible", len(kept))
+    return card, skipped
 
 
 def _fx_key(pick: dict) -> str:
@@ -1652,16 +1708,16 @@ def build(picks: list, outfile: Path, *, assets: Path, work: Path | None = None,
     _ACTIVE_SIZE = _resolve_size(aspect)
     try:
         ff = _ffmpeg()
-        picks = reel_picks(picks)
+        picks = list(picks)
         if not picks:
             raise ValueError("no shortlist picks for the reel")
         # 2026-10-27 (user): a match only makes it into a video when its own stats are recent and complete, it has a
         # recent head to head, and the internet does not contradict the fixture. Checked here as well as in the
         # scanner so `build()` can never be handed an unverified match by any caller.
         fx_dir = Path(fx_dir) if fx_dir else _data_dir("fx")
-        picks, _skipped = video_picks(picks, fx_dir=fx_dir, now=datetime.now())
-        if not picks:
-            raise ValueError("no verified match for the reel — every candidate failed the stats / head-to-head check")
+        picks, _skipped = video_picks(picks, fx_dir=fx_dir, now=datetime.now(__import__("zoneinfo").ZoneInfo("Africa/Johannesburg")))
+        if len(picks) < 5:
+            raise ValueError("fewer than five verified matches for the reel — every candidate failed the stats / head-to-head check")
         recap_rows = reel_results(yesterday_results) if recap else []
         recap_day = yesterday_results.get("day", "") if isinstance(yesterday_results, dict) else ""
 
@@ -1709,7 +1765,7 @@ def build(picks: list, outfile: Path, *, assets: Path, work: Path | None = None,
             # The chart has to show the featured market as its tallest bar (user rule 2026-10-21), and the board's
             # own pick is not always the strongest market in the fixture detail — so the video features the
             # strongest market the match actually offers, still 65%+ and still priced. Everything else is untouched.
-            p = reel_insights.featured_pick(p, detail, min_p=REEL_MIN_P)
+            # Preserve the exact market and price selected by the bounded card planner.
             table = reel_insights.standing(tables, p) if tables else None
             ev = reel_insights.evidence_lines(detail, p, table)
             bars = reel_insights.market_rows(detail, p)
@@ -1733,6 +1789,9 @@ def build(picks: list, outfile: Path, *, assets: Path, work: Path | None = None,
         render_closer(logo, bgs[2], slides_dir / "closer.jpg")
         images.append(slides_dir / "closer.jpg")
         texts.append(CLOSER_SCRIPT)
+        render_card_summary(picks, bgs[2], slides_dir / "combined.jpg")
+        images.append(slides_dir / "combined.jpg")
+        texts.append(16.0)
 
         # A float in `texts` is a fixed hold (the chart/evidence slides, which nobody reads aloud); a string is timed
         # by how long its words take at the old narration pace.
@@ -1740,22 +1799,17 @@ def build(picks: list, outfile: Path, *, assets: Path, work: Path | None = None,
                      for i, t in enumerate(texts)]
 
         total = sum(durations)
-        max_allowed = MAX_TOTAL + (180.0 if recap_rows else 0.0)
-        if total > max_allowed and len(picks) > 6:
-            log.info("reel %.1fs > %.0fs — dropping the last three picks", total, max_allowed)
-            return build(
-                picks[:-3], outfile, assets=assets, work=work,
-                fixtures=fixtures, yesterday_results=yesterday_results, aspect=aspect, recap=recap,
-                fx_dir=fx_dir, leagues_dir=leagues_dir,
-            )
+        # Never trim a qualified five-match card to meet a length cap; preserve readable pacing.
 
         # build_both reads this to give the 9:16 cut the same picks the 16:9 cut kept.
-        (work / "build_meta.json").write_text(json.dumps({"picks_count": len(picks)}), encoding="utf-8")
+        (work / "build_meta.json").write_text(json.dumps({"picks_count": len(picks), "picks": picks}), encoding="utf-8")
 
+        disc = work / "app-logo-disc.png"
+        _circle_badge(logo, 256).save(disc)
         clips = []
         for i, (img, dur) in enumerate(zip(images, durations)):
             clip = work / f"v{i:02d}.mp4"
-            still_clip(img, clip, dur, ff)
+            still_clip(img, clip, dur, ff, logo=disc)
             clips.append(clip)
 
         lst_v = work / "v.txt"
@@ -1792,12 +1846,12 @@ def build_both(picks: list, out_16x9: Path, out_9x16: Path, *, assets: Path, wor
         picks, out_16x9, assets=assets, work=w16, fx_dir=fx_dir, leagues_dir=leagues_dir,
         fixtures=fixtures, yesterday_results=yesterday_results, aspect="16:9", recap=recap,
     )
-    used_picks = reel_picks(picks)
+    used_picks = list(picks)
     meta_file = w16 / "build_meta.json"
     if meta_file.exists():
         try:
             meta = json.loads(meta_file.read_text(encoding="utf-8"))
-            used_picks = used_picks[: int(meta.get("picks_count", len(used_picks)))]
+            used_picks = meta.get("picks") or used_picks[: int(meta.get("picks_count", len(used_picks)))]
         except (OSError, ValueError):
             pass
     add = {"fx_dir": fx_dir, "leagues_dir": leagues_dir}
