@@ -1487,7 +1487,7 @@ view().innerHTML = parts.join('');
     if (psb > 0 && psb < 1) {
       rows.push({ sel: 'O15#market', label: 'Market price (de-vigged)', p: psb, odds: null, picked: false, market: true });
     }
-    return rows.sort((a, b) => b.p - a.p || (b.picked ? 1 : 0) - (a.picked ? 1 : 0));
+    return rows;                     // the model's bar first, then the market's — never reordered by who is ahead
   }
   /** the pick is Over 1.5, refreshed from the fixture's own detail when that is the stronger, priced line */
   function briefingFeatured(x, rows) {
@@ -1726,9 +1726,14 @@ view().innerHTML = parts.join('');
     }).join('');
     return `<div class="bars">${rows}</div>
       <div class="axis"><span>50%</span><span>75%</span><span>100%</span></div>
-      <div class="tiny muted">${bars.length > 1
-        ? 'Model ' + Math.round(100 * bars.find((b) => b.picked).p) + '% vs market ' + Math.round(100 * (bars.find((b) => b.market) || {}).p) + '% — the gap is the edge'
-        : 'The model’s own number — the book did not price this one'}</div>`;
+      <div class="tiny muted">${(() => {
+        const model = Math.round(100 * (bars.find((b) => b.picked) || bars[0]).p);
+        const mkt = bars.find((b) => b.market);
+        if (!mkt) return 'The model’s own number — the book did not price this one';
+        const gap = model - Math.round(100 * mkt.p);
+        if (gap === 0) return `Model and market agree at ${model}% — no edge claimed`;
+        return `Model ${model}% · market ${Math.round(100 * mkt.p)}% · ${Math.abs(gap)} pts ${gap > 0 ? 'above' : 'below'}`;
+      })()}</div>`;
   }
   function briefingSlideHtml(s) {
     const bars = s.bars ? briefingBarsHtml(s.bars) : '';

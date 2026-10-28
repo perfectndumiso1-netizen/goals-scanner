@@ -179,7 +179,7 @@ def chart_rows(detail: dict | None, pick: dict, limit: int = CHART_ROWS) -> list
     if market_p is not None and 0.0 < market_p < 1.0:
         out.append({"sel": f"{mine['sel']}#market", "label": "Market price (de-vigged)", "p": market_p,
                     "odds": None, "p_sb": None, "picked": False, "market": True})
-    return sorted(out[:limit], key=lambda r: (-r["p"], not r["picked"]))
+    return out[:limit]          # the model's bar first, then the market's — never reordered by who is ahead
 
 
 def market_group(sel: str) -> str:
