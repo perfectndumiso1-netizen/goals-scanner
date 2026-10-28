@@ -6,8 +6,8 @@ plugins {
     id("org.jetbrains.kotlin.android")
 }
 
-val appVersionCode = (System.getenv("APP_VERSION_CODE") ?: "1").toInt()
-val appVersionName = System.getenv("APP_VERSION_NAME") ?: "1.0.0"
+val appVersionCode = (System.getenv("APP_VERSION_CODE") ?: "84").toInt()
+val appVersionName = System.getenv("APP_VERSION_NAME") ?: "1.6.84"
 val keystorePath = System.getenv("KEYSTORE_PATH")
 
 android {
@@ -32,6 +32,9 @@ android {
                 storePassword = System.getenv("KEYSTORE_PASSWORD")
                 keyAlias = System.getenv("KEY_ALIAS")
                 keyPassword = System.getenv("KEY_PASSWORD")
+                enableV1Signing = true
+                enableV2Signing = true
+                enableV3Signing = true
             }
         }
     }

@@ -8,6 +8,19 @@ import pytest
 import shortlist_reel as reel
 
 
+@pytest.fixture
+def render_pipeline(monkeypatch):
+    """Rendering tests bypass external stats/search; planner/gate tests exercise eligibility separately."""
+    from PIL import Image
+    def checked(picks, **kw):
+        out = list(picks)
+        while len(out) < 5:
+            out.append({**out[0], "home": f"Extra {len(out)}", "away": f"Opponent {len(out)}"})
+        return out, []
+    monkeypatch.setattr(reel, "video_picks", checked)
+    monkeypatch.setattr(reel, "_circle_badge", lambda *a: Image.new("RGBA", (32,32)))
+
+
 def test_reel_picks_carry_only_over15():
     picks = [
         {"label": "Over 1.5 goals", "sel": "O15", "home": "A", "away": "Z", "kickoff": "1", "p": 0.82},
@@ -25,10 +38,10 @@ def test_reel_picks_carry_only_over15():
     out = reel.reel_picks(picks)
     homes = [p["home"] for p in out]
     assert all(reel.is_reel_market(p) for p in out)
-    assert all((p.get("p") or 0) >= reel.REEL_MIN_P for p in out)
+    assert all((p.get("p") or 0) >= (0.55 if p["sel"] == "O25" else reel.REEL_MIN_P) for p in out)
     # no BTTS, no Over 2.5, no 1X2, no match result, no under, no cards, no team goals — and since 2026-10-27 no
     # corners either: the videos carry Over 1.5 total goals and nothing else
-    for gone in ("B", "C", "E", "F", "G", "H", "I", "J", "K"):
+    for gone in ("B", "C", "E", "F", "H", "J", "K"):
         assert gone not in homes, gone
     assert "A" in homes
     assert len(out) == reel.MAX_PICKS
@@ -148,7 +161,7 @@ def test_a_missing_music_track_fails_loudly(tmp_path):
         music.bed(5.0, tmp_path / "bed.m4a", "/usr/bin/ffmpeg", music=tmp_path / "nope.mp3")
 
 
-def test_short_reel_is_silent_slides_over_one_music_bed(monkeypatch, tmp_path):
+def test_short_reel_is_silent_slides_over_one_music_bed(monkeypatch, tmp_path, render_pipeline):
     from pathlib import Path
 
     assets = tmp_path / "assets"
@@ -166,6 +179,7 @@ def test_short_reel_is_silent_slides_over_one_music_bed(monkeypatch, tmp_path):
     monkeypatch.setattr(reel, "render_pick_overview", touch_render)
     monkeypatch.setattr(reel, "render_pick_evidence", touch_render)
     monkeypatch.setattr(reel, "render_pick_record", touch_render)
+    monkeypatch.setattr(reel, "render_card_summary", touch_render)
     monkeypatch.setattr(reel, "render_closer", touch_render)
 
     seen_texts = []
@@ -177,7 +191,7 @@ def test_short_reel_is_silent_slides_over_one_music_bed(monkeypatch, tmp_path):
     monkeypatch.setattr(reel.music, "reading_seconds", reading)
     video_holds = []
 
-    def touch_still(_img, dest, duration, _ff):
+    def touch_still(_img, dest, duration, _ff, **kw):
         video_holds.append(duration)
         dest.parent.mkdir(parents=True, exist_ok=True)
         dest.write_bytes(b"video")
@@ -224,8 +238,8 @@ def test_short_reel_is_silent_slides_over_one_music_bed(monkeypatch, tmp_path):
     assert not any(hasattr(reel, n) for n in ("synthesize_speech", "pad_audio", "voice_identity"))
     # intro 5s floor, disclaimer + closer 3s of words + tail, the pick slide its own fixed hold
     expected = [reel.frame_hold(reel.hold_seconds(0, 3.0)), reel.frame_hold(3.0 + reel.TAIL),
-                reel.frame_hold(reel.stage_seconds("pick")), reel.frame_hold(reel.stage_seconds("evidence")),
-                reel.frame_hold(3.0 + reel.TAIL)]
+                *([reel.frame_hold(reel.stage_seconds("pick")), reel.frame_hold(reel.stage_seconds("evidence"))]*5),
+                reel.frame_hold(3.0 + reel.TAIL), 16.0]
     assert video_holds == expected
     assert beds == [pytest.approx(sum(expected))]                   # ONE bed for the whole video
     assert len(muxed) == 1                                          # one mux, picture copied
@@ -314,7 +328,7 @@ def test_widescreen_16x9_dimensions_and_slide_renders(tmp_path):
             assert im.size == (1920, 1080)
 
 
-def test_yesterday_results_recap_starts_before_todays_selections(monkeypatch, tmp_path):
+def test_yesterday_results_recap_starts_before_todays_selections(monkeypatch, tmp_path, render_pipeline):
     from pathlib import Path
 
     assets = tmp_path / "assets"
@@ -339,6 +353,7 @@ def test_yesterday_results_recap_starts_before_todays_selections(monkeypatch, tm
     monkeypatch.setattr(reel, "render_pick_overview", rec_render("pick"))
     monkeypatch.setattr(reel, "render_pick_evidence", rec_render("evidence"))
     monkeypatch.setattr(reel, "render_pick_record", rec_render("record"))
+    monkeypatch.setattr(reel, "render_card_summary", rec_render("combined"))
     monkeypatch.setattr(reel, "render_closer", rec_render("closer"))
 
     spoken_scripts = []
@@ -350,7 +365,7 @@ def test_yesterday_results_recap_starts_before_todays_selections(monkeypatch, tm
     monkeypatch.setattr(reel.music, "reading_seconds", reading)
     monkeypatch.setattr(reel.music, "bed", lambda dur, dest, _ff, **_kw: (Path(dest).write_bytes(b"audio"), Path(dest))[1])
     monkeypatch.setattr(reel.music, "mux", lambda _v, _a, out, _ff, **_kw: (Path(out).write_bytes(b"video"), Path(out))[1])
-    monkeypatch.setattr(reel, "still_clip", lambda _img, dest, _dur, _ff: dest.write_bytes(b"video"))
+    monkeypatch.setattr(reel, "still_clip", lambda _img, dest, _dur, _ff, **kw: dest.write_bytes(b"video"))
     monkeypatch.setattr(reel, "_run", lambda cmd, _label: Path(cmd[-1]).write_bytes(b"video"))
     monkeypatch.setattr(reel, "_ffmpeg", lambda: "/usr/bin/ffmpeg")
 
@@ -373,10 +388,10 @@ def test_yesterday_results_recap_starts_before_todays_selections(monkeypatch, tm
 
     # a pick is three slides when it has evidence and a record; with no fixture detail it still earns
     # THE PICK and WHY IT'S HERE (the model line), and THE RECORD is skipped because there is nothing to show
-    assert slide_order == ["intro", "disclaimer", "results", "pick", "evidence", "closer"]
+    assert slide_order == ["intro", "disclaimer", "results"] + ["pick", "evidence"]*5 + ["closer", "combined"]
     assert len(spoken_scripts) == 4                                 # only the recap and the furniture say anything
     # the recap is the video's own card: yesterday carried one Over 1.5 (the corner pick was never a video market)
-    assert "look back at yesterday" in spoken_scripts[2] and "It landed." in spoken_scripts[2]
+    assert "look back at yesterday" in spoken_scripts[2] and "one from two" in spoken_scripts[2]
     assert "Flamengo against Botafogo" in spoken_scripts[2] and "two-one" in spoken_scripts[2]
     assert "Now, today's shortlist." in spoken_scripts[2]
     assert "percent" not in spoken_scripts[2].lower() and "%" not in spoken_scripts[2]
@@ -484,7 +499,7 @@ def test_spoken_kickoff_and_spoken_text_naturalness():
     assert "Kick-off at 7 PM." in clean
 
 
-def test_dual_resolutions_16x9_and_9x16_share_the_same_slides_and_music(monkeypatch, tmp_path):
+def test_dual_resolutions_16x9_and_9x16_share_the_same_slides_and_music(monkeypatch, tmp_path, render_pipeline):
     from pathlib import Path
     from PIL import Image
 
@@ -533,7 +548,7 @@ def test_dual_resolutions_16x9_and_9x16_share_the_same_slides_and_music(monkeypa
         Path(dest).write_bytes(b"audio")
         return Path(dest)
 
-    def fake_still(_img, dest, dur, _ff):
+    def fake_still(_img, dest, dur, _ff, **kw):
         holds.append(dur)
         dest.parent.mkdir(parents=True, exist_ok=True)
         dest.write_bytes(b"video")
@@ -556,9 +571,9 @@ def test_dual_resolutions_16x9_and_9x16_share_the_same_slides_and_music(monkeypa
     )
     assert out16.exists() and out9.exists()
     # Intro + Disclaimer + THE PICK + WHY IT'S HERE + Closer = 5 slides per cut, same timings, one bed each
-    assert len(holds) == 10
-    assert holds[:5] == holds[5:]
-    assert beds[0] == beds[1] == pytest.approx(sum(holds[:5]), abs=0.01)
+    assert len(holds) == 28
+    assert holds[:14] == holds[14:]
+    assert beds[0] == beds[1] == pytest.approx(sum(holds[:14]), abs=0.01)
 
 
 
@@ -591,6 +606,7 @@ def _capture_build(monkeypatch, tmp_path, picks, *, yesterday=None, recap=True, 
     monkeypatch.setattr(reel, "render_pick_overview", rec("pick"))
     monkeypatch.setattr(reel, "render_pick_evidence", rec("evidence"))
     monkeypatch.setattr(reel, "render_pick_record", rec("record"))
+    monkeypatch.setattr(reel, "render_card_summary", rec("combined"))
     monkeypatch.setattr(reel, "render_closer", rec("closer"))
     def reading(text, **_kw):
         texts.append(text)
@@ -603,7 +619,7 @@ def _capture_build(monkeypatch, tmp_path, picks, *, yesterday=None, recap=True, 
     monkeypatch.setattr(reel.music, "mux",
                         lambda _v, _a, out, _ff, **_kw: (Path(out).parent.mkdir(parents=True, exist_ok=True),
                                                          Path(out).write_bytes(b"video"), Path(out))[2])
-    monkeypatch.setattr(reel, "still_clip", lambda _img, dest, _dur, _ff: dest.write_bytes(b"video"))
+    monkeypatch.setattr(reel, "still_clip", lambda _img, dest, _dur, _ff, **kw: dest.write_bytes(b"video"))
     monkeypatch.setattr(reel, "_run", lambda cmd, _label: Path(cmd[-1]).write_bytes(b"video"))
     monkeypatch.setattr(reel, "_ffmpeg", lambda: "/usr/bin/ffmpeg")
     out = tmp_path / name
@@ -619,7 +635,7 @@ def _pick(i, **over):
     return p
 
 
-def test_only_the_first_video_of_the_day_carries_the_recap(monkeypatch, tmp_path):
+def test_only_the_first_video_of_the_day_carries_the_recap(monkeypatch, tmp_path, render_pipeline):
     yesterday = {"day": "2026-10-19", "items": [
         {"home": "A", "away": "B", "sel": "O15", "label": "Over 1.5 goals", "result": "hit", "score": "2-1", "odds": 1.8},
     ]}
@@ -634,7 +650,7 @@ def test_only_the_first_video_of_the_day_carries_the_recap(monkeypatch, tmp_path
     assert "yesterday" not in " ".join(t for t in texts_noon if isinstance(t, str)).lower()
 
 
-def test_the_morning_recap_covers_every_video_from_yesterday_across_pages(monkeypatch, tmp_path):
+def test_the_morning_recap_covers_every_video_from_yesterday_across_pages(monkeypatch, tmp_path, render_pipeline):
     items = []
     for i in range(22):
         items.append({"home": f"T{i}", "away": f"U{i}", "sel": "O15", "label": "Over 1.5 goals", "market": "goals",
@@ -652,12 +668,12 @@ def test_the_morning_recap_covers_every_video_from_yesterday_across_pages(monkey
     assert all(len(t) < 120 for t in texts[3:5])
 
 
-def test_no_combine_slide_and_each_match_said_once(monkeypatch, tmp_path):
+def test_combined_summary_and_each_match_shown_once(monkeypatch, tmp_path, render_pipeline):
     picks = [_pick(i) for i in range(1, 7)]
     order, texts, _ = _capture_build(monkeypatch, tmp_path, picks, name="order.mp4")
     assert order.count("pick") == 6
-    assert order[0] == "intro" and order[1] == "disclaimer" and order[-1] == "closer"
-    assert "combine" not in order                                  # accumulators are gone from the video
+    assert order[0] == "intro" and order[1] == "disclaimer" and order[-1] == "combined"
+    assert order.count("combined") == 1                                  # accumulators are gone from the video
     said_texts = [t for t in texts if isinstance(t, str)]
     assert not any("combine" in t.lower() or "treble" in t.lower() for t in said_texts)
     # every match gets its own THE PICK slide and its own evidence slide, once each

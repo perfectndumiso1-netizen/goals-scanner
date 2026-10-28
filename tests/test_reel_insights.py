@@ -79,14 +79,14 @@ def _leagues(tmp_path: Path) -> Path:
 OVER15 = {**PICK, "sel": "O15", "label": "Over 1.5 goals", "market": "goals"}
 
 
-def test_video_markets_are_over15_only():
+def test_video_markets_allow_goals_and_corners():
     # 2026-10-27 (user): the videos carry Over 1.5 total goals and nothing else — not corners, not team goals, not
     # bookings, Over 2.5, 1X2, BTTS or any under
     rows = ri.market_rows(DETAIL, OVER15)
-    assert [r["sel"] for r in rows] == ["O15"]
-    assert rows[0]["picked"] is True and rows[0]["p"] == 0.86
+    assert {r["sel"] for r in rows} == {"O15", "CO85"}
+    assert rows[0]["picked"] is True and rows[0]["p"] == 0.79
     # a legacy pick from another family is simply not a video market any more
-    assert ri.market_rows(DETAIL, PICK) == [] or all(r["sel"] == "O15" for r in ri.market_rows(DETAIL, PICK))
+    assert ri.market_rows(DETAIL, PICK) == [] or all(r["sel"] in ("O15", "CO85") for r in ri.market_rows(DETAIL, PICK))
 
 
 def test_the_pick_stands_on_its_own_when_the_detail_is_missing():
@@ -100,8 +100,8 @@ def test_the_chart_puts_the_models_number_beside_the_markets():
     rows = ri.chart_rows(DETAIL, OVER15)
     model = next(r for r in rows if r["picked"])
     market = next((r for r in rows if r.get("market")), None)
-    assert model["p"] == 0.86 and sum(1 for r in rows if r["picked"]) == 1
-    assert market is not None and market["p"] == 0.82                 # the de-vigged price it was anchored to
+    assert model["p"] == 0.79 and sum(1 for r in rows if r["picked"]) == 1
+    assert market is not None and market["p"] == 0.74                 # the de-vigged price it was anchored to
     assert market["label"] == "Market price (de-vigged)"
     assert ri.chosen_market(DETAIL, OVER15)["sel"] == "O15"
 
@@ -185,7 +185,7 @@ def test_slides_are_planned_by_what_actually_exists(tmp_path):
 def test_no_voice_and_no_accumulator_left_in_the_reel_module():
     for gone in ("synthesize_speech", "pad_audio", "voice_clips", "polish", "combine"):
         assert not hasattr(reel, gone)
-    assert reel.MAX_TOTAL <= 300                                # length guard still exists
+    assert reel.MAX_TOTAL <= 600                                # length guard still exists
 
 
 def test_the_reel_ranks_the_strongest_allowed_market_per_match():
@@ -202,15 +202,10 @@ def test_the_reel_ranks_the_strongest_allowed_market_per_match():
 
 # ------------------------------------------------------------------ featuring the strongest market
 
-def test_a_legacy_pick_is_replaced_by_the_over15_line():
-    """A board pick from any other family cannot be featured any more: the video's market is Over 1.5."""
-    pick = {k: v for k, v in PICK.items()}                     # the board chose HO05 at 79%
-    up = ri.featured_pick(pick, DETAIL)
-    assert up["sel"] == "O15" and up["p"] == 0.86 and up["odds"] == 1.19
-    assert up["upgraded_from"] == "HO05"
-    assert pick["sel"] == "HO05"                                 # the caller's dict is never modified
-    rows = ri.chart_rows(DETAIL, up)
-    assert rows[0]["sel"] == "O15" and rows[0]["picked"] is True
+def test_card_selection_is_never_changed_by_rendering():
+    pick = {**OVER15, "sel": "CO85", "p": .72, "odds": 1.20}
+    assert ri.featured_pick(pick, DETAIL) == pick
+    assert ri.chart_rows(DETAIL, pick)[0]["sel"] == "CO85"
 
 
 def test_the_pick_is_kept_when_it_is_already_the_strongest():
@@ -231,7 +226,7 @@ def test_a_team_goals_pick_quotes_that_clubs_shutout_rate_not_a_goals_line():
     assert any("Kaizer Chiefs have failed to score in only 21%" in b for b in ri.reasons(home_pick, detail, None))
     assert any("Orlando Pirates have failed to score in 35%" in b for b in ri.reasons(away_pick, detail, None))
     # a total-goals pick keeps the goals-line sentence
-    assert any("Over 1.5 has landed" in b for b in ri.reasons({**PICK, "sel": "O15", "market": "goals"}, detail, None))
+    assert any("Over 1.5 goals has landed" in b for b in ri.reasons({**PICK, "sel": "O15", "market": "goals"}, detail, None))
 
 
 def test_the_plain_language_ladder_matches_the_percentages():

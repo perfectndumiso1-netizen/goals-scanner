@@ -178,9 +178,9 @@ def test_the_same_match_is_never_in_the_video_twice():
     assert len(reel.reel_picks(same)) == 1
 
 
-def test_a_corner_pick_is_not_a_video_market_any_more():
-    assert reel.reel_picks([{**_pick("Chiefs", "Pirates"), "sel": "CO95", "label": "Over 9.5 corners", "p": 0.9}]) == []
-    assert reel.is_reel_market({"sel": "O15"}) and not reel.is_reel_market({"sel": "CO85"})
+def test_corners_are_video_markets_again():
+    assert reel.reel_picks([{**_pick("Chiefs", "Pirates"), "sel": "CO95", "label": "Over 9.5 corners", "p": 0.9}])
+    assert reel.is_reel_market({"sel": "O15"}) and reel.is_reel_market({"sel": "CO85"})
     assert not reel.is_reel_market({"sel": "HO05", "label": "Chiefs to score"})
 
 
@@ -196,9 +196,9 @@ def test_video_picks_reads_the_detail_files_and_logs_what_it_dropped(tmp_path, c
 
     with caplog.at_level("INFO"):
         kept, skipped = reel.video_picks([good, bad], fx_dir=fx, now=NOW, search=_search([]))
-    assert [p["home"] for p in kept] == ["Chiefs"]
+    assert kept == []  # a single valid fixture cannot form a five-match video
     assert [s["home"] for s in skipped] == ["Lions"]
-    assert any("left out" in r.message for r in caplog.records)
+    assert any("Video skipped" in r.message for r in caplog.records)
 
 
 # ------------------------------------------------------------------ the slides are slower now

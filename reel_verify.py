@@ -38,7 +38,7 @@ MIN_TEAM_RESULTS = 5        # completed matches with a score, per team
 MAX_RECENT_DAYS = 200       # the newest of those results has to be this fresh
 MIN_H2H = 2                 # meetings with a score
 H2H_MAX_DAYS = 1100         # …and the latest of them inside three years
-MIN_ACCEPTED = 3            # a video needs at least this many matches, or it is not built
+MIN_ACCEPTED = 5            # a video needs at least this many matches, or it is not built
 VERIFIED_FIRST_MIN = 3      # with this many confirmed matches, unverified ones are left out
 
 CONTRADICTION = re.compile(
@@ -110,9 +110,17 @@ def stats_problems(pick: dict, detail: dict | None, *, now: datetime | None = No
             problems.append(f"detail belongs to {detail.get('home')} v {detail.get('away')}")
             return problems
     kickoff = _date(pick.get("kickoff")) or _date(detail.get("kickoff"))
+    now = now.replace(tzinfo=None) if now is not None else None
     reference = now or kickoff or datetime.now()
     if kickoff and now and kickoff < now - timedelta(hours=3):
         problems.append("kick-off has passed")
+    if str(pick.get("sel") or "").startswith("C"):
+        corners = detail.get("corners") or {}
+        counts = corners.get("n") or []
+        if len(counts) != 2 or any((_f(n) or 0) < MIN_TEAM_RESULTS for n in counts):
+            problems.append("not enough recorded corner matches for both clubs")
+        if any((_f(corners.get(side)) or 0) <= 0 for side in ("home", "away")):
+            problems.append("missing corner expectations")
     teams = detail.get("teams") or {}
     for side, label in (("home", pick.get("home")), ("away", pick.get("away"))):
         rows = _results(teams.get(side) or {}, kickoff)

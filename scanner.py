@@ -2626,7 +2626,7 @@ def record_briefing_picks(hist: dict | None, day: str, picks: list, *, replace: 
         if key in seen or (h, a) in {(x["home"], x["away"]) for x in merged}:
             continue
         seen.add(key)
-        merged.append({"home": h, "away": a, "sel": s})
+        merged.append({k: item[k] for k in ("home", "away", "sel", "kickoff", "country", "label", "odds", "p", "p_sb") if k in item})
     out[day] = merged
     return out
 
@@ -2685,48 +2685,47 @@ def _telegram_state(now: datetime) -> tuple[Path, dict]:
 
 
 def _reel_slot(now: datetime) -> str | None:
-    """Three video windows SAST: morning 05:00–07:19, noon 11:00–12:19, evening 16:00–17:19."""
-    h, m = now.hour, now.minute
-    if h in (5, 6) or (h == 7 and m < 20):
-        return "morning"
-    if h == 11 or (h == 12 and m < 20):
-        return "noon"
-    if h == 16 or (h == 17 and m < 20):
-        return "evening"
-    return None
+    """Two daily windows: 08:00 and 16:00 SAST (allow scheduler delay within that hour)."""
+    from zoneinfo import ZoneInfo
+    if now.tzinfo is not None:
+        now = now.astimezone(ZoneInfo("Africa/Johannesburg"))
+    return {8: "morning", 16: "evening"}.get(now.hour)
 
 
 def maybe_send_daily_reel(sl_pub: dict, now: datetime) -> None:
-    """Shortlist video to Telegram three times a day (morning / noon / evening SAST).
+    """Two verified Bet Advisor editions daily, 08:00 / 16:00 SAST.
 
-    Every slot is a fresh set of matches, and each slot's matches are added to `briefing_history` so the next slot
-    (and tomorrow's) can never show the same match twice. The videos carry **Over 1.5 total goals only**, at 65%+,
-    and only for matches that pass the checks in `reel_verify` — recent results for both clubs, a recent head to
-    head, and an internet cross-check that does not contradict the fixture. Whatever is dropped is logged with the
-    reason. The morning video starts with yesterday's settled video picks. Video is deleted after a successful send —
-    never git, never Drive.
+    Five to eight distinct matches, Over 1.5 and corners first, Advisor Over 2.5 as fallback.
+    Combined decimal odds 2.00–3.30, targeting 2.50. Morning recaps all of yesterday's video picks.
     """
     if reel_mod is None:
         return
-    if not (os.getenv("TELEGRAM_BOT_TOKEN") and os.getenv("TELEGRAM_CHAT_ID")):
+    if not ((os.getenv("TELEGRAM_BOT_TOKEN") and os.getenv("TELEGRAM_CHAT_ID"))
+            or (drive_mod is not None and drive_mod.enabled()) or os.getenv("YT_UPLOAD") == "1"):
         return
     force = os.getenv("FORCE_DAILY_REEL", "").strip().lower() in ("1", "true", "yes")
-    slot = _reel_slot(now) or ("manual" if force else None)
+    slot = _reel_slot(now) or (("morning" if now.hour < 16 else "evening") if force else None)
     if not slot:
         return
     path, st = _telegram_state(now)
     today = now.strftime("%Y-%m-%d")
     slots = st.get("briefing_slots") if isinstance(st.get("briefing_slots"), dict) else {}
     already = list(slots.get(today) or [])
-    if slot in already and not force:
+    if slot in already:
         return
     hist = st.get("briefing_history") if isinstance(st.get("briefing_history"), dict) else {}
     used = {(str(x.get("home") or ""), str(x.get("away") or ""))
             for x in (hist.get(today) or []) if isinstance(x, dict)}
-    pool = list((sl_pub or {}).get("x12") or []) + list((sl_pub or {}).get("primary") or [])
+    # The video is sourced ONLY from the successfully published Bet Advisor, not the shortlist.
+    import advisor_tracking
+    published = json.loads(APP_FILE.read_text(encoding="utf-8"))
+    if str((published.get("meta") or {}).get("generated") or "")[:10] != today:
+        log.warning("Video skipped: today's Advisor publication is unavailable")
+        return
+    pool = advisor_tracking.selections(published)
     fx_dir = APP_FILE.parent / "fx"
     prim, dropped = reel_mod.video_picks(pool, used=used, fx_dir=fx_dir, now=now)
-    if not prim:
+    if len(prim) < 5:
         log.warning("Daily reel skipped: no match passed the stats / head-to-head / internet check "
                     "(%d candidates, %d dropped)", len(pool), len(dropped))
         return
@@ -2766,11 +2765,12 @@ def maybe_send_daily_reel(sl_pub: dict, now: datetime) -> None:
     yres = (sl_pub or {}).get("yesterday_results")
     yday = (now.date() - timedelta(days=1)).strftime("%Y-%m-%d")
     hist = st.get("briefing_history") if isinstance(st.get("briefing_history"), dict) else {}
-    yday_video_picks = hist.get(yday)
+    yday_video_picks = hist.get(yday) or []
+    book = advisor_tracking.load(DATA_DIR / "advisor_ledger.json")
     if yday_video_picks:
-        yres = _filter_yres_to_video_picks(yres, yday_video_picks)
+        yres = {"day": yday, "items": advisor_tracking.video_results(book, yday_video_picks)}
     elif recap_needed:
-        log.warning("Morning reel: no recorded video picks for %s — the recap falls back to yesterday's ledger", yday)
+        yres = {"day": yday, "items": []}  # never claim non-video picks as yesterday's video record
 
     work = Path(os.getenv("TMPDIR") or "/tmp") / "playreport-reel"
     out_16x9 = work / "briefing-16x9.mp4"
@@ -2784,16 +2784,10 @@ def maybe_send_daily_reel(sl_pub: dict, now: datetime) -> None:
         len(prim_enriched),
     )
     try:
-        if hasattr(reel_mod, "build_both"):
-            reel_mod.build_both(
-                prim_enriched, out_16x9, out_9x16, assets=assets, work=work, fixtures=fixtures,
-                yesterday_results=yres, recap=recap_needed,
-                fx_dir=APP_FILE.parent / "fx", leagues_dir=APP_FILE.parent / "leagues",
-            )
-        else:
-            reel_mod.build(prim_enriched, out_16x9, assets=assets, work=work, fixtures=fixtures,
-                           yesterday_results=yres, recap=recap_needed,
-                           fx_dir=APP_FILE.parent / "fx", leagues_dir=APP_FILE.parent / "leagues")
+        # One landscape video per edition, not duplicate landscape + vertical Telegram posts.
+        reel_mod.build(prim_enriched, out_16x9, assets=assets, work=work, fixtures=fixtures,
+                       yesterday_results=yres, recap=recap_needed,
+                       fx_dir=APP_FILE.parent / "fx", leagues_dir=APP_FILE.parent / "leagues")
     except Exception as exc:  # noqa: BLE001 - a build failure must never take the scan down
         log.warning("Daily reel skipped: %s", exc)
         return
@@ -2803,6 +2797,7 @@ def maybe_send_daily_reel(sl_pub: dict, now: datetime) -> None:
                      if settled_recap and recap_needed else "")
     # Second delivery lane: YouTube. Off unless YT_UPLOAD=1 plus the three channel secrets, so a repository without
     # them behaves exactly as before. Uploaded before Telegram, which deletes the local file on success.
+    posted, handed_off = None, None
     if yt_mod is not None:
         try:
             posted = yt_mod.publish_shortlist(out_16x9, day=today, picks=prim_enriched, slot=slot,
@@ -2819,7 +2814,7 @@ def maybe_send_daily_reel(sl_pub: dict, now: datetime) -> None:
     if drive_mod is not None:
         try:
             if drive_mod.enabled():
-                drive_mod.handoff(out_16x9, notify=send_telegram)
+                handed_off = drive_mod.handoff(out_16x9, notify=send_telegram)
             else:
                 why = drive_mod.describe()
                 log.warning("Drive handoff did not run: %s", why)
@@ -2841,16 +2836,7 @@ def maybe_send_daily_reel(sl_pub: dict, now: datetime) -> None:
         width=1920,
         height=1080,
     )
-    ok_9x16 = False
-    if out_9x16.exists():
-        ok_9x16 = send_telegram_video(
-            out_9x16,
-            f"📱 PlayReport 9:16 vertical reel — {now:%a %d %b}. {recap_caption}Today: {len(prim_enriched)} selection(s). "
-            f"A shortlist for your review, not an instruction to bet. 18+.",
-            width=1080,
-            height=1920,
-        )
-    if ok_16x9 or ok_9x16:
+    if ok_16x9 or posted or handed_off:
         st["briefing"] = today
         st["briefing_slots"] = {**slots, today: already + [slot]}
         st["briefing_history"] = record_briefing_picks(hist, today, prim_enriched)
@@ -3707,7 +3693,12 @@ def main() -> None:
     pub_status = {"at": now.strftime("%Y-%m-%d %H:%M"), "run_id": ctx.get("run_id"), "published": None,
                   "note": "the app export did not finish this run"}
     try:
+        import advisor_tracking
+        advisor_file = DATA_DIR / "advisor_ledger.json"
+        advisor_book = advisor_tracking.load(advisor_file)
+        candidate_book = advisor_book
         def build_staged_app() -> None:
+            nonlocal candidate_book
             appdata.export(staging / APP_FILE.name, ctx=ctx, rows=app_rows, all_rows=rows, picks=picks, tracker_summary=summary, notes=notes, ls_map=ls_map,
                            helpers={"render_details": render_details, "stars": stars, "comp": comp, "sb_price": sb_price,
                                     "selections": all_sels, "team_goal_form_ok": safe_mod.team_goal_form_ok},
@@ -3718,12 +3709,29 @@ def main() -> None:
                            coverage=coverage, safe_groups=safe_mod.SAFE_GROUPS,
                            extra_badges=archive.badge_map() if archive is not None else None, report_run=report_run,
                            live_dir=APP_FILE.parent)
+            staged_file = staging / APP_FILE.name
+            staged_payload = json.loads(staged_file.read_text(encoding="utf-8"))
+            candidate_book = advisor_tracking.update(advisor_book, advisor_tracking.selections(staged_payload), results_s, now)
+            staged_payload["advisor"] = advisor_tracking.summary(candidate_book)
+            # Publish a single canonical Advisor pool for the app and video pipeline.
+            staged_payload["advisor"]["picks"] = advisor_tracking.selections(staged_payload)
+            _, video_state = _telegram_state(now)
+            video_history = video_state.get("briefing_history") or {}
+            yesterday = (now.date() - timedelta(days=1)).isoformat()
+            staged_payload["advisor"]["video_recap"] = {"day": yesterday,
+                "items": advisor_tracking.video_results(candidate_book, video_history.get(yesterday) or [])}
+            staged_payload["advisor"]["shown_today"] = video_history.get(now.date().isoformat()) or []
+            staged_file.write_text(json.dumps(staged_payload, ensure_ascii=False, allow_nan=False), encoding="utf-8")
 
         result = publication.publish(
             staging, build_staged_app,
             lambda: verify.check_publication(staging, APP_FILE.parent, SAFE_BETS_FILE, now, expect_fixtures=len(app_rows)),
             lambda: promote_publication(staging, APP_FILE.parent, now),
         )
+        if result.published:
+            temp_book = advisor_file.with_suffix(".tmp")
+            temp_book.write_text(json.dumps(candidate_book, ensure_ascii=False, allow_nan=False), encoding="utf-8")
+            temp_book.replace(advisor_file)
         # The publication outcome is written to the state branch, not just the log: a rejected publication means the
         # app keeps serving the previous payload, and on 2026-10-27 that froze the app for hours because the reason
         # lived only in a log nobody could read from a phone. `data/publication_status.json` now says why.
@@ -3795,7 +3803,7 @@ def main() -> None:
     except Exception as exc:  # noqa: BLE001 - the reel must never break the scan
         log.warning("Daily reel failed: %s", exc)
     try:
-        maybe_send_daily_breakdown(ctx.get("shortlist") or {}, now)
+        pass  # retired: only the 08:00 / 16:00 Bet Advisor editions are published
     except Exception as exc:  # noqa: BLE001 - the breakdown must never break the scan
         log.warning("Match breakdown failed: %s", exc)
     if digest_lines:

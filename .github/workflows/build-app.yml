@@ -21,7 +21,7 @@ jobs:
     timeout-minutes: 30
     env:
       APP_VERSION_CODE: ${{ github.run_number }}
-      APP_VERSION_NAME: 1.6.${{ github.run_number }}
+      APP_VERSION_NAME: "1.6.84"
       APP_REPO: ${{ github.repository }}
     steps:
       - uses: actions/checkout@v4.4.0
@@ -68,6 +68,48 @@ jobs:
           ls -la app/build/outputs/apk/release/
           cp app/build/outputs/apk/release/app-release.apk "$RUNNER_TEMP/PlayReport.apk"
 
+      - name: Verify installable package and release-key continuity
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          TOOLS="$ANDROID_HOME/build-tools/$(ls "$ANDROID_HOME/build-tools" | sort -V | tail -1)"
+          APK="$RUNNER_TEMP/PlayReport.apk"
+          unzip -t "$APK"
+          "$TOOLS/zipalign" -c -P 16 -v 4 "$APK"
+          "$TOOLS/apksigner" verify --verbose --print-certs --min-sdk-version 26 "$APK" | tee "$RUNNER_TEMP/signature.txt"
+          "$TOOLS/aapt" dump badging "$APK" | tee "$RUNNER_TEMP/package.txt"
+          grep "package: name='com.playreport.app'" "$RUNNER_TEMP/package.txt"
+          grep "versionName='${APP_VERSION_NAME}'" "$RUNNER_TEMP/package.txt"
+          mkdir -p "$RUNNER_TEMP/previous-apk"
+          PREVIOUS=$(gh release view --repo "$GITHUB_REPOSITORY" --json tagName --jq .tagName)
+          gh release download "$PREVIOUS" --repo "$GITHUB_REPOSITORY" --pattern '*.apk' --dir "$RUNNER_TEMP/previous-apk"
+          OLD=$(find "$RUNNER_TEMP/previous-apk" -name '*.apk' -print -quit)
+          "$TOOLS/apksigner" verify --print-certs "$OLD" > "$RUNNER_TEMP/previous-signature.txt"
+          diff <(grep 'certificate SHA-256 digest:' "$RUNNER_TEMP/previous-signature.txt") <(grep 'certificate SHA-256 digest:' "$RUNNER_TEMP/signature.txt")
+          OLD_CODE=$("$TOOLS/aapt" dump badging "$OLD" | sed -n "s/.*versionCode='\([^']*\)'.*/\1/p" | head -1)
+          test "$APP_VERSION_CODE" -gt "$OLD_CODE"
+          cp "$OLD" "$RUNNER_TEMP/previous.apk"
+          (cd "$RUNNER_TEMP"; cp PlayReport.apk "PlayReport-${APP_VERSION_NAME}.apk"; sha256sum "PlayReport-${APP_VERSION_NAME}.apk" > PlayReport.apk.sha256)
+
+      - name: Enable Android emulator acceleration
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
+      - name: Android install and in-place upgrade smoke test
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          arch: x86_64
+          disable-animations: true
+          script: |
+            adb install "$RUNNER_TEMP/previous.apk"
+            adb install -r "$RUNNER_TEMP/PlayReport.apk"
+            adb shell am start -W -n com.playreport.app/.MainActivity
+            adb shell dumpsys package com.playreport.app | grep 'versionName=1.6.84'
+
       - name: Unit tests (host allowlist, update digest)
         run: |
           cd android
@@ -86,4 +128,5 @@ jobs:
           TAG="app-v${APP_VERSION_NAME}"
           # release notes = android/RELEASE_NOTES.md (shown inside the app before and after updating)
           { sed "1s/^## What's new/## What's new in PlayReport ${APP_VERSION_NAME}/" android/RELEASE_NOTES.md; printf '\n\nPlayReport for Android v%s (build %s). Android verifies the signature and asks you to confirm the install.\n' "$APP_VERSION_NAME" "$APP_VERSION_CODE"; } > "$RUNNER_TEMP/notes.md"
-          gh release create "$TAG" "$RUNNER_TEMP/PlayReport.apk" --repo "$GITHUB_REPOSITORY" --title "PlayReport v${APP_VERSION_NAME}" --notes-file "$RUNNER_TEMP/notes.md" --latest
+          cp "$RUNNER_TEMP/PlayReport.apk" "$RUNNER_TEMP/PlayReport-${APP_VERSION_NAME}.apk"
+          gh release create "$TAG" "$RUNNER_TEMP/PlayReport-${APP_VERSION_NAME}.apk" "$RUNNER_TEMP/PlayReport.apk.sha256" --repo "$GITHUB_REPOSITORY" --title "PlayReport v${APP_VERSION_NAME}" --notes-file "$RUNNER_TEMP/notes.md" --latest
