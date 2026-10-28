@@ -51,6 +51,6 @@ dependencies:
         repo_id: 743626948
     'reactivecircus/android-emulator-runner@v2':
         ref: 'v2'
-        commit: 'sha1-4c44018e59b437e86cdfc41da381398f93ed8808'
+        commit: 'sha1-a421e43855164a8197daf9d8d40fe71c6996bb0d'
         owner_id: 51352484
         repo_id: 219782401

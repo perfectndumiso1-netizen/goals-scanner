@@ -6,6 +6,7 @@ on:
     paths:
       - "android/**"
       - ".github/workflows/build-app.yml"
+      - ".github/workflows/actions.lock"
   workflow_dispatch:
 
 permissions:
