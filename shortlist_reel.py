@@ -661,12 +661,18 @@ def _chart(d, rows: list[dict], box: tuple[int, int, int, int], *, wide: bool) -
     if market:
         mine = next((r for r in rows if r.get("picked")), rows[0])
         gap = 100 * (mine.get("p", 0.0) - market.get("p", 0.0))
-        note = (f"model {100 * mine.get('p', 0):.0f}% vs market {100 * market.get('p', 0):.0f}% "
-                f"({gap:+.0f} pts)" if picked_top else
-                f"the market is {100 * market.get('p', 0):.0f}% — ours is in green")
+        if abs(gap) < 0.5:
+            # the published number is the model blended towards this price, so the two often land together. Say that
+            # plainly instead of dressing a half-point difference up as an edge.
+            note = f"model and market agree at {100 * mine.get('p', 0):.0f}% — no edge claimed"
+        elif gap > 0:
+            note = f"model {100 * mine.get('p', 0):.0f}% · market {100 * market.get('p', 0):.0f}% · {gap:.0f} pts above"
+        else:
+            note = f"model {100 * mine.get('p', 0):.0f}% · market {100 * market.get('p', 0):.0f}% · {-gap:.0f} pts below"
+        picked_top = True                    # the slide is about the model's number, which is always the first bar
     else:
-        note = ("the model's own number — the book did not price this one" if picked_top
-                else f"the highest is {rows[0].get('label')} at {100 * top_p:.0f}%")
+        note = "the model's own number — the book did not price this one"
+        picked_top = True
     nf = _font(15 if wide else 19, False)
     if wide:
         d.text((x1 - _tw(d, note, nf), y0 + 4), note, fill=GREEN if picked_top else MUTED, font=nf)
