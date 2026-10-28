@@ -243,10 +243,6 @@
     if (yr && yr.settled) {
       parts.push(`<div class="card compact"><div class="row"><div class="grow"><div class="b">📋 Yesterday’s shortlist (${esc(yr.day || '')})</div><div class="tiny muted">${yr.hits} of ${yr.settled} settled selection${yr.settled === 1 ? '' : 's'} won (${pct(yr.hit_rate)})</div></div><span class="pill ${yr.hit_rate >= 0.7 ? 'hi' : 'mid'}">${yr.hits}/${yr.settled}</span></div></div>`);
     }
-    if (np) {
-      parts.push(`<div class="card compact briefing-cta"><div class="row"><div class="grow"><div class="b">${icon('sparkle', 'sm')} Tonight's 16:9 briefing</div><div class="tiny muted">Opens with yesterday’s full card — every selection from every video — then today’s Over 1.5, corner and booking selections one by one with the reason for each. No accumulators. Silent slides with one music track, kick-off times in SAST. A shortlist for your review — never an instruction to bet.</div></div></div>
-        <div class="row" style="gap:8px;margin-top:8px"><button class="btn" id="btn-briefing">${icon('live', 'sm')} Watch briefing</button><button class="btn" id="btn-briefing-dl">${icon('download', 'sm')} Download 16:9 video</button></div></div>`);
-    }
     if (!sl.counts) {
       parts.push(`<div class="card empty">The high-conviction shortlist appears after the next analysis run (every 30 minutes).</div>`);
       view().innerHTML = parts.join('');
@@ -300,8 +296,6 @@
     view().innerHTML = parts.join('');
     $$('[data-slmk]').forEach((b) => { b.onclick = () => { state.slMk = b.dataset.slmk; PR.render(); window.scrollTo(0, 0); }; });
     $$('[data-pick-open]').forEach((b) => { b.onclick = (e) => { e.stopPropagation(); const a = art[b.dataset.pickOpen]; if (a) { state.pickArt = a; PR.push({ type: 'pick' }); } }; });
-    const bb = $('#btn-briefing'); if (bb) bb.onclick = () => PR.push({ type: 'briefing' });
-    const bd = $('#btn-briefing-dl'); if (bd) bd.onclick = () => PR.push({ type: 'briefing', download: true });
   };
 
 

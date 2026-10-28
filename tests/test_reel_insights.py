@@ -76,30 +76,34 @@ def _leagues(tmp_path: Path) -> Path:
 
 # ------------------------------------------------------------------ markets
 
-def test_video_markets_are_over15_and_corners_only():
-    # 2026-10-27: the reel carries Over 1.5 and corners; team goals, bookings, Over 2.5, 1X2, BTTS and unders are out
-    # (HO05 is here only because it is the pick itself, and market_rows always keeps the pick on its own chart)
-    rows = ri.market_rows(DETAIL, PICK)
-    sels = {r["sel"] for r in rows}
-    assert {"O15", "HO05", "CO85"} == sels
-    assert not ({"O25", "H", "BTTS", "KU25", "KO35", "AO05"} & sels)
-    assert [r["p"] for r in rows] == sorted((r["p"] for r in rows), reverse=True)
+OVER15 = {**PICK, "sel": "O15", "label": "Over 1.5 goals", "market": "goals"}
 
 
-def test_the_pick_is_always_on_its_own_chart_even_when_the_detail_is_missing():
-    rows = ri.market_rows(None, PICK)
-    assert [r["sel"] for r in rows] == ["HO05"]
+def test_video_markets_are_over15_only():
+    # 2026-10-27 (user): the videos carry Over 1.5 total goals and nothing else — not corners, not team goals, not
+    # bookings, Over 2.5, 1X2, BTTS or any under
+    rows = ri.market_rows(DETAIL, OVER15)
+    assert [r["sel"] for r in rows] == ["O15"]
+    assert rows[0]["picked"] is True and rows[0]["p"] == 0.86
+    # a legacy pick from another family is simply not a video market any more
+    assert ri.market_rows(DETAIL, PICK) == [] or all(r["sel"] == "O15" for r in ri.market_rows(DETAIL, PICK))
+
+
+def test_the_pick_stands_on_its_own_when_the_detail_is_missing():
+    rows = ri.market_rows(None, OVER15)
+    assert [r["sel"] for r in rows] == ["O15"]
     assert rows[0]["picked"] is True
-    assert ri.chart_rows(None, PICK)[0]["sel"] == "HO05"
+    assert ri.chart_rows(None, OVER15)[0]["sel"] == "O15"
 
 
-def test_the_featured_market_is_the_tallest_bar_on_the_chart():
-    rows = ri.chart_rows(DETAIL, PICK)
-    assert rows
-    assert rows[0]["p"] == max(r["p"] for r in rows)          # the highlighted bar is the highest one
-    assert sum(1 for r in rows if r["picked"]) == 1
-    best = ri.chosen_market(DETAIL, PICK)
-    assert best["sel"] == rows[0]["sel"]
+def test_the_chart_puts_the_models_number_beside_the_markets():
+    rows = ri.chart_rows(DETAIL, OVER15)
+    model = next(r for r in rows if r["picked"])
+    market = next((r for r in rows if r.get("market")), None)
+    assert model["p"] == 0.86 and sum(1 for r in rows if r["picked"]) == 1
+    assert market is not None and market["p"] == 0.82                 # the de-vigged price it was anchored to
+    assert market["label"] == "Market price (de-vigged)"
+    assert ri.chosen_market(DETAIL, OVER15)["sel"] == "O15"
 
 
 def test_chart_labels_fit_a_phone_screen():
@@ -198,31 +202,23 @@ def test_the_reel_ranks_the_strongest_allowed_market_per_match():
 
 # ------------------------------------------------------------------ featuring the strongest market
 
-def test_a_stronger_market_in_the_detail_becomes_the_featured_pick():
+def test_a_legacy_pick_is_replaced_by_the_over15_line():
+    """A board pick from any other family cannot be featured any more: the video's market is Over 1.5."""
     pick = {k: v for k, v in PICK.items()}                     # the board chose HO05 at 79%
-    detail = json.loads(json.dumps(DETAIL))
-    detail["sels"].append(["CO105", 0.88, 0.88, 0.85, 1.18, 0, 4.0, 0.02])   # but a bigger corner line is stronger
-    up = ri.featured_pick(pick, detail)
-    assert up["sel"] == "CO105" and up["p"] == 0.88 and up["odds"] == 1.18
-    assert up["label"] == "Over 10.5 corners" and up["market"] == "corners"
+    up = ri.featured_pick(pick, DETAIL)
+    assert up["sel"] == "O15" and up["p"] == 0.86 and up["odds"] == 1.19
     assert up["upgraded_from"] == "HO05"
     assert pick["sel"] == "HO05"                                 # the caller's dict is never modified
-    rows = ri.chart_rows(detail, up)
-    assert rows[0]["sel"] == "CO105" and rows[0]["picked"] is True
-    assert rows[0]["p"] == max(r["p"] for r in rows)             # the featured market IS the tallest bar
+    rows = ri.chart_rows(DETAIL, up)
+    assert rows[0]["sel"] == "O15" and rows[0]["picked"] is True
 
 
 def test_the_pick_is_kept_when_it_is_already_the_strongest():
-    # in this fixture Over 1.5 at 86% IS the strongest market the video may show, so it becomes the featured pick
-    assert ri.featured_pick(PICK, DETAIL)["sel"] == "O15"
-    # …and when nothing beats the board's pick, the pick stands unchanged
-    flat = {"sels": [["HO05", 0.79, 0.79, 0.74, 1.31, 0, 5.0, 0.03], ["AO05", 0.71, 0.71, 0.69, 1.42, 0, 2.0, 0.01]]}
+    assert ri.featured_pick(OVER15, DETAIL) == OVER15             # already the video's market, nothing to change
+    # with no Over 1.5 in the detail, a non-Over-1.5 board pick stands unchanged rather than inventing one
+    flat = {"sels": [["HO05", 0.79, 0.79, 0.74, 1.31, 0, 5.0, 0.03]]}
     assert ri.featured_pick(PICK, flat) == PICK
-    # a market below the 65% bar or without a usable price never takes over
-    thin = {"sels": [["HO05", 0.79, 0.79, 0.74, 1.31, 0, 5.0, 0.03], ["AO05", 0.90, 0.90, 0.8, 1.10, 0, 6.0, 0.03],
-                     ["CO85", 0.60, 0.60, 0.6, 1.6, 0, 1.0, 0.01]]}
-    assert ri.featured_pick(PICK, thin)["sel"] == "HO05"
-    assert ri.featured_pick(PICK, None)["sel"] == "HO05"         # no detail: nothing to upgrade from
+    assert ri.featured_pick(PICK, None) == PICK                   # no detail: nothing to upgrade from
 
 
 def test_a_team_goals_pick_quotes_that_clubs_shutout_rate_not_a_goals_line():

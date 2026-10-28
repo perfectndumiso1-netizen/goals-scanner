@@ -8,7 +8,7 @@ import pytest
 import shortlist_reel as reel
 
 
-def test_reel_picks_carry_only_over15_and_corners():
+def test_reel_picks_carry_only_over15():
     picks = [
         {"label": "Over 1.5 goals", "sel": "O15", "home": "A", "away": "Z", "kickoff": "1", "p": 0.82},
         {"label": "Under 2.5 cards", "sel": "KU25", "home": "B", "away": "Z", "kickoff": "2", "p": 0.80},
@@ -26,14 +26,16 @@ def test_reel_picks_carry_only_over15_and_corners():
     homes = [p["home"] for p in out]
     assert all(reel.is_reel_market(p) for p in out)
     assert all((p.get("p") or 0) >= reel.REEL_MIN_P for p in out)
-    # no BTTS, no Over 2.5, no 1X2, no match result, no under, no cards and no team goals — never in the video
-    for gone in ("B", "C", "E", "F", "G", "H", "J", "K"):
+    # no BTTS, no Over 2.5, no 1X2, no match result, no under, no cards, no team goals — and since 2026-10-27 no
+    # corners either: the videos carry Over 1.5 total goals and nothing else
+    for gone in ("B", "C", "E", "F", "G", "H", "I", "J", "K"):
         assert gone not in homes, gone
-    assert {"A", "I"} <= set(homes)
+    assert "A" in homes
     assert len(out) == reel.MAX_PICKS
-    assert reel.MAX_PICKS >= 12
-    skipped = reel.reel_picks(picks, used={("A", "Z"), ("I", "Z")})
-    assert "A" not in [p["home"] for p in skipped] and "I" not in [p["home"] for p in skipped]
+    assert 6 <= reel.MAX_PICKS <= 10                       # a slower read means fewer matches per video
+    skipped = reel.reel_picks(picks, used={("A", "Z")})
+    assert "A" not in [p["home"] for p in skipped]
+    assert len({(p["home"], p["away"]) for p in out}) == len(out)      # never the same match twice
 
 
 def test_hold_keeps_the_intro_floor_and_the_tail():
@@ -373,7 +375,8 @@ def test_yesterday_results_recap_starts_before_todays_selections(monkeypatch, tm
     # THE PICK and WHY IT'S HERE (the model line), and THE RECORD is skipped because there is nothing to show
     assert slide_order == ["intro", "disclaimer", "results", "pick", "evidence", "closer"]
     assert len(spoken_scripts) == 4                                 # only the recap and the furniture say anything
-    assert "look back at yesterday" in spoken_scripts[2] and "We went one from two." in spoken_scripts[2]
+    # the recap is the video's own card: yesterday carried one Over 1.5 (the corner pick was never a video market)
+    assert "look back at yesterday" in spoken_scripts[2] and "It landed." in spoken_scripts[2]
     assert "Flamengo against Botafogo" in spoken_scripts[2] and "two-one" in spoken_scripts[2]
     assert "Now, today's shortlist." in spoken_scripts[2]
     assert "percent" not in spoken_scripts[2].lower() and "%" not in spoken_scripts[2]

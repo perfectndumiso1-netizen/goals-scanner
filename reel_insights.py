@@ -4,8 +4,8 @@ The voice is gone (2026-10-21), so a slide can no longer rely on someone saying 
 viewer needs to judge a pick has to be on the screen, and it has to change often enough that nothing sits still:
 each match is now three short slides instead of one long one.
 
-  THE PICK      the selection, its price, and a bar chart of every market this match offers that the video covers —
-                the picked market is always the tallest bar
+  THE PICK      Over 1.5, its price, and the model's probability against the de-vigged market's — the two numbers
+                that decide everything else on the slide
   WHY IT'S HERE the reasons, this fixture's trends, both teams' league standing and their home/away splits
   THE RECORD    head to head, and both teams' last five results with scores
 
@@ -13,9 +13,9 @@ Nothing here invents a number. Every value comes from `data/app/fx/<key>.json` (
 or `data/app/leagues/<slug>.json` (the same table the league page shows). Anything missing is simply left off the
 slide, and a slide with nothing to show is skipped rather than padded.
 
-The video only carries Over 1.5 total goals and corners (`shortlist_reel.is_reel_market`, 2026-10-27), so
-the chart is built from that same family: the pick is the highest model probability **among the markets the video
-covers**, which is what makes it the top bar on the chart rather than a claim we have to dress up.
+The video only carries **Over 1.5 total goals** (`shortlist_reel.is_reel_market`, user rule 2026-10-27), so the chart
+is that market's model probability next to the de-vigged price it was anchored to — the honest comparison, on the
+same axis, instead of a six-bar chart where only one bar can ever matter.
 """
 from __future__ import annotations
 
@@ -134,7 +134,9 @@ def market_rows(detail: dict | None, pick: dict) -> list[dict]:
                              "p": pv, "odds": odds, "p_sb": p_sb,
                              "picked": cand["sel"] == str(pick.get("sel") or "")}
     own = str(pick.get("sel") or "")
-    if own and own not in rows:                      # the pick must always be on its own chart
+    if own and _eligible({"sel": own}) and own not in rows:
+        # the video's one market, when the detail does not carry it: the board's own number is still the truth we
+        # publish, so it is drawn rather than invented from nothing
         pv = _f(pick.get("p"))
         if pv is not None:
             rows[own] = {"sel": own, "label": short_market(own, home, away), "p": pv,
@@ -145,12 +147,10 @@ def market_rows(detail: dict | None, pick: dict) -> list[dict]:
 
 
 def chosen_market(detail: dict | None, pick: dict) -> dict | None:
-    """The market the video should feature: the highest model probability of the ones the video covers.
+    """The market the video features — Over 1.5, read from the fixture's own detail (the board's copy may be older).
 
-    The user rule is that the highlighted bar must be the highest on the chart. Rather than draw a chart that
-    quietly disagrees with the pick, the video takes the strongest market the fixture actually offers — which is
-    what the shortlist board is trying to do anyway. Returns only the fields that identify the market, so the
-    caller can overlay them on the pick without disturbing anything else.
+    Returns only the fields that identify the market, so the caller can overlay them on the pick without disturbing
+    anything else about the match.
     """
     rows = market_rows(detail, pick)
     if not rows:
@@ -162,16 +162,24 @@ def chosen_market(detail: dict | None, pick: dict) -> dict | None:
 
 
 def chart_rows(detail: dict | None, pick: dict, limit: int = CHART_ROWS) -> list[dict]:
-    """The bars, top-first, with the picked market marked. Always includes the pick."""
+    """The bars for THE PICK slide: the model's Over 1.5 probability and the de-vigged market's, side by side.
+
+    Since the videos carry one market (2026-10-27) there is no ranking to draw, and a single bar says nothing. The
+    two numbers that matter are the model's probability and the market's (the anchor it is blended towards), so both
+    are drawn on the same 50-100% axis: the gap between them *is* the story of the pick. The model bar is the
+    highlighted one, and the market bar is only added when the book actually priced the pick.
+    """
     rows = market_rows(detail, pick)
     if not rows:
         return []
-    top = rows[:limit]
-    if not any(r["picked"] for r in top):
-        mine = next((r for r in rows if r["picked"]), None)
-        if mine:
-            top = (top[: limit - 1] + [mine])
-    return sorted(top, key=lambda r: (-r["p"], not r["picked"]))
+    mine = dict(next((r for r in rows if r["picked"]), rows[0]))
+    mine["picked"] = True                 # the featured market is the one the slide is about, always highlighted
+    out = [mine]
+    market_p = _f(mine.get("p_sb"))
+    if market_p is not None and 0.0 < market_p < 1.0:
+        out.append({"sel": f"{mine['sel']}#market", "label": "Market price (de-vigged)", "p": market_p,
+                    "odds": None, "p_sb": None, "picked": False, "market": True})
+    return sorted(out[:limit], key=lambda r: (-r["p"], not r["picked"]))
 
 
 def market_group(sel: str) -> str:
@@ -190,14 +198,11 @@ def market_group(sel: str) -> str:
 
 def featured_pick(pick: dict, detail: dict | None, *, min_p: float = 0.65,
                   min_odds: float = 1.16) -> dict:
-    """The pick, switched to the strongest market this match offers, when a stronger one exists.
+    """The Over 1.5 line, refreshed from the fixture's own detail when it beats the board's copy.
 
-    The chart on THE PICK slide has to show the featured market as its highest bar (user rule 2026-10-21). The board
-    ranks the markets *it* collected, so its own selection is not always the strongest one in the fixture detail —
-    e.g. a team-to-score market at 76% can beat the Over 1.5 at 74%. Rather than draw a chart that quietly disagrees
-    with the pick, the video takes the strongest market the fixture actually offers, provided it is a market the
-    video may show, still clears the 65% bar and still has a usable price. Everything about the match is untouched.
-    Returns a copy; the caller's dict is never modified.
+    With one market per video (2026-10-27) this no longer switches markets — it only keeps the probability and price
+    in step with the detail file the rest of the slides are drawn from, and only when that is a genuine improvement
+    (65%+ and priced at 1.16+). Returns a copy; the caller's dict is never modified.
     """
     rows = market_rows(detail, {**pick, "sel": ""})
     own = str(pick.get("sel") or "").upper()

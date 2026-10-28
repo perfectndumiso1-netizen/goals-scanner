@@ -1399,83 +1399,104 @@ view().innerHTML = parts.join('');
       <div>• Odds never decide what makes the card — model probability, data quality and form do; the price is shown on every pick.</div>
       <div>• Check <b>Performance</b> weekly: if the real hit rate sits below the model's predicted rate for weeks, bet smaller.</div>
       </div><div class="row" style="margin-top:8px;gap:8px"><button class="btn grow" id="adv-perf">Performance &amp; calibration</button><button class="btn grow" id="adv-best">Best of the day</button></div></div>`);
+    // The briefing lives here and only here (user rule 2026-10-27): the Bet Advisor tab is where a viewer watches the
+    // day's card read out slowly, match by match, in the same order as the Telegram/YouTube video.
+    parts.push(`<div class="card compact briefing-cta"><div class="row"><div class="grow"><div class="b">${icon('sparkle', 'sm')} Today’s briefing</div><div class="tiny muted">Opens with yesterday’s full card — every selection from every video — then today’s <b>Over 1.5</b> picks one at a time, with the reasons, both clubs’ last five and the head to head. Only matches with recent stats and a recent head to head appear; no match is repeated. Silent slides, one music track, kick-off times in SAST, and the pacing is deliberately slow. A shortlist for your review — never an instruction to bet.</div></div></div>
+      <div class="row" style="gap:8px;margin-top:8px"><button class="btn" id="btn-briefing">${icon('live', 'sm')} Watch briefing</button><button class="btn" id="btn-briefing-dl">${icon('download', 'sm')} Download 16:9 video</button></div></div>`);
     parts.push(`<div class="note">Statistical information, not betting advice. Never stake money you cannot afford to lose.</div>`);
     view().innerHTML = parts.join('');
     wireBack();
     const bp = $('#adv-perf'); if (bp) bp.onclick = () => PR.push({ type: 'performance' });
     const bb = $('#adv-best'); if (bb) bb.onclick = () => PR.push({ type: 'best' });
+    const wb = $('#btn-briefing'); if (wb) wb.onclick = () => PR.push({ type: 'briefing' });
+    const wd = $('#btn-briefing-dl'); if (wd) wd.onclick = () => PR.push({ type: 'briefing', download: true });
   };
 
-  // ------------------------------------------------------------------ SHORTLIST BRIEFING (16:9 video-style player + download)
-  // The on-phone briefing mirrors the Telegram/YouTube video (2026-10-21): a match is up to THREE slides — the pick
-  // with a chart of every market the video covers, why it is here (reasons, trends, home/away), and the record
-  // (head to head plus both clubs' last five). Videos only carry Over 1.5 total goals and corners; team goals,
-  // bookings, BTTS, Over 2.5, 1X2 and unders are out (2026-10-27 model review), and no accumulator anywhere.
+  // ------------------------------------------------------------------ BET ADVISOR BRIEFING (16:9 video-style player + download)
+  // The on-phone briefing mirrors the Telegram/YouTube video (2026-10-21) and lives ONLY on the Bet Advisor tab
+  // (user rule 2026-10-27): a match is up to THREE slides — the pick, why it is here (reasons, trends, home/away), and
+  // the record (head to head plus both clubs' last five). The videos carry **Over 1.5 total goals only**; corners,
+  // team goals, bookings, BTTS, Over 2.5, 1X2 and unders are out. A match is never repeated, and a match only appears
+  // when its own detail has recent results for both clubs AND a recent head to head — the same gate as `reel_verify`
+  // in the pipeline. No accumulator anywhere.
+  const REEL_MIN_P = 0.65;               // the same floor the YouTube/TikTok cuts use
+  const REEL_MIN_ODDS = 1.16;
+  const REEL_MAX_PICKS = 8;              // slower pacing means fewer matches per video
+  const GATE_MIN_RESULTS = 5;            // recent results per club, with a score
+  const GATE_MIN_H2H = 2;                // head-to-head meetings with a score
   function reelMarket(x) {
-    const sel = String((x && x.sel) || '').toUpperCase();
-    return /^(?:O15|C[HA]?O\d+)$/.test(sel);
+    return String((x && x.sel) || '').toUpperCase() === 'O15';
+  }
+  function briefingClub(name) {
+    return String(name || '').toLowerCase().replace(/[^a-z0-9]+/g, ' ')
+      .replace(/\b(fc|cf|sc|ac|afc|club)\b/g, '').trim();
   }
   function briefingPicks() {
     const sl = (state.data && state.data.shortlist) || {};
-    return (sl.primary || []).filter(reelMarket).slice(0, 12);
+    const seen = {};
+    const out = [];
+    (sl.primary || []).concat(sl.x12 || []).forEach((x) => {
+      if (!reelMarket(x)) return;
+      const p = Number(x.p);
+      if (!(p >= REEL_MIN_P && p < 1)) return;
+      const odds = Number(x.odds);
+      if (odds && odds < REEL_MIN_ODDS) return;
+      const key = `${briefingClub(x.home)}|${briefingClub(x.away)}`;
+      if (seen[key]) return;               // a match is introduced once, never twice
+      seen[key] = 1;
+      out.push(x);
+    });
+    return out.slice(0, REEL_MAX_PICKS);
   }
-  const REEL_MIN_P = 0.65;       // the same floor the YouTube/TikTok cuts use
-  const REEL_MIN_ODDS = 1.16;
-  function marketLabel(sel, home, away) {
+  /** the stats gate: both clubs' last five with scores, and at least two head-to-head meetings with scores */
+  function briefingVerified(x, det) {
+    if (!det || !det.teams) return false;
+    const distinct = (list, a, b) => {
+      const seen = {};
+      return (list || []).filter((m) => Number(m[a]) >= 0 && Number(m[b]) >= 0 && m.date).filter((m) => {
+        const key = `${String(m.date || '').slice(0, 10)}|${Number(m[a])}|${Number(m[b])}`;
+        if (seen[key]) return false;
+        seen[key] = 1;
+        return true;
+      });
+    };
+    const rows = (side) => distinct(((det.teams || {})[side] || {}).last5, 'gf', 'ga');
+    const h2h = distinct(det.h2h, 'hg', 'ag');
+    return rows('home').length >= GATE_MIN_RESULTS && rows('away').length >= GATE_MIN_RESULTS
+      && h2h.length >= GATE_MIN_H2H;
+  }
+  function marketLabel(sel) {
     const s = String(sel || '').toUpperCase();
-    const num = (s.match(/\d+/g) || ['0']).join('');
-    const line = Number(num) / 10;
-    let m = s.match(/^O(\d+)$/);
-    if (m) return `Over ${line.toFixed(1)} goals`;
-    m = s.match(/^([HA])O(\d+)$/);
-    if (m) {
-      const team = m[1] === 'H' ? home : away;
-      return line <= 0.5 ? `${team} to score` : `${team} ${line + 0.5}+ goals`;
-    }
-    m = s.match(/^C([HA])?O(\d+)$/);
-    if (m) {
-      if (!m[1]) return `Over ${line.toFixed(1)} corners`;
-      return `${m[1] === 'H' ? home : away} ${line + 0.5}+ corners`;
-    }
-    m = s.match(/^K([HA])?O(\d+)$/);
-    if (m) {
-      if (!m[1]) return `Over ${line.toFixed(1)} cards`;
-      return `${m[1] === 'H' ? home : away} ${line + 0.5}+ cards`;
-    }
-    return s;
+    const m = s.match(/^O(\d+)$/);
+    if (m) return `Over ${(Number(m[1]) / 10).toFixed(1)} goals`;
+    return s;                               // one market on the videos (Over 1.5): anything else is shown as its code
   }
-  /** every market the video may show for this match, strongest first — read straight from the fixture's `sels` */
+  /** the two numbers THE PICK slide is about: the model's Over 1.5, and the market line it was anchored to */
   function briefingMarketRows(x) {
     const f = (state.data && fx(x.fixture)) || {};
-    const home = x.home || f.home || 'Home';
-    const away = x.away || f.away || 'Away';
-    const rows = [];
+    let p = Number(x.p);
+    let odds = Number(x.odds) || null;
     (f.sels || []).forEach((s) => {
-      if (!Array.isArray(s) || !s.length) return;
-      const sel = String(s[0]).toUpperCase();
-      if (!reelMarket({ sel })) return;
-      const p = Number(s[1]);
-      if (!(p >= REEL_MIN_P && p < 1)) return;
-      const odds = Number(s[4]) > 1 ? Number(s[4]) : null;
-      rows.push({ sel, label: marketLabel(sel, home, away), p, odds, picked: sel === String(x.sel || '').toUpperCase() });
+      if (!Array.isArray(s) || String(s[0]).toUpperCase() !== 'O15') return;
+      const dp = Number(s[1]);
+      if (dp >= REEL_MIN_P && dp < 1) { p = Math.max(p || 0, dp); odds = Number(s[4]) > 1 ? Number(s[4]) : odds; }
     });
-    const own = String(x.sel || '').toUpperCase();
-    if (own && !rows.some((r) => r.sel === own) && Number(x.p) >= REEL_MIN_P) {
-      rows.push({ sel: own, label: marketLabel(own, home, away), p: Number(x.p), odds: Number(x.odds) || null, picked: true });
+    if (!(p >= REEL_MIN_P && p < 1)) return [];
+    const rows = [{ sel: 'O15', label: marketLabel('O15'), p, odds, picked: true }];
+    const psb = Number(x.p_sb);
+    if (psb > 0 && psb < 1) {
+      rows.push({ sel: 'O15#market', label: 'Market price (de-vigged)', p: psb, odds: null, picked: false, market: true });
     }
-    rows.sort((a, b) => b.p - a.p || (b.picked ? 1 : 0) - (a.picked ? 1 : 0));
-    return rows;
+    return rows.sort((a, b) => b.p - a.p || (b.picked ? 1 : 0) - (a.picked ? 1 : 0));
   }
-  /** the featured market is the strongest one the video may show, so the green bar is also the tallest bar */
+  /** the pick is Over 1.5, refreshed from the fixture's own detail when that is the stronger, priced line */
   function briefingFeatured(x, rows) {
     const own = String(x.sel || '').toUpperCase();
-    const best = rows.filter((r) => r.p >= REEL_MIN_P && (r.odds || 0) >= REEL_MIN_ODDS)[0];
-    const baseP = Number(x.p) || 0;
-    if (!best || best.sel === own || best.p <= baseP + 0.005) return x;
-    const out = Object.assign({}, x, {
-      sel: best.sel, label: best.label, p: best.p, odds: best.odds || x.odds, featured: true,
+    const best = rows.filter((r) => !r.market && r.p >= REEL_MIN_P && (r.odds || 0) >= REEL_MIN_ODDS)[0];
+    if (own === 'O15' || !best) return x;
+    return Object.assign({}, x, {
+      sel: 'O15', label: best.label, p: best.p, odds: best.odds || x.odds, featured: true,
     });
-    return out;
   }
   function briefingDetail(x) {
     const f = (state.data && fx(x.fixture)) || {};
@@ -1536,14 +1557,32 @@ view().innerHTML = parts.join('');
     return out;
   }
   function briefingRecent(det, side) {
+    // a club cannot play twice on one date with the same score: that pair is the same match from two feeds, and
+    // showing it twice is how a "last five" became three matches (fixed at the source 2026-10-28, guarded here)
     const team = (det.teams || {})[side] || {};
-    return (team.last5 || []).filter((m) => Number(m.gf) >= 0 && Number(m.ga) >= 0).slice(0, 5).map((m) => ({
-      opp: m.opp || '', gf: Number(m.gf), ga: Number(m.ga),
-      res: Number(m.gf) > Number(m.ga) ? 'W' : Number(m.gf) < Number(m.ga) ? 'L' : 'D',
-    }));
+    const seen = {};
+    const out = [];
+    (team.last5 || []).forEach((m) => {
+      if (!(Number(m.gf) >= 0 && Number(m.ga) >= 0)) return;
+      const key = `${String(m.date || '').slice(0, 10)}|${Number(m.gf)}|${Number(m.ga)}`;
+      if (seen[key]) return;
+      seen[key] = 1;
+      out.push({
+        opp: m.opp || '', gf: Number(m.gf), ga: Number(m.ga),
+        res: Number(m.gf) > Number(m.ga) ? 'W' : Number(m.gf) < Number(m.ga) ? 'L' : 'D',
+      });
+    });
+    return out.slice(0, 5);
   }
   function briefingH2h(x, det) {
-    const rows = (det.h2h || []).filter((m) => Number(m.hg) >= 0 && Number(m.ag) >= 0).slice(0, 5).map((m) => {
+    const seen = {};
+    const meetings = (det.h2h || []).filter((m) => Number(m.hg) >= 0 && Number(m.ag) >= 0).filter((m) => {
+      const key = `${String(m.date || '').slice(0, 10)}|${Number(m.hg)}|${Number(m.ag)}`;
+      if (seen[key]) return false;
+      seen[key] = 1;
+      return true;
+    });
+    const rows = meetings.slice(0, 5).map((m) => {
       const homeIsUs = String(m.home || '').toLowerCase() === String(x.home || '').toLowerCase();
       const gf = homeIsUs ? Number(m.hg) : Number(m.ag);
       const ga = homeIsUs ? Number(m.ag) : Number(m.hg);
@@ -1559,7 +1598,9 @@ view().innerHTML = parts.join('');
     return { rows, line: `${w}W · ${d}D · ${rows.length - w - d}L in the last ${rows.length} meetings · ${goals.toFixed(1)} goals a game` };
   }
   function briefingSlides() {
-    const picks = briefingPicks();
+    // only matches whose own numbers check out (recent results both sides + a recent head to head) reach a slide,
+    // exactly like the pipeline's `reel_verify` gate — an unverifiable match is left out, never shown half-explained
+    const picks = briefingPicks().filter((x) => briefingVerified(x, briefingDetail(x)));
     const sl = (state.data && state.data.shortlist) || {};
     const yr = sl.yesterday_results || {};
     // Every selection yesterday's videos carried (morning, noon and evening), not just the last one.
@@ -1616,13 +1657,13 @@ view().innerHTML = parts.join('');
       const comp = [x.country, x.league].filter(Boolean).join(' · ');
       const kicker = `Match ${i + 1} of ${picks.length}${comp ? ' · ' + comp : ''}`;
       const odds = x.odds ? f2(x.odds) : 'N/A';
-      const chart = rows.slice(0, 6).map((r) => ({ label: r.label, p: r.p, picked: r.sel === String(x.sel || '').toUpperCase() }));
-      if (!chart.some((r) => r.picked) && Number(x.p) > 0) chart.push({ label: marketLabel(x.sel, x.home, x.away), p: Number(x.p), picked: true });
+      const chart = rows.map((r) => ({ label: r.label, p: r.p, picked: r.sel === 'O15' }));
       slides.push({
         stage: 'pick', kicker: `${kicker} · the pick`, title: `${x.home} v ${x.away}`,
-        sub: `${x.label || ''} @ ${odds} · Kick-off ${esc(koTime(x.kickoff))} SAST`,
-        line: `${Number(x.p) > 0 ? 'Model ' + Math.round(Number(x.p) * 100) + '%' : 'Model N/A'}${x.featured ? ' · strongest market for this match' : ''}`,
-        pick: x, bars: chart.sort((a, b) => b.p - a.p),
+        sub: `${x.label || 'Over 1.5 goals'} @ ${odds} · Kick-off ${esc(koTime(x.kickoff))} SAST`,
+        line: `${Number(x.p) > 0 ? 'Model ' + Math.round(Number(x.p) * 100) + '%' : 'Model N/A'}`
+          + (Number(x.p_sb) > 0 ? ` · market ${Math.round(Number(x.p_sb) * 100)}%` : ' · the book did not price it'),
+        pick: x, bars: chart,
       });
       const reasons = briefingReasons(x, det);
       const trends = briefingTrends(det);
@@ -1655,27 +1696,28 @@ view().innerHTML = parts.join('');
     return slides;
   }
   function briefingHold(slide) {
-    // No voice on the phone either (user rule 2026-10-21). Talking slides stay up as long as their words take to
-    // read, at the 2.6 words a second the videos use; the pick/evidence/record slides are timed by what is on them,
-    // exactly like `shortlist_reel.stage_seconds` (5–11 s), so nothing sits still.
+    // No voice on the phone either (user rule 2026-10-21). 2026-10-27: the pacing was still too quick to read, so the
+    // phone player uses the same, much slower timing as the video: `music.READ_WPS` 1.85 words a second, and
+    // `shortlist_reel.stage_seconds` — pick 6.5 + 0.9 a bar, evidence/record 4.5 + 1.3 a line, floors 6.5 / 7.5 /
+    // 8.5 s and a 16 s cap. A viewer gets time to read the stats before the next screen.
     const stage = slide && slide.stage;
     if (stage) {
       const lines = ((slide.bullets || []).length + (slide.h2h || []).length
         + ((slide.recent || []).reduce((a, r) => Math.max(a, r.rows.length), 0)));
       const bars = (slide.bars || []).length;
-      const secs = stage === 'pick' ? 4.2 + 0.28 * bars : 2.4 + 0.5 * Math.max(1, lines);
-      const floor = stage === 'pick' ? 5 : stage === 'evidence' ? 5.6 : 6;
-      return Math.round(Math.min(11, Math.max(floor, secs)) * 1000);
+      const secs = stage === 'pick' ? 6.5 + 0.9 * Math.max(1, bars) : 4.5 + 1.3 * Math.max(1, lines);
+      const floor = stage === 'pick' ? 6.5 : stage === 'evidence' ? 7.5 : 8.5;
+      return Math.round(Math.min(16, Math.max(floor, secs)) * 1000);
     }
     const words = String(((slide && slide.title) || '') + ' ' + ((slide && slide.sub) || '') + ' ' + ((slide && slide.line) || '')).trim().split(/\s+/).filter(Boolean).length;
-    // 2.6 s–16 s: a results card is something to scan, not a paragraph to read out, so a long one never sits still
-    // for a minute on the phone the way a narration script could.
-    return Math.min(16000, Math.max(2600, Math.round((words / 2.6) * 1000)));
+    // 4 s–45 s at 1.85 words a second: a results card is something to scan, and a long one still ends.
+    return Math.min(45000, Math.max(4000, Math.round((words / 1.85) * 1000)));
   }
   /** the market chart, drawn the same way as THE PICK slide: 50–100% axis, the pick green and on top */
   function briefingBarsHtml(bars) {
     if (!bars || !bars.length) return '';
     const top = Math.max.apply(null, bars.map((b) => b.p));
+    if (bars.length < 2 && !bars[0].picked) bars[0].picked = true;
     const rows = bars.map((b) => {
       const pct = Math.max(2, Math.min(100, ((b.p - 0.5) / 0.5) * 100));
       return `<div class="barrow${b.picked ? ' on' : ''}"><span class="bl">${esc(b.label)}</span>
@@ -1684,7 +1726,9 @@ view().innerHTML = parts.join('');
     }).join('');
     return `<div class="bars">${rows}</div>
       <div class="axis"><span>50%</span><span>75%</span><span>100%</span></div>
-      <div class="tiny muted">${bars[0].picked ? 'The selection is the highest of this match’s markets' : 'The highest is ' + esc(bars[0].label) + ' at ' + Math.round(top * 100) + '% — ours is in green'}</div>`;
+      <div class="tiny muted">${bars.length > 1
+        ? 'Model ' + Math.round(100 * bars.find((b) => b.picked).p) + '% vs market ' + Math.round(100 * (bars.find((b) => b.market) || {}).p) + '% — the gap is the edge'
+        : 'The model’s own number — the book did not price this one'}</div>`;
   }
   function briefingSlideHtml(s) {
     const bars = s.bars ? briefingBarsHtml(s.bars) : '';
@@ -1754,9 +1798,9 @@ view().innerHTML = parts.join('');
     });
     const paintBriefing = () => {
     const slides = briefingSlides();
-    const parts = [head('Shortlist briefing', 'Video · three slides a match · downloadable')];
+    const parts = [head('Bet advisor briefing', 'Over 1.5 only · three slides a match · downloadable')];
     if (slides.length < 2) {
-      parts.push('<div class="card empty">The shortlist is empty — the briefing appears once today’s picks publish.</div>');
+      parts.push('<div class="card empty">Nothing to brief yet — the briefing appears once today’s Over 1.5 picks publish with their stats and head-to-head data checked.</div>');
       view().innerHTML = parts.join(''); wireBack(); return;
     }
     parts.push(`<div class="briefing" id="briefing">
