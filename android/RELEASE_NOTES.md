@@ -1,3 +1,12 @@
+## What's new — Over 1.5 only, verified before it is filmed, and slow enough to read
+- ⚽ **The videos carry Over 1.5 total goals and nothing else.** Corners have left the videos (they stay on the shortlist board). One market per match, so the pick slide shows the two numbers that matter: the model's chance and the market's, side by side.
+- 📊 **No match without recent stats and a recent head to head.** A match only reaches a video when **both clubs have at least five completed results with scores** (and the newest is current) **and there are at least two head-to-head meetings with scores, the latest inside three years.** No head to head, or nothing for years, and the match is left out instead of being shown half-explained.
+- 🌐 **Double-checked online before finalising.** Every match is searched again before the video is built. A headline that says the game is postponed, cancelled or abandoned drops the match; matches the internet confirms are used first; anything unconfirmed is a last resort and is logged. A search failure never blocks a video — it just counts as unconfirmed.
+- 🐢 **Much slower pacing.** Slides stay up far longer: the pick slide 6.5 s plus 0.9 s a bar, the stats slides 4.5 s plus 1.3 s a line (minimum 6.5 / 7.5 / 8.5 s, maximum 16 s), and every talking slide is read at 1.85 words a second instead of 2.6. You can read the stats before the next screen.
+- 🔁 **A match is never repeated**, within a video or across the three videos of the day — the same fixture under two spellings or two kick-off times is still the same match.
+- 📱 **The briefing lives on the Bet Advisor tab only.** The Shortlist tab no longer offers it, and the phone player uses the same rules and the same slow timing as the video.
+- 🐛 **Fixed: the same match counted twice.** A completed fixture arriving from two feeds put the same score in a club's "last five" twice (found while cross-checking today's picks: Aberdeen's last five held Dundee United 2-3 twice), which inflated form, sample sizes and head-to-head counts. Duplicates are now removed at the source and again before anything is shown.
+
 ## What's new — the videos are silent: one music bed, no voice
 - 🎵 **The AI narration is gone.** Every video — the 16:9 shortlist, the 9:16 reel and the match breakdown — now carries one background track for its whole length instead of a voiceover.
 - ⏱️ **Same length, same format.** Each slide stays up for as long as its own words take to read, at the pace the narration used to speak them, so the videos run exactly as long as before.

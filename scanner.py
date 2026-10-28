@@ -935,10 +935,37 @@ def compute_div_avgs(results: pd.DataFrame, now: datetime) -> dict[str, DivAvg]:
     return out
 
 
+def dedupe_results(results: pd.DataFrame) -> pd.DataFrame:
+    """One row per real match: the same fixture arrives from more than one source and must not count twice.
+
+    The history pool is a concat of the domestic feeds, the extra-league feeds and the world archive, so a completed
+    match can land in it two or three times (different source, same clubs and date). Every statistic built on the
+    pool then counts that match two or three times: "last five" showed the same 2-3 twice, the sample size `n` was
+    inflated, and the form list a video reads was really three matches described as five. Found while cross-checking
+    live picks against the internet on 2026-10-28 (Aberdeen's last five held Dundee United 2-3 twice). The first row
+    wins, which keeps the more specific domestic feed over the archive, and the score columns are compared so a
+    genuinely corrected result is not silently merged away.
+    """
+    if results is None or results.empty:
+        return results
+    need = ("country", "date", "home", "away")
+    if not all(col in results.columns for col in need):
+        return results
+    key = []
+    for _i, row in results[list(need)].iterrows():
+        key.append("|".join(" ".join(str(row[col]).strip().lower().split()) for col in need))
+    out = results.assign(__k=key)
+    for score in ("hg", "ag"):
+        if score in out.columns:
+            out["__k"] = out["__k"] + "|" + out[score].astype(str)
+    return out.drop_duplicates(subset="__k", keep="first").drop(columns="__k").reset_index(drop=True)
+
+
 def make_long(results: pd.DataFrame, div_avgs: dict[str, DivAvg]) -> pd.DataFrame:
     """One row per team per match (perspective table) with league-normalised goals."""
     if results.empty:
         return pd.DataFrame()
+    results = dedupe_results(results)
     g = div_avgs.get("__global__", DivAvg(1.45, 1.2, 0, float("nan"), float("nan")))
     mu_h = results["div"].map(lambda d: div_avgs.get(d, g).mu_h).astype(float)
     mu_a = results["div"].map(lambda d: div_avgs.get(d, g).mu_a).astype(float)
@@ -1127,6 +1154,10 @@ def build_profile(long: pd.DataFrame, country: str, team: str, venue: str, now: 
     rows = team_history(long, country, team, team_id)
     if rows.empty:
         return p
+    # a club cannot play two matches on the same date with the same score, so that pair is a duplicate however the
+    # opponent's name was written ("Dundee United" / "Dundee Utd"); the newest row is kept
+    if {"date", "gf", "ga"}.issubset(rows.columns):
+        rows = rows.drop_duplicates(subset=["date", "gf", "ga"], keep="first")
     # friendlies are excluded from the core statistics once the team has enough competitive matches; otherwise they
     # stay in and are flagged in the sample composition (never silently)
     if "friendly" in rows.columns and rows["friendly"].any():
@@ -1215,6 +1246,8 @@ def head_to_head(results: pd.DataFrame, country: str, home: str, away: str, limi
         m = results[(results["country"] == country) &
                     (((results["home"] == home) & (results["away"] == away)) |
                      ((results["home"] == away) & (results["away"] == home)))]
+    if {"date", "hg", "ag"}.issubset(m.columns):
+        m = m.drop_duplicates(subset=["date", "hg", "ag"], keep="first")
     m = m.sort_values("date", ascending=False).head(limit)
     out = [{"date": r.date, "home": r.home, "away": r.away, "hg": int(r.hg), "ag": int(r.ag),
             "league": r.league} for r in m.itertuples()]
@@ -2666,9 +2699,12 @@ def _reel_slot(now: datetime) -> str | None:
 def maybe_send_daily_reel(sl_pub: dict, now: datetime) -> None:
     """Shortlist video to Telegram three times a day (morning / noon / evening SAST).
 
-    Each slot is a fresh 12-pick set: matches already shown earlier today are skipped.
-    Only selections at 65%+ go in. Starts with yesterday's settled video picks on the
-    morning slot. Video is deleted after a successful send — never git, never Drive.
+    Every slot is a fresh set of matches, and each slot's matches are added to `briefing_history` so the next slot
+    (and tomorrow's) can never show the same match twice. The videos carry **Over 1.5 total goals only**, at 65%+,
+    and only for matches that pass the checks in `reel_verify` — recent results for both clubs, a recent head to
+    head, and an internet cross-check that does not contradict the fixture. Whatever is dropped is logged with the
+    reason. The morning video starts with yesterday's settled video picks. Video is deleted after a successful send —
+    never git, never Drive.
     """
     if reel_mod is None:
         return
@@ -2688,9 +2724,14 @@ def maybe_send_daily_reel(sl_pub: dict, now: datetime) -> None:
     used = {(str(x.get("home") or ""), str(x.get("away") or ""))
             for x in (hist.get(today) or []) if isinstance(x, dict)}
     pool = list((sl_pub or {}).get("x12") or []) + list((sl_pub or {}).get("primary") or [])
-    prim = reel_mod.reel_picks(pool, used=used)
+    fx_dir = APP_FILE.parent / "fx"
+    prim, dropped = reel_mod.video_picks(pool, used=used, fx_dir=fx_dir, now=now)
     if not prim:
+        log.warning("Daily reel skipped: no match passed the stats / head-to-head / internet check "
+                    "(%d candidates, %d dropped)", len(pool), len(dropped))
         return
+    if dropped:
+        log.info("Daily reel: %d match(es) left out of this video", len(dropped))
     assets = ROOT / "assets" / "reel"
     if not (assets / "logo.png").exists():
         log.warning("Daily reel skipped: assets/reel missing")
@@ -3281,6 +3322,10 @@ def main() -> None:
     pool = pd.concat([f for f in (main_all, extra_all, world_all) if f is not None and not f.empty] or [empty_results()],
                      ignore_index=True)
     pool = pool.dropna(subset=["date", "hg", "ag"]).sort_values("date", ascending=False).reset_index(drop=True)
+    before = len(pool)
+    pool = dedupe_results(pool)
+    if len(pool) < before:
+        log.info("History pool: dropped %d duplicate match row(s) (the same fixture from two sources)", before - len(pool))
     results = pool[pool["date"] >= since].reset_index(drop=True)
     log.info("History pool: %d matches for the model (%d incl. older seasons for head-to-head; %d from Livescore)",
              len(results), len(pool), 0 if world_all is None or world_all.empty else len(world_all))

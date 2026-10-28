@@ -24,6 +24,7 @@ import subprocess
 import sys
 import tempfile
 import urllib.request
+from datetime import datetime
 from pathlib import Path
 
 import music
@@ -56,8 +57,10 @@ CARD_BG = (8, 22, 38)
 BADGE_BASE = "https://lsm-static-prod.livescore.com/medium/"
 TAIL = 0.70          # extra hold after a slide's words so the next one never lands on top of the last line
 INTRO_MIN = 5.0      # logo sting, seconds
-MAX_PICKS = 12
-MAX_TOTAL = 240.0
+# 2026-10-27 (user): the videos carry Over 1.5 only, and they were too fast to read. Fewer matches, each on screen
+# long enough to take in: eight matches at three slides is a full video without racing the reader.
+MAX_PICKS = 8
+MAX_TOTAL = 300.0
 RECAP_ROWS = 9       # results per recap slide (readable in both 16:9 and 9:16)
 MAX_RECAP = 60       # every selection from yesterday's three videos, with a hard ceiling
 
@@ -584,7 +587,9 @@ def render_pick(pick: dict, i: int, n: int, bg: Path, home_b: Path, away_b: Path
 # record (head to head plus both teams' recent results). The screen changes every few seconds, and every number on
 # it comes from the app's own fixture detail — see reel_insights.
 
-STAGE_FLOOR = {"pick": 5.0, "evidence": 5.6, "record": 6.0}
+# The minimum time a slide of each kind is on screen (2026-10-27: raised from 5.0 / 5.6 / 6.0 — the viewer could not
+# read the numbers before the next slide arrived).
+STAGE_FLOOR = {"pick": 6.5, "evidence": 7.5, "record": 8.5}
 
 
 def _ellip(d, s: str, fnt, max_w: int) -> str:
@@ -638,21 +643,30 @@ def _progress_bar(d, cw: int, ch: int, i: int, n: int, *, wide: bool) -> None:
 
 
 def _chart(d, rows: list[dict], box: tuple[int, int, int, int], *, wide: bool) -> None:
-    """Horizontal probability bars for every market the video covers.
+    """Horizontal probability bars: the model's Over 1.5 against the de-vigged market's.
 
-    The scale runs from 50% to 100% rather than from zero: every market in a video is 65%+ by rule, so a zero-based
-    axis would draw six near-identical bars and hide the differences the reader is here to see. The axis is labelled,
-    so the truncation is never hidden. In portrait each bar gets its own label line above it (`stacked`) — a 9:16
-    frame cannot fit a market name beside a bar without cutting the name in half.
+    The scale runs from 50% to 100% rather than from zero: every pick is 65%+ by rule, so a zero-based axis would
+    draw two identical-looking bars and hide the gap the reader is here to see. The axis is labelled, so the
+    truncation is never hidden. In portrait each bar gets its own label line above it — a 9:16 frame cannot fit a
+    market name beside a bar without cutting the name in half.
     """
     x0, y0, x1, y1 = box
     if not rows:
         return
     top_p = max(r.get("p", 0.0) for r in rows)
     picked_top = bool(rows[0].get("picked"))
-    title = _heading(d, x0, y0, "Model probability by market", size=19 if wide else 22)
-    note = ("the selection tops this match's markets" if picked_top
-            else f"the highest is {rows[0].get('label')} at {100 * top_p:.0f}% — ours is in green")
+    market = next((r for r in rows if r.get("market")), None)
+    title = _heading(d, x0, y0, "Over 1.5 — model vs market" if market else "Over 1.5 probability",
+                     size=19 if wide else 22)
+    if market:
+        mine = next((r for r in rows if r.get("picked")), rows[0])
+        gap = 100 * (mine.get("p", 0.0) - market.get("p", 0.0))
+        note = (f"model {100 * mine.get('p', 0):.0f}% vs market {100 * market.get('p', 0):.0f}% "
+                f"({gap:+.0f} pts)" if picked_top else
+                f"the market is {100 * market.get('p', 0):.0f}% — ours is in green")
+    else:
+        note = ("the model's own number — the book did not price this one" if picked_top
+                else f"the highest is {rows[0].get('label')} at {100 * top_p:.0f}%")
     nf = _font(15 if wide else 19, False)
     if wide:
         d.text((x1 - _tw(d, note, nf), y0 + 4), note, fill=GREEN if picked_top else MUTED, font=nf)
@@ -1024,16 +1038,18 @@ def render_pick_record(pick: dict, i: int, n: int, bg: Path, dest: Path, *,
 def stage_seconds(stage: str, *, bars: int = 0, lines: int = 0) -> float:
     """How long a slide stays up: scaled to how much is on it, floored so nothing flashes past.
 
-    These slides are dense (a six-bar chart, or five meetings plus ten results), so the pace is roughly a line per
-    second — not the old 2.6-words-a-second narration pace. A slide is never shorter than its floor and never longer
-    than 11 s, which is what keeps the screen moving between selections.
+    2026-10-27 (user): the videos moved on before the viewer could read the numbers. The old pace gave a dense
+    evidence or record slide five to seven seconds — a line a second is a scan, not a read. Every slide now gets
+    `STAGE_FLOOR[stage]` seconds before anything else is added, and each line on it buys about a second and a third
+    on top, so a record slide with ten results is up for ~16 s. The cap keeps a pathological slide from stalling the
+    video; the length guard (`MAX_TOTAL`) handles the rest by dropping picks, never by speeding slides up again.
     """
-    floor = STAGE_FLOOR.get(stage, 5.6)
+    floor = STAGE_FLOOR.get(stage, 7.0)
     if stage == "pick":
-        secs = 4.2 + 0.28 * bars
+        secs = 6.5 + 0.9 * max(1, bars)
     else:
-        secs = 2.4 + 0.5 * max(1, lines)
-    return float(min(11.0, max(floor, secs)))
+        secs = 4.5 + 1.3 * max(1, lines)
+    return float(min(16.0, max(floor, secs)))
 
 
 def render_closer(logo: Path, bg: Path, dest: Path, *, aspect: str | None = None, size: tuple[int, int] | None = None) -> None:
@@ -1451,16 +1467,17 @@ def _reel_p(p: dict) -> float | None:
     return None
 
 
-# 2026-10-27 (model review): the videos carry the two families that survived — Over 1.5 total goals and corners.
-# Team goals (-6.4 % ROI, home team to score -10.1 %) and bookings (-9.4 %) left with their families, so a payload
-# published before the change cannot put them back on screen.
-REEL_MARKET_RE = re.compile(r"^(?:O15|C[HA]?O\d+)$")
+# 2026-10-27 (user rule, latest): the videos cover **Over 1.5 total goals and nothing else**. Corners came out with
+# this change — the point of the videos is the one market the record actually supports, explained properly — and the
+# families dropped by the model review (team goals, bookings, BTTS, Over 2.5, 1X2, unders) were never coming back.
+# A payload published before any of these changes cannot put a dropped market on screen.
+REEL_MARKET_RE = re.compile(r"^O15$")
 
 
 def is_reel_market(p: dict) -> bool:
-    """Videos carry Over 1.5 total goals and corners — nothing else (user rule 2026-10-27, was 2026-10-21).
+    """Videos carry Over 1.5 total goals — nothing else (user rule 2026-10-27, was Over 1.5 + corners).
 
-    Team goals, bookings, BTTS, Over 2.5, 1X2 and every under are out, and no accumulator is built from the picks.
+    Corners, team goals, bookings, BTTS, Over 2.5, 1X2 and every under are out, and no accumulator is built.
     """
     sel = str(p.get("sel") or "").upper()
     blob = " ".join(str(p.get(k) or "") for k in ("label", "market", "group")).lower()
@@ -1470,7 +1487,20 @@ def is_reel_market(p: dict) -> bool:
 
 
 def _match_key(p: dict) -> tuple:
-    return (str(p.get("kickoff") or ""), str(p.get("home") or ""), str(p.get("away") or ""))
+    """The clubs, not the kick-off: the same fixture is the same match however its time is written.
+
+    The board, the primary list and yesterday's history can each carry the same fixture with a slightly different
+    kick-off string (timezone, a corrected time), which used to let one match appear twice in a video. The user rule
+    is that a match is never repeated, so identity here is the pair of clubs.
+    """
+    return (_club(p.get("home")), _club(p.get("away")))
+
+
+def _club(name) -> str:
+    text = re.sub(r"[^a-z0-9]+", " ", str(name or "").lower()).strip()
+    for noise in (" fc", " cf", " sc", " ac", " afc", " club", " football club", " united fc"):
+        text = text.replace(noise, "")
+    return text.strip()
 
 
 _REEL_RANK = {"O15": 0, "HO05": 1, "AO05": 1, "HO15": 1, "AO15": 1}
@@ -1498,12 +1528,19 @@ def _stronger(a: dict, b: dict) -> bool:
 
 
 def reel_picks(picks: list, *, used: set | None = None) -> list:
-    """At least twelve when the pool allows: one selection per match, 65%+, never a match already shown today.
+    """One selection per match, 65%+, Over 1.5 only, and never a match already shown today.
 
-    Per match the strongest market the video is allowed to show is featured (`_stronger`), which is what lets THE
-    PICK slide's highlighted bar also be its highest bar.
+    `used` holds (home, away) pairs from earlier videos (and, for the first video of the day, yesterday's recap), in
+    either order — a match introduced once is never introduced again. Per match the strongest Over 1.5 line wins, so
+    a fixture offered by two lists does not appear twice.
     """
-    skip = used or set()
+    skip = set()
+    for item in used or set():
+        pair = tuple(item) if isinstance(item, (tuple, list)) else ()
+        if len(pair) == 3:                       # (kickoff, home, away) from an older history row
+            pair = pair[1:]
+        if len(pair) == 2:
+            skip.add((_club(pair[0]), _club(pair[1])))
     best = {}
     order = []
     for p in picks or []:
@@ -1513,7 +1550,7 @@ def reel_picks(picks: list, *, used: set | None = None) -> list:
         if pr is None or pr < REEL_MIN_P:
             continue
         k = _match_key(p)
-        if k in skip or (k[1], k[2]) in skip:
+        if k in skip or k[::-1] in skip:
             continue
         prev = best.get(k)
         if prev is None:
@@ -1528,6 +1565,35 @@ def reel_picks(picks: list, *, used: set | None = None) -> list:
 def overs_only(picks: list) -> list:
     """Kept name for scanner.py."""
     return reel_picks(picks)
+
+
+def video_picks(picks: list, *, used: set | None = None, fx_dir: Path | None = None, now=None, search=None,
+                require_confirmation: bool = False) -> tuple[list[dict], list[dict]]:
+    """The matches a video may show: Over 1.5, one per match, and verified before they are finalised.
+
+    Every candidate is checked against its own fixture detail — recent results for both clubs, a recent head to
+    head, sane numbers (`reel_verify.stats_problems`) — and against the internet (`reel_verify.web_check`), which
+    can confirm the fixture or knock it out. Returns (kept, skipped) with a reason for every match left out, so the
+    scan log and the Telegram caption can say what was dropped and why instead of quietly showing fewer matches.
+    """
+    import reel_verify
+
+    clean = reel_picks(picks, used=used)
+    root = Path(fx_dir) if fx_dir else _data_dir("fx")
+    if root is None or not root.exists():
+        # Nothing to check against. In the pipeline this never happens — the scan publishes the fixture details a few
+        # lines before it builds the video — so it is a loud warning, not a silent pass.
+        log.warning("video check: no fixture details at %s — the matches cannot be verified", root)
+        return clean, []
+    kept, skipped = reel_verify.select(
+        clean, load_detail=lambda p: load_detail(p, root),
+        now=now, search=search, require_confirmation=require_confirmation,
+    )
+    kept = reel_picks(kept, used=used)          # one per match still, in the verified order
+    for row in skipped:
+        log.info("video check: %s v %s left out — %s", row.get("home"), row.get("away"),
+                 "; ".join(row.get("reasons") or []) or "not verified")
+    return kept, skipped
 
 
 def _fx_key(pick: dict) -> str:
@@ -1566,8 +1632,10 @@ def build(picks: list, outfile: Path, *, assets: Path, work: Path | None = None,
     """Build a 16:9 widescreen (1920x1080) or 9:16 vertical reel (1080x1920) video.
 
     Order: intro, disclaimer, yesterday's full card (first video of the day only), then each match as three short
-    slides — THE PICK (selection, price and the market chart), WHY IT'S HERE (reasons, trends, standing, venue
-    splits) and THE RECORD (head to head and both teams' last five). Each pick appears once. Talking slides are timed
+    slides — THE PICK (Over 1.5, its price and the model-vs-market chart), WHY IT'S HERE (reasons, trends, standing,
+    venue splits) and THE RECORD (head to head and both teams' last five, always fresh). Each match appears once.
+    Since 2026-10-27 only **Over 1.5 total goals** is carried, and only for matches whose own stats and a recent
+    head to head check out (`video_picks`). Talking slides are timed
     from their words' reading time + TAIL (intro at least INTRO_MIN); the new slides are timed by what is on them
     (`stage_seconds`). No voice, no accumulator slide.
     """
@@ -1581,6 +1649,13 @@ def build(picks: list, outfile: Path, *, assets: Path, work: Path | None = None,
         picks = reel_picks(picks)
         if not picks:
             raise ValueError("no shortlist picks for the reel")
+        # 2026-10-27 (user): a match only makes it into a video when its own stats are recent and complete, it has a
+        # recent head to head, and the internet does not contradict the fixture. Checked here as well as in the
+        # scanner so `build()` can never be handed an unverified match by any caller.
+        fx_dir = Path(fx_dir) if fx_dir else _data_dir("fx")
+        picks, _skipped = video_picks(picks, fx_dir=fx_dir, now=datetime.now())
+        if not picks:
+            raise ValueError("no verified match for the reel — every candidate failed the stats / head-to-head check")
         recap_rows = reel_results(yesterday_results) if recap else []
         recap_day = yesterday_results.get("day", "") if isinstance(yesterday_results, dict) else ""
 
@@ -1588,7 +1663,6 @@ def build(picks: list, outfile: Path, *, assets: Path, work: Path | None = None,
         logo = assets / "logo.png"
         bgs = [assets / "bg_stadium.jpg", assets / "bg_pitch.jpg", assets / "bg_lights.jpg"]
         fixtures = fixtures or []
-        fx_dir = Path(fx_dir) if fx_dir else _data_dir("fx")
         leagues_dir = Path(leagues_dir) if leagues_dir else _data_dir("leagues")
         tables = reel_insights.league_tables(leagues_dir)
 

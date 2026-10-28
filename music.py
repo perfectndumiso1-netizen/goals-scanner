@@ -6,8 +6,9 @@ whole video, fades in at the head and out at the tail, and is loudness-normalise
 never competes with the picture.
 
 Slide timing used to come from the length of each voice clip. With no voice, it comes from how long the slide's
-own words take to read (`reading_seconds`), measured at the pace the narration used to speak them (~2.6 words per
-second), so the videos keep the length and the rhythm they had. `REEL_READ_WPS` tunes it without a code change.
+own words take to read (`reading_seconds`). That pace started at the narration's ~2.6 words a second, which was too
+quick to read along with (2026-10-27, user feedback): it is now a slower reading pace (~1.85 w/s) with a four-second
+floor, so a slide is still up when the reader has finished it. `REEL_READ_WPS` tunes it without a code change.
 """
 from __future__ import annotations
 
@@ -23,9 +24,12 @@ MUSIC_FILE = "under_the_stadium_lights.mp3"
 FADE_IN = 1.5                  # seconds of fade at the head
 FADE_OUT = 2.5                 # seconds of fade at the tail
 BED_LUFS = -18.0               # integrated loudness of the bed (a background level, not a music video)
-READ_WPS = float(os.environ.get("REEL_READ_WPS", "2.6"))   # words per second: the old narration's speaking pace
-MIN_SLIDE = 2.6                # no slide flashes past, even a two-word one
-MAX_SLIDE = 40.0               # a long recap page still moves on
+# 2026-10-27 (user): the videos were too fast to read. The pace is a reading pace, not the old narration's, so a
+# slide's words are given time to actually be read — 1.85 words a second is a relaxed read, and no slide is shorter
+# than four seconds even when it carries two words. `REEL_READ_WPS` still tunes it without a code change.
+READ_WPS = float(os.environ.get("REEL_READ_WPS", "1.85"))  # words per second (2.6 was the narration pace)
+MIN_SLIDE = 4.0                # no slide flashes past, even a two-word one
+MAX_SLIDE = 45.0               # a long recap page still moves on
 
 _WORD = re.compile(r"[A-Za-z0-9']+")
 
@@ -41,9 +45,9 @@ def words(text: str) -> int:
 
 def reading_seconds(text: str, *, wps: float | None = None) -> float:
     """How long a slide's words take to read at the house pace, clamped so no slide is too short or too long."""
-    pace = float(wps or READ_WPS or 2.6)
+    pace = float(wps or READ_WPS or 1.85)
     if pace <= 0:
-        pace = 2.6
+        pace = 1.85
     secs = words(text) / pace
     return max(MIN_SLIDE, min(MAX_SLIDE, secs))
 
