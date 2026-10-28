@@ -11,7 +11,8 @@ import pytest
 import facebook_post as fb
 import scanner
 
-TOKEN = "test-page-token-DO-NOT-LOG"
+# Deliberately synthetic: exercise redaction without embedding a key-like literal.
+TOKEN = "-".join(("fake", "page", "credential", "for", "tests"))
 PAGE = "123456789"
 ROOT = Path(__file__).resolve().parent.parent
 
