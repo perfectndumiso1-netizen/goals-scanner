@@ -106,7 +106,7 @@ jobs:
           OLD=$(find "$RUNNER_TEMP/previous-apk" -name '*.apk' -print -quit)
           check previous-signature "$TOOLS/apksigner" verify --print-certs "$OLD"
           cp "$RUNNER_TEMP/apk-check.log" "$RUNNER_TEMP/previous-signature.txt"
-          check signing-key-continuity diff <(grep 'certificate SHA-256 digest:' "$RUNNER_TEMP/previous-signature.txt") <(grep 'certificate SHA-256 digest:' "$RUNNER_TEMP/signature.txt")
+          check signing-key-continuity diff <(sed -n 's/^.*certificate SHA-256 digest: //p' "$RUNNER_TEMP/previous-signature.txt" | sort -u) <(sed -n 's/^.*certificate SHA-256 digest: //p' "$RUNNER_TEMP/signature.txt" | sort -u)
           check previous-package "$TOOLS/aapt" dump badging "$OLD"
           OLD_CODE=$(sed -n "s/.*versionCode='\([^']*\)'.*/\1/p" "$RUNNER_TEMP/apk-check.log" | head -1)
           check increasing-version-code test "$APP_VERSION_CODE" -gt "$OLD_CODE"
