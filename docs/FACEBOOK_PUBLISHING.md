@@ -1,40 +1,40 @@
-# Facebook Page delivery — PlayReport ZA
+# Facebook Reels delivery — PlayReport ZA
 
-The existing scanner and one-shot briefing workflow now publish their MP4 videos directly to the Facebook Page **before** the Telegram sender can delete them. Existing Telegram captions, dimensions, scheduling, streaming settings and its boolean success result are preserved. YouTube and Drive delivery are unchanged.
+Facebook receives **native 9:16 Reels only**, never the 16:9 Telegram/YouTube video and never an ordinary `/videos` post. Telegram keeps its existing videos, captions, dimensions and schedule. YouTube and Drive delivery remain unchanged.
 
-## Configuration
+## Configuration and rendering
 
-Both workflows pass these existing GitHub Actions secrets as environment variables:
+The existing `FACEBOOK_PAGE_ACCESS_TOKEN` and numeric `FACEBOOK_PAGE_ID` Actions secrets are unchanged. The token needs permission to publish on PlayReport ZA; Meta's current app/Page access and review requirements still apply. No token is stored in source, receipts, artifacts, URLs or logs.
 
-- `FACEBOOK_PAGE_ACCESS_TOKEN` — a Page access token with permission to publish videos/posts to the intended Page (including `pages_manage_posts`). The token must be valid and belong to the configured Page; Meta may require additional permissions, app review or Page access.
-- `FACEBOOK_PAGE_ID` — the numeric ID of PlayReport ZA.
+When Facebook is configured, the daily renderer creates an additional **1080×1920** portrait cut using the same filmed picks, evidence, music and readable timing as the 1920×1080 Telegram cut. It lays the slides out vertically rather than cropping the landscape picture. It does not add another scheduled edition or another Telegram post. If portrait rendering fails, Telegram still runs and the landscape source is retained for recovery; it is never substituted into Facebook.
 
-No token is stored in code, receipt files or recovery artifacts. The uploader uses a bearer header over HTTPS, not a token in a URL. Redirects are rejected to avoid forwarding credentials to another host. Logs contain only numeric Graph error codes, never API response bodies or raw network exception messages.
+The one-shot briefing workflow sends landscape sources to Telegram only and sends its `briefing-reel.mp4` / `breakdown-9x16.mp4` sources through the Reels publisher. If a configured Facebook delivery has only a landscape source and its portrait counterpart is missing, it logs a failure and retains that source rather than uploading landscape. The uploader inspects the actual video stream with ffprobe (or ffmpeg fallback), enforcing 9:16, square pixels, no rotation workaround, and at least 540×960. Unknown dimensions and landscape/square videos are rejected **before any Facebook API call**, regardless of the filename or caller's declared dimensions. Both workflows install ffmpeg.
 
-No new Python dependencies are required. `facebook_post.py` uses the standard library to stream a known-length multipart upload to the versioned Graph Video endpoint `https://graph-video.facebook.com/v25.0/{page-id}/videos`, with `published=true`, the caption as the description, and its first line as the title. The file is streamed in 1 MiB chunks rather than loaded into RAM. A returned video ID means Facebook accepted the upload; processing and visibility on Facebook can take longer.
+## Native Reels publishing protocol
 
-## Delivery and deletion rules
+`facebook_post.py` uses the standard library and the versioned API (`v25.0`):
 
-1. Attempt Facebook publication first.
-2. Regardless of Facebook failure, attempt the existing Telegram send.
-3. Delete the source only when Telegram succeeds, `delete_after` is enabled, and Facebook succeeded (or neither Facebook secret is configured).
-4. A partial Facebook configuration is an error: retain the video, but still send to Telegram.
-5. Telegram failure also keeps the source, as before.
+1. `POST https://graph.facebook.com/v25.0/{page-id}/video_reels`, `upload_phase=start`.
+2. Validate the returned session ID and upload URL; stream the raw MP4 bytes to the returned **HTTPS rupload.facebook.com/video-upload/** URL with `offset=0`, `file_size` and `Authorization: OAuth ...`.
+3. `POST` to the same `/video_reels` endpoint with `upload_phase=finish`, `video_id`, `video_state=PUBLISHED`, title and description.
+4. Poll `GET /{video-id}?fields=status` until `publishing_phase.status=complete`. A finish acknowledgement alone is **not** treated as successful publication. Processing/publication rejection or a bounded polling timeout retains the video and its session receipt.
 
-Successful uploads write a token-free SHA-256/Page/video-ID receipt next to the source. An identical file/Page is not uploaded again on the same runner; a different file or Page cannot reuse that receipt. Facebook-only success counts as a delivered daily slot, so missing/failed Telegram does not cause repeat Facebook posts on later scans. Existing daily slot state remains on the normal data branch.
+Graph control calls use a bearer authorization header. Redirects are rejected so credentials cannot be forwarded to another host. Transfers are streamed in 1 MiB chunks, not buffered as a whole video in RAM. Logs expose only numeric Graph error codes, never API response bodies or raw network exception messages.
 
-There is no blind POST retry: a network timeout can happen after Facebook has accepted an upload. Check the Page before retrying an ambiguous failure. Recovery files are not automatically republished. When Telegram succeeds but Facebook fails, the daily slot can still be marked delivered by the existing delivery logic; the retained file/artifact is for manual recovery, not a promise of an automatic Facebook retry.
+The protocol follows Meta's [Reels Publishing API sample](https://github.com/fbsamples/reels_publishing_apis/tree/main/fb_reels_publishing_api_sample). Sample/API requirements can change. We do **not** shorten slides, speed up the music, remove required matches, or silently fall back to a normal video to satisfy media limits. Meta's current duration/format/account rules determine whether it accepts a particular Reel; rejected media is retained with a clear error. Reel format does not guarantee reach.
 
-## Recovery from a phone
+## Receipts, deletion and recovery
 
-A failed Facebook upload leaves its original video untouched and also copies it into `tmp/video-recovery/` (or `VIDEO_RECOVERY_DIR`). Copies use a content-based filename to avoid the next scheduled render overwriting the failed video. No MP4 is committed to Git or the data branch.
+Token-free local receipts record the file SHA-256, Page ID, Reel ID, publication kind and phase. An old ordinary-video receipt cannot be reused as a Reel receipt. A confirmed published Reel is not uploaded again for the same file/Page on the same runner. An in-progress finish is resumed by polling its existing ID, not by creating a duplicate Reel. Ambiguous byte-transfer failures require checking the saved ID before retrying; there is no blind POST retry.
 
-Both Actions workflows have an `always()` artifact step. Open the failed/affected run in GitHub Actions and download **`video-recovery-<run-id>-<attempt>`**. Artifacts are retained for **7 days**, subject to GitHub storage availability. The one-shot workflow also saves any undeleted original briefing/breakdown files and exits with failure after attempting Telegram if Facebook failed. The scheduled scanner logs an explicit Facebook error but continues its existing scan/Telegram/state-publishing behavior.
+The source is deleted only after the relevant delivery succeeds. For a daily landscape/portrait pair, both files are removed after Telegram succeeds **and** the portrait Reel's publication is confirmed. If Facebook fails or is still pending, both stay local and the failed portrait is copied to `tmp/video-recovery/` (or `VIDEO_RECOVERY_DIR`), along with any token-free session receipt. Telegram is still attempted. Telegram failure keeps the files, as before. Generic landscape Telegram sends have no automatic Facebook upload; portrait sends can use the Reels publisher.
 
-Runner files are temporary: the artifact is the durable recovery mechanism after a job ends. If disk/storage or artifact upload itself fails, the error must be investigated before the runner disappears. Neither token values nor credentials are needed in chat to diagnose an expired token or permission issue.
+Both Actions workflows have `always()` recovery artifact steps. Open the affected run in GitHub Actions on your phone and download **`video-recovery-<run-id>-<attempt>`**, retained for **7 days** subject to GitHub storage availability. The one-shot workflow also saves undeleted original briefing/breakdown sources and reports failure after attempting Telegram when Facebook fails. The scheduled scanner logs an explicit error and continues its existing scan/Telegram/state-publication behavior. Artifacts/receipts contain no credentials and MP4 files are never committed to Git or the data branch.
+
+Runner files are temporary; artifacts are the durable recovery mechanism after the job ends. If disk/storage, artifact upload, or the runner itself fails, recovery cannot be guaranteed. Recovery files are not automatically republished: inspect the Page and saved Reel ID first to avoid duplicates. A Telegram-successful edition may already be marked delivered even if its Facebook Reel failed; that recovery is manual rather than an automatic new post.
 
 ## Verification
 
-`tests/test_facebook_post.py` exercises streamed multipart requests, bearer-only authentication, redirect rejection, valid/invalid responses, expired-token error codes, log redaction, no automatic retry, receipts, recovery copies, and all Facebook/Telegram success/failure deletion combinations. It also executes the existing one-shot workflow's inline Python with mocked APIs to prove a Facebook failure does not stop Telegram or delete the file.
+`tests/test_facebook_post.py` covers the native start/raw-transfer/finish/status sequence, strict portrait gate, endpoint/host/auth safety, receipt type separation, pending/error handling, polling-only resumption, recovery copies, and all Facebook/Telegram cleanup combinations. It executes the one-shot workflow with mocked APIs to prove that only portrait sources reach Facebook. `tests/test_facebook_render_routing.py` checks the daily dual-format renderer and confirms portrait-render errors do not block Telegram.
 
-Tests do not post a real video. A live Page upload must be verified from the next workflow run and the returned Facebook video ID/Page; configured repository secrets are not read or exposed by local tests.
+Tests do not post a real Reel. The first live workflow must verify that the configured Page token permits Reels and the actual generated video's format/duration is accepted by Meta.

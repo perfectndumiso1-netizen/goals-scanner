@@ -10,6 +10,10 @@ jobs:
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4.4.0
+      - name: Install video inspection tools
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq ffmpeg
       - name: Send videos then forget the files
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
@@ -20,7 +24,7 @@ jobs:
         run: |
           python3 - <<'PY'
           import os, sys, pathlib, urllib.request, urllib.parse, json
-          from facebook_post import publish
+          from facebook_post import publish, requested, retain_failure, UploadResult
           facebook_failures = []
           token, chat = os.getenv("TELEGRAM_BOT_TOKEN"), os.getenv("TELEGRAM_CHAT_ID")
           path_16x9 = pathlib.Path("tmp/briefing.mp4")
@@ -45,7 +49,13 @@ jobs:
           )
           credits_file = pathlib.Path("tmp/breakdown_credits.txt")
           def send_one(vpath, fname, cap, w, h):
-              facebook = publish(vpath, cap)
+              facebook = UploadResult("disabled")
+              if requested() and w < h:
+                  facebook = publish(vpath, cap)  # Actual 9:16 dimensions checked before any API call.
+              elif requested():
+                  counterpart = path_9x16 if vpath == path_16x9 else bd_9x16
+                  if not counterpart.exists():
+                      facebook = retain_failure(vpath, "missing 9:16 counterpart; landscape is Telegram-only, never a Facebook upload")
               if facebook.status == "failed":
                   facebook_failures.append(vpath.name)
               boundary = "----PlayReportBriefing"

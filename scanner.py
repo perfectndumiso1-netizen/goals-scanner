@@ -2561,8 +2561,9 @@ def send_telegram_video(
     delete_after: bool = True,
     width: int | None = None,
     height: int | None = None,
+    facebook_path: Path | None = None,
 ) -> bool:
-    """Publish to Facebook first, then Telegram; return Telegram's result as before.
+    """Publish only a separate 9:16 Facebook Reel, then send Telegram unchanged.
 
     Only delete after Telegram succeeds AND Facebook succeeded or is not configured.
     Facebook failure never blocks Telegram and retains the source plus a recovery copy.
@@ -2570,7 +2571,16 @@ def send_telegram_video(
     path = Path(path) if path else None
     if path is None or not path.exists():
         return False
-    facebook = facebook_mod.publish(path, caption)
+    facebook = facebook_mod.UploadResult("disabled")
+    # A landscape Telegram send must never be routed to Facebook as an ordinary video.
+    reel_path = Path(facebook_path) if facebook_path is not None else (
+        path if width and height and abs(width / height - 9 / 16) <= 0.001 else None)
+    if facebook_mod.requested() and reel_path is not None:
+        if not reel_path.is_file():
+            facebook = facebook_mod.retain_failure(path, "9:16 Reel render is missing; no 16:9 Facebook fallback")
+        else:
+            reel_caption = caption.replace("16:9 widescreen", "Facebook Reel · 9:16").replace("(16:9)", "(Facebook Reel · 9:16)")
+            facebook = facebook_mod.publish(reel_path, reel_caption)
     token, chat = os.getenv("TELEGRAM_BOT_TOKEN"), os.getenv("TELEGRAM_CHAT_ID")
     if not token or not chat:
         return False
@@ -2597,6 +2607,8 @@ def send_telegram_video(
     if delete_after and ok and facebook.status != "failed":
         try:
             path.unlink()
+            if reel_path is not None and reel_path != path and facebook.status == "uploaded":
+                reel_path.unlink(missing_ok=True)
         except OSError as exc:
             log.warning("Could not delete briefing after send: %s", exc)
     return ok
@@ -2795,6 +2807,19 @@ def maybe_send_daily_reel(sl_pub: dict, now: datetime) -> None:
     except Exception as exc:  # noqa: BLE001 - a build failure must never take the scan down
         log.warning("Daily reel skipped: %s", exc)
         return
+    if facebook_mod.requested():
+        # Render from the same card, with a portrait layout — never crop or upload the landscape cut.
+        out_9x16.unlink(missing_ok=True)
+        try:
+            meta_file = work / "build_meta.json"
+            filmed = json.loads(meta_file.read_text(encoding="utf-8")).get("picks") or prim_enriched
+            reel_mod.build(filmed, out_9x16, assets=assets, work=work / "facebook-9x16",
+                           fixtures=fixtures, yesterday_results=yres, recap=recap_needed, aspect="9:16",
+                           fx_dir=APP_FILE.parent / "fx", leagues_dir=APP_FILE.parent / "leagues")
+        except Exception:
+            # The Telegram sender below retains the source if the portrait render is missing.
+            out_9x16.unlink(missing_ok=True)
+            log.error("Facebook 9:16 Reel render failed; Telegram will continue, no landscape upload.")
     settled_recap = [r for r in recap_rows if r.get("result") in ("hit", "miss")]
     hits_recap = sum(1 for r in settled_recap if r.get("result") == "hit")
     recap_caption = (f"Yesterday (all videos): {hits_recap}/{len(settled_recap)} won · "
@@ -2837,10 +2862,11 @@ def maybe_send_daily_reel(sl_pub: dict, now: datetime) -> None:
         out_16x9,
         f"🎬 PlayReport 16:9 widescreen shortlist — {now:%a %d %b}. {recap_caption}Today: {len(prim_enriched)} selection(s). "
         f"A shortlist for your review, not an instruction to bet. 18+.",
+        facebook_path=out_9x16 if facebook_mod.requested() else None,
         width=1920,
         height=1080,
     )
-    if ok_16x9 or posted or handed_off or facebook_mod.published_id(out_16x9):
+    if ok_16x9 or posted or handed_off or facebook_mod.published_id(out_9x16):
         st["briefing"] = today
         st["briefing_slots"] = {**slots, today: already + [slot]}
         st["briefing_history"] = record_briefing_picks(hist, today, prim_enriched)
