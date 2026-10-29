@@ -299,8 +299,10 @@ def test_state_restores_reserved_checkpoint_and_ignores_foreign_branch(monkeypat
     assert storage.restore('a/b','main','1',prefix,'synthetic',tmp_path)==state
 
 
-def test_new_workflows_keep_independent_state_and_publishing_disabled(cfg):
-    assert not cfg['enabled'] and cfg['dry_run'] and not cfg['live']['enabled'] and not cfg['live']['edit_existing']
+def test_new_workflows_keep_independent_state_and_score_safety_gates(cfg):
+    assert type(cfg['enabled']) is bool and type(cfg['dry_run']) is bool
+    assert not cfg['live']['enabled'] and not cfg['live']['edit_existing']
+    assert not cfg['provider']['rights_confirmed'] and not cfg['provider']['account_coverage_verified']
     text=(ROOT/'.github/workflows/facebook-feed-run.yml').read_text()
     assert 'group: facebook-feed-' in text and 'git push' not in text and 'goals-scan' not in text.split('concurrency:',1)[1]
     assert text.index('Save durable reservation')<text.index('Publish or edit only')

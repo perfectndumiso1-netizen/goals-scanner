@@ -1,7 +1,7 @@
 {
   "version": 1,
-  "enabled": false,
-  "dry_run": true,
+  "enabled": true,
+  "dry_run": false,
   "timezone": "Africa/Johannesburg",
   "community_time": "12:15",
   "weekly_day": 0,

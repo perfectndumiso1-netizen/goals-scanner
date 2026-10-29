@@ -216,3 +216,18 @@ def test_expiry_rechecked_after_slow_credential_resolution(tmp_path,monkeypatch,
     assert cli.main(args)==0
     entry=json.loads((tmp_path/'checkpoint/state.json').read_text())['posts'][0]
     assert entry['status']=='cancelled'
+
+
+@pytest.mark.parametrize('publish_request,environment',[(True,None),(True,'false'),(False,'true')])
+def test_active_editorial_config_still_requires_repo_variable_and_publish_request(tmp_path,monkeypatch,cfg,publish_request,environment):
+    cfg['enabled']=True;cfg['dry_run']=False;storage.write(tmp_path/'active.json',cfg)
+    monkeypatch.delenv('GH_READ_TOKEN',raising=False)
+    if environment is None:monkeypatch.delenv('FACEBOOK_FEED_PUBLISH',raising=False)
+    else:monkeypatch.setenv('FACEBOOK_FEED_PUBLISH',environment)
+    monkeypatch.setattr(cli,'PageFeed',lambda:pytest.fail('publishing gate bypassed'))
+    monkeypatch.setattr(cli,'build',lambda *a,**kw:(post(),'offline unit evidence'))
+    args=['prepare','--preview','--config',str(tmp_path/'active.json'),'--work',str(tmp_path/'out')]
+    if publish_request:args+=['--publish']
+    assert cli.main(args)==0
+    state=json.loads((tmp_path/'out/checkpoint/state.json').read_text())
+    assert all(p['status']=='simulated' for p in state['posts'])
