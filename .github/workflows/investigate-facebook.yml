@@ -1,0 +1,35 @@
+name: Inspect saved Facebook Reel failure (read only)
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [arena/89e9b4bf-goals-scanner]
+    paths: [config/facebook-investigation.json]
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check out diagnostic script
+        uses: actions/checkout@v4.4.0
+      - name: Install MP4 inspector
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq ffmpeg
+      - name: Inspect existing logs and media without any publishing credentials
+        env:
+          GH_READ_TOKEN: ${{ github.token }}
+        run: python3 scripts/inspect_facebook_recovery.py --request config/facebook-investigation.json
+      - name: Save safe inspection report only
+        if: always()
+        uses: actions/upload-artifact@v4.6.2
+        with:
+          name: facebook-inspection-${{ github.run_id }}
+          path: tmp/facebook-investigation/
+          retention-days: 7
+          if-no-files-found: ignore
