@@ -278,6 +278,10 @@ def test_workflows_match_actions_lock_and_scan_has_no_voice_install():
         text = yml.read_text(encoding="utf-8")
         used = set()
         for raw in re.findall(r"^\s*(?:-\s*)?uses:\s*([^\s#]+)", text, flags=re.MULTILINE):
+            # Same-repository reusable workflows are not remote action dependencies.
+            # GitHub rejects local workflow paths as dependency pins in actions.lock.
+            if raw.startswith("./"):
+                continue
             # Normalize sub-action paths like gradle/actions/setup-gradle@v3.5.0 -> gradle/actions@v3.5.0
             repo_part, _, ref_part = raw.partition("@")
             parts = repo_part.split("/")
