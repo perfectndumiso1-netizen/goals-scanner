@@ -1,0 +1,61 @@
+name: Retry retained Facebook Reel only
+on:
+  push:
+    branches: [arena/89e9b4bf-goals-scanner]
+    paths: [config/facebook-retry.json]
+  workflow_dispatch:
+permissions:
+  contents: write
+  actions: read
+concurrency:
+  group: goals-scan
+  cancel-in-progress: false
+jobs:
+  retry:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Check out retry code
+        uses: actions/checkout@v4.4.0
+      - name: Restore delivery receipts
+        uses: actions/checkout@v4.4.0
+        with:
+          ref: data
+          path: state
+      - name: Install video inspector
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq ffmpeg
+      - name: Publish only the retained portrait Reel with updated credentials
+        id: publish
+        env:
+          GH_READ_TOKEN: ${{ github.token }}
+          FACEBOOK_PAGE_ACCESS_TOKEN: ${{ secrets.FACEBOOK_PAGE_ACCESS_TOKEN }}
+          FACEBOOK_PAGE_ID: ${{ secrets.FACEBOOK_PAGE_ID }}
+          VIDEO_RECOVERY_DIR: ${{ github.workspace }}/tmp/facebook-retry/recovery
+        run: python3 scripts/retry_facebook_reel.py --request config/facebook-retry.json
+      - name: Preserve status and session ID without reposting other channels
+        if: always() && (steps.publish.outcome == 'success' || steps.publish.outcome == 'failure')
+        run: |
+          set -euo pipefail
+          mkdir -p state/data/facebook-retries
+          if [[ -f tmp/facebook-retry/report.json ]]; then
+            cp tmp/facebook-retry/report.json state/data/app/facebook_retry.json
+          fi
+          git -C state config user.name playreport-bot
+          git -C state config user.email playreport-bot@users.noreply.github.com
+          git -C state add data/app/facebook_retry.json data/facebook-retries/
+          if ! git -C state diff --cached --quiet; then
+            git -C state commit -m "Record Facebook-only retry ($GITHUB_RUN_ID)"
+            git -C state push origin HEAD:data
+          fi
+      - name: Preserve portrait, receipt and safe error report
+        if: always()
+        uses: actions/upload-artifact@v4.6.2
+        with:
+          name: facebook-retry-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            tmp/facebook-retry/*.json
+            tmp/facebook-retry/*.mp4
+          retention-days: 7
+          if-no-files-found: ignore
