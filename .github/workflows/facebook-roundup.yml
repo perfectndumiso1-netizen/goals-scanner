@@ -1,0 +1,27 @@
+name: Facebook combined results roundup
+on:
+  schedule:
+    - cron: "15 21 * * *"
+  workflow_dispatch:
+    inputs:
+      publish:
+        type: boolean
+        default: false
+      preview:
+        type: boolean
+        default: true
+      bootstrap:
+        type: boolean
+        default: false
+permissions:
+  contents: read
+  actions: read
+jobs:
+  content:
+    uses: ./.github/workflows/facebook-feed-run.yml
+    with:
+      kind: roundup
+      publish: ${{ github.event_name == 'schedule' || inputs.publish }}
+      preview: ${{ github.event_name == 'workflow_dispatch' && inputs.preview }}
+      bootstrap: ${{ inputs.bootstrap || false }}
+    secrets: inherit
