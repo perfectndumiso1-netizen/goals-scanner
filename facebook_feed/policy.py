@@ -131,12 +131,12 @@ def score_post(matches,state,now,config,roundup=False):
         return None
     snapshot=[{k:m.get(k) for k in ('id','home','away','competition','country','kickoff','status','home_goals','away_goals','penalties')} for m in matches]
     fingerprint=hashlib.sha256(json.dumps(snapshot,sort_keys=True).encode()).hexdigest()[:20]
-    lines=['PLAYREPORT ZA — '+('RESULTS ROUNDUP' if roundup else 'SELECTED LIVE SCORE CENTRE'),
+    lines=['How the selected matches finished' if roundup else 'Around the grounds',
            f"Latest reported scores · checked {now:%d %b %H:%M} SAST", 'Periodic updates, not a minute-by-minute service.', '']
     for m in matches:
         lines += [score_text(m),m['competition'],'']
     lines += ['Which result stands out to you?' if roundup else 'Which of these matches are you following?',
-              '', 'Source: API-FOOTBALL / API-SPORTS. Statuses and scores may be corrected by the provider.']
+              '', 'Scores can be corrected after the final whistle.']
     kind='roundup' if roundup else 'live'
     post=candidate(kind,f'{kind}:{now.date()}:{fingerprint}',f'{kind}:{now.date()}:{fingerprint}','\n'.join(lines),snapshot=snapshot)
     if centre and not roundup and config['live']['edit_existing']:

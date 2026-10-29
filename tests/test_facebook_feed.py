@@ -80,7 +80,8 @@ def test_actual_detail_identity_and_freshness_required(tmp_path,cfg):
 def test_match_card_requires_venue_evidence_and_produces_original_mobile_graphic(tmp_path,cfg):
     root=source(tmp_path);items=content.verified_fixtures(root,NOW,cfg)
     post=content.match_card(items,NOW)
-    assert 'INTERESTING STATS MATCH CARD' in post['caption'] and 'Last 5 recorded competitive' in post['caption']
+    assert 'last five recorded competitive games' in post['caption']
+    assert 'per sample' in ' '.join(post['graphic']['notes'])
     assert 'model estimate' not in post['caption']
     path=graphics.render(post['graphic'],tmp_path/'card.jpg')
     from PIL import Image
@@ -92,7 +93,7 @@ def test_match_card_requires_venue_evidence_and_produces_original_mobile_graphic
 def test_weekly_uses_actual_next_seven_days_and_needs_three_teams(tmp_path,cfg):
     root=source(tmp_path);items=content.verified_fixtures(root,NOW,cfg)
     post=content.weekly(items,root,NOW)
-    assert 3<=len(post['teams'])<=5 and 'TEAMS TO WATCH THIS WEEK' in post['caption']
+    assert 3<=len(post['teams'])<=5 and 'A few teams worth keeping an eye on' in post['caption']
     assert all(NOW<content.local(f['kickoff'])<NOW+timedelta(days=7) for t in post['teams'] for f in t['fixtures'])
     assert content.weekly(items[:1],root,NOW) is None
     graphics.render(post['graphic'],tmp_path/'weekly.jpg')
@@ -164,7 +165,7 @@ def test_score_centre_edit_and_final_roundup_deduplicate(cfg):
     assert update['operation']=='edit' and update['target_id']=='123_456'
     finals=[{**a,'status':'FT','home_goals':1},{**a,'id':'2','status':'FT','home':'H2','away':'A2','away_goals':2}]
     roundup=policy.score_post(finals,state,NOW,cfg,roundup=True)
-    assert roundup and 'RESULTS ROUNDUP' in roundup['caption']
+    assert roundup and 'How the selected matches finished' in roundup['caption']
     e=policy.reserve(roundup,state,NOW);e.update(status='published')
     assert policy.score_post(finals,state,NOW,cfg,roundup=True) is None
 

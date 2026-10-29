@@ -144,15 +144,15 @@ def story(item):
     angles = []
     for side, stats in ((f['home'], h), (f['away'], a)):
         if stats['scored_in'] >= 4:
-            angles.append(f"{side} scored in {stats['scored_in']}/5 of that sample.")
+            angles.append(f"{side} scored in {stats['scored_in']} of those five games.")
         elif stats['conceded_in'] >= 4:
-            angles.append(f"{side} conceded in {stats['conceded_in']}/5 of that sample.")
+            angles.append(f"{side} conceded in {stats['conceded_in']} of those five games.")
     return angles[:2]
 
 
 def sample_line(name, stats):
-    return (f"{name}: {stats['form']} (newest first), {stats['scored']} scored / {stats['conceded']} conceded. "
-            f"Last 5 recorded competitive matches: {stats['start']}–{stats['end']} · {stats['scope']}.")
+    return (f"{name}: {stats['form']} (latest first), {stats['scored']} scored / {stats['conceded']} conceded. "
+            f"Last five recorded competitive games, {stats['start']}–{stats['end']} · {stats['scope']}.")
 
 
 def match_card(items, now):
@@ -160,26 +160,27 @@ def match_card(items, now):
         if not item['hv'] or not item['av'] or not story(item):
             continue
         f = item['fixture']; ko = local(f['kickoff'])
-        lines = ['PLAYREPORT ZA — INTERESTING STATS MATCH CARD', f"{f['home']} vs {f['away']}",
-                 f"{f['competition']} · {ko:%a %d %b %Y, %H:%M} SAST", '',
-                 sample_line(f['home'],item['home']), sample_line(f['away'],item['away']), '',
-                 sample_line(f"{f['home']} at home",item['hv']), sample_line(f"{f['away']} away",item['av'])]
-        meetings = item['h2h']
-        if len(meetings) >= 3:
-            total = sum(m['hg']+m['ag'] for m in meetings)
-            lines += ['', f"H2H context: {total} goals across {len(meetings)} recorded meetings ({meetings[-1]['date']}–{meetings[0]['date']}). Historical context, not a forecast."]
         angles = story(item)
-        lines += ['', *angles, 'That recent scoring pattern makes this one worth watching; it does not predict the result.',
-                  '', 'Which side’s recent pattern will carry into this match?', '', f'Source: {SOURCE}. Checked {now:%d %b %H:%M} SAST.']
+        lines = [angles[0].replace('of those five games','of their last five recorded competitive games'),'',
+                 f"{f['home']} vs {f['away']}",f"{f['competition']} · {ko:%a %d %b, %H:%M} SAST"]
+        if len(angles)>1:lines+=['',angles[1].replace('of those five games','of their last five recorded competitive games')]
+        meetings=item['h2h']
+        if len(meetings)>=3:
+            total=sum(m['hg']+m['ag'] for m in meetings)
+            lines+=['',f"Their last {len(meetings)} recorded competitive meetings produced {total} goals ({meetings[-1]['date']}–{meetings[0]['date']})."]
+        lines+=['','Who do you fancy here?']
         rows = [f"{f[s]}: {item[s]['form']} | GF {item[s]['scored']} / GA {item[s]['conceded']}" for s in ('home','away')]
         rows += [f"Home sample: {item['hv']['scored']} GF / {item['hv']['conceded']} GA",
                  f"Away sample: {item['av']['scored']} GF / {item['av']['conceded']} GA"]
         return candidate('card', f"card:{f['id']}", f"fixture:{f['id']}", '\n'.join(lines),
-            graphic=dict(title='INTERESTING STATS MATCH CARD', subtitle=f"{f['home']} vs {f['away']}",
+            graphic=dict(title='MATCH IN NUMBERS', subtitle=f"{f['home']} vs {f['away']}",
                          context=f"{f['competition']} | {ko:%d %b %H:%M} SAST", rows=rows,
-                         notes=angles+[f"Form samples: 5 recorded competitive matches each. Newest first.",
-                             f"Home {item['home']['start']}–{item['home']['end']} | Away {item['away']['start']}–{item['away']['end']}"]),
-            fixture_ids=[f['id']], evidence=item)
+                         notes=['Five recorded competitive games per sample. Latest result first.',
+                             f"Recent home: {item['home']['start']}–{item['home']['end']} · {item['home']['scope']}",
+                             f"Recent away: {item['away']['start']}–{item['away']['end']} · {item['away']['scope']}",
+                             f"At home: {item['hv']['start']}–{item['hv']['end']} · {item['hv']['scope']}",
+                             f"Away: {item['av']['start']}–{item['av']['end']} · {item['av']['scope']}"]),
+            fixture_ids=[f['id']], evidence=item,source=SOURCE)
     return None
 
 
@@ -203,27 +204,35 @@ def community(items, book, now, history):
             if not wins+losses:
                 continue
             pending=sum(r.get('status') not in ('hit','miss','void') for r in rows); void=sum(r.get('status')=='void' for r in rows)
-            caption=(f"PLAYREPORT ZA — THE HONEST REVIEW\n{yesterday}: {wins} won, {losses} lost; {pending} pending and {void} void. "
+            caption=(f"How yesterday’s picks finished.\n{yesterday}: {wins} won, {losses} lost; {pending} pending and {void} void. "
                 f"{100*wins/(wins+losses):.1f}% across {wins+losses} settled selections, not matches.\n"
-                "First-published Advisor selections; no backfill. We report losses too. Pending/void excluded from hit rate.\n"
-                "Which part of a prediction review helps you most: the reasoning or the result?\n18+ · Past results do not guarantee future outcomes.")
-            return candidate('community',f'community:{day}',f'review:{yesterday}',caption,mode=mode,source='frozen Advisor ledger')
+                "That’s the original shortlist, not a list rebuilt after the results. Pending and void picks aren’t in that percentage.\n"
+                "Back to the numbers before the next round.\n18+ · Past results don’t guarantee the next result.")
+            return candidate('community',f'community:{day}',f'review:{yesterday}',caption,mode=mode,source='frozen Advisor ledger',
+                graphic=dict(title='YESTERDAY’S PICKS',subtitle=yesterday,context='The original selections, wins and losses included',
+                    rows=[f'{wins} won · {losses} lost',f'{pending} pending · {void} void',f'{100*wins/(wins+losses):.1f}% from {wins+losses} settled picks'],
+                    notes=['Pending and void picks are excluded from the hit rate.','18+ · Past results don’t guarantee the next result.']))
         for item in items:
             f=item['fixture']; topic=f"{mode}:{f['id']}"
             if topic in topics or not story(item):
                 continue
             ko=local(f['kickoff'])
             questions={
-                'discussion':'Which side’s recent form gives you more confidence, and why?',
-                'form':'When assessing form, would you put more weight on scoring regularly or conceding less?',
-                'preview':'What would you watch first: pressing early or keeping the game compact?',
-                'fact':'Does that scoring record change how you see this match?',
-                'debate':'Would you favour a patient start or an aggressive opening here?',
-                'development':'Which of these recent patterns is more likely to change next?'}
-            caption='\n'.join([f"PLAYREPORT ZA — {mode.upper()}",f"{f['home']} vs {f['away']} · {f['competition']}",
-                f"{ko:%a %d %b, %H:%M} SAST",'',sample_line(f['home'],item['home']),sample_line(f['away'],item['away']),
-                '',*story(item),'',questions[mode], '',f'Source: {SOURCE}. Observed results, not model estimates or guaranteed outcomes.'])
-            return candidate('community',f'community:{day}',topic,caption,mode=mode,fixture_ids=[f['id']])
+                'discussion':'Who would you back to get the better of this one?',
+                'form':'Would you trust the attack or the defence here?',
+                'preview':'What’s your read on this one?',
+                'fact':'A useful detail before kick-off. Does it change your view?',
+                'debate':'Does the recent form tell the whole story here?',
+                'development':'Which side looks more likely to turn things around?'}
+            opening=story(item)[0].replace('of those five games','of their last five recorded competitive games')
+            caption='\n'.join([opening,'',f"{f['home']} vs {f['away']} · {f['competition']}",
+                f"{ko:%a %d %b, %H:%M} SAST",'',questions[mode]])
+            return candidate('community',f'community:{day}',topic,caption,mode=mode,fixture_ids=[f['id']],evidence=item,source=SOURCE,
+                graphic=dict(title='BEFORE KICK-OFF',subtitle=f"{f['home']} vs {f['away']}",
+                    context=f"{f['competition']} · {ko:%d %b %H:%M} SAST",
+                    rows=[f"{f[side]}: {item[side]['form']} | {item[side]['scored']} scored · {item[side]['conceded']} conceded" for side in ('home','away')],
+                    notes=story(item)+['Five recorded competitive games each. Form reads newest first.',
+                        f"Home: {item['home']['start']}–{item['home']['end']} · {item['home']['scope']}",f"Away: {item['away']['start']}–{item['away']['end']} · {item['away']['scope']}"]))
     return None
 
 
@@ -272,22 +281,22 @@ def weekly(items, root, now):
     if len(chosen)<3:
         return None
     week=now.strftime('%G-W%V')
-    lines=['PLAYREPORT ZA — TEAMS TO WATCH THIS WEEK',f"Verified archive fixtures · next 7 days: {now:%d %b}–{now+timedelta(days=7):%d %b %Y}", '']
+    lines=['A few teams worth keeping an eye on',f"Next seven days: {now:%d %b}–{now+timedelta(days=7):%d %b %Y}", '']
     sections=[]
     for team in chosen:
         s=team['stats']
         angle=f"Scored in {s['scored_in']}/5" if s['scored_in']>=4 else f"Conceded in {s['conceded_in']}/5"
         lines += [f"{team['name']} · {team['competition']}",sample_line(team['name'],s),
-                  f"{angle}; that makes the upcoming schedule worth following, not a guaranteed prediction."]
+                  f"{angle}. Here’s what’s next for them:"]
         for fx in team['fixtures']:
             ko=local(fx['kickoff'])
             lines.append(f"{ko:%a %d %b %H:%M} SAST: {fx['home']} vs {fx['away']} · {fx['competition']}")
         lines.append('')
         first=team['fixtures'][0];ko=local(first['kickoff'])
         sections.append(f"{team['name']} | {s['form']} | {angle}\nNext: {ko:%d %b %H:%M} SAST · {first['home']} vs {first['away']}")
-    lines += ['Which team will you be watching most closely this week?',f'Source: {SOURCE}. Dates/times may change; analysis, not guaranteed predictions.']
+    lines += ['Anyone else on your watchlist this week?', 'Kick-off times can change.']
     return candidate('weekly',f'weekly:{week}',f'weekly:{week}','\n'.join(lines),
         graphic=dict(title='TEAMS TO WATCH THIS WEEK',subtitle=f"{now:%d %b} — {now+timedelta(days=7):%d %b %Y}",
                      context='Next seven days · kickoff times SAST',rows=sections,
                      notes=['Each form sample is 5 recorded competitive matches; dates and competitions in caption.']),teams=chosen,
-        fixture_ids=sorted({f['id'] for t in chosen for f in t['fixtures']}))
+        fixture_ids=sorted({f['id'] for t in chosen for f in t['fixtures']}),source=SOURCE)

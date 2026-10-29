@@ -2,7 +2,7 @@ name: Facebook feed upgrade dry-run validation
 on:
   workflow_dispatch:
   push:
-    branches: [arena/89e9b4bf-goals-scanner]
+    branches: [arena/488dc43a-goals-scanner]
     paths: [config/facebook-feed-dry-run.json]
 permissions:
   contents: read

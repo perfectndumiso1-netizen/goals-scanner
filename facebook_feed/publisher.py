@@ -94,7 +94,7 @@ class PageFeed:
             result=self.call('POST',self.page+'/photos',body=body,content_type=f'multipart/form-data; boundary={boundary}')
             identity=str(result.get('post_id',''))
         else:
-            identity=str(self.call('POST',self.page+'/feed',{'message':post['caption']}).get('id',''))
+            identity=str(self.call('POST',self.page+'/feed',{'message':post['caption'],'published':'true'}).get('id',''))
         if not re.fullmatch(re.escape(self.page)+r'_\d+',identity):
             raise PublishError('No verifiable Page post ID returned; publication outcome unknown')
         return identity
@@ -114,3 +114,20 @@ class PageFeed:
         if str(data.get('id'))!=identity or data.get('is_published') is not True or hashlib.sha256(str(data.get('message','')).encode()).hexdigest()!=caption_hash:
             raise PublishError('Existing post does not match the reserved caption or is not published')
         return True
+
+    def inspect_visibility(self,identity):
+        """Read only: distinguish owner-token acknowledgement from actual public access."""
+        if not re.fullmatch(re.escape(self.page)+r'_\d+',identity):
+            raise PublishError('Post does not belong to configured Page')
+        data=self.call('GET',identity,{'fields':'id,is_published,is_hidden,privacy,application{id,name},permalink_url'})
+        if str(data.get('id'))!=identity:raise PublishError('Unexpected post identity')
+        privacy=(data.get('privacy') or {}).get('value')
+        allowed={'EVERYONE','ALL_FRIENDS','FRIENDS_OF_FRIENDS','SELF','CUSTOM'}
+        report={'is_published':data.get('is_published') is True,'is_hidden':data.get('is_hidden'),
+            'reported_audience':privacy if privacy in allowed else 'UNKNOWN',
+            'public_visibility_verified':False,
+            'next_check':'Check app Live mode, Page restrictions and this post from a non-role Facebook account.'}
+        report['restriction_detected']=data.get('is_hidden') is True or privacy in allowed-{'EVERYONE'}
+        app=data.get('application') or {}
+        report['app_name']=self.redact(app.get('name','Unknown'))
+        return report
