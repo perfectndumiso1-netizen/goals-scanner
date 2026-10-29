@@ -195,3 +195,10 @@ def test_operator_cancellation_requires_explicit_inspected_absence(tmp_path,monk
     args=['reconcile','--reservation-key','one','--cancel-reservation','--work',str(tmp_path)]
     with pytest.raises(ValueError,match='inspection'):cli.main(args)
     assert cli.main(args+['--confirm-page-inspection'])==0 and entry['status']=='cancelled'
+
+
+def test_every_new_workflow_is_valid_yaml_not_only_schedule_wrappers():
+    import yaml
+    for path in (ROOT/'.github/workflows').glob('facebook-*.yml'):
+        data=yaml.safe_load(path.read_text())
+        assert isinstance(data['jobs'],dict) and data.get('on',data.get(True)),path

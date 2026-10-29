@@ -29,7 +29,8 @@ jobs:
         with:
           python-version: "3.12"
       - name: Install existing locked test dependencies
-        run: pip install --require-hashes --only-binary=:all: -q -r requirements-test.txt
+        run: |
+          pip install --require-hashes --only-binary=:all: -q -r requirements-test.txt
       - name: Regression tests including unchanged Reel invariants
         run: python -m pytest leagues/tests tests tennis/tests -q
       - name: Generate every new content type without Facebook credentials or mutation calls
