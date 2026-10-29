@@ -19,10 +19,13 @@ import facebook_post as fb
 from scripts.inspect_facebook_recovery import github_download, inspect_video
 
 
+_transient_tokens=set()
+
+
 def clean(value):
     text=str(value)
-    for name in ('FACEBOOK_PAGE_ACCESS_TOKEN','GH_READ_TOKEN'):
-        secret=os.getenv(name,'').strip()
+    values=[os.getenv(name,'').strip() for name in ('FACEBOOK_PAGE_ACCESS_TOKEN','GH_READ_TOKEN')]
+    for secret in [*values,*_transient_tokens]:
         if secret:
             text=text.replace(secret,'[REDACTED]').replace(quote(secret,safe=''),'[REDACTED]')
     text=re.sub(r'https?://\S+','[URL omitted]',text)
@@ -78,6 +81,25 @@ def check_access():
     return report
 
 
+def resolve_target_page_token():
+    """Resolve only the configured Page, verify its identity, and keep credentials in memory."""
+    page=os.getenv('FACEBOOK_PAGE_ID','').strip()
+    supplied=os.getenv('FACEBOOK_PAGE_ACCESS_TOKEN','').strip()
+    if not supplied or not re.fullmatch(r'[1-9]\d*',page):raise ValueError('Missing Page credentials')
+    opener=build_opener(fb._NoRedirect())
+    def get(node,fields,credential):
+        return fb._json(opener,Request(f'https://graph.facebook.com/{fb.GRAPH_VERSION}/{node}?'+urlencode({'fields':fields}),
+                     headers={'Authorization':f'Bearer {credential}'},method='GET'))
+    identity=get('me','id',supplied)
+    if str(identity.get('id'))==page:return supplied,False
+    value=get(page,'access_token',supplied).get('access_token')
+    if not isinstance(value,str) or not value.strip():raise ValueError('No Page credential returned')
+    _transient_tokens.update((supplied,value))
+    verified=get('me','id',value)
+    if str(verified.get('id'))!=page:raise ValueError('Resolved credential does not identify target Page')
+    return value,True
+
+
 def main():
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--request',required=True)
@@ -122,6 +144,7 @@ def main():
             raise
     fb._json=control
     ok=False
+    supplied_credential=os.environ.get('FACEBOOK_PAGE_ACCESS_TOKEN')
     try:
         private=work/'source.zip'
         github_download(os.environ['GITHUB_REPOSITORY'],f'actions/artifacts/{artifact}/zip',private,os.environ['GH_READ_TOKEN'])
@@ -141,6 +164,11 @@ def main():
         saved=Path('state/data/facebook-retries')/(artifact+'.json')
         if saved.exists():
             shutil.copy2(saved,work/(video.name+'.facebook-upload.json'))
+        if request.get('resolve_page_token'):
+            credential,resolved=resolve_target_page_token()
+            os.environ['FACEBOOK_PAGE_ACCESS_TOKEN']=credential
+            report['page_specific_token_verified']=True
+            report['resolved_from_user_token']=resolved
         result=fb.publish(video,request['caption'])
         report.update(status=result.status,reel_id=result.video_id)
         ok=result.status=='uploaded'
@@ -149,6 +177,9 @@ def main():
         report.update(status='failed',failure_type=type(error).__name__)
     finally:
         fb._json=original_json;logger.removeHandler(handler)
+        if supplied_credential is None:os.environ.pop('FACEBOOK_PAGE_ACCESS_TOKEN',None)
+        else:os.environ['FACEBOOK_PAGE_ACCESS_TOKEN']=supplied_credential
+        _transient_tokens.clear()
         receipt=work/'briefing-9x16-reel.mp4.facebook-upload.json'
         if receipt.exists():
             saved=Path('state/data/facebook-retries')/(artifact+'.json')

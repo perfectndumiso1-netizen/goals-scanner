@@ -66,3 +66,35 @@ class ReadOnlyAccessTests(unittest.TestCase):
             result=retry.check_access()
         self.assertTrue(result['token_identity_matches_target_page'])
         self.assertEqual(get.call_count,2)
+
+
+class PageTokenResolutionTests(unittest.TestCase):
+    def tearDown(self):
+        retry._transient_tokens.clear()
+
+    def test_resolves_only_target_page_and_verifies_derived_identity(self):
+        replies=iter([{'id':'999'},{'access_token':'synthetic-page'},{'id':'123'}])
+        seen=[]
+        def get(opener,request):
+            self.assertEqual(request.get_method(),'GET')
+            self.assertNotIn('synthetic-',request.full_url)
+            seen.append((request.full_url,request.get_header('Authorization')))
+            return next(replies)
+        with patch.dict(os.environ,{'FACEBOOK_PAGE_ID':'123','FACEBOOK_PAGE_ACCESS_TOKEN':'synthetic-person'}),patch.object(retry.fb,'_json',side_effect=get):
+            value,resolved=retry.resolve_target_page_token()
+            self.assertEqual(value,'synthetic-page')
+            self.assertTrue(resolved)
+            self.assertNotIn('synthetic-page',retry.clean('Cannot use synthetic-page'))
+        self.assertIn('/123?',seen[1][0])
+        self.assertEqual(seen[2][1],'Bearer synthetic-page')
+
+    def test_correct_page_token_needs_no_exchange(self):
+        with patch.dict(os.environ,{'FACEBOOK_PAGE_ID':'123','FACEBOOK_PAGE_ACCESS_TOKEN':'synthetic-page'}),patch.object(retry.fb,'_json',return_value={'id':'123'}) as get:
+            value,resolved=retry.resolve_target_page_token()
+        self.assertFalse(resolved)
+        self.assertEqual(get.call_count,1)
+
+    def test_wrong_page_identity_is_rejected(self):
+        with patch.dict(os.environ,{'FACEBOOK_PAGE_ID':'123','FACEBOOK_PAGE_ACCESS_TOKEN':'synthetic-person'}),patch.object(retry.fb,'_json',side_effect=[{'id':'999'},{'access_token':'synthetic-page'},{'id':'456'}]):
+            with self.assertRaisesRegex(ValueError,'does not identify target Page'):
+                retry.resolve_target_page_token()
