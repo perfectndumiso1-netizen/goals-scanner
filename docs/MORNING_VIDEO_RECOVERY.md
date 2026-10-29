@@ -38,3 +38,20 @@ filmed-selection recap, even if an operator explicitly requests it after 16:00.
 The catch-up fix only changes timing. It cannot guarantee an edition if fewer
 than five distinct verified published selections fit the required card, if the
 source publication is stale, or if platform credentials/media are rejected.
+
+## Calendar-season archive repair
+
+The 2026-10-29 recovery exposed an independent history-fetch bug: in July–December,
+calendar-year backfill used the European season anchor and requested the current
+year plus only one previous year. Old negative attempt labels also incorrectly
+made a corrected request list look exhausted. Backfill now requests the previous
+calendar years from `now.year`, and checks the actual requested labels rather
+than the total count of remembered attempts.
+
+Recovery tops up only candidates blocked solely by missing H2H, from the existing
+provider's historical stage archive. It refreshes contextual H2H and its evidence
+metadata, retaining source event IDs and the stage/retrieval time. It excludes
+future/unscored/wrong-club meetings, deduplicates real results and never changes
+published selections, odds or model probabilities. The normal verifier still
+runs afterwards. The safe diagnostic report is also saved as
+`data/app/morning_recovery.json` for phone-accessible inspection.

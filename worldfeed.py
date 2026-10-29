@@ -257,7 +257,7 @@ class Archive:
         variants = []
         for k in range(1, seasons + 1):
             variants.append((f"{y - k}-{y - k + 1}", f"-{y - k}-{y - k + 1}"))     # European seasons
-            variants.append((f"{y - k + 1}", f"-{y - k + 1}"))                     # calendar-year seasons
+            variants.append((f"{now.year - k}", f"-{now.year - k}"))                     # calendar-year seasons
         order = sorted(wanted.items(), key=lambda kv: -kv[1])
         req = added = 0
         for key, _prio in order:
@@ -266,7 +266,7 @@ class Archive:
             data = self.load(key)
             done = data.setdefault("backfill", {})
             ok_seasons = sum(1 for v in done.values() if isinstance(v, int) and v > 0)
-            if ok_seasons >= seasons or len(done) >= len(variants):
+            if ok_seasons >= seasons or all(label in done for label, _suffix in variants):
                 continue
             ccd, scd = key.split("/", 1)
             base = re.sub(r"-\d{4}(-\d{4})?$", "", scd)      # "primera-c-2026" -> "primera-c"

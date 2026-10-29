@@ -75,6 +75,9 @@ jobs:
           set -euo pipefail
           git -C state config user.name playreport-bot
           git -C state config user.email playreport-bot@users.noreply.github.com
+          if [[ -f "$VIDEO_RECOVERY_REPORT" ]]; then
+            cp "$VIDEO_RECOVERY_REPORT" state/data/app/morning_recovery.json
+          fi
           git -C state add -A
           if ! git -C state diff --cached --quiet; then
             git -C state commit -m "Record recovered morning video ($GITHUB_RUN_ID)"

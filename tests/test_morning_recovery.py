@@ -95,3 +95,35 @@ def test_force_environment_restored_if_delivery_raises(monkeypatch,configured):
         recovery.run(datetime(2026,10,29,10,tzinfo=recovery.SAST))
     assert recovery.os.environ['FORCE_DAILY_REEL']=='false'
     assert recovery.os.environ['DAILY_REEL_EDITION']=='auto'
+
+
+def test_refresh_h2h_only_adds_real_past_meetings_for_exact_clubs(monkeypatch,tmp_path):
+    import shortlist_reel,reel_verify,worldfeed
+    now=datetime(2026,10,29,10,tzinfo=recovery.SAST)
+    pick={'home':'Kalmar FF','away':'GAIS','country':'Sweden','kickoff':'2026-10-29 20:00'}
+    app=tmp_path/'latest.json';app.write_text('{}');(tmp_path/'fx').mkdir()
+    path=tmp_path/'fx'/(shortlist_reel._fx_key(pick)+'.json')
+    detail={**pick,'div':'LS:sweden/allsvenskan','h2h':[{'date':'2026-05-30','home':'GAIS','away':'Kalmar FF','hg':3,'ag':0}],
+            'p':{'O15':.81},'odds':{'over25':1.7}}
+    path.write_text(json.dumps(detail))
+    monkeypatch.setattr(scanner,'APP_FILE',app)
+    monkeypatch.setattr(scanner,'LS_DIR',tmp_path/'ls')
+    monkeypatch.setattr(reel_verify,'stats_problems',lambda *a,**kw:['only 1 head-to-head meeting(s) with a score'])
+    records={'one':['202605301500','1','GAIS','2','Kalmar FF',3,0,None,None],
+             'duplicate':['202605301500','1','GAIS','2','Kalmar FF',3,0,None,None],
+             'two':['202408011500','2','Kalmar FF','1','GAIS',1,2,None,None],
+             'wrong-club':['202409011500','2','Kalmar United','1','GAIS',2,2,None,None],
+             'future':['202710291500','2','Kalmar FF','1','GAIS',2,2,None,None],
+             'unplayed':['202510291500','2','Kalmar FF','1','GAIS',None,None,None,None]}
+    class Archive:
+        def __init__(self,root):pass
+        def backfill(self,wanted,now,**kw):return {'added':1,'requests':1}
+        def save(self):pass
+        def load(self,stage):return {'events':records,'league':'Allsvenskan'}
+    monkeypatch.setattr(worldfeed,'Archive',Archive)
+    report=recovery.refresh_h2h([pick],now)
+    updated=json.loads(path.read_text())
+    assert report['refreshed_fixtures']==1 and len(updated['h2h'])==2
+    assert updated['h2h_meta']['n']==2
+    assert updated['p']==detail['p'] and updated['odds']==detail['odds']
+    assert {row['source_event_id'] for row in updated['h2h']}=={'duplicate','two'}

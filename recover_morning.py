@@ -18,6 +18,74 @@ import scanner
 SAST = ZoneInfo("Africa/Johannesburg")
 
 
+
+def refresh_h2h(pool, now):
+    """Repair missing contextual H2H from genuine provider archive, never change a published pick/price."""
+    import shortlist_reel
+    import reel_verify
+    import worldfeed
+    import quality
+    wanted, details = {}, {}
+    for pick in pool:
+        try:
+            kickoff = datetime.fromisoformat(str(pick.get("kickoff")))
+            kickoff = kickoff.replace(tzinfo=SAST) if kickoff.tzinfo is None else kickoff.astimezone(SAST)
+        except (ValueError, TypeError):
+            continue
+        if kickoff <= now:
+            continue
+        path = scanner.APP_FILE.parent / "fx" / (shortlist_reel._fx_key(pick) + ".json")
+        try:
+            detail = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            continue
+        problems = reel_verify.stats_problems(pick, detail, now=now)
+        if not problems or any("head-to-head" not in reason for reason in problems):
+            continue
+        div = str(detail.get("div") or "")
+        if not div.startswith("LS:") or "/" not in div:
+            continue
+        stage = div[3:]
+        wanted[stage] = 100
+        details[path] = (detail, stage)
+    if not wanted:
+        return {"refreshed_fixtures": 0}
+    archive = worldfeed.Archive(scanner.LS_DIR)
+    outcome = archive.backfill(wanted, now, seasons=2, budget_s=90, max_requests=24)
+    archive.save()
+    refreshed = 0
+    for path, (detail, stage) in details.items():
+        home, away = reel_verify._norm(detail.get("home")), reel_verify._norm(detail.get("away"))
+        meetings = {}
+        for event_id, record in (archive.load(stage).get("events") or {}).items():
+            try:
+                stamp, _, h, _, a, hg, ag, _, _ = record
+                when = datetime.strptime(str(stamp), "%Y%m%d%H%M")
+                if when >= now.replace(tzinfo=None) or when < now.replace(tzinfo=None) - timedelta(days=1100):
+                    continue
+                if (reel_verify._norm(h), reel_verify._norm(a)) not in ((home,away),(away,home)):
+                    continue
+                if hg is None or ag is None or int(hg) != float(hg) or int(ag) != float(ag) or min(int(hg),int(ag)) < 0:
+                    continue
+                match = {"date": when, "home": h, "away": a, "hg": int(hg), "ag": int(ag),
+                         "league": archive.load(stage).get("league") or detail.get("league") or "",
+                         "source_event_id": str(event_id)}
+                meetings[(when.date(), h, a, int(hg), int(ag))] = match
+            except (ValueError, TypeError):
+                continue
+        rows = sorted(meetings.values(), key=lambda m:m["date"], reverse=True)[:10]
+        if len(rows) <= len(detail.get("h2h") or []):
+            continue
+        updated = dict(detail, h2h=[{**m,"date":m["date"].strftime("%Y-%m-%d")} for m in rows],
+                       h2h_meta=quality.h2h_evidence(rows,now),
+                       h2h_refreshed={"source":"Livescore stage archive", "stage":stage,"at":now.isoformat()})
+        path.write_text(json.dumps(updated,ensure_ascii=False,separators=(",", ":")),encoding="utf-8")
+        refreshed += 1
+    outcome["refreshed_fixtures"] = refreshed
+    print(f"::notice::Historical-data repair: {outcome['added']} genuine archived results added; {refreshed} fixture H2H records refreshed. Published picks/prices unchanged.",flush=True)
+    return outcome
+
+
 def run(now=None):
     now = (now or datetime.now(SAST)).astimezone(SAST)
     today = now.date().isoformat()
@@ -48,6 +116,7 @@ def run(now=None):
     if scanner.reel_mod is None:
         return finish(1, "blocked", "Video renderer could not be imported. No video sent.")
     pool = advisor_tracking.selections(payload)
+    report["history_refresh"] = refresh_h2h(pool, now)
     used = {(str(p.get("home") or ""), str(p.get("away") or ""))
             for p in (state.get("briefing_history") or {}).get(today, [])}
     picks, dropped = scanner.reel_mod.video_picks(pool, used=used, fx_dir=scanner.APP_FILE.parent / "fx", now=now)
