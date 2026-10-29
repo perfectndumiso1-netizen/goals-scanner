@@ -32,7 +32,7 @@ jobs:
         run: |
           pip install --require-hashes --only-binary=:all: -q -r requirements-test.txt
       - name: Regression tests including unchanged Reel invariants
-        run: python -m pytest leagues/tests tests tennis/tests -q
+        run: python -m pytest leagues/tests tests tennis/tests -q --junitxml=tmp/facebook-feed/test-results.xml
       - name: Generate every new content type without Facebook credentials or mutation calls
         env:
           API_FOOTBALL_KEY: ${{ secrets.API_FOOTBALL_KEY }}
