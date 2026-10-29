@@ -12,14 +12,20 @@ workflows:
     '.github/workflows/python-tests.yml':
         - 'actions/checkout@v4.4.0'
         - 'actions/setup-python@v5.6.0'
+    '.github/workflows/recover-morning.yml':
+        - 'actions/checkout@v4.4.0'
+        - 'actions/setup-python@v5.6.0'
+        - 'actions/upload-artifact@v4.6.2'
     '.github/workflows/scan.yml':
         - 'actions/checkout@v4.4.0'
+        - 'actions/upload-artifact@v4.6.2'
         - 'actions/setup-python@v5.6.0'
     '.github/workflows/secret-scan.yml':
         - 'actions/checkout@v4.4.0'
         - 'actions/setup-python@v5.6.0'
     '.github/workflows/send-briefing.yml':
         - 'actions/checkout@v4.4.0'
+        - 'actions/upload-artifact@v4.6.2'
     '.github/workflows/tennis-scan.yml':
         - 'actions/checkout@v4.4.0'
         - 'actions/setup-python@v5.6.0'

@@ -73,6 +73,7 @@ import publication
 import safe as safe_mod
 import accas as acca_mod
 import shortlist as shortlist_mod
+import facebook_post as facebook_mod
 import history as history_mod
 import teamstats
 
@@ -2560,16 +2561,28 @@ def send_telegram_video(
     delete_after: bool = True,
     width: int | None = None,
     height: int | None = None,
+    facebook_path: Path | None = None,
 ) -> bool:
-    """Send a shortlist briefing video to Telegram, then delete the local file.
+    """Publish only a separate 9:16 Facebook Reel, then send Telegram unchanged.
 
-    Videos are never written to git, Drive, or the data branch. After a successful
-    send the file is unlinked (user rule 2026-10-13). A failed send keeps the file
-    so it can be retried.
+    Only delete after Telegram succeeds AND Facebook succeeded or is not configured.
+    Facebook failure never blocks Telegram and retains the source plus a recovery copy.
     """
-    token, chat = os.getenv("TELEGRAM_BOT_TOKEN"), os.getenv("TELEGRAM_CHAT_ID")
     path = Path(path) if path else None
-    if not token or not chat or path is None or not path.exists():
+    if path is None or not path.exists():
+        return False
+    facebook = facebook_mod.UploadResult("disabled")
+    # A landscape Telegram send must never be routed to Facebook as an ordinary video.
+    reel_path = Path(facebook_path) if facebook_path is not None else (
+        path if width and height and abs(width / height - 9 / 16) <= 0.001 else None)
+    if facebook_mod.requested() and reel_path is not None:
+        if not reel_path.is_file():
+            facebook = facebook_mod.retain_failure(path, "9:16 Reel render is missing; no 16:9 Facebook fallback")
+        else:
+            reel_caption = caption.replace("16:9 widescreen", "Facebook Reel · 9:16").replace("(16:9)", "(Facebook Reel · 9:16)")
+            facebook = facebook_mod.publish(reel_path, reel_caption)
+    token, chat = os.getenv("TELEGRAM_BOT_TOKEN"), os.getenv("TELEGRAM_CHAT_ID")
+    if not token or not chat:
         return False
     ok = False
     payload = {"chat_id": chat, "caption": (caption or "")[:1024], "supports_streaming": "true"}
@@ -2591,9 +2604,11 @@ def send_telegram_video(
             ok = True
     except (requests.RequestException, OSError) as exc:
         log.warning("Telegram video failed: %s", exc)
-    if delete_after and ok:
+    if delete_after and ok and facebook.status != "failed":
         try:
             path.unlink()
+            if reel_path is not None and reel_path != path and facebook.status == "uploaded":
+                reel_path.unlink(missing_ok=True)
         except OSError as exc:
             log.warning("Could not delete briefing after send: %s", exc)
     return ok
@@ -2685,11 +2700,15 @@ def _telegram_state(now: datetime) -> tuple[Path, dict]:
 
 
 def _reel_slot(now: datetime) -> str | None:
-    """Two daily windows: 08:00 and 16:00 SAST (allow scheduler delay within that hour)."""
+    """Catch up today's edition on the next scan, not only during its launch hour.
+
+    Morning remains due from 08:00 until the 16:00 edition takes over; evening
+    remains due until midnight. The persisted slot check prevents repeat sends.
+    """
     from zoneinfo import ZoneInfo
     if now.tzinfo is not None:
         now = now.astimezone(ZoneInfo("Africa/Johannesburg"))
-    return {8: "morning", 16: "evening"}.get(now.hour)
+    return "evening" if now.hour >= 16 else "morning" if now.hour >= 8 else None
 
 
 def maybe_send_daily_reel(sl_pub: dict, now: datetime) -> None:
@@ -2701,10 +2720,20 @@ def maybe_send_daily_reel(sl_pub: dict, now: datetime) -> None:
     if reel_mod is None:
         return
     if not ((os.getenv("TELEGRAM_BOT_TOKEN") and os.getenv("TELEGRAM_CHAT_ID"))
-            or (drive_mod is not None and drive_mod.enabled()) or os.getenv("YT_UPLOAD") == "1"):
+            or (drive_mod is not None and drive_mod.enabled()) or os.getenv("YT_UPLOAD") == "1"
+            or facebook_mod.requested()):
         return
+    if now.tzinfo is not None:
+        now = now.astimezone(ZoneInfo("Africa/Johannesburg"))
     force = os.getenv("FORCE_DAILY_REEL", "").strip().lower() in ("1", "true", "yes")
-    slot = _reel_slot(now) or (("morning" if now.hour < 16 else "evening") if force else None)
+    slot = _reel_slot(now)
+    if force:
+        edition = os.getenv("DAILY_REEL_EDITION", "auto").strip().lower()
+        if edition not in ("auto", "morning", "evening"):
+            log.error("Daily reel skipped: invalid DAILY_REEL_EDITION")
+            return
+        local_now = now.astimezone(ZoneInfo("Africa/Johannesburg")) if now.tzinfo else now
+        slot = edition if edition != "auto" else slot or ("morning" if local_now.hour < 16 else "evening")
     if not slot:
         return
     path, st = _telegram_state(now)
@@ -2712,7 +2741,9 @@ def maybe_send_daily_reel(sl_pub: dict, now: datetime) -> None:
     slots = st.get("briefing_slots") if isinstance(st.get("briefing_slots"), dict) else {}
     already = list(slots.get(today) or [])
     if slot in already:
+        log.info("Daily reel: %s edition already delivered today; no duplicate", slot)
         return
+    log.info("Daily reel: %s edition due at %s SAST (catch-up enabled)", slot, now.strftime("%H:%M"))
     hist = st.get("briefing_history") if isinstance(st.get("briefing_history"), dict) else {}
     used = {(str(x.get("home") or ""), str(x.get("away") or ""))
             for x in (hist.get(today) or []) if isinstance(x, dict)}
@@ -2791,6 +2822,19 @@ def maybe_send_daily_reel(sl_pub: dict, now: datetime) -> None:
     except Exception as exc:  # noqa: BLE001 - a build failure must never take the scan down
         log.warning("Daily reel skipped: %s", exc)
         return
+    if facebook_mod.requested():
+        # Render from the same card, with a portrait layout — never crop or upload the landscape cut.
+        out_9x16.unlink(missing_ok=True)
+        try:
+            meta_file = work / "build_meta.json"
+            filmed = json.loads(meta_file.read_text(encoding="utf-8")).get("picks") or prim_enriched
+            reel_mod.build(filmed, out_9x16, assets=assets, work=work / "facebook-9x16",
+                           fixtures=fixtures, yesterday_results=yres, recap=recap_needed, aspect="9:16",
+                           fx_dir=APP_FILE.parent / "fx", leagues_dir=APP_FILE.parent / "leagues")
+        except Exception:
+            # The Telegram sender below retains the source if the portrait render is missing.
+            out_9x16.unlink(missing_ok=True)
+            log.error("Facebook 9:16 Reel render failed; Telegram will continue, no landscape upload.")
     settled_recap = [r for r in recap_rows if r.get("result") in ("hit", "miss")]
     hits_recap = sum(1 for r in settled_recap if r.get("result") == "hit")
     recap_caption = (f"Yesterday (all videos): {hits_recap}/{len(settled_recap)} won · "
@@ -2833,10 +2877,11 @@ def maybe_send_daily_reel(sl_pub: dict, now: datetime) -> None:
         out_16x9,
         f"🎬 PlayReport 16:9 widescreen shortlist — {now:%a %d %b}. {recap_caption}Today: {len(prim_enriched)} selection(s). "
         f"A shortlist for your review, not an instruction to bet. 18+.",
+        facebook_path=out_9x16 if facebook_mod.requested() else None,
         width=1920,
         height=1080,
     )
-    if ok_16x9 or posted or handed_off:
+    if ok_16x9 or posted or handed_off or facebook_mod.published_id(out_9x16):
         st["briefing"] = today
         st["briefing_slots"] = {**slots, today: already + [slot]}
         st["briefing_history"] = record_briefing_picks(hist, today, prim_enriched)
@@ -3799,7 +3844,7 @@ def main() -> None:
     except Exception as exc:  # noqa: BLE001 - pushes must never break the scan
         log.warning("Telegram shortlist push failed: %s", exc)
     try:
-        maybe_send_daily_reel(ctx.get("shortlist") or {}, now)
+        maybe_send_daily_reel(ctx.get("shortlist") or {}, now if override else datetime.now(tz))
     except Exception as exc:  # noqa: BLE001 - the reel must never break the scan
         log.warning("Daily reel failed: %s", exc)
     try:

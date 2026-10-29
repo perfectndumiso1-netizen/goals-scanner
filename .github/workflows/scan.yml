@@ -53,6 +53,9 @@ jobs:
       STATE_URL: https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git
       TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}   # optional
       TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}       # optional
+      FACEBOOK_PAGE_ACCESS_TOKEN: ${{ secrets.FACEBOOK_PAGE_ACCESS_TOKEN }}
+      FACEBOOK_PAGE_ID: ${{ secrets.FACEBOOK_PAGE_ID }}
+      VIDEO_RECOVERY_DIR: ${{ github.workspace }}/tmp/video-recovery
       FORCE_DAILY_REEL: ${{ github.event.inputs.send_reel || 'false' }}
       # YouTube auto-poster (youtube_post.py). Inert unless the three channel secrets exist: an empty secret makes
       # the module report "not configured" and the scan behaves exactly as before. YT_UPLOAD=1 is the master switch.
@@ -106,11 +109,11 @@ jobs:
           from zoneinfo import ZoneInfo
 
           now = datetime.now(ZoneInfo(os.environ["TIMEZONE"]))
-          morning = now.hour in (8, 16)
+          edition_due = now.hour >= 8  # Catch up a missed edition on the next available scan.
           force = os.environ.get("FORCE_DAILY_REEL", "").strip().lower() in ("1", "true", "yes")
           configured = bool(os.environ.get("TELEGRAM_BOT_TOKEN") and os.environ.get("TELEGRAM_CHAT_ID"))
           with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as fh:
-              fh.write(f"can_send_reel={'true' if ((morning or force) and configured) else 'false'}\n")
+              fh.write(f"can_send_reel={'true' if ((edition_due or force) and configured) else 'false'}\n")
           PY
 
       - name: Restore state (data branch)
@@ -130,6 +133,16 @@ jobs:
 
       - name: Run scanner
         run: python scanner.py
+
+      - name: Preserve videos after a Facebook publishing failure
+        if: always()
+        continue-on-error: true  # Artifact service trouble must not block the existing state publication.
+        uses: actions/upload-artifact@v4.6.2
+        with:
+          name: video-recovery-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ github.workspace }}/tmp/video-recovery/
+          if-no-files-found: ignore
+          retention-days: 7
 
       - name: Publish state
         run: |

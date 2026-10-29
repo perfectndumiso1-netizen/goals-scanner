@@ -1,0 +1,6 @@
+{
+  "date": "2026-10-29",
+  "edition": "morning",
+  "request_id": "2026-10-29-recover-missed-morning-02",
+  "reason": "User requested immediate recovery after the 08:00 SAST scheduler window was missed. Keep all video quality gates and duplicate protection."
+}
