@@ -170,6 +170,7 @@ def main(argv=None):
     state=None
     if args.phase!='preview' and os.getenv('GH_READ_TOKEN'):
         state=storage.restore(repo,branch,os.getenv('GITHUB_REPOSITORY_ID',''),prefix,os.environ['GH_READ_TOKEN'],work)
+    output('restored','true' if state is not None else 'false')
     if state is None:
         if publish and not args.bootstrap:
             raise storage.StateError('No durable live feed ledger. Explicit first-run bootstrap/Page inspection required.')

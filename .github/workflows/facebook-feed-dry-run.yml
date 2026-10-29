@@ -6,6 +6,7 @@ on:
     paths: [config/facebook-feed-dry-run.json]
 permissions:
   contents: read
+  actions: read
 jobs:
   validate:
     runs-on: ubuntu-latest
@@ -45,3 +46,28 @@ jobs:
           path: tmp/facebook-feed/
           retention-days: 7
           if-no-files-found: ignore
+
+  checkpoint:
+    needs: validate
+    uses: ./.github/workflows/facebook-feed-run.yml
+    with:
+      kind: community
+      publish: false
+      preview: true
+      invocation: persistence-checkpoint
+  restore:
+    needs: checkpoint
+    uses: ./.github/workflows/facebook-feed-run.yml
+    with:
+      kind: community
+      publish: false
+      preview: true
+      invocation: persistence-restore
+  assert-restored:
+    needs: restore
+    runs-on: ubuntu-latest
+    steps:
+      - name: Prove a different runner restored the durable dry-run ledger
+        env:
+          RESTORED: ${{ needs.restore.outputs.state_restored }}
+        run: test "$RESTORED" = "true"

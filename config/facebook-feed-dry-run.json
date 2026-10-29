@@ -1,5 +1,5 @@
 {
   "version": 1,
-  "request": "facebook-feed-upgrade-validation-with-test-yaml-dependency",
+  "request": "facebook-feed-upgrade-cross-runner-checkpoint-validation",
   "publish": false
 }

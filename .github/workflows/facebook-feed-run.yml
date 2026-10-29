@@ -1,7 +1,13 @@
 name: Facebook feed engine (isolated)
 on:
   workflow_call:
+    outputs:
+      state_restored:
+        value: ${{ jobs.feed.outputs.state_restored }}
     inputs:
+      invocation:
+        default: main
+        type: string
       kind:
         required: true
         type: string
@@ -42,6 +48,8 @@ concurrency:
 jobs:
   feed:
     runs-on: ubuntu-latest
+    outputs:
+      state_restored: ${{ steps.prepare.outputs.restored }}
     timeout-minutes: 10
     env:
       CONTENT_KIND: ${{ inputs.kind }}
@@ -87,7 +95,7 @@ jobs:
         if: steps.prepare.outputs.should_publish == 'true'
         uses: actions/upload-artifact@v4.6.2
         with:
-          name: ${{ steps.prepare.outputs.prefix }}${{ github.run_id }}-${{ github.run_attempt }}-reserved
+          name: ${{ steps.prepare.outputs.prefix }}${{ github.run_id }}-${{ github.run_attempt }}-${{ inputs.invocation || 'main' }}-reserved
           path: tmp/facebook-feed/checkpoint/state.json
           retention-days: 30
           if-no-files-found: error
@@ -101,7 +109,7 @@ jobs:
         if: always() && steps.prepare.conclusion == 'success'
         uses: actions/upload-artifact@v4.6.2
         with:
-          name: ${{ steps.prepare.outputs.prefix }}${{ github.run_id }}-${{ github.run_attempt }}-final
+          name: ${{ steps.prepare.outputs.prefix }}${{ github.run_id }}-${{ github.run_attempt }}-${{ inputs.invocation || 'main' }}-final
           path: tmp/facebook-feed/checkpoint/state.json
           retention-days: 30
           if-no-files-found: error
@@ -109,7 +117,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4.6.2
         with:
-          name: facebook-feed-preview-${{ inputs.kind }}-${{ github.run_id }}-${{ github.run_attempt }}
+          name: facebook-feed-preview-${{ inputs.kind }}-${{ github.run_id }}-${{ github.run_attempt }}-${{ inputs.invocation || 'main' }}
           path: |
             tmp/facebook-feed/*.jpg
             tmp/facebook-feed/*.txt
