@@ -77,7 +77,7 @@ Scheduled workflows run from the default branch only. New workflow dispatch butt
 
 State artifacts are namespaced by repository + branch + **dry/live**, filtered to the originating repository/branch, and validated for schema/size. The newest trusted artifact is authoritative. A download/API/parse failure blocks, never resets history. Restore searches up to 10,000 indexed artifacts and fails closed at that bound. Artifacts have 30-day retention; running the isolated feeds refreshes them. If all expire or are deleted, live operation blocks until explicit inspected bootstrap. Do not delete artifacts or bootstrap to bypass an unresolved attempt.
 
-**Order:** restore → validate evidence/caps → reserve deterministic edition/topic → upload durable reservation artifact → send once → save returned ID → verify published contents → upload final ledger. Prepared plans expire within five minutes (or sooner at kickoff/source expiry). Content must match its reservation. Every new feature shares this feed mutex; none shares the Reel/scanner lock.
+**Order:** restore → validate evidence/caps → reserve deterministic edition/topic → upload durable reservation artifact → send once → save returned ID → verify published contents → upload final ledger. Prepared plans expire within five minutes (or sooner at kickoff/source expiry), rechecked immediately before mutation, including after slow credential resolution. Content must match its reservation. Every new feature shares this feed mutex; none shares the Reel/scanner lock.
 
 A timeout can mean Facebook accepted a post even if its reply was lost. Such entries stay `unknown`/`reserved`, count conservatively and block the same retry. Unresolved entries survive normal history pruning. Rerunning a job is not permission to resend. No system can make an ambiguous third-party mutation exactly-once without provider support; this implementation prefers a skipped post over a duplicate.
 
@@ -95,5 +95,7 @@ python -m pytest leagues/tests tests tennis/tests -q
 python -m facebook_feed.cli preview --kind all --source PATH/data/app --work tmp/feed-review
 python scripts/check_secrets.py
 ```
+
+The branch dry-run also uploads a ledger on one Actions runner, restores it on another and asserts restoration; the second run refuses the already simulated daily edition.
 
 The new suite covers evidence/sample validation; real image rendering; weekly interval/conflicting dates; rotation and honest losses; selection/state transitions; duplicate/cap/cooldown policy; stale/frozen data and provider failures; Free-plan/quota enforcement; feed/photo/edit request contracts; token redaction; ambiguous outcomes/restart protection; checkpoint restore/trust; expired/tampered plans; dry-run non-publication; and SHA-256 invariants for the untouched Reel workflow/renderer/publisher/music. Synthetic score replay tests do not establish actual live coverage. Real-data previews validate actual archive records but do not replace independent provider or Facebook integration tests.

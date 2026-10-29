@@ -150,11 +150,13 @@ def main(argv=None):
             entry=entries[0]
             if hashlib.sha256(post['caption'].encode()).hexdigest()!=entry['caption_hash'] or any(entry.get(k)!=post.get(k) for k in ('kind','topic','fixture_ids','operation','target_id','snapshot')):
                 raise ValueError('Prepared content does not match its durable reservation')
-            if now>=content.local(post['expires_at']):
+            if datetime.now(content.SAST)>=content.local(post['expires_at']):
                 entry['status']='cancelled';entry['error']='Prepared content expired before sending';storage.write(statepath,state);continue
             entry['status']='unknown';storage.write(statepath,state)
             try:
                 if publisher is None:publisher=PageFeed()
+                if datetime.now(content.SAST)>=content.local(post['expires_at']):
+                    entry['status']='cancelled';entry['error']='Content expired during credential verification; no mutation sent';continue
                 identity=publisher.send(post)
                 entry['post_id']=identity;storage.write(statepath,state)
                 publisher.verify(identity,post['caption'])

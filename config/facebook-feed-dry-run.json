@@ -1,5 +1,5 @@
 {
   "version": 1,
-  "request": "facebook-feed-upgrade-cross-runner-checkpoint-validation",
+  "request": "facebook-feed-upgrade-final-expiry-guard-validation",
   "publish": false
 }

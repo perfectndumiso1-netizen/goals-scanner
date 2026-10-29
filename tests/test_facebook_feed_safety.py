@@ -202,3 +202,17 @@ def test_every_new_workflow_is_valid_yaml_not_only_schedule_wrappers():
     for path in (ROOT/'.github/workflows').glob('facebook-*.yml'):
         data=yaml.safe_load(path.read_text())
         assert isinstance(data['jobs'],dict) and data.get('on',data.get(True)),path
+
+
+def test_expiry_rechecked_after_slow_credential_resolution(tmp_path,monkeypatch,cfg):
+    args=prepared(tmp_path,monkeypatch,cfg);late=datetime.now(content.SAST)+timedelta(minutes=6)
+    class LateClock:
+        @staticmethod
+        def now(*a):return late
+    class SlowPage:
+        def __init__(self):monkeypatch.setattr(cli,'datetime',LateClock)
+        def send(self,*a):pytest.fail('stale content sent after slow authentication')
+    monkeypatch.setattr(cli,'PageFeed',SlowPage)
+    assert cli.main(args)==0
+    entry=json.loads((tmp_path/'checkpoint/state.json').read_text())['posts'][0]
+    assert entry['status']=='cancelled'
