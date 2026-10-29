@@ -9,7 +9,8 @@ from pathlib import Path
 import re
 import sys
 from urllib.error import HTTPError
-from urllib.parse import parse_qs, quote, urlsplit
+from urllib.parse import parse_qs, quote, urlsplit, urlencode
+from urllib.request import Request, build_opener
 import zipfile
 import shutil
 
@@ -36,11 +37,59 @@ def stage(request):
     return 'publication_status'
 
 
+def check_access():
+    """Read only: identity, target visibility, and user-token grants/Page tasks. Never fetch tokens."""
+    page=os.getenv('FACEBOOK_PAGE_ID','').strip()
+    auth=os.getenv('FACEBOOK_PAGE_ACCESS_TOKEN','').strip()
+    report={'status':'access_check_only','publishing_attempts':0,'telegram_attempts':0,'errors':[]}
+    if not auth or not re.fullmatch(r'[1-9]\d*',page):
+        report['errors'].append({'message':'Missing token or numeric target Page ID'})
+        return report
+    opener=build_opener(fb._NoRedirect())
+    def get(node,fields):
+        req=Request(f'https://graph.facebook.com/{fb.GRAPH_VERSION}/{node}?'+urlencode(fields),
+                    headers={'Authorization':f'Bearer {auth}'},method='GET')
+        try:
+            return fb._json(opener,req)
+        except HTTPError as error:
+            try:
+                data=json.loads(error.read(65536)).get('error') or {}
+                detail={k:clean(data[k]) for k in ('message','code','error_subcode') if k in data}
+            except (ValueError,TypeError,AttributeError):detail={}
+            report['errors'].append({'check':node if node.startswith('me') else 'target_page',
+                                     'http_status':error.code,**detail})
+        except Exception as error:
+            report['errors'].append({'check':'read_access','exception_type':type(error).__name__})
+        return {}
+    identity=get('me',{'fields':'id'})
+    if identity.get('id'):
+        report['token_identity_matches_target_page']=str(identity['id'])==page
+    target=get(page,{'fields':'id,name'})
+    report['target_page_readable']=str(target.get('id',''))==page
+    if target.get('name'):report['target_page_name']=clean(target['name'])
+    if report.get('token_identity_matches_target_page') is False:
+        permissions=get('me/permissions',{})
+        report['granted_page_permissions']=[str(row['permission']) for row in permissions.get('data',[])
+            if row.get('status')=='granted' and str(row.get('permission','')).startswith('pages_')]
+        accounts=get('me/accounts',{'fields':'id,tasks','limit':100})
+        matching=[row for row in accounts.get('data',[]) if str(row.get('id'))==page]
+        report['target_in_managed_pages']=bool(matching)
+        report['target_page_tasks']=matching[0].get('tasks',[]) if matching else []
+    return report
+
+
 def main():
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--request',required=True)
     args=parser.parse_args()
     request=json.loads(Path(args.request).read_text())
+    if request.get('action')=='check_access':
+        report=check_access()
+        work=Path('tmp/facebook-retry');work.mkdir(parents=True,exist_ok=True)
+        (work/'report.json').write_text(json.dumps(report,indent=2)+'\n')
+        message=json.dumps(report,separators=(',',':')).replace('%','%25').replace('\r','%0D').replace('\n','%0A')
+        print('::notice::Facebook read-only access check: '+message,flush=True)
+        return 0
     artifact=str(request['artifact_id'])
     if not re.fullmatch(r'[1-9]\d*',artifact):raise SystemExit('Invalid artifact ID')
     work=Path('tmp/facebook-retry');work.mkdir(parents=True,exist_ok=True)

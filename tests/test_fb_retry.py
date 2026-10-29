@@ -36,3 +36,33 @@ class RetryTests(unittest.TestCase):
 
 
 if __name__=='__main__':unittest.main()
+
+
+class ReadOnlyAccessTests(unittest.TestCase):
+    def test_reports_user_token_grants_and_target_tasks_without_publishing_or_secrets(self):
+        replies=iter([{'id':'999'},{'id':'123','name':'PlayReport ZA'},
+                      {'data':[{'permission':'pages_manage_posts','status':'granted'}]},
+                      {'data':[{'id':'123','tasks':['CREATE_CONTENT']}]}])
+        seen=[]
+        def get(opener,request):
+            self.assertEqual(request.get_method(),'GET')
+            self.assertNotIn('access_token',request.full_url)
+            seen.append(request.full_url)
+            return next(replies)
+        with patch.dict(os.environ,{'FACEBOOK_PAGE_ID':'123','FACEBOOK_PAGE_ACCESS_TOKEN':'synthetic'}), \
+             patch.object(retry.fb,'_json',side_effect=get),patch.object(retry.fb,'publish') as publish:
+            result=retry.check_access()
+        publish.assert_not_called()
+        self.assertEqual(result['publishing_attempts'],0)
+        self.assertFalse(result['token_identity_matches_target_page'])
+        self.assertTrue(result['target_in_managed_pages'])
+        self.assertEqual(result['target_page_tasks'],['CREATE_CONTENT'])
+        self.assertNotIn('synthetic',json.dumps(result))
+        self.assertNotIn('999',json.dumps(result))
+
+    def test_page_identity_does_not_try_user_only_endpoints(self):
+        with patch.dict(os.environ,{'FACEBOOK_PAGE_ID':'123','FACEBOOK_PAGE_ACCESS_TOKEN':'synthetic'}), \
+             patch.object(retry.fb,'_json',side_effect=[{'id':'123'},{'id':'123','name':'Page'}]) as get:
+            result=retry.check_access()
+        self.assertTrue(result['token_identity_matches_target_page'])
+        self.assertEqual(get.call_count,2)
