@@ -8,8 +8,14 @@ import advisor_tracking
 import scanner
 
 
+@pytest.mark.parametrize('hour,forced_edition', [(8,None),(9,None),(12,None),(17,'morning'),(19,None)])
 @pytest.mark.parametrize('portrait_failure',[False,True])
-def test_daily_renderer_routes_portrait_without_blocking_telegram(monkeypatch,tmp_path,portrait_failure):
+def test_daily_renderer_routes_portrait_without_blocking_telegram(monkeypatch,tmp_path,portrait_failure,hour,forced_edition):
+    monkeypatch.delenv("FORCE_DAILY_REEL",raising=False)
+    monkeypatch.delenv("DAILY_REEL_EDITION",raising=False)
+    if forced_edition:
+        monkeypatch.setenv("FORCE_DAILY_REEL","true")
+        monkeypatch.setenv("DAILY_REEL_EDITION",forced_edition)
     monkeypatch.setenv('TELEGRAM_BOT_TOKEN','fake-tg');monkeypatch.setenv('TELEGRAM_CHAT_ID','123')
     monkeypatch.setenv('FACEBOOK_PAGE_ID','123');monkeypatch.setenv('FACEBOOK_PAGE_ACCESS_TOKEN','fake')
     monkeypatch.setenv('TMPDIR',str(tmp_path));monkeypatch.setattr(scanner,'ROOT',tmp_path)
@@ -31,10 +37,16 @@ def test_daily_renderer_routes_portrait_without_blocking_telegram(monkeypatch,tm
     monkeypatch.setattr(scanner,'reel_mod',SimpleNamespace(build=build,video_picks=lambda *a,**k:(picks,[]),reel_results=lambda _:[]))
     sent=[]
     monkeypatch.setattr(scanner,'send_telegram_video',lambda path,caption,**kw:(sent.append((path,kw)) or True))
-    scanner.maybe_send_daily_reel({},datetime(2026,10,28,8,0))
+    scanner.maybe_send_daily_reel({},datetime(2026,10,28,hour,0))
     assert len(built)==2 and built[0][0]==built[1][0]==picks
     assert built[0][2].get('aspect','16:9')=='16:9' and built[1][2]['aspect']=='9:16'
     assert len(sent)==1 and (sent[0][1]['width'],sent[0][1]['height'])==(1920,1080)
     assert sent[0][1]['facebook_path']==built[1][1]
     assert sent[0][0]==built[0][1]
     assert built[1][1].exists() is not portrait_failure
+
+    expected = forced_edition or ('evening' if hour >= 16 else 'morning')
+    assert state['briefing_slots']['2026-10-28'] == [expected]
+    assert built[0][2]['recap'] == (expected == 'morning')
+    scanner.maybe_send_daily_reel({}, datetime(2026,10,28,hour,30))
+    assert len(sent) == 1 and len(built) == 2  # A delayed/repeated scan must not repost the edition.

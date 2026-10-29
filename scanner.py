@@ -2700,11 +2700,15 @@ def _telegram_state(now: datetime) -> tuple[Path, dict]:
 
 
 def _reel_slot(now: datetime) -> str | None:
-    """Two daily windows: 08:00 and 16:00 SAST (allow scheduler delay within that hour)."""
+    """Catch up today's edition on the next scan, not only during its launch hour.
+
+    Morning remains due from 08:00 until the 16:00 edition takes over; evening
+    remains due until midnight. The persisted slot check prevents repeat sends.
+    """
     from zoneinfo import ZoneInfo
     if now.tzinfo is not None:
         now = now.astimezone(ZoneInfo("Africa/Johannesburg"))
-    return {8: "morning", 16: "evening"}.get(now.hour)
+    return "evening" if now.hour >= 16 else "morning" if now.hour >= 8 else None
 
 
 def maybe_send_daily_reel(sl_pub: dict, now: datetime) -> None:
@@ -2719,8 +2723,17 @@ def maybe_send_daily_reel(sl_pub: dict, now: datetime) -> None:
             or (drive_mod is not None and drive_mod.enabled()) or os.getenv("YT_UPLOAD") == "1"
             or facebook_mod.requested()):
         return
+    if now.tzinfo is not None:
+        now = now.astimezone(ZoneInfo("Africa/Johannesburg"))
     force = os.getenv("FORCE_DAILY_REEL", "").strip().lower() in ("1", "true", "yes")
-    slot = _reel_slot(now) or (("morning" if now.hour < 16 else "evening") if force else None)
+    slot = _reel_slot(now)
+    if force:
+        edition = os.getenv("DAILY_REEL_EDITION", "auto").strip().lower()
+        if edition not in ("auto", "morning", "evening"):
+            log.error("Daily reel skipped: invalid DAILY_REEL_EDITION")
+            return
+        local_now = now.astimezone(ZoneInfo("Africa/Johannesburg")) if now.tzinfo else now
+        slot = edition if edition != "auto" else slot or ("morning" if local_now.hour < 16 else "evening")
     if not slot:
         return
     path, st = _telegram_state(now)
@@ -2728,7 +2741,9 @@ def maybe_send_daily_reel(sl_pub: dict, now: datetime) -> None:
     slots = st.get("briefing_slots") if isinstance(st.get("briefing_slots"), dict) else {}
     already = list(slots.get(today) or [])
     if slot in already:
+        log.info("Daily reel: %s edition already delivered today; no duplicate", slot)
         return
+    log.info("Daily reel: %s edition due at %s SAST (catch-up enabled)", slot, now.strftime("%H:%M"))
     hist = st.get("briefing_history") if isinstance(st.get("briefing_history"), dict) else {}
     used = {(str(x.get("home") or ""), str(x.get("away") or ""))
             for x in (hist.get(today) or []) if isinstance(x, dict)}
@@ -3829,7 +3844,7 @@ def main() -> None:
     except Exception as exc:  # noqa: BLE001 - pushes must never break the scan
         log.warning("Telegram shortlist push failed: %s", exc)
     try:
-        maybe_send_daily_reel(ctx.get("shortlist") or {}, now)
+        maybe_send_daily_reel(ctx.get("shortlist") or {}, now if override else datetime.now(tz))
     except Exception as exc:  # noqa: BLE001 - the reel must never break the scan
         log.warning("Daily reel failed: %s", exc)
     try:

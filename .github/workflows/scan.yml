@@ -109,11 +109,11 @@ jobs:
           from zoneinfo import ZoneInfo
 
           now = datetime.now(ZoneInfo(os.environ["TIMEZONE"]))
-          morning = now.hour in (8, 16)
+          edition_due = now.hour >= 8  # Catch up a missed edition on the next available scan.
           force = os.environ.get("FORCE_DAILY_REEL", "").strip().lower() in ("1", "true", "yes")
           configured = bool(os.environ.get("TELEGRAM_BOT_TOKEN") and os.environ.get("TELEGRAM_CHAT_ID"))
           with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as fh:
-              fh.write(f"can_send_reel={'true' if ((morning or force) and configured) else 'false'}\n")
+              fh.write(f"can_send_reel={'true' if ((edition_due or force) and configured) else 'false'}\n")
           PY
 
       - name: Restore state (data branch)

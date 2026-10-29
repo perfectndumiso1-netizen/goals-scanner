@@ -1,0 +1,95 @@
+name: Recover morning Advisor video
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [arena/9c75716e-goals-scanner]
+    paths: [config/morning-video-request.json]
+
+permissions:
+  contents: write
+
+# The scanner and recovery must not publish overlapping selections or overwrite state.
+concurrency:
+  group: goals-scan
+  cancel-in-progress: false
+
+jobs:
+  recover:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      TIMEZONE: Africa/Johannesburg
+      STATE_DIR: ${{ github.workspace }}/state
+      TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+      TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+      FACEBOOK_PAGE_ACCESS_TOKEN: ${{ secrets.FACEBOOK_PAGE_ACCESS_TOKEN }}
+      FACEBOOK_PAGE_ID: ${{ secrets.FACEBOOK_PAGE_ID }}
+      VIDEO_RECOVERY_DIR: ${{ github.workspace }}/tmp/video-recovery
+      VIDEO_RECOVERY_REPORT: ${{ github.workspace }}/tmp/morning-recovery/result.json
+      TMPDIR: ${{ github.workspace }}/tmp
+      YT_UPLOAD: "1"
+      YT_SLOTS: morning,evening
+      YT_PRIVACY: public
+      YT_CLIENT_ID: ${{ secrets.YT_CLIENT_ID }}
+      YT_CLIENT_SECRET: ${{ secrets.YT_CLIENT_SECRET }}
+      YT_REFRESH_TOKEN: ${{ secrets.YT_REFRESH_TOKEN }}
+      DRIVE_HANDOFF: "1"
+      GDRIVE_FOLDER_ID: ${{ secrets.GDRIVE_FOLDER_ID }}
+      GDRIVE_CLIENT_ID: ${{ secrets.GDRIVE_CLIENT_ID }}
+      GDRIVE_CLIENT_SECRET: ${{ secrets.GDRIVE_CLIENT_SECRET }}
+      GDRIVE_REFRESH_TOKEN: ${{ secrets.GDRIVE_REFRESH_TOKEN }}
+      GDRIVE_SA_JSON: ${{ secrets.GDRIVE_SA_JSON }}
+    steps:
+      - name: Check out the tested publisher
+        uses: actions/checkout@v4.4.0
+      - name: Restore current published Advisor and delivery state
+        uses: actions/checkout@v4.4.0
+        with:
+          ref: data
+          path: state
+      - name: Set up Python
+        uses: actions/setup-python@v5.6.0
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: Install renderer dependencies
+        run: |
+          mkdir -p "$TMPDIR"
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq ffmpeg
+          pip install --require-hashes --only-binary=:all: --retries 10 --timeout 60 -q -r requirements.txt
+      - name: Verify, render and deliver the missing morning edition
+        id: delivery
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+        run: |
+          args=()
+          if [[ "$EVENT_NAME" == "push" ]]; then
+            args+=(--request config/morning-video-request.json)
+          fi
+          python recover_morning.py "${args[@]}"
+      - name: Preserve updated delivery markers even on a later upload failure
+        if: always() && (steps.delivery.outcome == 'success' || steps.delivery.outcome == 'failure')
+        run: |
+          set -euo pipefail
+          git -C state config user.name playreport-bot
+          git -C state config user.email playreport-bot@users.noreply.github.com
+          git -C state add -A
+          if ! git -C state diff --cached --quiet; then
+            git -C state commit -m "Record recovered morning video ($GITHUB_RUN_ID)"
+            git -C state push origin HEAD:data
+          fi
+      - name: Preserve delivery report and any unsent video
+        if: always()
+        uses: actions/upload-artifact@v4.6.2
+        with:
+          name: morning-video-recovery-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            tmp/morning-recovery/
+            tmp/video-recovery/
+            tmp/playreport-reel/*.mp4
+            tmp/playreport-reel/*.json
+            tmp/playreport-reel/facebook-9x16/*.json
+          if-no-files-found: ignore
+          retention-days: 7
