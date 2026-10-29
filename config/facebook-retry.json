@@ -1,6 +1,7 @@
 {
   "artifact_id": 12882196632,
-  "request_id": "morning-2026-10-29-verified-page-token-03",
+  "request_id": "morning-2026-10-29-existing-reel-publication-check",
   "caption": "⚽ PlayReport ZA — Morning Bet Advisor | Thursday 29 October 2026\nFive selections for your review, with recent form and head-to-head context.\n18+ · No guaranteed returns. A shortlist for your review, not an instruction to bet.",
-  "resolve_page_token": true
+  "resolve_page_token": true,
+  "action": "check_publication"
 }

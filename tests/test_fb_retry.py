@@ -98,3 +98,42 @@ class PageTokenResolutionTests(unittest.TestCase):
         with patch.dict(os.environ,{'FACEBOOK_PAGE_ID':'123','FACEBOOK_PAGE_ACCESS_TOKEN':'synthetic-person'}),patch.object(retry.fb,'_json',side_effect=[{'id':'999'},{'access_token':'synthetic-page'},{'id':'456'}]):
             with self.assertRaisesRegex(ValueError,'does not identify target Page'):
                 retry.resolve_target_page_token()
+
+
+class ExistingReelStatusTests(unittest.TestCase):
+    def test_poll_existing_id_does_not_upload_again(self):
+        from pathlib import Path
+        receipt={'kind':retry.fb.KIND,'page_id':'123','video_id':'456','phase':'finishing'}
+        statuses=iter([{'status':{'video_status':'processing','publishing_phase':{'status':'not_started'}}},
+                       {'status':{'video_status':'ready','publishing_phase':{'status':'complete'}}}])
+        def get(opener,request):
+            self.assertEqual(request.get_method(),'GET')
+            self.assertIn('/456?',request.full_url)
+            return next(statuses)
+        with patch.dict(os.environ,{'FACEBOOK_PAGE_ID':'123'}),patch.object(Path,'read_text',return_value=json.dumps(receipt)), \
+             patch.object(Path,'write_text') as write,patch.object(retry,'resolve_target_page_token',return_value=('synthetic',True)), \
+             patch.object(retry.fb,'_json',side_effect=get),patch.object(retry.time,'sleep'),patch.object(retry.fb,'publish') as publish:
+            report=retry.check_existing_publication({'artifact_id':'789'},attempts=2,interval=0)
+        publish.assert_not_called()
+        self.assertEqual(report['status'],'uploaded')
+        self.assertEqual(report['publishing_attempts'],0)
+        self.assertEqual(json.loads(write.call_args.args[0])['phase'],'published')
+
+    def test_pending_is_not_claimed_as_published(self):
+        from pathlib import Path
+        receipt={'kind':retry.fb.KIND,'page_id':'123','video_id':'456','phase':'finishing'}
+        with patch.dict(os.environ,{'FACEBOOK_PAGE_ID':'123'}),patch.object(Path,'read_text',return_value=json.dumps(receipt)), \
+             patch.object(Path,'write_text') as write,patch.object(retry,'resolve_target_page_token',return_value=('synthetic',True)), \
+             patch.object(retry.fb,'_json',return_value={'status':{'video_status':'processing'}}):
+            report=retry.check_existing_publication({'artifact_id':'789'},attempts=1)
+        self.assertEqual(report['status'],'pending')
+        write.assert_not_called()
+
+    def test_mismatched_page_prevents_any_network_request(self):
+        from pathlib import Path
+        receipt={'kind':retry.fb.KIND,'page_id':'999','video_id':'456'}
+        with patch.dict(os.environ,{'FACEBOOK_PAGE_ID':'123'}),patch.object(Path,'read_text',return_value=json.dumps(receipt)), \
+             patch.object(retry,'resolve_target_page_token') as resolve:
+            report=retry.check_existing_publication({'artifact_id':'789'})
+        self.assertEqual(report['status'],'failed')
+        resolve.assert_not_called()

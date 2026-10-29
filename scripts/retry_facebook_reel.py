@@ -8,6 +8,7 @@ import os
 from pathlib import Path
 import re
 import sys
+import time
 from urllib.error import HTTPError
 from urllib.parse import parse_qs, quote, urlsplit, urlencode
 from urllib.request import Request, build_opener
@@ -100,6 +101,49 @@ def resolve_target_page_token():
     return value,True
 
 
+def check_existing_publication(request,attempts=60,interval=5):
+    """GET-only polling of the saved Reel ID. Never start, transfer or finish another upload."""
+    artifact=str(request['artifact_id'])
+    if not re.fullmatch(r'[1-9]\d*',artifact):raise ValueError('Invalid source artifact')
+    saved=Path('state/data/facebook-retries')/(artifact+'.json')
+    receipt=json.loads(saved.read_text())
+    page=os.getenv('FACEBOOK_PAGE_ID','').strip()
+    video_id=str(receipt.get('video_id',''))
+    report={'status':'pending','reel_id':video_id,'publishing_attempts':0,'telegram_attempts':0,'errors':[]}
+    if receipt.get('kind')!=fb.KIND or receipt.get('page_id')!=page or not re.fullmatch(r'[1-9]\d*',video_id):
+        report.update(status='failed',reason='Saved Reel identity/Page mismatch; no new upload attempted')
+        return report
+    try:
+        credential,resolved=resolve_target_page_token()
+        report.update(page_specific_token_verified=True,resolved_from_user_token=resolved)
+        opener=build_opener(fb._NoRedirect())
+        for attempt in range(attempts):
+            result=fb._json(opener,Request(f'https://graph.facebook.com/{fb.GRAPH_VERSION}/{video_id}?fields=status',
+                        headers={'Authorization':f'Bearer {credential}'},method='GET'))
+            status=result.get('status') or {}
+            report['meta_status']=json.loads(clean_json(status))
+            report['status_checks']=attempt+1
+            if status.get('video_status')=='error' or any((status.get(p) or {}).get('status') in ('error','failed')
+                for p in ('uploading_phase','processing_phase','publishing_phase')):
+                report['status']='failed';break
+            if (status.get('publishing_phase') or {}).get('status')=='complete':
+                report.update(status='uploaded',url=f'https://www.facebook.com/reel/{video_id}')
+                receipt['phase']='published';saved.write_text(json.dumps(receipt))
+                break
+            if attempt+1<attempts:time.sleep(interval)
+    except HTTPError as error:
+        try:
+            data=json.loads(error.read(65536)).get('error') or {}
+            detail={k:clean(data[k]) for k in ('message','code','error_subcode') if k in data}
+        except (ValueError,TypeError,AttributeError):detail={}
+        report.update(status='failed',errors=[{'http_status':error.code,**detail}])
+    except Exception as error:
+        report.update(status='failed',failure_type=type(error).__name__)
+    finally:
+        _transient_tokens.clear()
+    return report
+
+
 def main():
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--request',required=True)
@@ -112,6 +156,13 @@ def main():
         message=json.dumps(report,separators=(',',':')).replace('%','%25').replace('\r','%0D').replace('\n','%0A')
         print('::notice::Facebook read-only access check: '+message,flush=True)
         return 0
+    if request.get('action')=='check_publication':
+        report=check_existing_publication(request)
+        work=Path('tmp/facebook-retry');work.mkdir(parents=True,exist_ok=True)
+        (work/'report.json').write_text(json.dumps(report,indent=2)+'\n')
+        message=json.dumps(report,separators=(',',':')).replace('%','%25').replace('\r','%0D').replace('\n','%0A')
+        print('::notice::Facebook existing-Reel status: '+message,flush=True)
+        return 0 if report['status'] in ('uploaded','pending') else 1
     artifact=str(request['artifact_id'])
     if not re.fullmatch(r'[1-9]\d*',artifact):raise SystemExit('Invalid artifact ID')
     work=Path('tmp/facebook-retry');work.mkdir(parents=True,exist_ok=True)
