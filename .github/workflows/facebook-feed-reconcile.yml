@@ -1,0 +1,59 @@
+name: Facebook feed reservation recovery (no publishing)
+on:
+  workflow_dispatch:
+    inputs:
+      reservation_key:
+        description: Exact unresolved key from the feed state artifact
+        type: string
+        required: true
+      post_id:
+        description: Existing PAGE_POST ID to verify (leave empty only when cancelling)
+        type: string
+        default: ''
+      cancel_reservation:
+        description: Mark attempt cancelled ONLY when you have established it was not published
+        type: boolean
+        default: false
+      confirm_page_inspection:
+        description: I inspected the Page and established this attempt did not publish
+        type: boolean
+        default: false
+permissions:
+  contents: read
+  actions: read
+concurrency:
+  group: facebook-feed-${{ github.repository }}-${{ github.ref_name }}
+  cancel-in-progress: false
+jobs:
+  reconcile:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4.4.0
+      - uses: actions/setup-python@v5.6.0
+        with:
+          python-version: "3.12"
+      - name: Restore live ledger; verify existing post or acknowledge inspected absence
+        id: recover
+        env:
+          GH_READ_TOKEN: ${{ github.token }}
+          FACEBOOK_PAGE_ID: ${{ secrets.FACEBOOK_PAGE_ID }}
+          FACEBOOK_PAGE_ACCESS_TOKEN: ${{ secrets.FACEBOOK_PAGE_ACCESS_TOKEN }}
+          RESERVATION_KEY: ${{ inputs.reservation_key }}
+          POST_ID: ${{ inputs.post_id }}
+          CANCEL: ${{ inputs.cancel_reservation }}
+          INSPECTED: ${{ inputs.confirm_page_inspection }}
+        run: |
+          args=()
+          [[ -z "$POST_ID" ]] || args+=(--post-id "$POST_ID")
+          [[ "$CANCEL" != "true" ]] || args+=(--cancel-reservation)
+          [[ "$INSPECTED" != "true" ]] || args+=(--confirm-page-inspection)
+          python -m facebook_feed.cli reconcile --reservation-key "$RESERVATION_KEY" "${args[@]}"
+      - name: Persist reconciled state without creating or editing Facebook content
+        if: steps.recover.conclusion == 'success'
+        uses: actions/upload-artifact@v4.6.2
+        with:
+          name: ${{ steps.recover.outputs.prefix }}${{ github.run_id }}-${{ github.run_attempt }}-reconciled
+          path: tmp/facebook-feed/checkpoint/state.json
+          retention-days: 30
+          if-no-files-found: error

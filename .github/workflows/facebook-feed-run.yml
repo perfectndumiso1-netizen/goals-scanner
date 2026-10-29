@@ -1,0 +1,126 @@
+name: Facebook feed engine (isolated)
+on:
+  workflow_call:
+    outputs:
+      state_restored:
+        value: ${{ jobs.feed.outputs.state_restored }}
+    inputs:
+      invocation:
+        default: main
+        type: string
+      kind:
+        required: true
+        type: string
+      publish:
+        default: false
+        type: boolean
+      preview:
+        default: false
+        type: boolean
+      bootstrap:
+        default: false
+        type: boolean
+  workflow_dispatch:
+    inputs:
+      kind:
+        type: choice
+        options: [community, card, weekly, live, roundup, preflight]
+        default: community
+      publish:
+        description: Request publishing (config + repository variable must also allow it)
+        type: boolean
+        default: false
+      preview:
+        description: Preview outside scheduled slot (never bypasses publishing safety gates)
+        type: boolean
+        default: true
+      bootstrap:
+        description: Initialize missing live ledger ONLY after inspecting the Page for prior attempts
+        type: boolean
+        default: false
+permissions:
+  contents: read
+  actions: read
+# Independent of goals-scan: feed failures cannot hold the Reel/scanner mutex or overwrite its data.
+concurrency:
+  group: facebook-feed-${{ github.repository }}-${{ github.ref_name }}
+  cancel-in-progress: false
+jobs:
+  feed:
+    runs-on: ubuntu-latest
+    outputs:
+      state_restored: ${{ steps.prepare.outputs.restored }}
+    timeout-minutes: 10
+    env:
+      CONTENT_KIND: ${{ inputs.kind }}
+      REQUEST_PUBLISH: ${{ inputs.publish }}
+      REQUEST_PREVIEW: ${{ inputs.preview }}
+      REQUEST_BOOTSTRAP: ${{ inputs.bootstrap }}
+      FACEBOOK_FEED_PUBLISH: ${{ vars.FACEBOOK_FEED_PUBLISH || 'false' }}
+    steps:
+      - name: Check out feed code
+        uses: actions/checkout@v4.4.0
+      - name: Read scanner publication without modifying its state
+        uses: actions/checkout@v4.4.0
+        with:
+          ref: data
+          path: tmp/feed-source
+          sparse-checkout-cone-mode: false
+          sparse-checkout: |
+            data/app/latest.json
+            data/app/fx/
+            data/app/days/
+            data/advisor_ledger.json
+      - name: Set up Python
+        uses: actions/setup-python@v5.6.0
+        with:
+          python-version: "3.12"
+      - name: Install existing locked graphics dependency only when needed
+        if: inputs.kind == 'card' || inputs.kind == 'weekly'
+        run: |
+          pip install --require-hashes --only-binary=:all: --no-deps -q -r requirements-feed.txt
+      - name: Restore independent ledger and prepare verified content
+        id: prepare
+        env:
+          GH_READ_TOKEN: ${{ github.token }}
+          API_FOOTBALL_KEY: ${{ secrets.API_FOOTBALL_KEY }}
+        run: |
+          args=()
+          [[ "$REQUEST_PUBLISH" != "true" ]] || args+=(--publish)
+          [[ "$REQUEST_PREVIEW" != "true" ]] || args+=(--preview)
+          [[ "$REQUEST_BOOTSTRAP" != "true" ]] || args+=(--bootstrap)
+          python -m facebook_feed.cli prepare --kind "$CONTENT_KIND" "${args[@]}"
+      - name: Save durable reservation BEFORE any Facebook mutation
+        id: reserve
+        if: steps.prepare.outputs.should_publish == 'true'
+        uses: actions/upload-artifact@v4.6.2
+        with:
+          name: ${{ steps.prepare.outputs.prefix }}${{ github.run_id }}-${{ github.run_attempt }}-${{ inputs.invocation || 'main' }}-reserved
+          path: tmp/facebook-feed/checkpoint/state.json
+          retention-days: 30
+          if-no-files-found: error
+      - name: Publish or edit only after reservation checkpoint succeeded
+        if: steps.prepare.outputs.should_publish == 'true' && steps.reserve.conclusion == 'success'
+        env:
+          FACEBOOK_PAGE_ACCESS_TOKEN: ${{ secrets.FACEBOOK_PAGE_ACCESS_TOKEN }}
+          FACEBOOK_PAGE_ID: ${{ secrets.FACEBOOK_PAGE_ID }}
+        run: python -m facebook_feed.cli send --kind "$CONTENT_KIND" --publish --checkpoint
+      - name: Save final ledger including ambiguous failures
+        if: always() && steps.prepare.conclusion == 'success'
+        uses: actions/upload-artifact@v4.6.2
+        with:
+          name: ${{ steps.prepare.outputs.prefix }}${{ github.run_id }}-${{ github.run_attempt }}-${{ inputs.invocation || 'main' }}-final
+          path: tmp/facebook-feed/checkpoint/state.json
+          retention-days: 30
+          if-no-files-found: error
+      - name: Save public captions, graphics and safe planning report
+        if: always()
+        uses: actions/upload-artifact@v4.6.2
+        with:
+          name: facebook-feed-preview-${{ inputs.kind }}-${{ github.run_id }}-${{ github.run_attempt }}-${{ inputs.invocation || 'main' }}
+          path: |
+            tmp/facebook-feed/*.jpg
+            tmp/facebook-feed/*.txt
+            tmp/facebook-feed/report.json
+          retention-days: 7
+          if-no-files-found: ignore
