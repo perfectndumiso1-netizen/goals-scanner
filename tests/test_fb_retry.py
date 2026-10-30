@@ -137,3 +137,61 @@ class ExistingReelStatusTests(unittest.TestCase):
             report=retry.check_existing_publication({'artifact_id':'789'})
         self.assertEqual(report['status'],'failed')
         resolve.assert_not_called()
+
+
+class RetainedPortraitTests(unittest.TestCase):
+    def test_hash_named_portrait_keeps_matching_native_receipt_and_cover(self):
+        import tempfile,hashlib,zipfile
+        from pathlib import Path
+        with tempfile.TemporaryDirectory() as folder:
+            work=Path(folder);body=b'original retained portrait'
+            name='briefing-9x16-reel-'+hashlib.sha256(body).hexdigest()[:20]+'.mp4'
+            archive=work/'source.zip'
+            with zipfile.ZipFile(archive,'w') as z:
+                z.writestr('recovery/'+name,body)
+                z.writestr('recovery/'+name+'.facebook-upload.json','{"video_id":"123"}')
+                z.writestr('recovery/'+Path(name).with_suffix('.cover.jpg').name,b'original cover')
+                z.writestr('briefing-16x9.mp4',b'not the portrait')
+            video=retry.extract_portrait(archive,work)
+            self.assertEqual(video.read_bytes(),body)
+            self.assertEqual(json.loads(retry.fb._receipt(video).read_text())['video_id'],'123')
+            self.assertEqual(video.with_suffix('.cover.jpg').read_bytes(),b'original cover')
+
+    def test_original_filename_still_works(self):
+        import tempfile,zipfile
+        from pathlib import Path
+        with tempfile.TemporaryDirectory() as folder:
+            work=Path(folder);archive=work/'source.zip'
+            with zipfile.ZipFile(archive,'w') as z:z.writestr('deep/briefing-9x16-reel.mp4',b'original')
+            self.assertEqual(retry.extract_portrait(archive,work).read_bytes(),b'original')
+
+    def test_digest_mismatch_landscape_only_and_ambiguous_files_fail_closed(self):
+        import tempfile,zipfile
+        from pathlib import Path
+        cases=[['briefing-9x16-reel-'+'0'*20+'.mp4'],['briefing-16x9.mp4'],
+               ['a/briefing-9x16-reel.mp4','b/briefing-9x16-reel.mp4']]
+        for names in cases:
+            with self.subTest(names=names),tempfile.TemporaryDirectory() as folder:
+                work=Path(folder);archive=work/'source.zip'
+                with zipfile.ZipFile(archive,'w') as z:
+                    for name in names:z.writestr(name,b'body')
+                with self.assertRaises(ValueError):retry.extract_portrait(archive,work)
+
+
+class PublishRequestSafetyTests(unittest.TestCase):
+    def test_today_exact_caption_allowed_but_stale_expired_and_other_actions_rejected(self):
+        from datetime import datetime
+        from zoneinfo import ZoneInfo
+        from facebook_captions import reel_caption
+        now=datetime(2026,10,30,12,tzinfo=ZoneInfo('Africa/Johannesburg'))
+        valid={'action':'publish','video_date':'2026-10-30','expires_at':'2026-10-30T16:00:00+02:00','caption':reel_caption(now=now)}
+        retry.validate_publish_request(valid,now)
+        for changes in ({'video_date':'2026-10-29'},{'expires_at':'2026-10-30T11:00:00+02:00'},
+                        {'expires_at':'2026-10-30T16:00:00'},{'caption':'old caption'}, {'action':'unknown'}):
+            with self.subTest(changes=changes),self.assertRaises(ValueError):retry.validate_publish_request({**valid,**changes},now)
+
+    def test_saved_invalid_session_is_not_silently_discarded(self):
+        from pathlib import Path
+        source=Path('scripts/retry_facebook_reel.py').read_text()
+        self.assertIn('if fb._receipt(video).exists() and not fb._read_receipt(video)',source)
+        self.assertNotIn('send_telegram',source)

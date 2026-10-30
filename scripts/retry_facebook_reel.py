@@ -1,6 +1,8 @@
 """One explicitly authorized Facebook-only retry of a retained portrait Reel."""
 from __future__ import annotations
 import argparse
+from datetime import datetime
+from zoneinfo import ZoneInfo
 import io
 import json
 import logging
@@ -144,6 +146,54 @@ def check_existing_publication(request,attempts=60,interval=5):
     return report
 
 
+def validate_publish_request(request, now=None):
+    """Publishing is explicit, date-bound and uses the current requested caption."""
+    from facebook_captions import reel_caption
+    now = now or datetime.now(ZoneInfo('Africa/Johannesburg'))
+    now = now.astimezone(ZoneInfo('Africa/Johannesburg'))
+    if request.get('action') != 'publish':
+        raise ValueError('Explicit publish action required')
+    if request.get('video_date') != now.date().isoformat():
+        raise ValueError('Source video is not dated today; no stale Reel retry')
+    expires = datetime.fromisoformat(request.get('expires_at', ''))
+    if expires.tzinfo is None or now >= expires or expires.date() != now.date():
+        raise ValueError('Retry authorisation expired or has an invalid timezone/date')
+    if request.get('caption') != reel_caption(now=now):
+        raise ValueError('Retry caption must match the approved title/date/hashtags')
+
+
+def extract_portrait(archive_path, work):
+    """Accept the original filename or the publisher's digest-named recovery copy.
+
+    Flatten trusted basenames only; verify digest names and retain the matching
+    native session receipt. Never mistake a landscape clip for the portrait.
+    """
+    work = Path(work)
+    video = work/'briefing-9x16-reel.mp4'
+    pattern = re.compile(r'^briefing-9x16-reel(?:-([0-9a-f]{20}))?\.mp4$')
+    with zipfile.ZipFile(archive_path) as archive:
+        matches = [item for item in archive.infolist() if pattern.fullmatch(Path(item.filename).name)]
+        if len(matches) != 1:raise ValueError('Expected exactly one original or digest-named portrait video')
+        item = matches[0]
+        if not 0 < item.file_size <= 512*1024*1024:raise ValueError('Unexpected video size')
+        with archive.open(item) as source, video.open('wb') as target:
+            shutil.copyfileobj(source,target,1024*1024)
+        digest = pattern.fullmatch(Path(item.filename).name).group(1)
+        if digest and not fb._digest(video).startswith(digest):raise ValueError('Recovery filename digest does not match video')
+        source_receipt = Path(item.filename).name+'.facebook-upload.json'
+        receipts = [entry for entry in archive.infolist() if Path(entry.filename).name == source_receipt]
+        if len(receipts)>1:raise ValueError('Ambiguous source receipts')
+        if receipts:
+            if receipts[0].file_size>65536:raise ValueError('Unexpected receipt size')
+            fb._receipt(video).write_bytes(archive.read(receipts[0]))
+        covers = [entry for entry in archive.infolist() if Path(entry.filename).name == Path(item.filename).with_suffix('.cover.jpg').name]
+        if len(covers)>1:raise ValueError('Ambiguous source covers')
+        if covers:
+            if covers[0].file_size>8*1024*1024:raise ValueError('Unexpected cover size')
+            video.with_suffix('.cover.jpg').write_bytes(archive.read(covers[0]))
+    return video
+
+
 def main():
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--request',required=True)
@@ -163,6 +213,10 @@ def main():
         message=json.dumps(report,separators=(',',':')).replace('%','%25').replace('\r','%0D').replace('\n','%0A')
         print('::notice::Facebook existing-Reel status: '+message,flush=True)
         return 0 if report['status'] in ('uploaded','pending') else 1
+    try:
+        validate_publish_request(request)
+    except (ValueError, TypeError):
+        raise SystemExit('Retry request is not authorised for today with the approved caption; no upload attempted')
     artifact=str(request['artifact_id'])
     if not re.fullmatch(r'[1-9]\d*',artifact):raise SystemExit('Invalid artifact ID')
     work=Path('tmp/facebook-retry');work.mkdir(parents=True,exist_ok=True)
@@ -199,16 +253,7 @@ def main():
     try:
         private=work/'source.zip'
         github_download(os.environ['GITHUB_REPOSITORY'],f'actions/artifacts/{artifact}/zip',private,os.environ['GH_READ_TOKEN'])
-        video=work/'briefing-9x16-reel.mp4'
-        with zipfile.ZipFile(private) as archive:
-            matches=[i for i in archive.infolist() if Path(i.filename).name==video.name]
-            if len(matches)!=1:raise ValueError('Expected exactly one original portrait video')
-            with archive.open(matches[0]) as source,video.open('wb') as target:shutil.copyfileobj(source,target,1024*1024)
-            receipt_name=video.name+'.facebook-upload.json'
-            receipts=[i for i in archive.infolist() if Path(i.filename).name==receipt_name]
-            if receipts:
-                if len(receipts)!=1:raise ValueError('Ambiguous source receipts')
-                (work/receipt_name).write_bytes(archive.read(receipts[0]))
+        video=extract_portrait(private,work)
         private.unlink()
         report['media']=inspect_video(video)
         if fb.dimensions(video)!=(1080,1920):raise ValueError('Original portrait dimensions do not match the verified source')
@@ -220,6 +265,8 @@ def main():
             os.environ['FACEBOOK_PAGE_ACCESS_TOKEN']=credential
             report['page_specific_token_verified']=True
             report['resolved_from_user_token']=resolved
+        if fb._receipt(video).exists() and not fb._read_receipt(video):
+            raise ValueError('Saved session identity or video hash mismatch; refusing a new upload')
         result=fb.publish(video,request['caption'])
         report.update(status=result.status,reel_id=result.video_id)
         ok=result.status=='uploaded'
