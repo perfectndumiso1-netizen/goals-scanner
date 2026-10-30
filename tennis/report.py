@@ -128,7 +128,7 @@ def write_pdf(md: str, path: Path, day: str) -> Path | None:
     sys.path.insert(0, str(C.REPO))
     try:
         from pdfgen import markdown_to_pdf                  # generic Markdown → PDF (shared infrastructure, read-only)
-        return markdown_to_pdf(md, path, title=f"Tennis Scanner {day}", subtitle="PlayReport · model vs market, data quality")
+        return markdown_to_pdf(md, path, title=f"Tennis Scanner {day}", subtitle="Mr 2 Odds · model vs market, data quality")
     except Exception as exc:                                # noqa: BLE001
         log.warning("PDF not generated: %s", exc)
         return None

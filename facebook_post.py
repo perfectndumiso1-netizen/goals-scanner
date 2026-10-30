@@ -208,7 +208,7 @@ def publish(path: Path, caption: str = "") -> UploadResult:
             _save(path, info, "finishing")
             finished = _control(opener, endpoint, token, {"upload_phase": "finish", "video_id": info["video_id"],
                 "video_state": "PUBLISHED", "description": str(caption or "")[:5000],
-                "title": (str(caption or "").splitlines() or ["PlayReport ZA"])[0][:100]})
+                "title": (str(caption or "").splitlines() or ["Mr 2 Odds"])[0][:100]})
             if finished.get("success") is not True:
                 return retain_failure(path, "Reel publication was not acknowledged; inspect the saved Reel ID")
         for attempt in range(STATUS_ATTEMPTS):
@@ -220,7 +220,7 @@ def publish(path: Path, caption: str = "") -> UploadResult:
                 return retain_failure(path, "Facebook rejected the Reel during processing/publication; inspect its saved ID and media requirements")
             if (status.get("publishing_phase") or {}).get("status") == "complete":
                 _save(path, info, "published")
-                log.info("Facebook: 9:16 Reel published for PlayReport ZA (video ID %s).", info["video_id"])
+                log.info("Facebook: 9:16 Reel published for Mr 2 Odds (video ID %s).", info["video_id"])
                 # A cover failure must never retry or invalidate an already published Reel.
                 try:
                     from facebook_cover import apply_preferred

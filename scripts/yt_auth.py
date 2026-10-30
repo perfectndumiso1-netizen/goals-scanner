@@ -104,7 +104,7 @@ def wait_for_code(port: int = PORT, timeout: float = 300.0) -> str:
 
 
 def main(argv: list[str] | None = None) -> int:
-    ap = argparse.ArgumentParser(description="Authorise the PlayReport YouTube poster")
+    ap = argparse.ArgumentParser(description="Authorise the Mr 2 Odds YouTube poster")
     ap.add_argument("--manual", action="store_true", help="no local browser: print the URL and paste the redirect back")
     ap.add_argument("--no-browser", action="store_true", help="print the URL but do not try to open a browser")
     ap.add_argument("--port", type=int, default=PORT)

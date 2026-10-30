@@ -131,7 +131,7 @@ def score_post(matches,state,now,config,roundup=False):
         return None
     snapshot=[{k:m.get(k) for k in ('id','home','away','competition','country','kickoff','status','home_goals','away_goals','penalties')} for m in matches]
     fingerprint=hashlib.sha256(json.dumps(snapshot,sort_keys=True).encode()).hexdigest()[:20]
-    lines=['PLAYREPORT ZA — '+('RESULTS ROUNDUP' if roundup else 'SELECTED LIVE SCORE CENTRE'),
+    lines=['MR 2 ODDS — '+('RESULTS ROUNDUP' if roundup else 'SELECTED LIVE SCORE CENTRE'),
            f"Latest reported scores · checked {now:%d %b %H:%M} SAST", 'Periodic updates, not a minute-by-minute service.', '']
     for m in matches:
         lines += [score_text(m),m['competition'],'']

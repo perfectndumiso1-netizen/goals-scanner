@@ -374,7 +374,7 @@ def upload_video(path: Path, *, name: str | None = None, dry_run: bool = False,
     name = (name or title_for(path)).strip()
     if not name:
         raise DriveError("a Drive title is required")
-    payload = (b"PlayReport Drive handoff dry run. " * 64)[:DRY_RUN_BYTES] if dry_run else path.read_bytes()
+    payload = (b"Mr 2 Odds Drive handoff dry run. " * 64)[:DRY_RUN_BYTES] if dry_run else path.read_bytes()
     mime = "text/plain" if dry_run else VIDEO_MIME
     if dry_run:
         name = f"{name} (dry run)"
@@ -408,7 +408,7 @@ def handoff(path: Path, *, dry_run: bool = False, notify=None) -> dict | None:
     log.info("Drive handoff: %s → %s (%d KB)", res.get("name"), folder_id(), res.get("size", 0) // 1024)
     if notify:
         try:
-            notify(f"📤 YouTube handoff: {res.get('name')} → PlayReport/YouTube")
+            notify(f"📤 YouTube handoff: {res.get('name')} → Mr 2 Odds/YouTube")
         except Exception:  # noqa: BLE001
             pass
     return res
@@ -417,7 +417,7 @@ def handoff(path: Path, *, dry_run: bool = False, notify=None) -> dict | None:
 # ------------------------------------------------------------------ cli
 
 def main(argv: list[str] | None = None) -> int:
-    ap = argparse.ArgumentParser(description="Hand a finished PlayReport video to Google Drive for the YouTube Zap.")
+    ap = argparse.ArgumentParser(description="Hand a finished Mr 2 Odds video to Google Drive for the YouTube Zap.")
     sub = ap.add_subparsers(dest="cmd", required=True)
     sub.add_parser("diagnose", help="what is configured and what is missing (no network)")
     sub.add_parser("info", help="which account, which folder, and can it add files")
@@ -464,7 +464,7 @@ def main(argv: list[str] | None = None) -> int:
     if args.cmd == "info":
         return 0 if info["can_add"] else 1
     if args.cmd == "check":
-        res = upload_video(Path("dry-run.mp4"), name="PlayReport handoff check", dry_run=True, token=token,
+        res = upload_video(Path("dry-run.mp4"), name="Mr 2 Odds handoff check", dry_run=True, token=token,
                            fid=getattr(args, "folder", None))
     else:
         res = upload_video(Path(args.file), name=args.name, dry_run=args.dry_run, token=token,

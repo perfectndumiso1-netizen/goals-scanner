@@ -1,4 +1,4 @@
-/* PlayReport — CSV exports (Google Sheets / Excel friendly): one analysed match, or the whole day's analysis. */
+/* Mr 2 Odds — CSV exports (Google Sheets / Excel friendly): one analysed match, or the whole day's analysis. */
 (function (PR) {
   'use strict';
   const { state, toast, selLabel, tzNow, ymd } = PR;
@@ -47,7 +47,7 @@
     const L = [];
     const teams = x.teams || { home: {}, away: {} };
     const xg = x.xg || {}; const p = x.p || {}; const x12 = x.x12 || {}; const tg = x.team_goals || {};
-    L.push(row(['PlayReport match analysis']));
+    L.push(row(['Mr 2 Odds match analysis']));
     L.push(row(['Match', `${x.home} v ${x.away}`]));
     L.push(row(['Competition', x.competition, 'Country', x.country]));
     L.push(row(['Kick-off (SAST)', x.kickoff, 'Date', x.date]));
@@ -130,7 +130,7 @@
   };
 
   PR.downloadMatchCsv = function (x, live, extraStats) {
-    const name = fileName(`PlayReport_${x.date}_${x.home}_v_${x.away}`) + '.csv';
+    const name = fileName(`Mr 2 Odds_${x.date}_${x.home}_v_${x.away}`) + '.csv';
     PR.saveTextFile(name, PR.matchCsv(x, live, extraStats), 'text/csv');
   };
 
@@ -142,7 +142,7 @@
     const L = [];
     L.push(row(['BOOKMAKER-STYLE FOOTBALL MODEL — V1 (filled for this match)']));
     L.push(row(['Source', 'Google Sheet MATCH_INPUT / MODEL_ENGINE / SCORE_MATRIX / MARKETS — formulas unchanged']));
-    L.push(row(['Note', sm.note || 'Comparison only. PlayReport model is not changed.']));
+    L.push(row(['Note', sm.note || 'Comparison only. Mr 2 Odds model is not changed.']));
     L.push('');
     L.push(row(['MATCH INFORMATION']));
     L.push(row(['Competition', inp.competition || '']));
@@ -189,7 +189,7 @@
     L.push(row(['Residual outside 0–7', eng.matrix_residual]));
     L.push('');
     L.push(row(['MARKET PROBABILITIES & FAIR ODDS']));
-    L.push(row(['Market', 'Sheet probability', 'Fair odds', 'PlayReport (comparison only)']));
+    L.push(row(['Market', 'Sheet probability', 'Fair odds', 'Mr 2 Odds (comparison only)']));
     (sm.markets || []).forEach((m) => L.push(row([m.name, m.p, m.fair, m.playreport])));
     L.push('');
     L.push(row(['Inputs used', (sm.used || []).join('; ')]));
@@ -211,7 +211,7 @@
       const r = await PR.nfetch(PR.rawUrl(`reports/${d}.csv`) + '?t=' + Math.floor(Date.now() / 300000));
       if (r.code !== 200) throw new Error(`HTTP ${r.code}`);
       const text = r.body.charCodeAt(0) === 0xfeff ? r.body : BOM + r.body;
-      PR.saveTextFile(`PlayReport_${d}_analysis.csv`, text, 'text/csv');
+      PR.saveTextFile(`Mr 2 Odds_${d}_analysis.csv`, text, 'text/csv');
     } catch (e) {
       toast(`Today's data file is not available yet (${e.message})`);
     }

@@ -1,4 +1,4 @@
-/* PlayReport — boot: header menu, update banner, native callbacks, timers. */
+/* Mr 2 Odds — boot: header menu, update banner, native callbacks, timers. */
 (function (PR) {
   'use strict';
   const { $, $$, state, settings, esc, toast } = PR;
@@ -29,7 +29,7 @@
   };
   /** release notes (markdown-ish) -> list items */
   PR.notesList = function (notes) {
-    return String(notes || '').split(/\r?\n/).map((l) => l.trim()).filter((l) => l && !/^#/.test(l) && !/^PlayReport for Android/.test(l) && !/^Download PlayReport/.test(l))
+    return String(notes || '').replace(/PlayReport(?: ZA)?/g, 'Mr 2 Odds').split(/\r?\n/).map((l) => l.trim()).filter((l) => l && !/^#/.test(l) && !/^Mr 2 Odds for Android/.test(l) && !/^Download Mr 2 Odds/.test(l))
       .map((l) => l.replace(/^[-*•]\s*/, '')).slice(0, 10);
   };
   window.__updateInfo = function (info) {

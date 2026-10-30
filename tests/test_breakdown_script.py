@@ -125,8 +125,8 @@ def test_every_script_over_real_data_reads_like_speech():
             for s in _sentences(t):
                 assert s[0].isupper() or s[0].isdigit(), s
                 assert len(s.split()) <= 38, s
-            digits = re.findall(r"\d+(?:\.\d+)?", t)
-            assert all(re.fullmatch(r"\d\.\d\d|(19|20)\d\d", x) for x in digits), (digits, t)      # only odds and years keep digits
+            digits = re.findall(r"\d+(?:\.\d+)?", t.replace("Mr 2 Odds", "Brand"))
+            assert all(re.fullmatch(r"\d\.\d\d|(19|20)\d\d", x) for x in digits), (digits, t)      # only odds and years keep digits outside the literal owner-selected brand
             contractions += len(re.findall(r"\b\w+'(?:t|s|re|ve|ll|m|d)\b", t))
     assert contractions >= 20                                                                   # it is spoken, not written
 

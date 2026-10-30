@@ -32,7 +32,7 @@ import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
 
 /**
- * PlayReport — native shell around the bundled UI (assets/www). The bridge lets the page fetch data,
+ * Mr 2 Odds — native shell around the bundled UI (assets/www). The bridge lets the page fetch data,
  * post notifications, open WhatsApp / e-mail, check for and install updates.
  */
 class MainActivity : AppCompatActivity() {
@@ -127,7 +127,7 @@ class MainActivity : AppCompatActivity() {
             mixedContentMode = WebSettings.MIXED_CONTENT_NEVER_ALLOW
             // nothing the page does should be readable from a browser outside the app
             setGeolocationEnabled(false)
-            userAgentString = "$userAgentString PlayReport/" + BuildConfig.VERSION_NAME
+            userAgentString = "$userAgentString Mr 2 Odds/" + BuildConfig.VERSION_NAME
         }
         web.overScrollMode = WebView.OVER_SCROLL_NEVER
 

@@ -59,7 +59,7 @@ object Updater {
         return false
     }
 
-    fun apkFile(ctx: Context) = File(ctx.cacheDir, "updates/PlayReport.apk")
+    fun apkFile(ctx: Context) = File(ctx.cacheDir, "updates/Mr2Odds.apk")
 
     /**
      * Download [info] and return the verified file, or null. The digest check is the point: an APK that does
@@ -87,9 +87,9 @@ object Updater {
      * Why not [install]: since Android 8 the system installer silently refuses an install started by an app
      * that does not declare REQUEST_INSTALL_PACKAGES — and that permission is exactly what gets a sideloaded
      * app flagged/blocked by Play Protect, so it stays out. The browser already holds the "install unknown
-     * apps" permission (it is how PlayReport was installed in the first place), downloads the file and offers
+     * apps" permission (it is how Mr 2 Odds was installed in the first place), downloads the file and offers
      * Android's own install screen. Android then refuses the upgrade unless the APK is signed with the same
-     * key as the installed app, so a swapped file cannot replace PlayReport.
+     * key as the installed app, so a swapped file cannot replace Mr 2 Odds.
      */
     fun handOff(ctx: Context, info: Info): Boolean {
         if (!Security.nativeAllowed(info.url)) return false
@@ -113,7 +113,7 @@ object Updater {
                 setDataAndType(uri, "application/vnd.android.package-archive")
                 flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_GRANT_READ_URI_PERMISSION
                 // this URI grant is for one file, for one receiver — nothing else can read it
-                clipData = android.content.ClipData.newRawUri("PlayReport update", uri)
+                clipData = android.content.ClipData.newRawUri("Mr 2 Odds update", uri)
             }
             ctx.startActivity(i)
             true

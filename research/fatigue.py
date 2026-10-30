@@ -23,7 +23,7 @@ import pandas as pd
 from .facts import Fact, as_aware, make_fact
 
 log = logging.getLogger("research.fatigue")
-SOURCE = "PlayReport results archive (Livescore / football-data, own record)"
+SOURCE = "Mr 2 Odds results archive (Livescore / football-data, own record)"
 LOOKBACK_DAYS = 120
 _SUFFIX = set("fc afc cf sc ac as us ss ssc calcio club de cd ud sd rcd fk sk bk if ff sv vfb vfl tsg fsv spvgg "
               "afk bv borussia".split())

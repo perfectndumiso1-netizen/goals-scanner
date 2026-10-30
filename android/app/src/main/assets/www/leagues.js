@@ -1,4 +1,4 @@
-/* PlayReport — Leagues tab: worldwide football league tables, previous results and fixtures.
+/* Mr 2 Odds — Leagues tab: worldwide football league tables, previous results and fixtures.
    Data: data/app/leagues/index.json + one detail file per competition, published from the public
    feed's stage archive on every scan. Read-only for the app; cached on the phone like every other
    data file, refreshed in the background when the publication is newer. */

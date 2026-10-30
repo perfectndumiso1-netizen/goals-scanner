@@ -2,9 +2,9 @@
 
 Faithful evaluation of Football_Bookmaker_Model_V1 (MATCH_INPUT → MODEL_ENGINE →
 SCORE_MATRIX → MARKETS). Formulas are copied as written in the sheet; nothing is
-tuned, shrunk, or blended with PlayReport's Dixon-Coles model.
+tuned, shrunk, or blended with Mr 2 Odds's Dixon-Coles model.
 
-PlayReport probabilities stay exactly as they are. This module only fills the
+Mr 2 Odds probabilities stay exactly as they are. This module only fills the
 sheet's input cells from data we already have for the fixture, then runs the
 sheet arithmetic so each match page can show the two side by side.
 """
@@ -146,7 +146,7 @@ def _from_matches(matches, key, n=10):
 
 
 def inputs_from_profiles(fx, home, away, div_avg) -> tuple[dict, list[str], list[str]]:
-    """Map PlayReport team profiles onto MATCH_INPUT. Never invent a number."""
+    """Map Mr 2 Odds team profiles onto MATCH_INPUT. Never invent a number."""
     used, missing = [], []
     h_gf = _rate(home, "venue_gf", "gf", used, "home goals scored / home game (venue)",
                  "home goals scored / game (overall — no home sample)")
@@ -237,7 +237,7 @@ def _pr_p(extra_x12, extra_tg, p_model, mid):
 
 
 def build(fx, home, away, div_avg, extra_x12=None, extra_tg=None, p_model=None) -> dict:
-    """Per-match payload for the app. Comparison only — never a PlayReport input."""
+    """Per-match payload for the app. Comparison only — never a Mr 2 Odds input."""
     info, used, missing = inputs_from_profiles(fx, home, away, div_avg)
     eng = evaluate_v1(info) if not any(k in missing for k in (
         "home goals scored / home game", "home goals conceded / home game",
@@ -250,7 +250,7 @@ def build(fx, home, away, div_avg, extra_x12=None, extra_tg=None, p_model=None) 
     return {
         "engine": "Football_Bookmaker_Model_V1",
         "note": "Your Google Sheet V1 bookmaker model, filled with this match's available data. "
-                "PlayReport's own model is unchanged — this is a comparison only.",
+                "Mr 2 Odds's own model is unchanged — this is a comparison only.",
         "ok": eng is not None,
         "inputs": info,
         "used": used,

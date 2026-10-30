@@ -1,4 +1,4 @@
-/* PlayReport — bet slip and tickets (kept on the phone; graded automatically from scores and match statistics). */
+/* Mr 2 Odds — bet slip and tickets (kept on the phone; graded automatically from scores and match statistics). */
 (function (PR) {
   'use strict';
   const { $, $$, esc, pct, f2, state, settings, fx, koShort, koTime, dayName, toast, selLabel, selGroup, settleSel, liveVerdict, isLive, isFT, icon, flag, badge, contactCard, parseLocal, tzNow, ymd, teamSpan } = PR;
@@ -24,7 +24,7 @@
   }
   const sbLink = (l) => (l && l.sb && PR.fittedSbEvent({ home: l.home, away: l.away, sportybet_event: l.sb }) && PR.sbEventUrl(l.sb)) ? `<a class="link sb-open" href="${esc(PR.sbEventUrl(l.sb))}" title="Open this match in Sportybet">${icon('target', 'sm')} SB</a>` : '';
   function ticketText(t) {
-    const lines = [`PlayReport ticket ${t.id} · odds ${f2(t.final_odds || t.odds)}${t.stake ? ` · stake ${f2(t.stake)}` : ''}`, ''];
+    const lines = [`Mr 2 Odds ticket ${t.id} · odds ${f2(t.final_odds || t.odds)}${t.stake ? ` · stake ${f2(t.stake)}` : ''}`, ''];
     t.legs.forEach((l, i) => lines.push(`${i + 1}. ${l.label} — ${l.home} v ${l.away} · ${koShort(l.kickoff)} @${f2(l.odds)}`));
     return lines.join('\n');
   }
@@ -173,7 +173,7 @@
         ${stake ? `<div class="small" style="margin-top:8px">Potential return <b>${f2(stake * odds)}</b> · profit ${f2(stake * odds - stake)}</div>` : ''}
         <div class="tiny muted" style="margin-top:8px">Model probability that every leg wins: <b>${pct(slip.items.reduce((a, l) => a * (l.p || 0), 1))}</b> (fair odds ${f2(1 / Math.max(1e-6, slip.items.reduce((a, l) => a * (l.p || 0), 1)))}). Prices are the Sportybet prices at the last analysis — check them before you bet.</div>
         <div class="row" style="margin-top:12px;gap:8px"><button class="btn primary grow" id="slip-place">${icon('lock', 'sm')} Done — lock this ticket</button><button class="btn" id="slip-copy">Copy</button><button class="btn" id="slip-clear">Clear</button></div>
-        <div class="tiny muted" style="margin-top:6px">A locked ticket cannot be edited. PlayReport follows the scores and tells you when it is won or lost. This records your bet — it does not place it anywhere.</div></div>`);
+        <div class="tiny muted" style="margin-top:6px">A locked ticket cannot be edited. Mr 2 Odds follows the scores and tells you when it is won or lost. This records your bet — it does not place it anywhere.</div></div>`);
       if (tickets.length) parts.push(`<div class="card compact tap" id="go-tickets"><div class="row"><span class="ico">${icon('ticket')}</span><div class="grow b">My tickets (${tickets.length})</div>${icon('next')}</div></div>`);
     }
     parts.push(`<div class="card compact"><div class="row" style="gap:8px;align-items:center"><div class="grow"><div class="b">${icon('target', 'sm')} Sportybet booking code</div><div class="tiny muted">Paste a code (from SportyBet's daily picks, Telegram or a tipster) to load that slip in Sportybet, then add the selections you like here.</div></div><input id="sb-code" type="text" autocomplete="off" placeholder="e.g. 82J2ZU" style="width:104px"><button class="btn" id="sb-code-load">Load</button></div></div>`);

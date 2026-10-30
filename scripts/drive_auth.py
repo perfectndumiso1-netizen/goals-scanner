@@ -88,7 +88,7 @@ def wait_for_code(url: str, state: str) -> str:
             self.send_header("Content-Type", "text/html; charset=utf-8")
             self.end_headers()
             self.wfile.write(
-                b"<h2>PlayReport Drive authorisation</h2>"
+                b"<h2>Mr 2 Odds Drive authorisation</h2>"
                 + (b"<p>Done. You can close this tab and go back to the terminal.</p>" if done
                    else b"<p>Google did not return a code. Close this tab and try again.</p>")
             )
@@ -108,7 +108,7 @@ def wait_for_code(url: str, state: str) -> str:
 
 
 def main(argv: list[str] | None = None) -> int:
-    ap = argparse.ArgumentParser(description="One-time Google Drive authorisation for the PlayReport handoff.")
+    ap = argparse.ArgumentParser(description="One-time Google Drive authorisation for the Mr 2 Odds handoff.")
     ap.add_argument("--manual", action="store_true", help="print the URL and ask for the redirect URL back")
     ap.add_argument("--client-id", default=os.getenv("GDRIVE_CLIENT_ID") or os.getenv("YT_CLIENT_ID") or "")
     ap.add_argument("--client-secret", default=os.getenv("GDRIVE_CLIENT_SECRET") or os.getenv("YT_CLIENT_SECRET") or "")

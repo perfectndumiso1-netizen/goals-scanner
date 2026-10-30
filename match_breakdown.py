@@ -1,4 +1,4 @@
-"""PlayReport daily match breakdown: YouTube 16:9 + TikTok 9:16 from ONE music bed (no narration).
+"""Mr 2 Odds daily match breakdown: YouTube 16:9 + TikTok 9:16 from ONE music bed (no narration).
 
 Per match the viewer gets three beats, and the pick is only revealed at the very end of each match:
   A  recent form + home/away venue split
@@ -570,7 +570,7 @@ def _footer(d, cw: int, ch: int, text: str, y_off: int = 50) -> None:
     _ctext(d, cw // 2, ch - y_off, text, f, MUTED)
 
 
-FOOT = "PlayReport  ·  Statistical information, not betting advice  ·  18+  ·  Bet responsibly"
+FOOT = "Mr 2 Odds  ·  Statistical information, not betting advice  ·  18+  ·  Bet responsibly"
 
 
 def _venue_name(m: dict, photo: dict | None) -> str:
@@ -1019,7 +1019,7 @@ def render_closer(matches, pack_matches, logo: Path, bg: Path, dest: Path, *, cr
         if credits_line:
             _ctext(d, cw // 2, y + 56, credits_line, _font(16, False), MUTED, cw - 100)
         _footer(d, cw, ch, "18+  ·  Statistical information, not betting advice  ·  Never bet more than you can afford to lose", 150)
-        _footer(d, cw, ch, "© PlayReport. All rights reserved. Unauthorised copying or re-upload is prohibited.", 112)
+        _footer(d, cw, ch, "© Mr 2 Odds. All rights reserved. Unauthorised copying or re-upload is prohibited.", 112)
     else:
         reel._wordmark(d, 26, width=cw)
         _ctext(d, cw // 2, 92, f"{_today_word(matches)} {n} PICKS", _font(42), GREEN)
@@ -1043,7 +1043,7 @@ def render_closer(matches, pack_matches, logo: Path, bg: Path, dest: Path, *, cr
         if credits_line:
             _ctext(d, cw // 2, y + 50, credits_line, _font(16, False), MUTED, cw - 200)
         _footer(d, cw, ch, "18+  ·  Statistical information, not betting advice  ·  Never bet more than you can afford to lose", 84)
-        _footer(d, cw, ch, "© PlayReport. All rights reserved. Unauthorised copying or re-upload is prohibited.", 46)
+        _footer(d, cw, ch, "© Mr 2 Odds. All rights reserved. Unauthorised copying or re-upload is prohibited.", 46)
     im.convert("RGB").save(dest, quality=92)
 
 
@@ -1096,7 +1096,7 @@ def _gather_photos(matches: list[dict], pack: dict, work: Path, supplied: list |
 
 def _holds(slides: list[dict]) -> list[float]:
     """Seconds on screen for every slide: how long its own words take to read, plus the house tail."""
-    return [reel.frame_hold(reel.hold_seconds(i, music.reading_seconds(s["text"])))
+    return [reel.frame_hold(reel.hold_seconds(i, reel.script_reading_seconds(s["text"])))
             for i, s in enumerate(slides)]
 
 

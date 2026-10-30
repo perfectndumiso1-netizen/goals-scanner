@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-PlayReport scanner (v4)
+Mr 2 Odds scanner (v4)
 ==================
 Automated football scanner, three times a day (07:00 / 12:00 / 17:00 SAST):
   * goals shortlists  – Over 1.5, Over 2.5, Both Teams To Score (backtested, calibrated model v2)
@@ -1286,7 +1286,7 @@ class MatchRow:
     x12_market: dict | None = None  # de-margined bookmaker 1X2 (comparison only)
     audit: dict = field(default_factory=dict)  # evidence / quality / explanation / warnings (quality.py), filled in main()
     scores: list = field(default_factory=list)  # top scorelines [[home, away, p], ...] from the Dixon-Coles matrix
-    sheet: dict | None = None  # user's Google Sheet V1 bookmaker model (comparison only; never a PlayReport input)
+    sheet: dict | None = None  # user's Google Sheet V1 bookmaker model (comparison only; never a Mr 2 Odds input)
 
     @property
     def basis(self) -> str:
@@ -2196,7 +2196,7 @@ def render_parlay_history(psum: dict, rec: list[dict]) -> list[str]:
 
 def render_report(ctx: dict, rows: list[MatchRow], picks: dict, summary: dict, notes: list[str]) -> str:
     now = ctx["now"]
-    L = [f"# ⚽ PlayReport — {now:%A %d %B %Y}", ""]
+    L = [f"# ⚽ Mr 2 Odds — {now:%A %d %B %Y}", ""]
     comps = {comp(r) for r in rows}
     L.append(f"**{run_desc(ctx.get('run', ''), True).capitalize()}** · scan window {ctx['start']:%a %d %b %H:%M} → {ctx['end']:%a %d %b %H:%M} · "
              f"**{len(rows)} fixtures** across **{len(comps)} competitions** · generated {now:%H:%M} {TZL} · "
@@ -2236,7 +2236,7 @@ def render_report(ctx: dict, rows: list[MatchRow], picks: dict, summary: dict, n
                      f"{basis_str(r)} | {form_str(r, 'O25')} |")
         if len(rows) > cap:
             L.append("")
-            L.append(f"_{len(rows) - cap} more fixtures (including {sum(1 for r in rows if not r.data_ok)} with too little history) are in the PlayReport app._")
+            L.append(f"_{len(rows) - cap} more fixtures (including {sum(1 for r in rows if not r.data_ok)} with too little history) are in the Mr 2 Odds app._")
     else:
         L.append("_No fixtures found in the scan window._")
     L.append("")
@@ -2262,7 +2262,7 @@ def render_report(ctx: dict, rows: list[MatchRow], picks: dict, summary: dict, n
         L.append(f"## 🔍 Match details — {len(focus)} key matches (bets of the day, high-probability selections, top shortlist picks)")
         L.append("")
         if len(focus_all) > len(focus):
-            L.append(f"_{len(focus_all) - len(focus)} more shortlisted matches have their full analysis in the PlayReport app._")
+            L.append(f"_{len(focus_all) - len(focus)} more shortlisted matches have their full analysis in the Mr 2 Odds app._")
             L.append("")
         for r in sorted(focus, key=lambda r: (r.fx["kickoff"], comp(r))):
             L += render_details(r)
@@ -2544,7 +2544,7 @@ def send_telegram_document(path: Path, caption: str) -> bool:
     try:
         with open(path, "rb") as fh:
             r = SESSION.post(f"https://api.telegram.org/bot{token}/sendDocument", data={"chat_id": chat, "caption": caption[:1000]},
-                             files={"document": (f"playreport-{path.name}" if not path.name.startswith("playreport") else path.name, fh, "application/pdf" if path.suffix == ".pdf" else "text/csv" if path.suffix == ".csv" else "text/plain")}, timeout=60)
+                             files={"document": (f"mr2odds-{path.name}" if not path.name.startswith("mr2odds") else path.name, fh, "application/pdf" if path.suffix == ".pdf" else "text/csv" if path.suffix == ".csv" else "text/plain")}, timeout=60)
         if r.status_code != 200:
             log.warning("Telegram document error %s: %s", r.status_code, r.text[:200])
             return False
@@ -2851,7 +2851,7 @@ def maybe_send_daily_reel(sl_pub: dict, now: datetime) -> None:
                 log.info("YouTube: shortlist live as %s (%s)", posted.get("id"), posted.get("privacy"))
         except Exception as exc:  # noqa: BLE001 - YouTube must never take the scan or the Telegram send down
             log.warning("YouTube upload skipped: %s", exc)
-    # Third delivery lane: the Drive handoff. The finished 16:9 video is copied into the "PlayReport → YouTube"
+    # Third delivery lane: the Drive handoff. The finished 16:9 video is copied into the "Mr 2 Odds → YouTube"
     # folder, where a free Zapier Zap ("New File in Folder" -> "Upload Video") picks it up and publishes it. Off
     # unless DRIVE_HANDOFF=1 plus credentials, so a repository without them behaves exactly as before — but a lane
     # that is switched ON and cannot run is never silent again: the reason goes to the log every run and to
@@ -2876,7 +2876,7 @@ def maybe_send_daily_reel(sl_pub: dict, now: datetime) -> None:
             log.warning("Drive handoff skipped: %s", exc)
     ok_16x9 = send_telegram_video(
         out_16x9,
-        f"🎬 PlayReport 16:9 widescreen shortlist — {now:%a %d %b}. {recap_caption}Today: {len(prim_enriched)} selection(s). "
+        f"🎬 Mr 2 Odds 16:9 widescreen shortlist — {now:%a %d %b}. {recap_caption}Today: {len(prim_enriched)} selection(s). "
         f"A shortlist for your review, not an instruction to bet. 18+.",
         facebook_path=out_9x16 if facebook_mod.requested() else None,
         width=1920,
@@ -2949,8 +2949,8 @@ def maybe_send_daily_breakdown(sl_pub: dict, now: datetime) -> None:
             log.warning("YouTube breakdown upload skipped: %s", exc)
     tail = (f"{now:%a %d %b} · {len(prep.matches)} matches. Recent form, home and away splits, head to head, "
             f"team news and my pick for each. 18+.")
-    ok16 = send_telegram_video(out16, f"🎬 PlayReport match breakdowns (16:9) — {tail}", width=1920, height=1080)
-    ok9 = send_telegram_video(out9, f"📱 PlayReport match breakdowns (9:16) — {tail}", width=1080, height=1920)
+    ok16 = send_telegram_video(out16, f"🎬 Mr 2 Odds match breakdowns (16:9) — {tail}", width=1920, height=1080)
+    ok9 = send_telegram_video(out9, f"📱 Mr 2 Odds match breakdowns (9:16) — {tail}", width=1080, height=1920)
     if ok16 or ok9:
         credits = breakdown_mod.credits_text(prep)
         if credits:
@@ -2995,7 +2995,7 @@ def telegram_shortlist(sl_pub: dict, now: datetime) -> None:
 def telegram_text(ctx: dict, rows: list[MatchRow], picks: dict, report_url: str | None) -> str:
     now = ctx["now"]
     cov = ctx.get("coverage") or {}
-    L = [f"⚽ <b>PlayReport — {now:%a %d %b}, {run_desc(ctx.get('run', ''))}</b>",
+    L = [f"⚽ <b>Mr 2 Odds — {now:%a %d %b}, {run_desc(ctx.get('run', ''))}</b>",
          f"{len(rows)} fixtures · {cov.get('competitions', 0)} competitions · {cov.get('priced', 0)} priced by Sportybet · times in {TZL}"]
     groups = ctx.get("botd_groups") or []
     if groups:
@@ -3791,7 +3791,7 @@ def main() -> None:
                 log.error("Data check FAILED: %s", e)
             ctx["data_check"] = {"ok": False, "errors": list(result.errors[:30]), "warnings": list(result.warnings[:30])}
             log.error("Publication kept from the previous run (%d problem(s))", len(result.errors))
-            send_telegram("⚠️ PlayReport data check failed — the app keeps the previous publication.\n" +
+            send_telegram("⚠️ Mr 2 Odds data check failed — the app keeps the previous publication.\n" +
                           "\n".join(f"• {e}" for e in result.errors[:8]))
         else:
             ctx["data_check"] = {"ok": True, "warnings": list(result.warnings[:30])}
@@ -3812,7 +3812,7 @@ def main() -> None:
     if report_run and CONFIG["PDF"] and pdfgen is not None:
         stamp = f"{today_str}-{now:%H%M}"
         try:
-            pdf_report = pdfgen.markdown_to_pdf(report_md, PDF_DIR / f"playreport-{stamp}.pdf", "PlayReport",
+            pdf_report = pdfgen.markdown_to_pdf(report_md, PDF_DIR / f"mr2odds-{stamp}.pdf", "Mr 2 Odds",
                                                 f"{run_desc(run_label, True).capitalize()} · full report")
         except Exception as exc:  # noqa: BLE001 - never lose the run because of the PDF
             log.warning("PDF generation failed: %s", exc)
@@ -3829,13 +3829,13 @@ def main() -> None:
         if briefing:
             send_telegram_video(
                 Path(briefing),
-                f"🎬 PlayReport shortlist briefing — {now:%a %d %b}. A shortlist for your review, not an instruction to bet. 18+.",
+                f"🎬 Mr 2 Odds shortlist briefing — {now:%a %d %b}. A shortlist for your review, not an instruction to bet. 18+.",
             )
         if pdf_report:
-            send_telegram_document(pdf_report, f"📄 PlayReport — {now:%a %d %b}, {run_desc(run_label, True)} ({len(rows)} fixtures)")
+            send_telegram_document(pdf_report, f"📄 Mr 2 Odds — {now:%a %d %b}, {run_desc(run_label, True)} ({len(rows)} fixtures)")
         csv_path = REPORTS_DIR / f"{today_str}.csv"
         if csv_path.exists():
-            send_telegram_document(csv_path, f"📊 PlayReport data — {now:%a %d %b}, {run_desc(run_label, True)}: every fixture with "
+            send_telegram_document(csv_path, f"📊 Mr 2 Odds data — {now:%a %d %b}, {run_desc(run_label, True)}: every fixture with "
                                              f"probabilities, expected goals, corners, cards and Sportybet prices (CSV)")
         mark_report_run(now, run_label)
     elif new_bets:

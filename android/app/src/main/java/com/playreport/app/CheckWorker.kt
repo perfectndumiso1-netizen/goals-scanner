@@ -32,7 +32,7 @@ class CheckWorker(ctx: Context, params: WorkerParameters) : Worker(ctx, params) 
             prefs.edit().putString("last_generated", generated).apply()
             if (lastGen != null && prefs.getBoolean("pref_reports", true)) {
                 val run = meta.optString("run").let { if (it.startsWith("manual") || it.startsWith("auto")) "update" else "$it run" }
-                Notifier.notify(ctx, Notifier.CH_REPORTS, 1001, "New PlayReport analysis ($run)",
+                Notifier.notify(ctx, Notifier.CH_REPORTS, 1001, "New Mr 2 Odds analysis ($run)",
                     "${meta.optInt("safe_bets")} high-probability selections · ${meta.optJSONArray("botd")?.length() ?: 0} bets of the day · ${meta.optInt("fixtures")} fixtures worldwide", "home")
             }
         } else if (lastGen == null && generated.isNotEmpty()) {
