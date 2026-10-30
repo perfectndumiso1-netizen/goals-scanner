@@ -2,6 +2,8 @@
 
 ## Status and activation boundary
 
+**30 October: the owner paused all non-Reel Facebook posts.** Configuration is disabled/dry-run again. See [Reels-only caption and cover update](FACEBOOK_VISIBILITY_AND_COPY.md). The activation history below describes the earlier rollout, not current publication permission.
+
 Editorial activation was requested on 29 October 2026: JSON is now `enabled:true`, `dry_run:false`. **Publishing is still gated by repository variable `FACEBOOK_FEED_PUBLISH=true` and an inspected first live-ledger bootstrap.** The agent received HTTP 403 when attempting to set that variable, so an owner must complete the phone steps below. Scores, roundups and editing remain off pending their account/rights/integration checks. This activation adds no Reel, changes no Telegram behaviour, and leaves the existing 08:00 / 16:00 SAST Reel pipeline unchanged. Text/photo posts use an independent package, workflows, concurrency group and artifact ledger. Existing scanner data is read only; no feed workflow pushes to its `data` branch.
 
 Offline API contract/replay tests are **not** successful Facebook/API-FOOTBALL integration tests. Do not advertise verified live coverage, rights clearance, feed/photo creation or editing until the account-specific checks below have passed. No paid subscription is authorized.

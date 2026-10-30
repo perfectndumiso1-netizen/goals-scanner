@@ -74,6 +74,7 @@ import safe as safe_mod
 import accas as acca_mod
 import shortlist as shortlist_mod
 import facebook_post as facebook_mod
+from facebook_captions import reel_caption as facebook_reel_caption
 import history as history_mod
 import teamstats
 
@@ -2579,7 +2580,7 @@ def send_telegram_video(
         if not reel_path.is_file():
             facebook = facebook_mod.retain_failure(path, "9:16 Reel render is missing; no 16:9 Facebook fallback")
         else:
-            reel_caption = caption.replace("16:9 widescreen", "Facebook Reel · 9:16").replace("(16:9)", "(Facebook Reel · 9:16)")
+            reel_caption = facebook_reel_caption(caption)
             facebook = facebook_mod.publish(reel_path, reel_caption)
     token, chat = os.getenv("TELEGRAM_BOT_TOKEN"), os.getenv("TELEGRAM_CHAT_ID")
     if not token or not chat:
