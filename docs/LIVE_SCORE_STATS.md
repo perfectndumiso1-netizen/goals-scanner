@@ -1,5 +1,7 @@
 # API-Football live score checks and optional statistics
 
+> **Current activation update:** the owner has now confirmed publication permission, and real app-matched fixture access passed a read-only test. The API-Football approval flags are enabled on that evidence. See [FACEBOOK_LIVE_ACTIVATION.md](FACEBOOK_LIVE_ACTIVATION.md). Earlier “approvals false” and first-key failure notes below are historical. Actual Facebook posting/public visibility are not yet confirmed.
+
 ## Current scope
 
 The owner selected API-Football's 100-request/day account, ten-minute checks, no coverage from midnight to 08:00 SAST, and emoji-labelled extra statistics where available. This updates only the isolated Facebook feed. The existing app/backend, prediction markets/formulas, three video windows, music, Telegram delivery and Android APK remain unchanged.
