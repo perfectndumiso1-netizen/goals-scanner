@@ -4,6 +4,10 @@ on:
     - cron: "*/5 * * * *"
   workflow_dispatch:
     inputs:
+      diagnostic:
+        description: Read-only API/key diagnostics (never publishes)
+        type: boolean
+        default: false
       publish:
         type: boolean
         default: false
@@ -21,6 +25,7 @@ jobs:
     uses: ./.github/workflows/facebook-feed-run.yml
     with:
       kind: live
+      diagnostic: ${{ inputs.diagnostic || false }}
       publish: ${{ github.event_name == 'schedule' || inputs.publish }}
       preview: ${{ github.event_name == 'workflow_dispatch' && inputs.preview }}
       bootstrap: ${{ inputs.bootstrap || false }}

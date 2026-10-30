@@ -5,6 +5,9 @@ on:
       state_restored:
         value: ${{ jobs.feed.outputs.state_restored }}
     inputs:
+      diagnostic:
+        default: false
+        type: boolean
       invocation:
         default: main
         type: string
@@ -22,6 +25,10 @@ on:
         type: boolean
   workflow_dispatch:
     inputs:
+      diagnostic:
+        description: Read-only API diagnostics (never publishes)
+        default: false
+        type: boolean
       kind:
         type: choice
         options: [community, card, weekly, live, roundup, results, preflight]
@@ -78,10 +85,20 @@ jobs:
         with:
           python-version: "3.12"
       - name: Install existing locked graphics dependency only when needed
-        if: inputs.kind == 'card' || inputs.kind == 'weekly' || inputs.kind == 'live'
+        if: ${{ !inputs.diagnostic && (inputs.kind == 'card' || inputs.kind == 'weekly' || inputs.kind == 'live') }}
         run: |
           pip install --require-hashes --only-binary=:all: --no-deps -q -r requirements-feed.txt
+      - name: Read-only API/key diagnostic (no Facebook credentials or requests)
+        id: diagnostic
+        if: inputs.diagnostic
+        env:
+          GH_READ_TOKEN: ${{ github.token }}
+          API_FOOTBALL_KEY: ${{ secrets.API_FOOTBALL_KEY }}
+          API_FOOTBALL_KEY_1: ${{ secrets.API_FOOTBALL_KEY_1 }}
+          API_FOOTBALL_KEY_2: ${{ secrets.API_FOOTBALL_KEY_2 }}
+        run: python -m facebook_feed.diagnostics
       - name: Restore independent ledger and prepare verified content
+        if: ${{ !inputs.diagnostic }}
         id: prepare
         env:
           GH_READ_TOKEN: ${{ github.token }}
@@ -113,10 +130,10 @@ jobs:
           FACEBOOK_PAGE_ID: ${{ secrets.FACEBOOK_PAGE_ID }}
         run: python -m facebook_feed.cli send --kind "$CONTENT_KIND" --publish --checkpoint
       - name: Save final ledger including ambiguous failures
-        if: always() && steps.prepare.conclusion == 'success'
+        if: always() && (steps.prepare.conclusion == 'success' || steps.diagnostic.conclusion == 'success')
         uses: actions/upload-artifact@v4.6.2
         with:
-          name: ${{ steps.prepare.outputs.prefix }}${{ github.run_id }}-${{ github.run_attempt }}-${{ inputs.invocation || 'main' }}-final
+          name: ${{ steps.prepare.outputs.prefix || steps.diagnostic.outputs.prefix }}${{ github.run_id }}-${{ github.run_attempt }}-${{ inputs.invocation || 'main' }}-final
           path: tmp/facebook-feed/checkpoint/state.json
           retention-days: 30
           if-no-files-found: error
@@ -129,5 +146,6 @@ jobs:
             tmp/facebook-feed/*.jpg
             tmp/facebook-feed/*.txt
             tmp/facebook-feed/report.json
+            tmp/facebook-feed/api-diagnostic.json
           retention-days: 7
           if-no-files-found: ignore
