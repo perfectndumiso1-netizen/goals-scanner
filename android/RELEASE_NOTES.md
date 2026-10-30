@@ -1,10 +1,10 @@
-## What's new — Mr 2 Odds 1.6.86
+## What's new — Mr 2 Odds 1.6.87
 
-- **Saved data first.** Previously downloaded fixtures, predictions, match details, team statistics, standings and history can open from local storage while a background check looks for updates.
-- **Less repeated downloading.** Conditional GitHub requests, shared background-sync snapshots and duplicate-request protection reuse unchanged data.
-- **Better offline behaviour.** Useful saved data stays available after network errors. Cached/offline and freshness indicators distinguish saved information from a successful current check. Screens need one successful download before their data is available offline; image availability still depends on the WebView image cache.
-- **Safer local storage.** An asynchronous, size-limited Android SQLite cache preserves validated snapshots and keeps large JSON writes out of synchronous localStorage. Invalid responses do not replace useful saved data.
-- **Same app and analysis.** Mr 2 Odds branding, com.playreport.app, signing configuration, preferences, favourites, tickets, GitHub backend and prediction calculations are unchanged. Install this update over the current app rather than uninstalling it.
-- **Validation.** Android compilation/unit tests and automated cache/browser tests passed before release preparation. Browser timing results are not phone benchmarks; physical-device cache, low-storage, Doze and battery testing remain outstanding. The existing release pipeline separately checks signing continuity and an emulator in-place upgrade before publishing.
+- **A fresh matchday Home.** Original football-pitch graphics, a richer matchday overview and colour-coded collection cards. The visuals are bundled and need no extra image downloads.
+- **Bet Advisor on Home.** Open the existing advisor analysis and published performance record directly from the Home screen.
+- **Bets of the Day on Home.** A prominent shortcut opens today's existing selection board, with market filters, sorting and match-detail links.
+- **80%+ Markets.** A dedicated Home collection only includes eligible markets with an actual published model probability of at least 80%. No rounding up, no lower-probability fillers, today's fixtures only, and one qualifying market per match. Existing market restrictions, outlier checks, league preference and 1.16 minimum odds still apply. An empty collection stays empty; 80% is not a guarantee of a win.
+- **Existing features stay.** High probability, Positive EV, strong markets, favourites, tickets, match analysis and Bet Advisor remain available. The 80%+ collection hides unrelated lower-probability Home panels while open; return to Bets of the Day to see them again.
+- **Same app underneath.** No prediction recalculation, backend migration or publishing schedule changes. Cache-first loading, branding, package/signing identity and saved preferences remain intact. Install over your current app; do not uninstall first.
 
 Older release notes remain available with the previous GitHub releases.

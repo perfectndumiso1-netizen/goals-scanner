@@ -387,16 +387,32 @@
     view().innerHTML = parts.join('');
   };
 
-  function homeBoard(d) {
-    // ONE MARKET PER MATCH (user rule): the model names the strongest market of each match and only that
-    // one is listed. Strength = probability above the market's bar; the EV tab ranks by expected value.
+  // Display-only collections: use existing eligibility and ranking; never recalculate a probability.
+  function homeCollections(d) {
     const strength = (r) => (r.s.p - barOf(r.s.sel, r.g)) * 100 + r.s.p * 10;
-    const all = bestPerMatch(homeBets(d), (r) => r.f.id, strength);
+    const eligible = homeBets(d);
+    const all = bestPerMatch(eligible, (r) => r.f.id, strength);
     const high = all.filter((r) => r.s.p >= highOf(r.s.sel));
-    const evAll = bestPerMatch(homeEvBets(d), (r) => r.f.id, (r) => evOf(r.s));
-    const tab = state.homeTab === 'high' || state.homeTab === 'ev' ? state.homeTab : 'all';
+    // Filter BEFORE choosing one market per match: a lower-bar 79% line must not hide an 80% line.
+    // Compare the actual published number, not a rounded percentage or a bookmaker implied probability.
+    const eighty = bestPerMatch(eligible.filter((r) => Number.isFinite(r.s.p) && r.s.p >= 0.80), (r) => r.f.id, strength);
+    const ev = bestPerMatch(homeEvBets(d), (r) => r.f.id, (r) => evOf(r.s));
+    return { all, high, eighty, ev };
+  }
+  function homeLaunchpad(collections) {
+    const tile = (cls, ico, title, sub, attrs) => `<button class="home-quick ${cls}" ${attrs}>
+      <span class="quick-icon">${icon(ico)}</span><strong>${title}</strong><span class="quick-caption">${sub}</span><span class="quick-arrow" aria-hidden="true">${icon('next', 'sm')}</span></button>`;
+    return `<nav class="home-launchpad" aria-label="Home collections">
+      ${tile('advisor', 'shield', 'Bet Advisor', 'Analysis &amp; record', 'data-page-go="advisor"')}
+      ${tile('daily', 'star', 'Bets of the Day', `${collections.all.length} selections today`, `data-home-open="all" aria-pressed="${!state.homeTab || state.homeTab === 'all'}"`)}
+      ${tile('eighty', 'trend', '80%+ Markets', `${collections.eighty.length} qualifying today`, `data-home-open="eighty" aria-pressed="${state.homeTab === 'eighty'}"`)}
+    </nav>`;
+  }
+  function homeBoard(d, collections) {
+    const { all, high, eighty, ev: evAll } = collections || homeCollections(d);
+    const tab = ['high', 'eighty', 'ev'].includes(state.homeTab) ? state.homeTab : 'all';
     const mk = state.homeMk || 'any'; const sort = state.homeSort || (tab === 'ev' ? 'ev' : 'p');
-    const base = tab === 'high' ? high : tab === 'ev' ? evAll : all;
+    const base = tab === 'eighty' ? eighty : tab === 'high' ? high : tab === 'ev' ? evAll : all;
     const groups = Object.keys(GROUPS).filter((g) => base.some((r) => r.g === g));
     const rows = base.filter((r) => mk === 'any' || r.g === mk);
     const cmp = { p: (a, b) => b.s.p - a.s.p, ev: (a, b) => evOf(b.s) - evOf(a.s), odds_d: (a, b) => b.s.odds - a.s.odds, odds_a: (a, b) => a.s.odds - b.s.odds,
@@ -410,19 +426,26 @@
         <td class="right nowrap"><b>${f2(s.odds)}</b>${s.p_sb != null ? `<div class="tiny muted">${pct(s.p_sb)} implied</div>` : ''}${evOf(s) > 0 ? `<div class="tiny good">EV +${f1(100 * evOf(s))}%</div>` : ''}</td>
         <td class="right nowrap">${pill(s.p, 0.8, 0.7)} ${PR.addBtn ? PR.addBtn(f.id, s.sel, s.odds) : ''}</td></tr>`; };
     const out = [];
-    out.push(`<div class="card compact sticky-ish">${segmented([['all', `${icon('star')} Bets of the day (${all.length})`], ['high', `${icon('trend')} High probability (${high.length})`], ['ev', `${icon('tag')} Positive EV (${evAll.length})`]], tab, 'ht')}
+    out.push(`<section id="home-board" class="home-board-head" tabindex="-1"><div class="kicker">Your matchday collections</div><h2>${tab === 'eighty' ? '80%+ probability markets' : tab === 'high' ? 'High probability' : tab === 'ev' ? 'Positive EV' : 'Bets of the Day'}</h2><p>${tab === 'eighty' ? 'Published model probability of at least 80%. No lower-probability fillers.' : 'Explore today’s selections. Open a match for the full analysis.'}</p></section>`);
+    out.push(`<div class="card compact home-board-controls">${segmented([['all', `${icon('star')} Bets of the Day (${all.length})`], ['eighty', `${icon('trend')} 80%+ (${eighty.length})`], ['high', `${icon('trend')} High probability (${high.length})`], ['ev', `${icon('tag')} Positive EV (${evAll.length})`]], tab, 'ht')}
       <div class="chips small-chips" style="margin-top:6px"><button class="chip tapchip ${mk === 'any' ? 'on' : ''}" data-hmk="any">All markets <b>${base.length}</b></button>${groups.map((g) => `<button class="chip tapchip ${mk === g ? 'on' : ''}" data-hmk="${g}">${GROUP_ICON[g]} ${esc(GROUPS[g])} <b>${base.filter((r) => r.g === g).length}</b></button>`).join('')}</div>
       <div class="row" style="margin-top:6px"><div class="grow tiny muted">${rows.length} bet${rows.length === 1 ? '' : 's'} · ${matches} match${matches === 1 ? '' : 'es'}</div><span class="tiny muted">Sort&nbsp;</span>${select('home-sort', HOME_SORTS, sort)}</div></div>`);
     const shown = Math.min(rows.length, state.homeShow || 100);
-    if (rows.length) out.push(`<div class="card compact"><table class="tbl head" style="margin-top:4px"><tr><th>Time</th><th>Match · bet</th><th class="right">Sportybet</th><th class="right">Model</th></tr>${rows.slice(0, shown).map(row).join('')}</table>${shown < rows.length ? `<div class="row" style="justify-content:center;margin-top:8px"><button class="btn" id="home-more">Show ${Math.min(100, rows.length - shown)} more · ${rows.length - shown} left</button></div>` : ''}</div>`);
-    else out.push(`<div class="card empty small">${tab === 'ev' ? `No bet the model supports has positive EV at a Sportybet price of ${f2(HOME_EV_MIN_ODDS)} or more today${mk !== 'any' ? ' in this market' : ''}.` : tab === 'high' ? `No priced bet reaches ${pct(HOME_HIGH)} today${mk !== 'any' ? ' in this market' : ''} yet.` : `No priced bet clears its model bar today${mk !== 'any' ? ' in this market' : ''} yet.`} The board fills as Sportybet prices and probabilities firm up.${majorOnly() ? ' (Major leagues only — change in Settings.)' : ''}</div>`);
+    if (rows.length) out.push(`<div class="card compact"><table class="tbl head home-selection-table" style="margin-top:4px"><tr><th>Time</th><th>Match · bet</th><th class="right">Sportybet</th><th class="right">Model</th></tr>${rows.slice(0, shown).map(row).join('')}</table>${shown < rows.length ? `<div class="row" style="justify-content:center;margin-top:8px"><button class="btn" id="home-more">Show ${Math.min(100, rows.length - shown)} more · ${rows.length - shown} left</button></div>` : ''}</div>`);
+    else out.push(`<div class="card empty small">${tab === 'ev' ? `No bet the model supports has positive EV at a Sportybet price of ${f2(HOME_EV_MIN_ODDS)} or more today${mk !== 'any' ? ' in this market' : ''}.` : tab === 'eighty' ? `No eligible priced market has a published model probability of 80% or more today${mk !== 'any' ? ' in this market' : ''}. The threshold is never lowered to fill this collection.` : tab === 'high' ? `No priced bet reaches ${pct(HOME_HIGH)} today${mk !== 'any' ? ' in this market' : ''} yet.` : `No priced bet clears its model bar today${mk !== 'any' ? ' in this market' : ''} yet.`} The board fills as Sportybet prices and probabilities firm up.${majorOnly() ? ' (Major leagues only — change in Settings.)' : ''}</div>`);
+    if (tab === 'eighty') out.push(`<div class="card tiny muted"><b>80% is a filter, not a promise.</b> This collection uses the unrounded published model probability (≥0.80), today’s fixtures, existing market restrictions, data checks and odds floor of 1.16. One qualifying market per match. Saved data may be out of date; check the cache/updated indicator. A selection can still lose.</div>`);
     if (tab === 'ev') out.push(`<div class="card tiny muted"><b>Positive EV</b> — bets the model supports (same bars: 1X2 and Over 2.5 ≥55%, corners ≥65%, every other goals line ≥70%) whose Sportybet price is <b>${f2(HOME_EV_MIN_ODDS)} or more</b> and pays more than the model thinks is fair: <b>EV = model probability × odds − 1 &gt; 0</b>. EV +5% means the model expects 5c back per R1 staked over many such bets — an estimate that is only as good as the model, not a guarantee. Gaps of 15+ points over the price stay quarantined as data faults.</div>`);
     out.push(`<div class="card tiny muted"><b>How this board is built</b> — <b>one bet per match</b>: the model names each match's strongest market and lists only that one (the match page still shows every market). Today's matches, all markets. A bet appears when the model clears its bar (<b>1X2 and Over 2.5 from 55%</b>, <b>corners 65%</b>, <b>every other goals line 70%</b>) <b>and</b> Sportybet prices it at <b>1.16 or more</b>. <b>High probability</b> = model ≥70% on any market (Over 2.5 and 1X2 from 55%). The price anchors the published probability (25 % model / 75 % de-vigged market); selections 15+ points above the price are quarantined as data faults. A high probability is not a certainty.</div>`);
     if (!PR._homeRefreshed && (d.fixtures || []).length && !(d.fixtures || []).some((f) => (f.sels || []).length)) { PR._homeRefreshed = true; setTimeout(() => PR.loadData(false), 250); }
     return out.join('');
   }
   function wireHomeBoard() {
-    $$('[data-ht]').forEach((b) => { b.onclick = () => { state.homeTab = b.dataset.ht; state.homeMk = 'any'; state.homeSort = null; state.homeShow = 100; PR.render(); }; });
+    const openBoard = (tab) => {
+      state.homeTab = tab; state.homeMk = 'any'; state.homeSort = null; state.homeShow = 100; PR.render();
+      const board = $('#home-board'); if (board) { board.focus({ preventScroll: true }); board.scrollIntoView({ block: 'start', behavior: 'auto' }); }
+    };
+    $$('[data-ht]').forEach((b) => { b.setAttribute('aria-pressed', String(b.dataset.ht === (state.homeTab || 'all'))); b.onclick = () => openBoard(b.dataset.ht); });
+    $$('[data-home-open]').forEach((b) => { b.onclick = () => openBoard(b.dataset.homeOpen); });
     $$('[data-hmk]').forEach((b) => { b.onclick = () => { state.homeMk = b.dataset.hmk; state.homeShow = 100; PR.render(); }; });
     const so = $('#home-sort'); if (so) so.onchange = (e) => { state.homeSort = e.target.value; state.homeShow = 100; PR.render(); };
     const mo = $('#home-more'); if (mo) mo.onclick = () => { const y = window.scrollY; state.homeShow = (state.homeShow || 100) + 100; PR.render(); window.scrollTo(0, y); };
@@ -454,6 +477,8 @@
   // ------------------------------------------------------------------ HOME
   PR.views.home = function () {
     const d = state.data, m = d.meta, sf = d.safe || { bets: [] }; const parts = [];
+    const todayFixtures = d.fixtures.filter((f) => f.date === ymd(tzNow()));
+    const collections = homeCollections(d);
     const inPlay = live.inPlay(); const cov = m.coverage || {};
     const safe = safeList('all').filter(sameDay);   // only matches played on this day — never future fixtures
     const dayLabel = String(dayName(m.generated || '')).replace(/^Today · /, '');
@@ -463,24 +488,26 @@
     const hAlerts = Array.isArray(m.health_alerts) ? m.health_alerts : [];
     const feedWarn = !!(m.odds_asof || hAlerts.length || (ageMin != null && ageMin > 65));
     const feedBadge = `<span class="tiny ${feedWarn ? 'warn' : 'good'}" style="margin-left:6px">● ${m.odds_asof ? 'Cached prices' : feedWarn ? 'Degraded feed' : 'Feed live'}</span>`;
-    parts.push(`<div class="hero-row matchday-head"><div><div class="kicker">${esc(dayLabel)}</div><h1>Matchday</h1></div><span class="quality updated-pill">${icon('refresh', 'sm')} Updated ${esc(koTime(m.generated || ''))}${feedBadge}</span></div>`);
-    parts.push(`<section class="card hero matchday-hero">
-      <div class="matchday-heading"><div><div class="eyebrow">Daily overview</div><div class="matchday-intro">Fixtures, coverage &amp; market prices</div></div><span class="coverage-tag">${cov.competitions || '–'} competitions</span></div>
-      <div class="hero-nums matchday-stats"><div><b>${m.fixtures}</b><span>Fixtures</span></div><div><b>${d.fixtures.filter((f) => f.data_ok).length}</b><span>Analysed</span></div><div><b>${safe.length}</b><span>Signals</span></div><div><b>${liveN}</b><span>Live</span></div></div>
+    parts.push(`<div class="hero-row matchday-head"><div><div class="kicker">${esc(dayLabel)}</div><h1>Your matchday.</h1></div><span class="quality updated-pill">${icon('refresh', 'sm')} Updated ${esc(koTime(m.generated || ''))}${feedBadge}</span></div>`);
+    parts.push(homeLaunchpad(collections));
+    parts.push(`<section class="card hero matchday-hero home-stadium">
+      <div class="pitch-art" aria-hidden="true"><i></i><span></span></div>
+      <div class="matchday-heading"><div><div class="eyebrow">THE MATCHDAY PICTURE</div><div class="matchday-intro">One game. Every angle.</div></div><span class="coverage-tag">${cov.competitions || '–'} competitions</span></div>
+      <div class="hero-nums matchday-stats"><div><b>${todayFixtures.length}</b><span>Fixtures</span></div><div><b>${todayFixtures.filter((f) => f.data_ok).length}</b><span>Analysed</span></div><div><b>${safe.length}</b><span>Signals</span></div><div><b>${liveN}</b><span>Live</span></div></div>
       <div class="matchday-foot"><span>Next update <b>${esc(koTime(m.next_run || ''))}</b></span><span class="coverage-line">${cov.priced || 0} priced${m.odds_asof ? ` · prices from ${esc(koTime(m.odds_asof))} (book refresh blocked)` : ' by Sportybet'}</span></div>
       ${inPlay.length ? `<div class="live-strip" data-tab-go="live"><span class="status-dot live"></span><div class="grow"><b>${inPlay.length} tracked in play</b> · ${inPlay.slice(0, 2).map((f) => { const s = live.for(f); return `${esc(f.home)} ${s.hg}–${s.ag} ${esc(f.away)}`; }).join(' · ')}${inPlay.length > 2 ? ' …' : ''}</div>${icon('next', 'sm')}</div>` : ''}</section>`);
-    parts.push(strongMarketsCard(d));
+    if (state.homeTab !== 'eighty') parts.push(strongMarketsCard(d));
     if (PR.APP_VERSION && settings.seenVersion !== PR.APP_VERSION) {
       parts.push(`<div class="card whatsnew"><div class="row"><div class="grow"><b>${icon('sparkle', 'sm')} New in Mr 2 Odds ${esc(PR.APP_VERSION)}</b></div><button class="link" id="wn-close">${icon('x')}</button></div>
-        <ul><li><b>A new name: Mr 2 Odds</b> — the same app, now with Ndumiso's portrait logo across the app and videos.</li><li><b>Your records stay with you</b> — favourites, tickets, settings and history are kept when you install this update over your existing app.</li><li><b>Branding only</b> — prediction rules, market filters, video timing and the two daily Reel slots are unchanged. The name is not a promise of guaranteed wins.</li></ul></div>`);
+        <ul><li><b>A fresh Home</b> — football-inspired visuals and direct access to Bet Advisor and Bets of the Day.</li><li><b>80%+ Markets</b> — a dedicated collection filtered by the actual published model probability, never rounded up to qualify.</li><li><b>Same analysis, faster access</b> — prediction calculations, saved settings and cache-first loading remain unchanged. A high probability is never a guarantee.</li></ul></div>`);
     }
     const favs = (PR.favList ? PR.favList() : []).map((x) => fx(x.fixture)).filter(Boolean).sort((a, b) => a.kickoff.localeCompare(b.kickoff));
-    if (favs.length) parts.push(`<div class="section-head"><h2><span class="ico amber">${icon('star')}</span>Your matches</h2><button class="link" data-tab-go="matches" data-mf-go="fav">All ${favs.length} ${icon('next')}</button></div><div class="card compact">${favs.slice(0, 5).map((f) => { const s = live.for(f); return matchRow(f, { live: s, sub: `${flag(f.country)} ${esc(f.competition)}${f.safe ? ` · 📈 <b>${esc(selShort(f.safe[0]))}</b> ${pct(f.safe[1])}` : ''}`, right: s && s.hg != null ? '' : `<span class="pill ${f.p.O25 >= 0.6 ? 'hi' : ''}">O2.5 ${pct(f.p.O25)}</span>` }); }).join('')}</div>`);
-    parts.push(homeBoard(d));
+    if (favs.length && state.homeTab !== 'eighty') parts.push(`<div class="section-head"><h2><span class="ico amber">${icon('star')}</span>Your matches</h2><button class="link" data-tab-go="matches" data-mf-go="fav">All ${favs.length} ${icon('next')}</button></div><div class="card compact">${favs.slice(0, 5).map((f) => { const s = live.for(f); return matchRow(f, { live: s, sub: `${flag(f.country)} ${esc(f.competition)}${f.safe ? ` · 📈 <b>${esc(selShort(f.safe[0]))}</b> ${pct(f.safe[1])}` : ''}`, right: s && s.hg != null ? '' : `<span class="pill ${f.p.O25 >= 0.6 ? 'hi' : ''}">O2.5 ${pct(f.p.O25)}</span>` }); }).join('')}</div>`);
+    parts.push(homeBoard(d, collections));
     // Keep the full first-run release notes accessible, but don't let them push today's board below the opening viewport.
     const whatsNewIndex = parts.findIndex((html) => html.includes('class="card whatsnew"'));
     if (whatsNewIndex >= 0) parts.push(parts.splice(whatsNewIndex, 1)[0]);
-    if (PR.ticketsCard && PR.tickets().some((t) => t.status === 'pending')) parts.push(PR.ticketsCard(true));
+    if (state.homeTab !== 'eighty' && PR.ticketsCard && PR.tickets().some((t) => t.status === 'pending')) parts.push(PR.ticketsCard(true));
     parts.push(PR.editorCard(true));
     parts.push(contactCard(true));
     view().innerHTML = parts.join('');
