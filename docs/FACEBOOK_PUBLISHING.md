@@ -38,3 +38,57 @@ Runner files are temporary; artifacts are the durable recovery mechanism after t
 `tests/test_facebook_post.py` covers the native start/raw-transfer/finish/status sequence, strict portrait gate, endpoint/host/auth safety, receipt type separation, pending/error handling, polling-only resumption, recovery copies, and all Facebook/Telegram cleanup combinations. It executes the one-shot workflow with mocked APIs to prove that only portrait sources reach Facebook. `tests/test_facebook_render_routing.py` checks the daily dual-format renderer and confirms portrait-render errors do not block Telegram.
 
 Tests do not post a real Reel. The first live workflow must verify that the configured Page token permits Reels and the actual generated video's format/duration is accepted by Meta.
+
+## Automatic recovery and one-picture test (30 October 2026)
+
+The normal scan now sets `FACEBOOK_AUTOMATION=1`. It verifies the target Page identity,
+resolves an authorised user credential into that Page's credential in memory when needed,
+and attempts delivery in four bounded rounds with backoff. Processing/publishing delays
+resume the saved Reel ID; an acknowledged transfer or ambiguous finish is never uploaded
+again. An interrupted/ambiguous byte transfer is deliberately **not** blindly retried.
+Permanent permission/credential rejections are not spammed with repeated POSTs. Credentials,
+raw Graph responses and signed URLs are never stored in recovery metadata.
+
+Unconfirmed deliveries retain the portrait MP4, native receipt, exact filmed-match JPEG,
+thumbnail checkpoint and caption manifest in the existing seven-day recovery artifact.
+Only small queue metadata goes to `data/facebook_delivery_queue.json`. Subsequent ordinary
+scans resume one pending item, choosing the least-attempted item first, for at most eight
+same-day recovery scans. Expired editions are not published the following day. A missing
+or corrupt required session receipt blocks recovery rather than starting another Reel.
+No recovery rerenders selections or resends Telegram/YouTube/Drive deliveries. Original
+scan cron, two 08:00/16:00 SAST edition rules, music and other channels are unchanged.
+
+Cover failure does not change a published Reel into a failed upload. Published receipt
+resumption can apply/verify the matches-only cover later. A thumbnail mutation is
+checkpointed before sending; an accepted/ambiguous request is followed by reads, not
+blind repeated thumbnail uploads. Confirmation requires a newly preferred thumbnail ID,
+not merely the old default thumbnail still being preferred. Meta permissions/support may
+still prevent custom Reel thumbnails; API confirmation is not a visual inspection of
+every Facebook surface/cache.
+
+### Explicit one-picture exception — not a general feed restart
+
+`Facebook ONE match picture and existing Reel cover` is a **manual, main-only** workflow,
+with date/expiry and exact-match controls in `config/facebook-one-match-test.json`.
+It prepares just one original 1080×1350 card using five available scored competitive
+records per team from the fresh scanner publication, disclosing differing sample windows.
+If evidence is insufficient/stale, it posts nothing; it never substitutes another match.
+It saves evidence plus a durable reservation artifact **before** the photo POST. Reruns
+cannot send another photo, even if a prior send's outcome was ambiguous. A returned ID is
+saved immediately and read-back verification alone is retried. No narration, odds, match
+selections, external photographs or club badges are used.
+
+That same one-off can repair **only the cover** of already-posted Reel `1477189940972866`.
+It requires the original receipt/hash and an unambiguous five-pick filmed history, then
+checks the known Reel's publication status before touching its thumbnails. It has no
+video upload route. The broader feed configuration remains disabled/dry-run/live-off.
+The old retained-file retry must **not** be run to recreate this already-published video.
+
+The prior owner retry's failure report showed transfer complete and Meta still processing,
+not a confirmed rejection. The owner subsequently confirmed the Reel appeared. A verified
+photo post ID / `is_published` proves API publication, **not** non-role visibility or reach.
+Check from a non-admin/non-app-role Facebook account and inspect Page insights separately;
+this code cannot bypass Development mode, business verification, app review or audience
+restrictions. The GitHub integration previously returned workflow-dispatch HTTP 403; the
+owner may need to click Run workflow once for this isolated test. Normal Reel recovery
+uses the existing scheduled scans and requires no per-edition owner dispatch.

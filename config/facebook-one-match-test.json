@@ -1,0 +1,18 @@
+{
+  "request_id": "2026-10-30-one-match-reach-test",
+  "date": "2026-10-30",
+  "expires_at": "2026-10-30T20:00:00+02:00",
+  "fixture_id": "2026-10-30|Spain|Villarreal|Espanol",
+  "cover": {
+    "video_id": "1477189940972866",
+    "receipt": "12959466264.json",
+    "sha256": "21f16de43cac75e85a9ac9c13ce84fb04a15567854de188128cb10c841fc1ccd",
+    "matches": [
+      {"home": "Al Shabab", "away": "Al Ahli"},
+      {"home": "Cracovia", "away": "Motor Lublin"},
+      {"home": "Villarreal", "away": "Espanyol"},
+      {"home": "Grazer AK", "away": "TSV Hartberg"},
+      {"home": "IK Oddevold", "away": "IK Brage"}
+    ]
+  }
+}

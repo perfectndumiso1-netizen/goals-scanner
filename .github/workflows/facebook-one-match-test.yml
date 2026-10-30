@@ -1,0 +1,74 @@
+name: Facebook ONE match picture and existing Reel cover
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+# Intentionally manual, date-bound, one picture only. General feed remains disabled.
+concurrency:
+  group: facebook-one-match-test-${{ github.repository }}
+  cancel-in-progress: false
+jobs:
+  test:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4.4.0
+      - name: Read fresh scanner evidence and known Reel receipt (read only)
+        uses: actions/checkout@v4.4.0
+        with:
+          ref: data
+          path: tmp/facebook-one-test-source
+          sparse-checkout-cone-mode: false
+          sparse-checkout: |
+            data/app/latest.json
+            data/app/fx/
+            data/app/telegram_state.json
+            data/facebook-retries/12959466264.json
+      - uses: actions/setup-python@v5.6.0
+        with:
+          python-version: "3.12"
+      - name: Install locked original-graphics dependency
+        run: |
+          pip install --require-hashes --only-binary=:all: --no-deps -q -r requirements-feed.txt
+      - name: Prepare ONE verified match picture and durable reservation
+        id: prepare
+        env:
+          GH_READ_TOKEN: ${{ github.token }}
+        run: python scripts/facebook_one_match_test.py prepare
+      - name: Save reservation BEFORE any Facebook mutation
+        id: reserve
+        if: steps.prepare.outputs.should_publish == 'true'
+        uses: actions/upload-artifact@v4.6.2
+        with:
+          name: ${{ steps.prepare.outputs.prefix }}${{ github.run_id }}-${{ github.run_attempt }}-reserved
+          path: tmp/facebook-one-match-test/checkpoint/state.json
+          retention-days: 30
+          if-no-files-found: error
+      - name: Post one picture and repair only the already-published Reel cover
+        if: steps.prepare.outputs.should_publish == 'true' && steps.reserve.conclusion == 'success'
+        env:
+          FACEBOOK_PAGE_ACCESS_TOKEN: ${{ secrets.FACEBOOK_PAGE_ACCESS_TOKEN }}
+          FACEBOOK_PAGE_ID: ${{ secrets.FACEBOOK_PAGE_ID }}
+        run: python scripts/facebook_one_match_test.py send
+      - name: Save final ledger, including known IDs or ambiguous outcomes
+        if: always() && steps.prepare.conclusion == 'success'
+        uses: actions/upload-artifact@v4.6.2
+        with:
+          name: ${{ steps.prepare.outputs.prefix }}${{ github.run_id }}-${{ github.run_attempt }}-final
+          path: tmp/facebook-one-match-test/checkpoint/state.json
+          retention-days: 30
+          if-no-files-found: error
+      - name: Save picture, exact evidence and safe cover report
+        if: always()
+        uses: actions/upload-artifact@v4.6.2
+        with:
+          name: facebook-one-match-test-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            tmp/facebook-one-match-test/*.jpg
+            tmp/facebook-one-match-test/evidence.json
+            tmp/facebook-one-match-test/caption.txt
+            tmp/facebook-one-match-test/*.cover-state.json
+          retention-days: 7
+          if-no-files-found: ignore

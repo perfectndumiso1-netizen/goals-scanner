@@ -191,6 +191,11 @@ def extract_portrait(archive_path, work):
         if covers:
             if covers[0].file_size>8*1024*1024:raise ValueError('Unexpected cover size')
             video.with_suffix('.cover.jpg').write_bytes(archive.read(covers[0]))
+        states=[entry for entry in archive.infolist() if Path(entry.filename).name == Path(item.filename).with_suffix('.cover-state.json').name]
+        if len(states)>1:raise ValueError('Ambiguous cover checkpoint')
+        if states:
+            if states[0].file_size>65536:raise ValueError('Unexpected cover checkpoint size')
+            video.with_suffix('.cover-state.json').write_bytes(archive.read(states[0]))
     return video
 
 

@@ -27,6 +27,7 @@ on:
 
 permissions:
   contents: write           # push the state branch
+  actions: read            # resume our saved Facebook recovery artifacts
 
 concurrency:
   group: goals-scan
@@ -55,6 +56,7 @@ jobs:
       TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}       # optional
       FACEBOOK_PAGE_ACCESS_TOKEN: ${{ secrets.FACEBOOK_PAGE_ACCESS_TOKEN }}
       FACEBOOK_PAGE_ID: ${{ secrets.FACEBOOK_PAGE_ID }}
+      FACEBOOK_AUTOMATION: "1"
       VIDEO_RECOVERY_DIR: ${{ github.workspace }}/tmp/video-recovery
       FORCE_DAILY_REEL: ${{ github.event.inputs.send_reel || 'false' }}
       # YouTube auto-poster (youtube_post.py). Inert unless the three channel secrets exist: an empty secret makes
@@ -131,10 +133,17 @@ jobs:
           fi
           printf 'reports/pdf/\n__pycache__/\n' > state/.gitignore
 
+      - name: Resume pending Facebook sessions (no rerender or Telegram resend)
+        continue-on-error: true  # Independent recovery must not block the ordinary scan.
+        env:
+          GH_READ_TOKEN: ${{ github.token }}
+        run: python scripts/facebook_recovery_queue.py recover --state state/data/facebook_delivery_queue.json
+
       - name: Run scanner
         run: python scanner.py
 
       - name: Preserve videos after a Facebook publishing failure
+        id: recovery
         if: always()
         continue-on-error: true  # Artifact service trouble must not block the existing state publication.
         uses: actions/upload-artifact@v4.6.2
@@ -143,6 +152,10 @@ jobs:
           path: ${{ github.workspace }}/tmp/video-recovery/
           if-no-files-found: ignore
           retention-days: 7
+
+      - name: Register durable Facebook recovery
+        if: always() && steps.recovery.outputs.artifact-id != ''
+        run: python scripts/facebook_recovery_queue.py register --state state/data/facebook_delivery_queue.json --artifact-id '${{ steps.recovery.outputs.artifact-id }}'
 
       - name: Publish state
         run: |
