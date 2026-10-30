@@ -6,7 +6,7 @@ The owner selected `assets/branding/mr-2-odds-logo.png` from two generated logo 
 
 Run `python scripts/build_brand_assets.py` with the existing Pillow dependency to reproduce the exports:
 
-- Identical 512×512 PNGs for the app header, Android splash and video renderers.
+- Identical 512×512 PNGs for the app header, Android splash and video renderers. The complete selected badge is retained; the outer square backdrop becomes transparent so it does not appear as a box over video slides.
 - Adaptive launcher foregrounds at all five Android densities, padded so the complete badge remains in the central safe zone.
 - Legacy launcher icons and a portrait-derived monochrome mask for Android's themed-icon mode (which cannot display full colour).
 

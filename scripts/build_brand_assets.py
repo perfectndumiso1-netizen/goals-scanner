@@ -4,15 +4,27 @@ Run from the repository root: python scripts/build_brand_assets.py
 The full-colour source was selected by the owner, using their bundled profile portrait.
 """
 from pathlib import Path
-from PIL import Image, ImageOps
+from PIL import Image, ImageOps, ImageDraw
 
 ROOT = Path(__file__).resolve().parents[1]
 SOURCE = ROOT / 'assets/branding/mr-2-odds-logo.png'
 MAIN = ROOT / 'android/app/src/main'
 
 
-def build():
+def artwork():
+    """Preserve the complete chosen badge, removing only its outer square backdrop."""
     logo = Image.open(SOURCE).convert('RGBA')
+    # The selected master has an oval ring within a square canvas. Keep its full
+    # original placement/padding, with a small safety margin around the outer ring.
+    mask = Image.new('L', logo.size, 0)
+    w, h = logo.size
+    ImageDraw.Draw(mask).ellipse((round(w*.142), round(h*.142), round(w*.859), round(h*.882)), fill=255)
+    logo.putalpha(mask)
+    return logo
+
+
+def build():
+    logo = artwork()
     if logo.width != logo.height:
         raise ValueError('Selected brand master must be square')
     exported = logo.resize((512, 512), Image.Resampling.LANCZOS)

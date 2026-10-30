@@ -43,12 +43,14 @@ def test_public_app_brand_and_theme_references_are_consistent():
 
 
 def test_selected_logo_exports_are_identical_and_square():
-    selected = Image.open(ROOT/'assets/branding/mr-2-odds-logo.png').convert('RGBA').resize((512,512),Image.Resampling.LANCZOS)
+    from scripts.build_brand_assets import artwork
+    selected = artwork().resize((512,512),Image.Resampling.LANCZOS)
     paths = [ROOT/'assets/reel/logo.png',WWW/'logo.png',MAIN/'res/drawable-nodpi/splash_logo.png']
     assert len({p.read_bytes() for p in paths})==1
     for path in paths:
         image = Image.open(path).convert('RGBA')
         assert image.size==(512,512) and ImageChops.difference(image,selected).getbbox() is None
+        assert image.getpixel((0,0))[3]==0
     assert (WWW/'editor.jpg').is_file() and (WWW/'editor_sq.jpg').is_file()
 
 
