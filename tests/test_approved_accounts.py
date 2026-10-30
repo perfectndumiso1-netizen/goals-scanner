@@ -11,10 +11,14 @@ from test_event_monitor import NOW,Response,Opener,account,keys
 ROOT=Path(__file__).resolve().parents[1]
 
 @pytest.fixture
-def cfg():return cli.config(ROOT/'config/facebook-feed.json')
+def cfg():
+    cfg=cli.config(ROOT/'config/facebook-feed.json')
+    cfg['score_source']='api-football'
+    for name in ('API_FOOTBALL_KEY_1','API_FOOTBALL_KEY_2'):cfg['event_monitor']['key_slots'][name]['authorised']=True
+    return cfg
 
 
-def test_production_excludes_suspended_slot_without_deleting_it_or_changing_groups(cfg):
+def test_historical_approved_selection_keeps_disabled_original_and_groups(cfg):
     slots=cfg['event_monitor']['key_slots']
     assert slots['API_FOOTBALL_KEY']['authorised'] is False
     assert slots['API_FOOTBALL_KEY_1']['authorised'] and slots['API_FOOTBALL_KEY_2']['authorised']
@@ -120,3 +124,10 @@ def test_account_audit_continues_only_after_allowed_failures(cfg,monkeypatch,err
     report=diagnostics.diagnose_accounts(cfg,{},NOW)
     assert report['outcome']==expected and report['successful_slots']==['API_FOOTBALL_KEY_2']
     assert all(len(o.calls)==1 and o.calls[0].full_url.endswith('/status') for o in openers)
+
+
+def test_current_production_excludes_all_owner_confirmed_suspended_accounts():
+    cfg=cli.config(ROOT/"config/facebook-feed.json")
+    assert cfg["score_source"]=="highlightly"
+    assert all(not slot["authorised"] for slot in cfg["event_monitor"]["key_slots"].values())
+    assert cfg["highlightly"]["verification_only"] and not cli.scores_approved(cfg)

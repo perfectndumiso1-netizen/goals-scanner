@@ -85,6 +85,7 @@ def test_optional_score_breakdown_and_saves_use_same_fixture_responses():
 
 def test_clock_and_format_changes_do_not_repost_or_enable_edits():
     cfg=cli.config('config/facebook-feed.json')
+    cfg['score_source']='api-football'  # Historical adapter identity, not staged Highlightly.
     cfg['event_monitor']['mode']='legacy'  # Legacy adapter regression fixture.
     cfg['live'].update(publish_every_poll=False,image_required=False)  # Original change-only contract remains selectable.
     a=match();post=policy.score_post([a],{'posts':[]},NOW,cfg)

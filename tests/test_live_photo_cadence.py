@@ -15,6 +15,7 @@ ROOT=Path(__file__).resolve().parents[1]
 @pytest.fixture
 def cfg():
     cfg=cli.config(ROOT/'config/facebook-feed.json')
+    cfg['score_source']='api-football'
     cfg['event_monitor']['mode']='legacy'  # Retired periodic adapter contract only.
     return cfg
 

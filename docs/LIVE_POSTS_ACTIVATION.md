@@ -1,3 +1,5 @@
+> **Current source: staged Highlightly.** All API-Sports slots are disabled following the owner’s confirmation that the accounts are suspended. Highlightly is selected for read-only verification; live publishing remains blocked until its access/coverage gates are approved. Earlier account-selection/activation descriptions below are historical. See [HIGHLIGHTLY_LIVE_FEED.md](HIGHLIGHTLY_LIVE_FEED.md).
+
 > **Current selected accounts:** `API_FOOTBALL_KEY` is disabled after the provider suspension report. The owner specifically confirmed that this project may use the independent `_1` and `_2` accounts while it is suspended. Monitoring now starts with `_1`, with `_2` as fallback; active gross capacity is 200/day. See [LIVE_API_DIAGNOSTIC.md](LIVE_API_DIAGNOSTIC.md). Historical three-account capacity descriptions below are superseded by that selection.
 
 # Real live-post activation and renamed key slot — 30 October 2026

@@ -71,6 +71,11 @@ def fetch_crest(team_id,directory,opener=None,now=None):
 def prepare(spec,directory):
     """Fetch at most the two selected match's actual team-ID crests before rendering."""
     match=spec['match'];crests={}
+    # Provider IDs are not interchangeable; never fetch an API-Sports badge for
+    # a Highlightly team. Missing crests are preferable to a wrong real badge.
+    if match.get('source')=='highlightly':
+        spec['crests']={}
+        return spec
     for side in ('home','away'):
         try:result=fetch_crest(match.get(side+'_team_id'),directory)
         except Exception:result=None  # Optional artwork failures cannot make the score fake/stale.
