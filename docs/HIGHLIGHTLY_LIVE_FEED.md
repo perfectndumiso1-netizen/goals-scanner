@@ -10,7 +10,7 @@ Only the factual live-score/event feed changes. Android, predictions/odds, resul
 
 ## Verify safely from a phone
 
-GitHub → Actions → **Facebook meaningful live events (24h)** → **Run workflow**, a NEW run on `main`:
+GitHub → Actions → **Facebook meaningful live events (08:00–24:00 SAST)** → **Run workflow**, a NEW run on `main`:
 
 - `diagnostic=true`
 - `publish=false`
@@ -37,7 +37,7 @@ Read `API DIAGNOSTIC — NO FACEBOOK REQUESTS` in the check notice or job summar
 
 The selected free allowance is **100 requests per UTC day**, shared with other uses of this Highlightly Football subscription. Each page/detail/failed attempt consumes local budget. A valid final permitted response is accepted; no 101st request is made. Changing the key does not reset usage. Only the Highlightly daily counter rolls at UTC midnight; access cooldowns survive midnight and old provider/post history remains untouched.
 
-The existing GitHub `*/5` schedule is unchanged. Within it, this adapter defaults to **20-minute minimum polling**, with strict budget skips; pagination/details may exhaust the allowance earlier. This is NOT guaranteed 24-hour global coverage. Five-minute polling alone needs 288 requests/day before details/pagination. No paid subscription is purchased or silently enabled; non-100 allocations/non-Free plans are refused in this integration.
+The owner restored **08:00 inclusive to 24:00 exclusive SAST** coverage. Outside that window normal live polling, preview preparation and live-score sends are blocked (event IDs do not bypass the send check, including a midnight crossing during Page credential verification). The existing GitHub `*/5` schedule is unchanged; out-of-window invocations do not read match APIs. Explicit read-only diagnostics remain available independently of the publishing window. Within the window, this adapter defaults to **20-minute minimum polling**, with strict budget skips; pagination/details may exhaust the allowance earlier. This is NOT guaranteed 24-hour global coverage. Five-minute polling alone needs 288 requests/day before details/pagination. No paid subscription is purchased or silently enabled; non-100 allocations/non-Free plans are refused in this integration.
 
 ## Provider terms and factual-only scope
 
@@ -55,3 +55,12 @@ This integration excludes betting/prediction use. The owner must ensure the actu
 ## Offline validation
 
 Full suite: **1,010 passed, 1 skipped, 8 subtests passed**. Focused Highlightly/diagnostic/event/account/stadium suite: **169 passed**, including **40 Highlightly tests**. Cases cover direct authentication, redaction, all error attempts counted, quota/final-request/UTC/cooldown boundaries, complete pagination and partial refusal, verified events, separate IDs/crests, identity mismatch, baseline/no-minute-only behavior, terminal detail confirmation, unchanged unknown-send guards, staged activation gates and durable zero-Facebook diagnostic state. These are mocked tests, not proof that the live Highlightly subscription has yet been verified.
+
+
+## Observed diagnostic and restored window (30 October 2026)
+
+Owner-triggered run [41129451774](https://github.com/perfectndumiso1-netizen/goals-scanner/actions/runs/41129451774), on the merged Highlightly adapter, reported `verified_read_only` at 23:14:03 SAST. Direct Free access and the first match-list page passed: allocation 100, requests 1, remaining 99; 100 rows read, 97 usable observations, 284 total rows, `coverage=first_page_only`, Facebook requests **0**. This confirms a real response, not complete-day pagination, detail endpoint verification or publication. Activation gates remain unchanged pending those remaining checks.
+
+The owner then explicitly restored the 08:00–24:00 SAST window. Sixteen-hour five-minute polling alone needs **192 requests/day**, still above 100 before pagination/details. The observed 284-row day requires three 100-row pages for each complete-day sweep; shorter coverage therefore does not guarantee five-minute global updates, or even continuous 20-minute full-day coverage on this allowance. Quota stops remain enforced; no paid plan or extra account is enabled.
+
+Window-change validation: **1,021 passed, 1 skipped, 8 subtests passed** (full suite); **136 passed** (focused window/Highlightly/event/diagnostic suite). New boundary tests cover SAST/UTC 07:59, 08:00, 23:59 and midnight; preview/direct polls outside coverage; no Page reconciliation outside coverage while keeping the production namespace; event-ID sends and a midnight crossing during credential verification. These tests do not replace the remaining live-provider coverage checks.

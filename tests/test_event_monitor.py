@@ -66,7 +66,8 @@ def test_production_is_event_driven_and_activated(cfg):
     assert cfg['live']['image_required'] and cfg['event_monitor']['failover_permitted']
     assert cfg['event_monitor']['permission_reference']
     assert {v['quota_group'] for v in cfg['event_monitor']['key_slots'].values()}=={'primary','backup-1','backup-2'}
-    assert cli.is_due('live',NOW.replace(hour=2),cfg)
+    assert not cli.is_due('live',NOW.replace(hour=2),cfg)
+    assert cli.is_due('live',NOW.replace(hour=8),cfg)
 
 
 def test_baseline_and_minute_ticks_never_post(cfg):

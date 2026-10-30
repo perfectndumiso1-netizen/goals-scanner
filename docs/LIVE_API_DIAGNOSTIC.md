@@ -1,3 +1,5 @@
+> **Coverage restored:** normal live-score reads/posts are restricted to **08:00–24:00 SAST**, not 24-hour coverage. Highlightly’s first-page diagnostic passed; full pagination/detail coverage and activation remain pending. See [HIGHLIGHTLY_LIVE_FEED.md](HIGHLIGHTLY_LIVE_FEED.md).
+
 > **Current source: staged Highlightly.** All API-Sports slots are disabled following the owner’s confirmation that the accounts are suspended. Highlightly is selected for read-only verification; live publishing remains blocked until its access/coverage gates are approved. Earlier account-selection/activation descriptions below are historical. See [HIGHLIGHTLY_LIVE_FEED.md](HIGHLIGHTLY_LIVE_FEED.md).
 
 > **Approved account selection:** the owner confirmed that API-Sports permits this same project to use the two independent active backup accounts while the original account is suspended. The original slot is now disabled, not queried or removed. Diagnostic mode checks the two approved accounts through `/status` only; see the update below.
