@@ -32,6 +32,7 @@ KIND = "facebook_reel_9x16"
 class UploadResult:
     status: str  # disabled, uploaded (publishing complete), failed (includes pending)
     video_id: str | None = None
+    retryable: bool = False
 
 
 def requested() -> bool:
@@ -127,9 +128,10 @@ def dimensions(path: Path) -> tuple[int, int] | None:
     return int(size[1]), int(size[2])
 
 
-def retain_failure(path: Path, reason: str) -> UploadResult:
+def retain_failure(path: Path, reason: str, *, retryable: bool = False) -> UploadResult:
     path = Path(path)
-    log.error("Facebook Reel publishing failed for %s: %s. Original video retained; Telegram will still be attempted.", path.name, reason)
+    report = log.warning if os.getenv("FACEBOOK_RETRY_ATTEMPT") == "1" else log.error
+    report("Facebook Reel publishing failed for %s: %s. Original video retained; Telegram will still be attempted.", path.name, reason)
     try:
         directory = Path(os.getenv("VIDEO_RECOVERY_DIR") or ROOT / "tmp" / "video-recovery")
         directory.mkdir(parents=True, exist_ok=True)
@@ -139,14 +141,17 @@ def retain_failure(path: Path, reason: str) -> UploadResult:
             shutil.copy2(path, recovery)
         if _receipt(path).exists():
             shutil.copy2(_receipt(path), _receipt(recovery))
-        log.error("Facebook recovery video saved: %s (download the workflow's video-recovery artifact).", recovery)
+        for source,target in ((path.with_suffix('.cover.jpg'),recovery.with_suffix('.cover.jpg')),
+                              (path.with_suffix('.cover-state.json'),recovery.with_suffix('.cover-state.json'))):
+            if source.is_file():shutil.copy2(source,target)
+        report("Facebook recovery video saved: %s (download the workflow's video-recovery artifact).", recovery)
     except OSError:
         log.error("Could not save Facebook recovery copy; original remains at %s. Preserve it before the runner exits.", path)
-    return UploadResult("failed")
+    return UploadResult("failed", retryable=retryable)
 
 
 def _json(opener, request: Request) -> dict:
-    with opener.open(request, timeout=600) as response:
+    with opener.open(request, timeout=600 if urlsplit(request.full_url).hostname == "rupload.facebook.com" else 30) as response:
         info = json.loads(response.read(65536).decode("utf-8"))
     if not isinstance(info, dict) or "error" in info:
         raise ValueError("invalid Graph response")
@@ -160,6 +165,23 @@ def _control(opener, endpoint, token, fields):
 
 
 def publish(path: Path, caption: str = "") -> UploadResult:
+    if os.getenv('FACEBOOK_AUTOMATION') == '1' and requested():
+        from facebook_delivery import deliver
+        return deliver(Path(path),caption,__import__(__name__),_publish_once)
+    return _publish_once(Path(path),caption)
+
+
+def _cover(path, info, opener, token):
+    from facebook_cover import apply_preferred
+    result = apply_preferred(opener,info['video_id'],token,path.with_suffix('.cover.jpg'),GRAPH_VERSION)
+    if result:
+        info['cover_status'] = result
+        _save(path,info,'published')
+        if result == 'unconfirmed':log.warning('Facebook preferred cover unconfirmed; retry cover only, never reupload the Reel.')
+    return result
+
+
+def _publish_once(path: Path, caption: str = "") -> UploadResult:
     """Publish a native Reel, failing closed on landscape/unknown dimensions.
 
     Persist progress before ambiguous requests. A later call resumes the same video ID
@@ -181,6 +203,9 @@ def publish(path: Path, caption: str = "") -> UploadResult:
             return retain_failure(path, "only inspected 9:16 portrait video (540x960 or larger) is allowed; no landscape fallback")
         info = _read_receipt(path)
         if info.get("phase") == "published":
+            if info.get('cover_status') != 'verified' and path.with_suffix('.cover.jpg').is_file():
+                try:_cover(path,info,build_opener(_NoRedirect()),token)
+                except Exception:log.warning('Published Reel kept published; cover-only retry not confirmed.')
             return UploadResult("uploaded", str(info["video_id"]))
         opener = build_opener(_NoRedirect())
         endpoint = f"https://graph.facebook.com/{GRAPH_VERSION}/{page}/video_reels"
@@ -211,7 +236,9 @@ def publish(path: Path, caption: str = "") -> UploadResult:
                 "title": (str(caption or "").splitlines() or ["Mr 2 Odds"])[0][:100]})
             if finished.get("success") is not True:
                 return retain_failure(path, "Reel publication was not acknowledged; inspect the saved Reel ID")
+        status_deadline = time.monotonic()+60
         for attempt in range(STATUS_ATTEMPTS):
+            if os.getenv('FACEBOOK_RETRY_ATTEMPT')=='1' and time.monotonic()>=status_deadline:break
             status = _json(opener, Request(f"https://graph.facebook.com/{GRAPH_VERSION}/{info['video_id']}?fields=status",
                                          headers={"Authorization": f"Bearer {token}"})).get("status") or {}
             if status.get("video_status") == "error" or any(
@@ -221,23 +248,14 @@ def publish(path: Path, caption: str = "") -> UploadResult:
             if (status.get("publishing_phase") or {}).get("status") == "complete":
                 _save(path, info, "published")
                 log.info("Facebook: 9:16 Reel published for Mr 2 Odds (video ID %s).", info["video_id"])
-                # A cover failure must never retry or invalidate an already published Reel.
-                try:
-                    from facebook_cover import apply_preferred
-                    cover_status = apply_preferred(opener, info['video_id'], token, path.with_suffix('.cover.jpg'), GRAPH_VERSION)
-                    if cover_status:
-                        info['cover_status'] = cover_status
-                        _save(path, info, 'published')
-                        if cover_status == 'verified':
-                            log.info('Facebook: matches-only preferred cover verified for Reel %s.', info['video_id'])
-                        else:
-                            log.warning('Facebook: preferred cover not confirmed; matches-only opening frame is present. Do not reupload this Reel.')
+                try:_cover(path,info,opener,token)
                 except Exception:
-                    log.warning('Facebook: cover setup not confirmed; published Reel is retained as published, no duplicate retry.')
+                    info['cover_status']='unconfirmed'
+                    log.warning('Published Reel retained; preferred cover unconfirmed, no duplicate upload.')
                 return UploadResult("uploaded", str(info["video_id"]))
             if attempt + 1 < STATUS_ATTEMPTS:
                 time.sleep(STATUS_INTERVAL)
-        return retain_failure(path, "Reel publication still pending; source and session ID retained, no duplicate POST")
+        return retain_failure(path, "Reel publication still pending; source and session ID retained, no duplicate POST", retryable=True)
     except HTTPError as exc:
         try:
             error = json.loads(exc.read(65536)).get("error", {})
@@ -246,6 +264,6 @@ def publish(path: Path, caption: str = "") -> UploadResult:
             codes += ", subcode " + str(int(subcode)) if subcode is not None else ""
         except (ValueError, TypeError, AttributeError, OSError):
             codes = ""
-        return retain_failure(path, f"HTTP {exc.code}{codes}; check Page access, token expiry, Reel permissions and media limits")
+        return retain_failure(path, f"HTTP {exc.code}{codes}; check Page access, token expiry, Reel permissions and media limits", retryable=exc.code in (429,500,502,503,504))
     except Exception:
-        return retain_failure(path, "network, inspection, file or response error; inspect the saved Reel ID before retrying")
+        return retain_failure(path, "network, inspection, file or response error; inspect the saved Reel ID before retrying", retryable=True)

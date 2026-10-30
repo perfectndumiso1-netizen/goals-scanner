@@ -2,6 +2,8 @@
 from datetime import datetime
 from pathlib import Path
 import json
+import hashlib
+from urllib.error import HTTPError
 import re
 import uuid
 from urllib.request import Request
@@ -75,17 +77,40 @@ def apply_preferred(opener,video_id,token,cover,graph_version):
                 value=json.loads(response.read(256*1024))
             if not isinstance(value,dict) or 'error' in value or not isinstance(value.get('data'),list):raise ValueError('Thumbnail read unavailable')
             return value.get('data',[])
-        before={str(row['id']) for row in read()}
+        digest=hashlib.sha256(cover.read_bytes()).hexdigest()
+        checkpoint=cover.with_name(cover.stem.replace('.cover','')+'.cover-state.json')
+        try:state=json.loads(checkpoint.read_text())
+        except (OSError,ValueError):state={}
+        if state.get('video_id')!=str(video_id):state={}
+        def save(phase):
+            state.update(video_id=str(video_id),sha256=digest,phase=phase)
+            temp=checkpoint.with_suffix('.tmp');temp.write_text(json.dumps(state));temp.replace(checkpoint)
+        if state.get('sha256')==digest and state.get('phase') in ('attempting','accepted','verified'):
+            after=read()
+            verified=any(row.get('id') and row.get('is_preferred') is True and str(row['id']) not in state.get('before',[]) for row in after)
+            if verified:save('verified');return 'verified'
+            return 'unconfirmed'  # Ambiguous POST/processing: read only, not another thumbnail POST.
+        if state.get('phase') in ('attempting','accepted'):return 'unconfirmed'
+        initial=read()
+        state['before']=[str(row['id']) for row in initial]
+        save('attempting')  # Durable before mutation, so a timeout cannot cause a blind duplicate POST.
         boundary='ReelCover'+uuid.uuid4().hex
         body=(f'--{boundary}\r\nContent-Disposition: form-data; name="is_preferred"\r\n\r\ntrue\r\n'
               f'--{boundary}\r\nContent-Disposition: form-data; name="source"; filename="matches.jpg"\r\nContent-Type: image/jpeg\r\n\r\n').encode()
         body+=cover.read_bytes()+f'\r\n--{boundary}--\r\n'.encode()
         request=Request(url,data=body,method='POST',headers={'Authorization':f'Bearer {token}',
             'Content-Type':f'multipart/form-data; boundary={boundary}','Content-Length':str(len(body))})
-        with opener.open(request,timeout=45) as response:result=json.loads(response.read(65536))
+        try:
+            with opener.open(request,timeout=45) as response:result=json.loads(response.read(65536))
+        except HTTPError as error:
+            if error.code in (400,401,403,404):save('rejected')
+            raise
         if not isinstance(result,dict) or result.get('success') is not True:return 'unconfirmed'
+        save('accepted')
         after=read()
-        return 'verified' if any(row.get('is_preferred') is True and str(row.get('id')) not in before for row in after) else 'unconfirmed'
+        if any(row.get('id') and row.get('is_preferred') is True and str(row['id']) not in state['before'] for row in after):
+            save('verified');return 'verified'
+        return 'unconfirmed'
     except Exception:
         # No raw HTTP exceptions, bodies, signed URLs or credentials enter logs/state.
         return 'unconfirmed'

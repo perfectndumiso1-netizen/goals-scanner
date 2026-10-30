@@ -105,5 +105,6 @@ def test_cover_problem_never_turns_a_published_reel_into_a_duplicate_retry(monke
     receipt=json.loads(fb._receipt(path).read_text())
     assert receipt['phase']=='published' and receipt['cover_status']=='unconfirmed'
     count=len(calls)
-    assert fb.publish(path,'Caption').status=='uploaded' and len(calls)==count
+    assert fb.publish(path,'Caption').status=='uploaded'
+    assert all(request.get_method()=='GET' for request in calls[count:])  # Only the cover may be checked again.
     assert sum('/video_reels' in r.full_url and r.get_method()=='POST' for r in calls)==2
