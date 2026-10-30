@@ -203,7 +203,7 @@ class APIFootball:
         return cache
 
 
-def normalize(value,now):
+def normalize(value,now,allow_overnight=False):
     try:
         fixture=value['fixture'];teams=value['teams'];league=value['league'];goals=value['goals']
         status=fixture['status']['short'];elapsed=fixture['status'].get('elapsed')
@@ -219,7 +219,7 @@ def normalize(value,now):
                 return None
         if status in ('FT','AET','PEN') and age<75:
             return None
-        if kickoff.date()!=now.date() or kickoff>now+timedelta(minutes=10) and status not in ('NS','PST','CANC'):
+        if ((not allow_overnight and kickoff.date()!=now.date()) or (allow_overnight and not (-10080<=age<=360 if status in ('PST','CANC') else -10<=age<=360)) or kickoff>now+timedelta(minutes=10) and status not in ('NS','PST','CANC')):
             return None
         numbers=[]
         for side in ('home','away'):
@@ -227,7 +227,8 @@ def normalize(value,now):
             if number is not None and (isinstance(number,bool) or int(number)!=float(number) or int(number)<0):
                 return None
             numbers.append(int(number) if number is not None else None)
-        if status not in ('NS','PST','CANC') and any(x is None for x in numbers):
+        no_score={'NS','PST','CANC'}|({'ABD','INT','SUSP'} if allow_overnight else set())
+        if status not in no_score and any(x is None for x in numbers):
             return None
         if any(not isinstance(v,str) or not v.strip() for v in (teams['home']['name'],teams['away']['name'],league['name'],league['country'])):
             return None

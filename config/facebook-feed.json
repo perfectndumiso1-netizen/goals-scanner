@@ -144,5 +144,29 @@
     "coverage_verified": false,
     "max_source_age_seconds": 180,
     "poll_interval_minutes": 5
+  },
+  "event_monitor": {
+    "enabled": true,
+    "publish_enabled": false,
+    "daily_request_budget": 90,
+    "max_source_age_seconds": 180,
+    "credential_revision": "1",
+    "failover_permitted": false,
+    "permission_reference": "",
+    "key_slots": {
+      "API_FOOTBALL_KEY": {
+        "authorised": true,
+        "quota_group": "primary"
+      },
+      "API_FOOTBALL_KEY1": {
+        "authorised": true,
+        "quota_group": "primary"
+      },
+      "API_FOOTBALL_KEY2": {
+        "authorised": true,
+        "quota_group": "primary"
+      }
+    },
+    "mode": "events"
   }
 }

@@ -19,6 +19,7 @@ ROOT = Path(__file__).resolve().parents[1]
 @pytest.fixture
 def cfg():
     cfg=cli.config(ROOT / 'config/facebook-feed.json')
+    cfg['event_monitor']['mode']='legacy'  # Legacy adapter regression fixture.
     cfg['live'].update(max_posts_per_day=3,publish_every_poll=False,image_required=False)
     cfg['live_post_cooldown_minutes']=60
     return cfg

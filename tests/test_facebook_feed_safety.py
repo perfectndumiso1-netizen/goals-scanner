@@ -15,6 +15,7 @@ from datetime import timezone
 @pytest.fixture
 def cfg():
     cfg=cli.config(ROOT/'config/facebook-feed.json')
+    cfg['event_monitor']['mode']='legacy'  # Legacy adapter regression fixture.
     cfg.pop('authorized_kinds',None)
     cfg['provider']['rights_confirmed']=cfg['provider']['account_coverage_verified']=False  # Explicit unapproved regression fixture.
     cfg['live'].update(max_posts_per_day=3,publish_every_poll=False,image_required=False)  # Legacy three-post policy contract.
