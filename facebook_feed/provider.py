@@ -16,6 +16,29 @@ class ProviderError(RuntimeError):
     pass
 
 
+def safe_error_reason(errors, endpoint):
+    """Only static categories/known endpoints, never provider text, keys or account details.
+
+    API-SPORTS can return HTTP 200 with errors. A green dry-run job must not be
+    mistaken for successful authentication or current-season coverage.
+    """
+    keys={str(key).casefold().replace('_','').replace('-','') for key in errors} if isinstance(errors,dict) else set()
+    if keys & {'token','key','apikey','authentication','authorization','access'}:
+        reason='API credentials/account authorisation rejected; check the saved secret and provider dashboard'
+    elif keys & {'ip','ipaddress','whitelist','allowlist'}:
+        reason='source IP access restricted; check provider IP restrictions for GitHub Actions'
+    elif keys & {'requests','ratelimit','quota','limit'}:
+        reason='request allowance/rate limit rejected; check dashboard usage before retrying'
+    elif keys & {'plan','subscription','season','coverage'}:
+        reason='plan/season coverage restricted; verify this account can access the requested endpoint and season'
+    elif keys & {'parameters','parameter','date','timezone','league','fixture'}:
+        reason='request parameters rejected; endpoint/fixture validation is required'
+    else:
+        reason='unclassified provider rejection; inspect the provider dashboard (raw response deliberately omitted)'
+    location=endpoint if endpoint in {'status','leagues','fixtures','fixtures/statistics'} else 'provider endpoint'
+    return f'Provider returned errors at {location}: {reason}; no scores used'
+
+
 class APIFootball:
     BASE='https://v3.football.api-sports.io'
     def __init__(self, config, state, now, opener=None):
@@ -75,7 +98,7 @@ class APIFootball:
         if not isinstance(result,dict):
             raise ProviderError('Invalid provider response wrapper')
         if result.get('errors'):
-            raise ProviderError('Provider returned errors (possibly account/season coverage); no scores used')
+            raise ProviderError(safe_error_reason(result['errors'],endpoint))
         if (result.get('paging') or {}).get('total',1)>1:
             raise ProviderError('Provider response is paginated; refusing incomplete matchday')
         return result.get('response')

@@ -63,3 +63,12 @@ A score/status change can generate an update (including a one-goal change), subj
 - **804 passed, 1 skipped, 8 subtests passed** in the complete Python suite (81.01 seconds).
 - **45 new synthetic tests** cover SAST/UTC boundaries, overnight kickoffs, stale/missing app coverage, exact/ambiguous mapping, cache filtering, request/stat quotas, interval after failure, correct zero/null handling, bad/duplicate team metrics, possession validation, fresh/expired stats, HTTP cooldowns, emojis, no stats-only spam, no optional spending during feed cooldown, source changes before send, midnight send cancellation and already-reported finals/post-cap polling skips.
 - Existing renderer/music/model/publisher invariants remain untouched. These tests do not establish real account access, redistribution permission or successful/public Facebook publication.
+
+
+## First saved-key preflight (30 October 2026)
+
+The owner manually ran [41071073984](https://github.com/perfectndumiso1-netizen/goals-scanner/actions/runs/41071073984) on `main` after saving the secret. GitHub reports workflow success, **not provider validation success**. Its API-readable annotation says `preflight` was skipped because the provider returned errors; no scores were used. The specific error was deliberately suppressed by the original adapter. The missing-secret error did not occur, but this establishes only that a nonempty secret was loaded, not that the key is valid or the Free plan is accessible. The Facebook mutation/reservation steps were skipped.
+
+The adapter now maps known provider error keys to static safe categories (credentials/account authorisation, IP restriction, request allowance, plan/season access, parameters, unknown), and labels only known endpoints. It never echoes provider error text, unknown keys, credentials, account details or arbitrary endpoints. Existing failure gates/budgets remain unchanged. A repeat read-only `preflight` can distinguish the next action without exposing the key. Do not enable publishing or mark coverage/rights approved based on a green workflow badge.
+
+Automatic dispatch from this session is blocked with GitHub integration HTTP 403; the owner must start the repeat test from the workflow page with `kind=preflight`, `publish=false`, `preview=true`, `bootstrap=false`. Logs/artifact storage are not reachable from the sandbox; the safe workflow annotation can be retrieved through the GitHub API. No attempt was made to read the secret value.
