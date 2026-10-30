@@ -55,8 +55,8 @@ def baseline(cfg,rows=None):
     return state
 
 
-def test_production_is_event_driven_but_not_activated(cfg):
-    assert cfg['event_monitor']['enabled'] and not cfg['event_monitor']['publish_enabled']
+def test_production_is_event_driven_and_activated(cfg):
+    assert cfg['event_monitor']['enabled'] and cfg['event_monitor']['publish_enabled']
     assert cfg['live']['image_required'] and cfg['event_monitor']['failover_permitted']
     assert cfg['event_monitor']['permission_reference']
     assert {v['quota_group'] for v in cfg['event_monitor']['key_slots'].values()}=={'primary','backup-1','backup-2'}
@@ -206,13 +206,13 @@ def account():return {'subscription':{'plan':'Free','active':True},'requests':{'
 
 def keys(monkeypatch):
     monkeypatch.setenv('API_FOOTBALL_KEY','synthetic-private-primary')
-    monkeypatch.setenv('API_FOOTBALL_KEY1','synthetic-private-secondary')
+    monkeypatch.setenv('API_FOOTBALL_KEY_1','synthetic-private-secondary')
     monkeypatch.setenv('API_FOOTBALL_KEY2','synthetic-private-third')
 
 
 def allow_failover(cfg):
     cfg['event_monitor'].update(failover_permitted=True,permission_reference='Synthetic test-only provider written permission')
-    cfg['event_monitor']['key_slots']['API_FOOTBALL_KEY1']['quota_group']='separately-authorised'
+    cfg['event_monitor']['key_slots']['API_FOOTBALL_KEY_1']['quota_group']='separately-authorised'
 
 
 def test_default_daily_quota_never_pools_keys_and_utc_resets(cfg,monkeypatch):
@@ -245,6 +245,7 @@ def test_no_key_switch_on_network_bad_request_server_or_minute_limit(cfg,monkeyp
 
 
 def test_local_90_ceiling_not_daily_quota_evidence(cfg,monkeypatch):
+    cfg['event_monitor'].update(daily_request_budget=90,daily_request_reserve=10)
     keys(monkeypatch);allow_failover(cfg);state={};api=EventAPI(cfg,state,NOW,Opener())
     api.group('primary').update(requests=90,allocation=100,plan_checked=api.day)
     with pytest.raises(ProviderError,match='local request ceiling'):api.get('fixtures')
@@ -336,6 +337,7 @@ def test_read_only_recovery_of_known_ack_never_sends_replacement(cfg,tmp_path,mo
 
 
 def test_publish_enabled_false_blocks_even_requested_scheduled_publication(cfg,tmp_path,monkeypatch):
+    cfg['event_monitor']['publish_enabled']=False
     monkeypatch.setenv('FACEBOOK_FEED_PUBLISH','true');monkeypatch.setenv('GITHUB_REF_NAME','main')
     monkeypatch.setenv('GH_READ_TOKEN','synthetic-github-token');monkeypatch.setenv('GITHUB_OUTPUT',str(tmp_path/'outputs'))
     monkeypatch.setenv('GITHUB_REPOSITORY','local/repo')
@@ -449,3 +451,39 @@ def test_mapping_backups_does_not_reset_existing_primary_budget(cfg):
     assert api.group('primary')['requests']==55 and api.group('primary')['remaining']==45
     assert api.group('backup-1')['requests']==0 and api.group('backup-2')['requests']==0
     assert api.group('primary')['requests']==55
+
+
+def test_full_hundredth_request_is_used_then_next_poll_uses_renamed_backup(cfg,monkeypatch):
+    keys(monkeypatch);state={};api=EventAPI(cfg,state,NOW,Opener())
+    api.group('primary').update(requests=99,allocation=100,remaining=1,provider_used=99,plan_checked=api.day)
+    api.state['slots']['API_FOOTBALL_KEY']={'revision':cfg['event_monitor']['credential_revision'],'plan_checked':api.day}
+    opener=Opener(Response([{'last_primary_request':True}],0),Response(account()),Response([{'backup_request':True}],98))
+    api.opener=opener
+    assert api.get('fixtures')==[{'last_primary_request':True}]
+    assert state['event_api']['groups']['primary']['requests']==100
+    assert EventAPI(cfg,state,NOW,opener).get('fixtures')==[{'backup_request':True}]
+    assert [r.get_header('X-apisports-key') for r in opener.calls]==['synthetic-private-primary','synthetic-private-secondary','synthetic-private-secondary']
+    assert 'API_FOOTBALL_KEY_1' in state['event_api']['slots']
+
+
+def test_local_failed_attempt_count_is_not_provider_quota_evidence(cfg,monkeypatch):
+    keys(monkeypatch);state={};api=EventAPI(cfg,state,NOW,Opener())
+    api.group('primary').update(requests=100,allocation=100,remaining=1,provider_used=99,plan_checked=api.day)
+    with pytest.raises(ProviderError,match='local request ceiling'):api.get('fixtures')
+    assert not api.opener.calls
+
+
+def test_status_verified_exhaustion_switches_without_probing_fixtures_on_full_account(cfg,monkeypatch):
+    keys(monkeypatch);used=account();used['requests']['current']=100
+    opener=Opener(Response(used,0),Response(account()),Response([{'fresh':True}],98))
+    state={};assert EventAPI(cfg,state,NOW,opener).get('fixtures')==[{'fresh':True}]
+    assert len(opener.calls)==3 and state['event_api']['groups']['primary']['exhausted']
+
+
+def test_activation_uses_exact_renamed_slots_and_full_verified_limits(cfg):
+    from facebook_feed.event_provider import SLOTS
+    assert SLOTS==('API_FOOTBALL_KEY','API_FOOTBALL_KEY_1','API_FOOTBALL_KEY2')
+    assert cfg['event_monitor']['publish_enabled'] and cfg['event_monitor']['daily_request_budget']==100
+    assert cfg['event_monitor']['daily_request_reserve']==0
+    workflow=(ROOT/'.github/workflows/facebook-feed-run.yml').read_text()
+    assert 'secrets.API_FOOTBALL_KEY_1' in workflow and 'secrets.API_FOOTBALL_KEY1' not in workflow
