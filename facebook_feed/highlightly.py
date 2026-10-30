@@ -182,6 +182,8 @@ def diagnose(cfg,state,now,api=None):
 
 
 def poll(cfg,state,now,api=None):
+    from .live_window import in_window
+    if not in_window(now,cfg):return False,'outside 08:00–24:00 SAST score coverage'
     if cfg['highlightly']['verification_only']:
         return False,'Highlightly integration staged: read-only verification required before live activation'
     cache=state.setdefault('highlightly_monitor_cache',{})

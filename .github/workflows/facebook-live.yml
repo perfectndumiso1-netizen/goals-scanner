@@ -1,4 +1,4 @@
-name: Facebook meaningful live events (24h)
+name: Facebook meaningful live events (08:00–24:00 SAST)
 on:
   schedule:
     - cron: "*/5 * * * *"

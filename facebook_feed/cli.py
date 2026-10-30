@@ -103,7 +103,7 @@ def scores_approved(cfg):
 def is_due(kind,now,cfg):
     if kind=='preflight':return False
     if kind not in cfg.get('authorized_kinds',KINDS):return False
-    if kind=='live':return cfg['live']['enabled'] and (cfg['event_monitor']['enabled'] if uses_events(cfg) else in_window(now,cfg))
+    if kind=='live':return cfg['live']['enabled'] and in_window(now,cfg) and (cfg['event_monitor']['enabled'] if uses_events(cfg) else True)
     if kind=='card' and now.weekday() not in cfg['card_days']:return False
     if kind=='weekly' and now.weekday()!=cfg['weekly_day']:return False
     key={'community':'community_time','weekly':'weekly_time','card':'card_time','roundup':'roundup_time','results':'results_time'}[kind]
@@ -115,6 +115,7 @@ def is_due(kind,now,cfg):
 def build(kind,root,now,cfg,state,preview=False):
     if not preview and not is_due(kind,now,cfg):return None,'not due'
     if kind=='live' and uses_events(cfg):
+        if not in_window(now,cfg):return None,'outside 08:00–24:00 SAST score coverage'
         if not cfg['event_monitor']['enabled'] or not cfg['live']['enabled']:return None,'event monitoring disabled'
         try:return event_monitor.build(cfg,state,now)
         except ProviderError as error:return None,str(error)
@@ -256,7 +257,7 @@ def main(argv=None):
                 entry['status']='cancelled';entry['error']='Content/source authorisation changed before sending';match_events.publication_state(state,entry,'pending',now);storage.write(statepath,state);continue
             if hashlib.sha256(post['caption'].encode()).hexdigest()!=entry['caption_hash'] or any(entry.get(k)!=post.get(k) for k in ('kind','topic','fixture_ids','operation','target_id','snapshot','image_sha256','event_ids')):
                 raise ValueError('Prepared content does not match its durable reservation')
-            if datetime.now(content.SAST)>=content.local(post['expires_at']) or post['kind'] in ('live','roundup') and not (post.get('event_ids') or in_window(datetime.now(content.SAST),cfg)):
+            if datetime.now(content.SAST)>=content.local(post['expires_at']) or post['kind'] in ('live','roundup') and not in_window(datetime.now(content.SAST),cfg):
                 entry['status']='cancelled';entry['error']='Prepared content expired before sending';match_events.publication_state(state,entry,'pending',now);storage.write(statepath,state);continue
             if post['kind']=='live' and cfg['live'].get('image_required'):
                 image=Path(post.get('image') or '')
@@ -266,7 +267,7 @@ def main(argv=None):
             mutation_started=False
             try:
                 if publisher is None:publisher=PageFeed()
-                if datetime.now(content.SAST)>=content.local(post['expires_at']) or post['kind'] in ('live','roundup') and not (post.get('event_ids') or in_window(datetime.now(content.SAST),cfg)):
+                if datetime.now(content.SAST)>=content.local(post['expires_at']) or post['kind'] in ('live','roundup') and not in_window(datetime.now(content.SAST),cfg):
                     entry['status']='cancelled';entry['error']='Content expired during credential verification; no mutation sent';match_events.publication_state(state,entry,'pending',now);continue
                 mutation_started=True
                 identity=publisher.send(post)
@@ -297,7 +298,7 @@ def main(argv=None):
     state['posts']=policy.history(state,now,cfg['topic_history_days'])
     if 'score_observations' in state:
         state['score_observations']={k:v for k,v in state['score_observations'].items() if now-content.local(v['since'])<timedelta(hours=6)}
-    if publish and event_mode:
+    if publish and event_mode and in_window(now,cfg):
         for entry in state['posts']:
             if entry.get('event_ids') and entry.get('status')=='unknown' and entry.get('post_id'):
                 try:
