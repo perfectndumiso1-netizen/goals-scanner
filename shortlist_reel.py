@@ -5,12 +5,11 @@ video carries the user's track `assets/reel/under_the_stadium_lights.mp3` for it
 normalised by `music.bed`). Slide lengths come from how long each slide's words take to read, at the pace the
 narration used to speak them, so the length and the format of the videos are unchanged.
 
-The morning video opens with the settled results of *every* video from yesterday (morning, noon and evening),
-then walks today's matches one at a time. Without a voice, each match is up to three short slides — THE PICK (the
+Three daily videos walk today's matches one at a time. Yesterday's filmed results are posted separately to Facebook. Without a voice, each match is up to three short slides — THE PICK (the
 selection, its price and a chart of every market the video covers, with the featured one as the tallest bar), WHY
 IT'S HERE (reasons, trends, league standing and venue splits) and THE RECORD (head to head and both teams' last
-five); see `reel_insights` for where every number comes from. Videos carry Over 1.5 total goals, team goals, corners
-and bookings only, and no accumulator is built, shown or mentioned anywhere (user rules 2026-10-21).
+five); see `reel_insights` for where every number comes from. The verified Advisor card retains Over 1.5/corners
+priority, Over 2.5 fallback and the final combined-odds calculation. Warnings use one continuous bottom ticker.
 """
 from __future__ import annotations
 
@@ -255,7 +254,7 @@ def render_intro(logo: Path, bg: Path, dest: Path, *, aspect: str | None = None,
         s = "TODAY'S SHORTLIST"
         d.text(((cw - _tw(d, s, sub)) // 2, 1020), s, fill=GREEN, font=sub)
         tiny = _font(26, False)
-        for idx, ln in enumerate(_wrap(d, "Football intelligence  ·  Results recap & today's selections  ·  SAST", tiny, cw - 140, 2)):
+        for idx, ln in enumerate(_wrap(d, "Football intelligence  ·  Today's verified selections  ·  SAST", tiny, cw - 140, 2)):
             d.text(((cw - _tw(d, ln, tiny)) // 2, 1105 + idx * 38), ln, fill=MUTED, font=tiny)
         foot = "Mr 2 Odds  ·  18+"
         d.text(((cw - _tw(d, foot, _font(22, True))) // 2, ch - 110), foot, fill=MUTED, font=_font(22, True))
@@ -272,7 +271,7 @@ def render_intro(logo: Path, bg: Path, dest: Path, *, aspect: str | None = None,
         s = "TODAY'S SHORTLIST"
         d.text(((cw - _tw(d, s, sub)) // 2, 600), s, fill=GREEN, font=sub)
         tiny = _font(26, False)
-        t = "Football intelligence  ·  Results recap & today's selections  ·  SAST"
+        t = "Football intelligence  ·  Today's verified selections  ·  SAST"
         d.text(((cw - _tw(d, t, tiny)) // 2, 668), t, fill=MUTED, font=tiny)
         foot = "Mr 2 Odds  ·  18+"
         d.text(((cw - _tw(d, foot, _font(20, True))) // 2, ch - 64), foot, fill=MUTED, font=_font(20, True))
@@ -528,7 +527,7 @@ def render_pick(pick: dict, i: int, n: int, bg: Path, home_b: Path, away_b: Path
 
         d.rectangle((76, ch - 190, cw - 76, ch - 176), fill=(20, 48, 74))
         d.rectangle((76, ch - 190, 76 + int(i / max(n, 1) * (cw - 152)), ch - 176), fill=GREEN)
-        foot = "Mr 2 Odds  ·  not betting advice  ·  18+"
+        foot = ""
         d.text(((cw - _tw(d, foot, _font(22, False))) // 2, ch - 110), foot, fill=MUTED, font=_font(22, False))
     else:
         # 16:9 widescreen layout (1920x1080)
@@ -589,7 +588,7 @@ def render_pick(pick: dict, i: int, n: int, bg: Path, home_b: Path, away_b: Path
 
         d.rectangle((110, ch - 115, cw - 110, ch - 103), fill=(20, 48, 74))
         d.rectangle((110, ch - 115, 110 + int(i / max(n, 1) * (cw - 220)), ch - 103), fill=GREEN)
-        foot = "Mr 2 Odds  ·  not betting advice  ·  18+"
+        foot = ""
         d.text(((cw - _tw(d, foot, _font(20, False))) // 2, ch - 64), foot, fill=MUTED, font=_font(20, False))
     im.convert("RGB").save(dest, quality=92)
 
@@ -643,14 +642,14 @@ def _stage_header(d, cw: int, ch: int, stage: str, i: int, n: int, comp: str, *,
 
 
 def _stage_footer(d, cw: int, ch: int, *, wide: bool) -> None:
-    foot = "Mr 2 Odds  ·  not betting advice  ·  18+"
+    foot = ""
     f = _font(20 if wide else 22, False)
     d.text(((cw - _tw(d, foot, f)) // 2, ch - (58 if wide else 92)), foot, fill=MUTED, font=f)
 
 
 def _progress_bar(d, cw: int, ch: int, i: int, n: int, *, wide: bool) -> None:
     x0, x1 = (110, cw - 110) if wide else (76, cw - 76)
-    y = ch - (112 if wide else 148)
+    y = ch - (112 if wide else 225)
     d.rectangle((x0, y, x1, y + 12), fill=(20, 48, 74))
     d.rectangle((x0, y, x0 + int(i / max(n, 1) * (x1 - x0)), y + 12), fill=GREEN)
 
@@ -843,7 +842,7 @@ def render_pick_overview(pick: dict, i: int, n: int, bg: Path, home_b: Path, awa
         d.text((bx + 15, by + (7 if wide else 9)), chip, fill=GREEN, font=cf)
 
     # ---- the chart across the whole width: this is the slide's point, so it gets the room
-    chart_box = (80, 506, cw - 54, ch - 150) if wide else (60, 960, cw - 60, ch - 175)
+    chart_box = (80, 506, cw - 54, ch - 150) if wide else (60, 960, cw - 60, ch - 235)
     _chart(d, chart or [], chart_box, wide=wide)
     _progress_bar(d, cw, ch, i, n, wide=wide)
     _stage_footer(d, cw, ch, wide=wide)
@@ -891,7 +890,7 @@ def render_pick_evidence(pick: dict, i: int, n: int, bg: Path, dest: Path, *,
         rx0, ry0, rx1, ry1 = 930, 186, cw - 54, ch - 150
     else:
         lx0, ly0, lx1, ly1 = 50, 235, cw - 50, 905
-        rx0, ry0, rx1, ry1 = 50, 935, cw - 50, ch - 185
+        rx0, ry0, rx1, ry1 = 50, 935, cw - 50, ch - 245
     for box in ((lx0, ly0, lx1, ly1), (rx0, ry0, rx1, ry1)):
         d.rounded_rectangle(box, 24 if wide else 28, fill=CARD_BG, outline=(30, 62, 96), width=2)
 
@@ -984,7 +983,7 @@ def render_pick_record(pick: dict, i: int, n: int, bg: Path, dest: Path, *,
         rx0, ry0, rx1, ry1 = 930, 186, cw - 54, ch - 150
     else:
         lx0, ly0, lx1, ly1 = 50, 235, cw - 50, 880
-        rx0, ry0, rx1, ry1 = 50, 910, cw - 50, ch - 185
+        rx0, ry0, rx1, ry1 = 50, 910, cw - 50, ch - 245
     for box in ((lx0, ly0, lx1, ly1), (rx0, ry0, rx1, ry1)):
         d.rounded_rectangle(box, 24 if wide else 28, fill=CARD_BG, outline=(30, 62, 96), width=2)
 
@@ -1182,7 +1181,7 @@ def render_card_summary(picks, bg, dest):
     formula = " × ".join(f"{float(p['odds']):.2f}" for p in picks)
     d.text((pad+35, y+20), formula, font=_font(25), fill=MUTED)
     d.text((pad+35, y+75), f"COMBINED ODDS  {combined_odds(picks):.2f}", font=_font(42, True), fill=GREEN)
-    d.text((pad+35, ch-160), "Prices can change. All legs must win. 18+ | No guaranteed return.", font=_font(20), fill=MUTED)
+    d.text((pad+35, ch-160), "", font=_font(20), fill=MUTED)
     im.convert("RGB").save(dest, quality=94)
 
 
@@ -1205,6 +1204,48 @@ def still_clip(img: Path, dest: Path, duration: float, ff: str, *, aspect: str |
         "-vf", f"scale={cw}:{ch},format=yuv420p", "-r", str(FPS),
         "-c:v", "libx264", "-preset", "ultrafast", "-pix_fmt", "yuv420p", "-an", str(dest),
     ], "still")
+
+
+WARNING_TEXT = ("Statistical information, not betting advice. Bet responsibly. "
+                "Only stake what you can afford to lose. No guaranteed wins. "
+                "Prices can change; all card legs must win.")
+
+
+def animated_warning(video: Path, dest: Path, duration: float, ff: str, *, work: Path) -> Path:
+    """One continuous readable ticker across the entire video, never reset at each slide.
+
+    Render the type with Pillow so ffmpeg needs no drawtext/font plugin. The fixed 18+
+    label stays visible while the warning scrolls. No extra sound or narration is added.
+    """
+    from PIL import Image, ImageDraw
+    cw, ch = _resolve_size()
+    portrait = cw < ch
+    font = _font(38 if portrait else 30, True)
+    band_h = 80 if portrait else 64
+    left = 116 if portrait else 100
+    bottom = 120 if portrait else 16
+    base = Image.new("RGB", (cw, band_h), (6, 18, 29))
+    draw = ImageDraw.Draw(base)
+    draw.text((22, 16 if portrait else 12), "18+", font=font, fill=GREEN)
+    message = WARNING_TEXT + "     •     "
+    period = math.ceil(_tw(draw, message, font))
+    strip = Image.new("RGB", (period * (math.ceil(cw / period) + 2), band_h), (6, 18, 29))
+    sd = ImageDraw.Draw(strip)
+    for x in range(0, strip.width, period):
+        sd.text((x, 16 if portrait else 12), message, font=font, fill=WHITE)
+    base_path, strip_path = work / "warning-base.png", work / "warning-strip.png"
+    base.save(base_path); strip.save(strip_path)
+    width = cw - left - 28
+    y = ch - band_h - bottom
+    _run([ff, "-y", "-i", str(video), "-loop", "1", "-framerate", str(FPS), "-i", str(base_path),
+          "-loop", "1", "-framerate", str(FPS), "-i", str(strip_path),
+          "-filter_complex_threads", "1", "-filter_complex",
+          f"[0:v][1:v]overlay=0:{y}:shortest=1[base];"
+          f"[2:v]crop={width}:{band_h}:x='mod(t*60,{period})':y=0[ticker];"
+          f"[base][ticker]overlay={left}:{y}:shortest=1,format=yuv420p[v]",
+          "-map", "[v]", "-t", f"{duration:.3f}", "-r", str(FPS), "-c:v", "libx264",
+          "-preset", "ultrafast", "-pix_fmt", "yuv420p", "-an", str(dest)], "continuous warning footer")
+    return dest
 
 
 def competition_line(p: dict) -> str:
@@ -1694,11 +1735,11 @@ def _data_dir(*parts: str) -> Path | None:
 
 def build(picks: list, outfile: Path, *, assets: Path, work: Path | None = None,
           fixtures: list | None = None, yesterday_results: dict | list | None = None,
-          aspect: str = "16:9", recap: bool = True, fx_dir: Path | None = None,
+          aspect: str = "16:9", recap: bool = False, fx_dir: Path | None = None,
           leagues_dir: Path | None = None) -> Path:
     """Build a 16:9 widescreen (1920x1080) or 9:16 vertical reel (1080x1920) video.
 
-    Order: intro, disclaimer, yesterday's full card (first video of the day only), then each match as three short
+    Order: intro, then each match as three short
     slides — THE PICK (Over 1.5, its price and the model-vs-market chart), WHY IT'S HERE (reasons, trends, standing,
     venue splits) and THE RECORD (head to head and both teams' last five, always fresh). Each match appears once.
     Since 2026-10-27 only **Over 1.5 total goals** is carried, and only for matches whose own stats and a recent
@@ -1723,8 +1764,7 @@ def build(picks: list, outfile: Path, *, assets: Path, work: Path | None = None,
         picks, _skipped = video_picks(picks, fx_dir=fx_dir, now=datetime.now(__import__("zoneinfo").ZoneInfo("Africa/Johannesburg")))
         if len(picks) < 5:
             raise ValueError("fewer than five verified matches for the reel — every candidate failed the stats / head-to-head check")
-        recap_rows = reel_results(yesterday_results) if recap else []
-        recap_day = yesterday_results.get("day", "") if isinstance(yesterday_results, dict) else ""
+        # `recap`/`yesterday_results` remain accepted for caller compatibility, but are never rendered.
 
         assets = Path(assets)
         logo = assets / "logo.png"
@@ -1748,20 +1788,9 @@ def build(picks: list, outfile: Path, *, assets: Path, work: Path | None = None,
             __import__("shutil").copyfile(cover, slides_dir / "intro.jpg")
         else:
             render_intro(logo, bgs[0], slides_dir / "intro.jpg")
-        render_disclaimer(logo, bgs[1], slides_dir / "disclaimer.jpg")
-
-        texts = [INTRO_SCRIPT, DISCLAIMER_SCRIPT]
-        images = [slides_dir / "intro.jpg", slides_dir / "disclaimer.jpg"]
-
-        pages: list[list[dict]] = []
-        if recap_rows:
-            pages = [recap_rows[i:i + RECAP_ROWS] for i in range(0, len(recap_rows), RECAP_ROWS)]
-            for pageno, page_rows in enumerate(pages, 1):
-                res_img = slides_dir / f"results{pageno:02d}.jpg"
-                render_results(page_rows, logo, bgs[2], res_img, day_label=recap_day,
-                               page=pageno, pages=len(pages), all_rows=recap_rows)
-                images.append(res_img)
-                texts.append(results_script(recap_rows, page=pageno, pages=len(pages), rows=page_rows))
+        # The warning is a readable animated footer on every clip, not a full-screen interruption.
+        texts = [INTRO_SCRIPT]
+        images = [slides_dir / "intro.jpg"]
 
         # Every match is introduced once, as up to three slides. Nothing is spoken, so each slide carries its own
         # evidence and stays up only as long as there is something new to read (`stage_seconds`).
@@ -1833,7 +1862,8 @@ def build(picks: list, outfile: Path, *, assets: Path, work: Path | None = None,
 
         outfile = Path(outfile)
         outfile.parent.mkdir(parents=True, exist_ok=True)
-        music.mux(silent, bed, outfile, ff, bitrate="192k")
+        warned = animated_warning(silent, work / "with-warning.mp4", total, ff, work=work)
+        music.mux(warned, bed, outfile, ff, bitrate="192k")
         log.info("reel built %s [%s] (%.1fs, %d KB) music=%s", outfile.name, aspect, total,
                  outfile.stat().st_size // 1024, music.MUSIC_FILE)
         return outfile
@@ -1843,7 +1873,7 @@ def build(picks: list, outfile: Path, *, assets: Path, work: Path | None = None,
 
 def build_both(picks: list, out_16x9: Path, out_9x16: Path, *, assets: Path, work: Path | None = None,
                fixtures: list | None = None, yesterday_results: dict | list | None = None,
-               recap: bool = True, fx_dir: Path | None = None,
+               recap: bool = False, fx_dir: Path | None = None,
                leagues_dir: Path | None = None) -> tuple[Path, Path]:
     """Build both 16:9 widescreen (1920x1080) and 9:16 vertical reel (1080x1920) with the same slides and music.
 
@@ -1874,7 +1904,7 @@ def build_both(picks: list, out_16x9: Path, out_9x16: Path, *, assets: Path, wor
 
 
 def from_shortlist(sl_pub: dict, fixtures: list, outfile: Path, assets: Path, work: Path | None = None,
-                   yesterday_results: dict | list | None = None, *, aspect: str = "16:9", recap: bool = True,
+                   yesterday_results: dict | list | None = None, *, aspect: str = "16:9", recap: bool = False,
                    fx_dir: Path | None = None, leagues_dir: Path | None = None) -> Path:
     sl = sl_pub or {}
     prim = [dict(p) for p in (sl.get("primary") or [])]

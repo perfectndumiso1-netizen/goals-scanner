@@ -13,7 +13,11 @@ from datetime import timezone
 
 
 @pytest.fixture
-def cfg():return cli.config(ROOT/'config/facebook-feed.json')
+def cfg():
+    cfg=cli.config(ROOT/'config/facebook-feed.json')
+    cfg.pop('authorized_kinds',None)
+    cfg['score_source']='api-football'
+    return cfg
 
 
 def prepared(tmp_path,monkeypatch,cfg):

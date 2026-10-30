@@ -2701,22 +2701,16 @@ def _telegram_state(now: datetime) -> tuple[Path, dict]:
 
 
 def _reel_slot(now: datetime) -> str | None:
-    """Catch up today's edition on the next scan, not only during its launch hour.
-
-    Morning remains due from 08:00 until the 16:00 edition takes over; evening
-    remains due until midnight. The persisted slot check prevents repeat sends.
-    """
-    from zoneinfo import ZoneInfo
-    if now.tzinfo is not None:
-        now = now.astimezone(ZoneInfo("Africa/Johannesburg"))
-    return "evening" if now.hour >= 16 else "morning" if now.hour >= 8 else None
+    """Original three SAST windows; persistent slot receipts still prevent repeats."""
+    from video_schedule import slot
+    return slot(now)
 
 
 def maybe_send_daily_reel(sl_pub: dict, now: datetime) -> None:
-    """Two verified Bet Advisor editions daily, 08:00 / 16:00 SAST.
+    """Three verified Bet Advisor editions daily, 05:00 / 11:00 / 16:00 SAST.
 
     Five to eight distinct matches, Over 1.5 and corners first, Advisor Over 2.5 as fallback.
-    Combined decimal odds 2.00–3.30, targeting 2.50. Morning recaps all of yesterday's video picks.
+    Combined decimal odds 2.00–3.30, targeting 2.50. Yesterday’s results are a separate Facebook post.
     """
     if reel_mod is None:
         return
@@ -2730,11 +2724,11 @@ def maybe_send_daily_reel(sl_pub: dict, now: datetime) -> None:
     slot = _reel_slot(now)
     if force:
         edition = os.getenv("DAILY_REEL_EDITION", "auto").strip().lower()
-        if edition not in ("auto", "morning", "evening"):
+        if edition not in ("auto", "morning", "noon", "evening"):
             log.error("Daily reel skipped: invalid DAILY_REEL_EDITION")
             return
         local_now = now.astimezone(ZoneInfo("Africa/Johannesburg")) if now.tzinfo else now
-        slot = edition if edition != "auto" else slot or ("morning" if local_now.hour < 16 else "evening")
+        slot = edition if edition != "auto" else slot or ("morning" if local_now.hour < 11 else "noon" if local_now.hour < 16 else "evening")
     if not slot:
         return
     path, st = _telegram_state(now)
@@ -2790,35 +2784,15 @@ def maybe_send_daily_reel(sl_pub: dict, now: datetime) -> None:
             pc["form_a"] = form["a"]
         prim_enriched.append(pc)
 
-    # The FIRST video of the day recaps every video from yesterday; the noon and evening videos go straight to
-    # today's matches. Yesterday's history is merged per day (morning + noon + evening), so the recap is the whole
-    # card — every selection the videos carried, not just the last one sent.
-    recap_needed = slot in ("morning", "manual")
-    yres = (sl_pub or {}).get("yesterday_results")
-    yday = (now.date() - timedelta(days=1)).strftime("%Y-%m-%d")
-    hist = st.get("briefing_history") if isinstance(st.get("briefing_history"), dict) else {}
-    yday_video_picks = hist.get(yday) or []
-    book = advisor_tracking.load(DATA_DIR / "advisor_ledger.json")
-    if yday_video_picks:
-        yres = {"day": yday, "items": advisor_tracking.video_results(book, yday_video_picks)}
-    elif recap_needed:
-        yres = {"day": yday, "items": []}  # never claim non-video picks as yesterday's video record
-
+    # Results are published separately each morning, never embedded in a video or caption.
     work = Path(os.getenv("TMPDIR") or "/tmp") / "playreport-reel"
     out_16x9 = work / "briefing-16x9.mp4"
     out_9x16 = work / "briefing-9x16-reel.mp4"
-    recap_rows = reel_mod.reel_results(yres) if recap_needed else []
-    log.info(
-        "Building daily 16:9 widescreen & 9:16 vertical reel videos with the music bed "
-        "(%s: %d yesterday results across all videos, %d today picks, no narration)",
-        "morning recap" if recap_needed else "no recap",
-        len(recap_rows),
-        len(prim_enriched),
-    )
+    log.info("Building %s edition: %d verified picks; no recap or narration", slot, len(prim_enriched))
     try:
         # One landscape video per edition, not duplicate landscape + vertical Telegram posts.
         reel_mod.build(prim_enriched, out_16x9, assets=assets, work=work, fixtures=fixtures,
-                       yesterday_results=yres, recap=recap_needed,
+                       yesterday_results=None, recap=False,
                        fx_dir=APP_FILE.parent / "fx", leagues_dir=APP_FILE.parent / "leagues")
     except Exception as exc:  # noqa: BLE001 - a build failure must never take the scan down
         log.warning("Daily reel skipped: %s", exc)
@@ -2830,23 +2804,19 @@ def maybe_send_daily_reel(sl_pub: dict, now: datetime) -> None:
             meta_file = work / "build_meta.json"
             filmed = json.loads(meta_file.read_text(encoding="utf-8")).get("picks") or prim_enriched
             reel_mod.build(filmed, out_9x16, assets=assets, work=work / "facebook-9x16",
-                           fixtures=fixtures, yesterday_results=yres, recap=recap_needed, aspect="9:16",
+                           fixtures=fixtures, yesterday_results=None, recap=False, aspect="9:16",
                            fx_dir=APP_FILE.parent / "fx", leagues_dir=APP_FILE.parent / "leagues")
         except Exception:
             # The Telegram sender below retains the source if the portrait render is missing.
             out_9x16.unlink(missing_ok=True)
             log.error("Facebook 9:16 Reel render failed; Telegram will continue, no landscape upload.")
-    settled_recap = [r for r in recap_rows if r.get("result") in ("hit", "miss")]
-    hits_recap = sum(1 for r in settled_recap if r.get("result") == "hit")
-    recap_caption = (f"Yesterday (all videos): {hits_recap}/{len(settled_recap)} won · "
-                     if settled_recap and recap_needed else "")
     # Second delivery lane: YouTube. Off unless YT_UPLOAD=1 plus the three channel secrets, so a repository without
     # them behaves exactly as before. Uploaded before Telegram, which deletes the local file on success.
     posted, handed_off = None, None
     if yt_mod is not None:
         try:
             posted = yt_mod.publish_shortlist(out_16x9, day=today, picks=prim_enriched, slot=slot,
-                                              recap=recap_caption.strip(" ·"))
+                                              recap="")
             if posted:
                 log.info("YouTube: shortlist live as %s (%s)", posted.get("id"), posted.get("privacy"))
         except Exception as exc:  # noqa: BLE001 - YouTube must never take the scan or the Telegram send down
@@ -2876,8 +2846,7 @@ def maybe_send_daily_reel(sl_pub: dict, now: datetime) -> None:
             log.warning("Drive handoff skipped: %s", exc)
     ok_16x9 = send_telegram_video(
         out_16x9,
-        f"🎬 Mr 2 Odds 16:9 widescreen shortlist — {now:%a %d %b}. {recap_caption}Today: {len(prim_enriched)} selection(s). "
-        f"A shortlist for your review, not an instruction to bet. 18+.",
+        f"🎬 Mr 2 Odds 16:9 widescreen shortlist — {now:%a %d %b}. Today: {len(prim_enriched)} selection(s).",
         facebook_path=out_9x16 if facebook_mod.requested() else None,
         width=1920,
         height=1080,
@@ -3849,7 +3818,7 @@ def main() -> None:
     except Exception as exc:  # noqa: BLE001 - the reel must never break the scan
         log.warning("Daily reel failed: %s", exc)
     try:
-        pass  # retired: only the 08:00 / 16:00 Bet Advisor editions are published
+        pass  # retired: only the three scheduled Bet Advisor editions are published
     except Exception as exc:  # noqa: BLE001 - the breakdown must never break the scan
         log.warning("Match breakdown failed: %s", exc)
     if digest_lines:

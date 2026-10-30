@@ -58,10 +58,10 @@ def test_alternate_lines_do_not_repeat_matches():
 
 
 def test_slots_are_sast_not_machine_timezone():
-    assert scanner._reel_slot(datetime(2026,10,28,6,tzinfo=timezone.utc))=='morning'
+    assert scanner._reel_slot(datetime(2026,10,28,3,tzinfo=timezone.utc))=='morning'
     assert scanner._reel_slot(datetime(2026,10,28,14,tzinfo=timezone.utc))=='evening'
     for hour in range(24):
-        assert (scanner._reel_slot(datetime(2026,10,28,hour)) is not None)==(hour >= 8)
+        assert (scanner._reel_slot(datetime(2026,10,28,hour)) is not None)==(hour in (5,6,7,11,12,16,17))
 
 
 def test_tracking_freezes_first_published_price_and_probability():

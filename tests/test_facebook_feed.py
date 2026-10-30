@@ -19,7 +19,11 @@ ROOT=Path(__file__).resolve().parents[1]
 
 
 @pytest.fixture
-def cfg():return cli.config(ROOT/'config/facebook-feed.json')
+def cfg():
+    cfg=cli.config(ROOT/'config/facebook-feed.json')
+    cfg['score_source']='api-football'
+    cfg.pop('authorized_kinds',None)
+    return cfg
 
 
 def recent(venue=None):
@@ -130,7 +134,7 @@ def test_cooldown_ordinary_cap_and_live_cap_are_shared(cfg):
 
 
 def test_reel_quiet_windows_and_timezone_rollover(cfg):
-    assert not policy.allowed(post(),{'posts':[]},NOW.replace(hour=8,minute=15),cfg)[0]
+    assert not policy.allowed(post(),{'posts':[]},NOW.replace(hour=6,minute=15),cfg)[0]
     assert content.local('2026-10-29T23:00:00Z').date().isoformat()=='2026-10-30'
     assert cli.is_due('community',NOW,cfg)
 
@@ -301,12 +305,13 @@ def test_state_restores_reserved_checkpoint_and_ignores_foreign_branch(monkeypat
 
 def test_new_workflows_keep_independent_state_and_score_safety_gates(cfg):
     assert type(cfg['enabled']) is bool and type(cfg['dry_run']) is bool
-    assert not cfg['live']['enabled'] and not cfg['live']['edit_existing']
+    assert not cfg['live']['edit_existing']
+    assert not cli.scores_approved(cfg)
     assert not cfg['provider']['rights_confirmed'] and not cfg['provider']['account_coverage_verified']
     text=(ROOT/'.github/workflows/facebook-feed-run.yml').read_text()
     assert 'group: facebook-feed-' in text and 'git push' not in text and 'goals-scan' not in text.split('concurrency:',1)[1]
     assert text.index('Save durable reservation')<text.index('Publish or edit only')
-    for kind,cron in [('community','15 10 * * *'),('weekly','15 8 * * 1'),('card','15 16 * * 2,4,6'),('live','7,27,47 * * * *')]:
+    for kind,cron in [('community','15 10 * * *'),('weekly','15 8 * * 1'),('card','15 16 * * 2,4,6'),('live','*/5 * * * *')]:
         workflow=yaml.safe_load((ROOT/f'.github/workflows/facebook-{kind}.yml').read_text())
         on=workflow.get('on',workflow.get(True))
         assert on['schedule'][0]['cron']==cron

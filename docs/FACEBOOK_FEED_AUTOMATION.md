@@ -1,6 +1,10 @@
 # PlayReport ZA: independent Facebook feed automation
 
-## Status and activation boundary
+## Current follow-up (30 October 2026)
+
+The owner subsequently requested three videos, separate morning video results, and app-covered scores. See [VIDEO_THREE_EDITIONS.md](VIDEO_THREE_EDITIONS.md) for the **current** scope, schedule and unresolved activation gates. Only `results` and `live` are authorised in configuration; community/cards/weekly/late roundups remain paused. The historical calendar and rollout below are retained as history, not current permission. The app-source reader does not inherit API-FOOTBALL rights approval; its own rights/coverage switches remain false.
+
+## Historical status and activation boundary
 
 **30 October: the owner paused all non-Reel Facebook posts.** Configuration is disabled/dry-run again. See [Reels-only caption and cover update](FACEBOOK_VISIBILITY_AND_COPY.md). The activation history below describes the earlier rollout, not current publication permission.
 

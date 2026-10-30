@@ -10,9 +10,10 @@ from zoneinfo import ZoneInfo
 from . import content,policy,storage
 from .graphics import render
 from .provider import APIFootball,ProviderError
+from .app_scores import AppScores
 from .publisher import PageFeed,PublishError
 
-KINDS=('community','card','weekly','live','roundup','preflight')
+KINDS=('community','card','weekly','live','roundup','results','preflight')
 
 
 def config(path):
@@ -26,28 +27,48 @@ def config(path):
     for key in ('min_feed_interval_minutes','live_post_cooldown_minutes','edit_cooldown_minutes'):
         if not isinstance(data.get(key),int) or data[key]<1:
             raise ValueError('Posting intervals must be positive')
-    if not 0<=data['live']['max_posts_per_day']<=3 or not 1<=data['live']['max_matches']<=7:
+    if not 0<=data['live']['max_posts_per_day']<=3 or not 1<=data['live']['max_matches']<=30:
         raise ValueError('Live posting cap exceeds approved maximum')
     if data['provider']['poll_interval_minutes']<20 or not 1<=data['provider']['daily_request_budget']<=90:
         raise ValueError('Free-plan polling/request budget is unsafe')
+    if data.get('score_source', 'api-football') not in ('api-football', 'app'):raise ValueError('Unsupported score source')
+    if 'authorized_kinds' in data and (not isinstance(data['authorized_kinds'],list) or any(k not in KINDS for k in data['authorized_kinds'])):raise ValueError('Invalid authorized kinds')
+    if data.get('score_source')=='app':
+        app=data.get('app_scores',{})
+        if any(type(app.get(k)) is not bool for k in ('rights_confirmed','coverage_verified')):raise ValueError('App source approvals must be booleans')
+        if not 30<=app.get('max_source_age_seconds',0)<=300 or app.get('poll_interval_minutes',0)<5:raise ValueError('Unsafe app score freshness/poll interval')
     for key in ('community_time','weekly_time','card_time','roundup_time'):
         datetime.strptime(data[key],'%H:%M')
+    datetime.strptime(data.get('results_time','08:00'),'%H:%M')
     return data
+
+
+def source_freshness(cfg):
+    return cfg['app_scores']['max_source_age_seconds'] if cfg.get('score_source')=='app' else cfg['provider']['max_fetch_age_seconds']
+
+
+def scores_approved(cfg):
+    if cfg.get('score_source')=='app':
+        return cfg['app_scores']['rights_confirmed'] and cfg['app_scores']['coverage_verified']
+    return cfg['provider']['rights_confirmed'] and cfg['provider']['account_coverage_verified']
 
 
 def is_due(kind,now,cfg):
     if kind=='preflight':return False
+    if kind not in cfg.get('authorized_kinds',KINDS):return False
     if kind=='live':return cfg['live']['enabled']
     if kind=='card' and now.weekday() not in cfg['card_days']:return False
     if kind=='weekly' and now.weekday()!=cfg['weekly_day']:return False
-    when=cfg[{'community':'community_time','weekly':'weekly_time','card':'card_time','roundup':'roundup_time'}[kind]]
+    key={'community':'community_time','weekly':'weekly_time','card':'card_time','roundup':'roundup_time','results':'results_time'}[kind]
+    when=cfg.get(key,'08:00')
     target=now.replace(hour=int(when[:2]),minute=int(when[3:]),second=0,microsecond=0)
     return timedelta(0)<=now-target<timedelta(hours=2)
 
 
 def build(kind,root,now,cfg,state,preview=False):
     if not preview and not is_due(kind,now,cfg):return None,'not due'
-    items=content.verified_fixtures(root,now,cfg)
+    if kind=='results':return content.morning_results(root,now,cfg),'exact filmed history + verified app ledger'
+    items=[] if kind in ('live','roundup','preflight') and cfg.get('score_source')=='app' else content.verified_fixtures(root,now,cfg)
     if kind in ('community','card'):
         covered={key for p in policy.history(state,now,cfg['topic_history_days']) if p.get('kind') in ('community','card') and p.get('status') not in ('cancelled','rejected') for key in p.get('fixture_ids',[])}
         items=[item for item in items if item['fixture']['id'] not in covered]
@@ -58,10 +79,10 @@ def build(kind,root,now,cfg,state,preview=False):
     if kind in ('live','roundup','preflight'):
         if not preview and not cfg['live']['enabled']:return None,'live scores disabled pending verification'
         try:
-            provider=APIFootball(cfg,state,now)
+            provider=AppScores(Path(root),cfg,state,now) if cfg.get('score_source')=='app' else APIFootball(cfg,state,now)
             if kind=='preflight':return None,json.dumps(provider.coverage(),sort_keys=True)
             matches,fetched=provider.fixtures()
-            if now-content.local(fetched)>timedelta(seconds=cfg['provider']['max_fetch_age_seconds']):
+            if now-content.local(fetched)>timedelta(seconds=source_freshness(cfg)):
                 return None,'cached scores are too old to publish'
             # Prevent a frozen in-play minute/status from being treated as a fresh observation forever.
             seen=state.setdefault('score_observations',{})
@@ -77,8 +98,11 @@ def build(kind,root,now,cfg,state,preview=False):
             selected=policy.selected_matches(valid,cfg,[item['fixture'] for item in items])
             post=policy.score_post(selected,state,now,cfg,roundup=kind=='roundup')
             if post:
-                post['expires_at']=(content.local(fetched)+timedelta(seconds=cfg['provider']['max_fetch_age_seconds'])).isoformat()
+                post['expires_at']=(content.local(fetched)+timedelta(seconds=source_freshness(cfg))).isoformat()
                 post['caption']=post['caption'].replace(f'checked {now:%d %b %H:%M}',f'checked {content.local(fetched):%d %b %H:%M}')
+                if cfg.get('score_source')=='app':
+                    post['fixture_ids']=[m['fixture_id'] for m in selected if m.get('fixture_id')]
+                    post['caption']=post['caption'].replace('Source: API-FOOTBALL / API-SPORTS.', 'Source: the same Livescore feed used by the Mr 2 Odds app; app-covered fixture IDs only.')
                 post['caption_hash']=hashlib.sha256(post['caption'].encode()).hexdigest()
             return post,'selected verified provider snapshots'
         except ProviderError as error:return None,str(error)
@@ -136,7 +160,8 @@ def main(argv=None):
     statepath=work/'checkpoint'/'state.json';manifest=work/'plans.json'
     if args.phase=='reconcile':return reconcile(args,cfg,now,work)
     requested=args.publish and os.getenv('FACEBOOK_FEED_PUBLISH','').lower()=='true'
-    publish=requested and cfg['enabled'] and not cfg['dry_run'] and args.phase!='preview'
+    source_blocked=(args.phase=='prepare' and args.kind in ('live','roundup') and not args.preview and not scores_approved(cfg))
+    publish=requested and cfg['enabled'] and not cfg['dry_run'] and args.phase!='preview' and not source_blocked
     if args.phase=='send':
         if not publish or not args.checkpoint:
             raise ValueError('Publish gates/checkpoint confirmation absent; nothing sent')
@@ -148,6 +173,8 @@ def main(argv=None):
             if len(entries)!=1 or entries[0]['status']!='reserved':
                 raise ValueError('Reservation ownership mismatch; no retry')
             entry=entries[0]
+            if post['kind'] not in cfg.get('authorized_kinds',KINDS) or post['kind'] in ('live','roundup') and not (cfg['live']['enabled'] and scores_approved(cfg)):
+                entry['status']='cancelled';entry['error']='Content/source authorisation changed before sending';storage.write(statepath,state);continue
             if hashlib.sha256(post['caption'].encode()).hexdigest()!=entry['caption_hash'] or any(entry.get(k)!=post.get(k) for k in ('kind','topic','fixture_ids','operation','target_id','snapshot')):
                 raise ValueError('Prepared content does not match its durable reservation')
             if datetime.now(content.SAST)>=content.local(post['expires_at']):
@@ -183,16 +210,20 @@ def main(argv=None):
     plans=[];report=[]
     kinds=KINDS if args.kind=='all' else (args.kind,)
     for kind in kinds:
+        if source_blocked:
+            report.append({'kind':kind,'status':'blocked','reason':'score-source rights/coverage approval pending; no Facebook request'});continue
+        if publish and kind not in cfg.get('authorized_kinds',KINDS):
+            report.append({'kind':kind,'status':'blocked','reason':'content type not authorised; unrelated feeds remain paused'});continue
         post,reason=build(kind,Path(args.source),now,cfg,state,preview=args.preview or args.phase=='preview')
         if not post:
             report.append({'kind':kind,'status':'skipped','reason':reason});continue
-        if publish and kind in ('live','roundup') and not (cfg['live']['enabled'] and cfg['provider']['rights_confirmed'] and cfg['provider']['account_coverage_verified']):
+        if publish and kind in ('live','roundup') and not (cfg['live']['enabled'] and scores_approved(cfg)):
             report.append({'kind':kind,'status':'blocked','reason':'live rights/account coverage not approved'});continue
         ok,why=policy.allowed(post,state,now,cfg)
         if not ok:
             report.append({'kind':kind,'status':'skipped','reason':why});continue
         expiry=min(now+timedelta(minutes=5),content.local(post.get('expires_at',(now+timedelta(minutes=5)).isoformat())))
-        if post.get('fixture_ids'):
+        if kind not in ('live','roundup','results') and post.get('fixture_ids'):
             source=content.load(Path(args.source)/'latest.json',{})
             for fixture in source.get('fixtures',[]):
                 if fixture.get('id') in post['fixture_ids']:

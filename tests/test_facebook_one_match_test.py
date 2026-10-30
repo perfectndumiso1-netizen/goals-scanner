@@ -101,10 +101,12 @@ def test_one_off_workflow_cannot_start_from_push_or_unpause_general_feed():
     send=next(i for i,s in enumerate(steps) if 'facebook_one_match_test.py send' in s.get('run',''))
     assert reserve<send and "steps.reserve.conclusion == 'success'" in steps[send]['if']
     config=json.loads((root/'config/facebook-feed.json').read_text())
-    assert not config['enabled'] and config['dry_run'] and not config['live']['enabled']
+    assert set(config['authorized_kinds'])=={'results','live'}
+    assert not config['app_scores']['rights_confirmed'] and not config['app_scores']['coverage_verified']
+    assert not config['live']['edit_existing']
 
 
-def test_authorised_automation_keeps_original_cron_and_two_edition_rules():
+def test_authorised_automation_keeps_scanner_cron_and_three_edition_rules():
     import yaml
     root=Path(__file__).resolve().parents[1]
     workflow=yaml.safe_load((root/'.github/workflows/scan.yml').read_text())

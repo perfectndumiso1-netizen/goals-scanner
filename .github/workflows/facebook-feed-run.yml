@@ -24,7 +24,7 @@ on:
     inputs:
       kind:
         type: choice
-        options: [community, card, weekly, live, roundup, preflight]
+        options: [community, card, weekly, live, roundup, results, preflight]
         default: community
       publish:
         description: Request publishing (config + repository variable must also allow it)
@@ -71,6 +71,7 @@ jobs:
             data/app/fx/
             data/app/days/
             data/advisor_ledger.json
+            data/app/telegram_state.json
       - name: Set up Python
         uses: actions/setup-python@v5.6.0
         with:
