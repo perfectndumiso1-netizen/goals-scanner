@@ -1036,3 +1036,6 @@ body::before { content: ''; position: fixed; inset: 0; z-index: -1; pointer-even
 .pr-disc { width:44px; height:44px; object-fit:cover; border-radius:50%; border:2px solid #2ce1cc; animation:pr-disc-spin 8s linear infinite; float:right; margin:0 0 10px 12px; }
 @keyframes pr-disc-spin { to { transform:rotate(360deg); } }
 @media (prefers-reduced-motion:reduce) { .pr-disc { animation:none; } }
+
+/* Freshness is deliberately a small status line, not a screen redesign. */
+.data-status { padding: 5px 4px 9px; line-height: 1.5; overflow-wrap: anywhere; }

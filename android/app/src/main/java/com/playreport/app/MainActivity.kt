@@ -1,5 +1,8 @@
 package com.playreport.app
 
+import android.net.ConnectivityManager
+import android.net.Network
+import android.net.NetworkCapabilities
 import android.Manifest
 import android.annotation.SuppressLint
 import android.content.Intent
@@ -40,7 +43,9 @@ class MainActivity : AppCompatActivity() {
     private lateinit var web: WebView
     private lateinit var swipe: SwipeRefreshLayout
     private val pool = Executors.newFixedThreadPool(4)
+    private val jsonCache by lazy { JsonCache.shared(applicationContext) }
     private var pendingTab: String? = null
+    private var networkCallback: ConnectivityManager.NetworkCallback? = null
 
     companion object {
         const val HOST = "appassets.androidplatform.net"
@@ -92,6 +97,12 @@ class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         Notifier.createChannels(this)
         scheduleChecks()
+        val manager = getSystemService(ConnectivityManager::class.java)
+        networkCallback = object : ConnectivityManager.NetworkCallback() {
+            override fun onAvailable(network: Network) { js("window.PR && PR.connectionChanged && PR.connectionChanged();") }
+            override fun onLost(network: Network) { js("window.PR && PR.statusLine && PR.statusLine();") }
+        }
+        manager.registerDefaultNetworkCallback(networkCallback!!)
 
         swipe = SwipeRefreshLayout(this)
         web = WebView(this)
@@ -242,6 +253,9 @@ class MainActivity : AppCompatActivity() {
     }
 
     override fun onDestroy() {
+        networkCallback?.let { callback ->
+            try { getSystemService(ConnectivityManager::class.java).unregisterNetworkCallback(callback) } catch (_: Exception) { }
+        }
         pool.shutdownNow()
         super.onDestroy()
     }
@@ -258,7 +272,7 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private fun js(code: String) = runOnUiThread { web.evaluateJavascript(code, null) }
+    private fun js(code: String) = runOnUiThread { if (::web.isInitialized && !isDestroyed) web.evaluateJavascript(code, null) }
 
     /** Keep the system bars and the WebView backdrop in step with the page theme (no white flashes). */
     private fun applyTheme(dark: Boolean) {
@@ -286,6 +300,65 @@ class MainActivity : AppCompatActivity() {
             pool.execute {
                 val r = Net.get(url, userAgent ?: Net.UA)
                 js("window.__fetchDone && window.__fetchDone($id, ${r.code}, ${JSONObject.quote(r.body)});")
+            }
+        }
+
+        @JavascriptInterface
+        fun online(): Boolean {
+            val manager = getSystemService(ConnectivityManager::class.java)
+            val network = manager.activeNetwork ?: return false
+            return manager.getNetworkCapabilities(network)?.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED) == true
+        }
+
+        /** Optional HTTP validators; old fetch() remains compatible with every existing call site. */
+        @JavascriptInterface
+        fun fetchConditional(id: Int, url: String, userAgent: String?, etag: String?, modified: String?) {
+            pool.execute {
+                val r = if (Security.webAllowed(url)) Net.get(url, userAgent ?: Net.UA, etag = etag, modified = modified) else Net.Response(0, "blocked host")
+                val metadata = JSONObject().put("etag", r.etag).put("modified", r.modified).put("retryAfter", r.retryAfter)
+                js("window.__fetchDone && window.__fetchDone($id, ${r.code}, ${JSONObject.quote(r.body)}, $metadata);")
+            }
+        }
+
+        @JavascriptInterface
+        fun cacheRead(id: Int, url: String) {
+            pool.execute {
+                val value = try { jsonCache.read(url)?.toString() ?: "null" } catch (_: Exception) { "null" }
+                js("window.__cacheDone && window.__cacheDone($id, $value);")
+            }
+        }
+
+        @JavascriptInterface
+        fun cacheWrite(id: Int, url: String, entry: String) {
+            val epoch = jsonCache.epoch()
+            pool.execute {
+                val ok = try { jsonCache.put(url, JSONObject(entry), epoch) } catch (_: Exception) { false }
+                js("window.__cacheDone && window.__cacheDone($id, $ok);")
+            }
+        }
+
+        @JavascriptInterface
+        fun cacheTouch(id: Int, url: String, checked: Long, etag: String?, modified: String?) {
+            pool.execute {
+                val ok = try { jsonCache.touch(url, checked, etag, modified) } catch (_: Exception) { false }
+                js("window.__cacheDone && window.__cacheDone($id, $ok);")
+            }
+        }
+
+        @JavascriptInterface
+        fun cacheFailure(id: Int, url: String, failure: String?) {
+            pool.execute {
+                val ok = try { jsonCache.failure(url, failure?.let { JSONObject(it) }); true } catch (_: Exception) { false }
+                js("window.__cacheDone && window.__cacheDone($id, $ok);")
+            }
+        }
+
+        @JavascriptInterface
+        fun cacheClear(id: Int) {
+            val epoch = jsonCache.invalidate()
+            pool.execute {
+                val ok = try { jsonCache.clear(epoch); true } catch (_: Exception) { false }
+                js("window.__cacheDone && window.__cacheDone($id, $ok);")
             }
         }
 

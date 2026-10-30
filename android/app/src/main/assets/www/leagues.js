@@ -14,6 +14,12 @@
 
   // ------------------------------------------------------------------ data (on-phone cache first, network second)
   async function loadIndex(force) {
+    if (PR.resources) {
+      await PR.migrateResource(rawUrl('data/app/leagues/index.json'), 'leag/idx');
+      try { LG.idx = await getJson(rawUrl('data/app/leagues/index.json'), null, { force: !!force }); LG.error = null; }
+      catch (e) { if (!LG.idx) LG.error = e.message; }
+      return LG.idx;
+    }
     if (LG.idx && !force) return LG.idx;
     if (LG.loading) return LG.idx;
     LG.loading = true; LG.error = null;
@@ -30,6 +36,10 @@
   }
   function detailCached(slug) { return LG.det[slug] || null; }
   async function loadDetail(slug) {
+    if (PR.resources) {
+      await PR.migrateResource(rawUrl('data/app/leagues/' + slug), 'leag/' + slug);
+      const j = await getJson(rawUrl('data/app/leagues/' + slug)); LG.det[slug] = j; return j;
+    }
     const c = PR.cache.get('leag/' + slug);
     const fetchIt = async () => {
       const j = await getJson(rawUrl('data/app/leagues/' + slug) + '?t=' + Math.floor(Date.now() / 600000));
@@ -43,10 +53,16 @@
     return fetchIt();
   }
   function ensureDetail(slug) {
-    if (detailCached(slug)) return;
+    if (detailCached(slug)) { if (PR.resources) loadDetail(slug).catch(() => {}); return; }
     loadDetail(slug).then(() => PR.render()).catch((e) => { LG.det[slug] = { error: e.message }; PR.render(); });
   }
   async function loadFixtures(force) {
+    if (PR.resources) {
+      await PR.migrateResource(rawUrl('data/app/leagues/fixtures.json'), 'leag/fx');
+      try { LG.fx = await getJson(rawUrl('data/app/leagues/fixtures.json'), null, { force: !!force }); LG.fxError = null; }
+      catch (e) { if (!LG.fx) LG.fxError = e.message; }
+      return LG.fx;
+    }
     if (LG.fx && !force) return LG.fx;
     if (LG.fxLoading) return LG.fx;
     LG.fxLoading = true; LG.fxError = null;
@@ -65,6 +81,7 @@
 
   // ------------------------------------------------------------------ TAB: league browser
   PR.views.leagues = function () {
+    if (PR.resources && LG.idx) loadIndex(false).catch(() => {});
     const parts = [];
     const sum = LG.idx && LG.idx.summary;
     parts.push(`<div class="lg-head"><div class="grow"><div class="b">${icon('trophy', 'sm')} Leagues</div><div class="tiny muted">Tables, results &amp; fixtures — every competition on the public feed</div></div>
@@ -80,7 +97,7 @@
       view().innerHTML = parts.join('');
       const r = $('#lg-retry'); if (r) r.onclick = () => loadIndex(true).then(() => PR.render());
       wireSeg();
-      if (!LG.loading) loadIndex(true).then(() => PR.render());
+      if (!LG.loading && !LG.error) loadIndex(false).then(() => PR.render());
       return;
     }
     const q = (state.q || '').trim().toLowerCase();
@@ -131,6 +148,7 @@
   // league data every scan) — fixtures used to be visible only by opening leagues one by one.
   function fixturesTab(parts) {
     const q = (state.q || '').trim().toLowerCase();
+    if (PR.resources && LG.fx) loadFixtures(false).catch(() => {});
     if (!LG.fx && !LG.fxError) {
       parts.push(skeleton(8));
       view().innerHTML = parts.join('');
@@ -182,6 +200,7 @@
   }
   PR.openLeague = openLeague;
   PR.pages.league = function (page) {
+    if (PR.resources && detailCached(page.slug)) loadDetail(page.slug).catch(() => {});
     const d = detailCached(page.slug);
     const idxRow = (LG.idx && (LG.idx.leagues || []).find((x) => x.slug === page.slug)) || null;
     const parts = [head(

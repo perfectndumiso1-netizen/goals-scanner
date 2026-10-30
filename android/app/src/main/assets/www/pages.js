@@ -837,7 +837,7 @@
     const key = `${date}|report`;
     if (!state.reports[key]) {
       state.reports[key] = { loading: true };
-      PR.nfetch(PR.rawUrl(`reports/${date}.md`) + '?t=' + Math.floor(Date.now() / 60000)).then((r) => { state.reports[key] = r.code === 200 ? { md: r.body } : { md: `_This analysis could not be loaded (HTTP ${r.code})._` }; PR.render(); });
+      PR.getJson(PR.rawUrl(`reports/${date}.md`)).then((j) => { state.reports[key] = j; PR.render(); }).catch(() => { state.reports[key] = { md: '_Analysis unavailable offline — download it once when connected._' }; PR.render(); });
     }
     const rep = state.reports[key];
     const parts = [head('Full analysis', esc(niceDate(date)))];
@@ -1281,7 +1281,7 @@ view().innerHTML = parts.join('');
       <label>Live auto-refresh (seconds, min 20)</label><input id="s-live" type="number" value="${settings.liveEvery}">
       <label>Analysis timezone offset from UTC (hours; South Africa = 2)</label><input id="s-tz" type="number" value="${settings.tzOffset}">
       <div style="margin-top:12px"><button class="btn primary" id="s-save">Save</button><button class="btn" id="s-clear">Clear saved data</button></div>
-      <div class="tiny muted" style="margin-top:6px">${(() => { const c = PR.cache.size(); return `${c.n} analysed pages saved on this phone (${c.kb} KB) — they open instantly and refresh in the background.`; })()}</div></div>`);
+      <div class="tiny muted" style="margin-top:6px">${(() => { if (PR.resources) return 'Downloaded analysis is saved on this phone (up to 32 MB) and checked for updates in the background.'; const c = PR.cache.size(); return `${c.n} analysed pages saved on this phone (${c.kb} KB) — they open instantly and refresh in the background.`; })()}</div></div>`);
     parts.push(`<div class="card settings"><h2>${icon('info')} App</h2><div class="row"><div class="grow small">Mr 2 Odds ${PR.APP_VERSION ? 'v' + PR.APP_VERSION : '(browser preview)'}${state.update ? ` · <b>v${esc(state.update.version)} available</b>` : ' · up to date'}</div>
       ${state.update ? `<button class="btn primary" id="s-install">Update</button>` : `<button class="btn" id="s-check">Check for update</button>`}</div>
       ${state.update && PR.notesList(state.update.notes).length ? `<div class="small" style="margin-top:8px"><b>What's new in ${esc(state.update.version)}</b><ul class="notes">${PR.notesList(state.update.notes).map((x) => `<li>${esc(x)}</li>`).join('')}</ul></div>` : ''}
@@ -1295,7 +1295,7 @@ view().innerHTML = parts.join('');
     wireBack();
     const pref = (k, v) => { if (PR.native && PR.native.setPref) { try { PR.native.setPref(k, !!v); } catch (e) { /* ignore */ } } };
     $('#s-save').onclick = () => { settings.liveEvery = Math.max(20, +$('#s-live').value || 60); settings.tzOffset = +$('#s-tz').value || 0; PR.saveSettings(); live.schedule(); toast('Saved'); PR.back(); };
-    $('#s-clear').onclick = () => { localStorage.removeItem('pr_latest'); PR.cache.clear(); state.data = null; state.days = {}; state.teams = {}; state.details = {}; toast('Saved data cleared'); state.stack = []; PR.loadData(true); };
+    $('#s-clear').onclick = () => { PR.clearDataCache().then(() => toast('Saved data cleared')).catch(() => toast('Could not clear saved data')); };
     $('#s-goals').onchange = (e) => { settings.goalAlerts = e.target.checked; PR.saveSettings(); pref('goals', settings.goalAlerts); };
     $('#s-bets').onchange = (e) => { settings.betAlerts = e.target.checked; PR.saveSettings(); pref('bets', settings.betAlerts); };
     $('#s-reports').onchange = (e) => { settings.reportAlerts = e.target.checked; PR.saveSettings(); pref('reports', settings.reportAlerts); };
