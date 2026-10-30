@@ -1052,7 +1052,7 @@ body::before { content: ''; position: fixed; inset: 0; z-index: -1; pointer-even
 .home-quick[aria-pressed="true"] { border-color:var(--brand-text); background:linear-gradient(140deg,var(--brand-soft),var(--card) 75%); }
 .home-quick:active { transform:translateY(1px); }
 .home-quick:focus-visible { outline:3px solid var(--brand-text); outline-offset:3px; }
-.home-stadium { background:linear-gradient(125deg,#0d2531,#104f48); border-color:#286b61; color:#f2faf6; padding:21px 16px 16px; }
+.card.hero.home-stadium { background:linear-gradient(125deg,#0d2531,#104f48); border-color:#286b61; color:#f2faf6; padding:21px 16px 16px; }
 .home-stadium::after { display:none; }
 .home-stadium .matchday-heading, .home-stadium .matchday-stats, .home-stadium .matchday-foot, .home-stadium .live-strip { position:relative; }
 .home-stadium .matchday-heading .eyebrow { color:#8fe0c0; }

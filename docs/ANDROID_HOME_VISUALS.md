@@ -41,7 +41,7 @@ A display filter over existing published selections; it does not change predicti
 
 - Full Python suite: **732 passed, 1 skipped, 8 subtests passed** (80.94 seconds).
 - Existing cache repository regressions: **25 passed**. New Home collection regressions: **8 passed**, also invoked by Python CI.
-- Real Chromium, using bundled app assets and a read-only published snapshot: light/dark at **320, 412 and 768 px**, all without horizontal page overflow; all three Home buttons visible.
+- Real Chromium, using bundled app assets and a read-only published snapshot: light/dark at **320, 412 and 768 px**, all without horizontal page overflow; all three Home buttons visible. Screenshots were inspected, and a computed-style regression now verifies that the stadium background overrides legacy hero styles in both themes (preventing pale-background/white-text contrast loss).
 - Actual advisor navigation/back, Bets of the Day navigation, strict 80% boundary, sorting/market filters, match detail/back and empty in-memory offline UI passed. No uncaught JavaScript errors.
 - Synthetic boundary selections exist only inside the isolated browser/VM tests. They are never stored in production assets or published football data. Downloaded snapshots, dev dependencies, results and screenshots remain ignored under `tmp/`.
 - `git diff --check` and secret scanning passed before staging. PR CI and the existing signed-release pipeline must be checked separately before claiming publication.

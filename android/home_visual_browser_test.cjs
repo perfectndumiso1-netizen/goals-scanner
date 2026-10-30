@@ -40,6 +40,8 @@ const app = 'https://appassets.androidplatform.net/assets/www/';
     for (const theme of ['dark', 'light']) for (const width of [320, 412, 768]) {
       await page.setViewportSize({ width, height: 915 });
       await page.evaluate((theme) => { PR.settings.theme = theme; PR.applyTheme(); }, theme);
+      const heroBackground = await page.locator('.home-stadium').evaluate((e) => getComputedStyle(e).backgroundImage);
+      assert(heroBackground.includes('13, 37, 49') && heroBackground.includes('16, 79, 72'), `unreadable hero background in ${theme}: ${heroBackground}`);
       const layout = await page.evaluate(() => ({ width: innerWidth, scroll: document.documentElement.scrollWidth, cards: [...document.querySelectorAll('.home-quick')].map((e) => { const r = e.getBoundingClientRect(); return { top: r.top, right: r.right, height: r.height }; }) }));
       if (layout.scroll > width + 1) console.log(await page.evaluate(() => [...document.querySelectorAll('#view *')].map(e=>({tag:e.tagName, cls:e.className, right:e.getBoundingClientRect().right, width:e.getBoundingClientRect().width})).filter(e=>e.right>innerWidth+1).slice(0,20)));
       assert(layout.scroll <= width + 1, `page overflow ${theme}/${width}: ${layout.scroll}`);
