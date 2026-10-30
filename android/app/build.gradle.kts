@@ -6,8 +6,8 @@ plugins {
     id("org.jetbrains.kotlin.android")
 }
 
-val appVersionCode = (System.getenv("APP_VERSION_CODE") ?: "85").toInt()
-val appVersionName = System.getenv("APP_VERSION_NAME") ?: "1.6.85"
+val appVersionCode = (System.getenv("APP_VERSION_CODE") ?: "86").toInt()
+val appVersionName = System.getenv("APP_VERSION_NAME") ?: "1.6.86"
 val keystorePath = System.getenv("KEYSTORE_PATH")
 
 android {

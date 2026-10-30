@@ -1,10 +1,10 @@
-## What's new — Mr 2 Odds 1.6.85
+## What's new — Mr 2 Odds 1.6.86
 
-- **New name: Mr 2 Odds.** Updated app title, home header, About/Guide, notifications, exports and video branding.
-- **Your portrait logo.** The selected logo was created from Ndumiso's existing profile photo, and now appears in the app header, launcher icon, splash screen and video graphics. The original About/profile photographs remain intact.
-- **An update, not a new app.** The Android application ID and signing configuration are unchanged. Install over your existing app to keep settings, favourites, tickets and stored records. The release pipeline still checks certificate continuity and an actual in-place upgrade before publishing the APK.
-- **Same football analysis.** No changes to probabilities, eligibility, market filters, match verification or pick selection. “Mr 2 Odds” is a brand name, not a guarantee or a new fixed-price betting rule.
-- **Same two video slots:** 08:00 and 16:00 SAST. Same supplied music, no narration, same timing. New branding applies to future renders; previously published videos are not resent.
-- **Facebook stays Reels-only.** Other Facebook posts remain paused. Reel captions stay the requested title/date/hashtags; the cover still shows the exact filmed matches without selections or prices. Meta visibility and preferred-thumbnail permissions remain separate limitations.
+- **Saved data first.** Previously downloaded fixtures, predictions, match details, team statistics, standings and history can open from local storage while a background check looks for updates.
+- **Less repeated downloading.** Conditional GitHub requests, shared background-sync snapshots and duplicate-request protection reuse unchanged data.
+- **Better offline behaviour.** Useful saved data stays available after network errors. Cached/offline and freshness indicators distinguish saved information from a successful current check. Screens need one successful download before their data is available offline; image availability still depends on the WebView image cache.
+- **Safer local storage.** An asynchronous, size-limited Android SQLite cache preserves validated snapshots and keeps large JSON writes out of synchronous localStorage. Invalid responses do not replace useful saved data.
+- **Same app and analysis.** Mr 2 Odds branding, com.playreport.app, signing configuration, preferences, favourites, tickets, GitHub backend and prediction calculations are unchanged. Install this update over the current app rather than uninstalling it.
+- **Validation.** Android compilation/unit tests and automated cache/browser tests passed before release preparation. Browser timing results are not phone benchmarks; physical-device cache, low-storage, Doze and battery testing remain outstanding. The existing release pipeline separately checks signing continuity and an emulator in-place upgrade before publishing.
 
 Older release notes remain available with the previous GitHub releases.
