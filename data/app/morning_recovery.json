@@ -1,0 +1,47 @@
+{
+  "date": "2026-10-29",
+  "edition": "morning",
+  "status": "delivered",
+  "deliveries": {
+    "youtube": {
+      "delivered": false,
+      "id": null
+    },
+    "facebook": {
+      "status": "failed",
+      "reel_id": null
+    },
+    "telegram": {
+      "delivered": true
+    }
+  },
+  "history_refresh": {
+    "requests": 2,
+    "added": 393,
+    "refreshed_fixtures": 3
+  },
+  "source_generated": "2026-10-29T09:26:00+02:00",
+  "candidates": 20,
+  "verified_card": 5,
+  "dropped": [
+    {
+      "home": "Oergryte",
+      "away": "Mjaellby",
+      "sel": "O15",
+      "verdict": "unverified",
+      "reasons": [
+        "only 1 head-to-head meeting(s) with a score"
+      ]
+    },
+    {
+      "home": "Nk Brinje Grosuplje",
+      "away": "NK Bravo",
+      "sel": "O15",
+      "verdict": "unverified",
+      "reasons": [
+        "only 1 head-to-head meeting(s) with a score"
+      ]
+    }
+  ],
+  "message": "Morning edition delivered through at least one configured lane. Per-lane confirmations are recorded in this report; a Drive handoff alone is not a confirmed YouTube publication."
+}

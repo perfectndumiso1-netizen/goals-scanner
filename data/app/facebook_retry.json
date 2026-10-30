@@ -1,0 +1,55 @@
+{
+  "source_artifact": "12959466264",
+  "telegram_attempts": 0,
+  "rerendered": false,
+  "errors": [],
+  "media": {
+    "file": "briefing-9x16-reel.mp4",
+    "bytes": 42266268,
+    "streams": [
+      {
+        "codec_name": "h264",
+        "codec_type": "video",
+        "width": 1080,
+        "height": 1920,
+        "sample_aspect_ratio": "1:1",
+        "r_frame_rate": "30/1",
+        "tags": {}
+      },
+      {
+        "codec_name": "aac",
+        "codec_type": "audio",
+        "r_frame_rate": "0/0",
+        "tags": {}
+      }
+    ],
+    "duration_seconds": 277.339002
+  },
+  "last_stage": "publication_status",
+  "meta_status": {
+    "video_status": "processing",
+    "processing_progress": 0,
+    "uploading_phase": {
+      "status": "complete",
+      "bytes_transferred": 42266268
+    },
+    "processing_phase": {
+      "status": "in_progress"
+    },
+    "publishing_phase": {
+      "status": "not_started"
+    },
+    "copyright_check_status": {
+      "status": "complete",
+      "matches_found": false
+    }
+  },
+  "page_specific_token_verified": true,
+  "resolved_from_user_token": true,
+  "publisher_diagnostics": [
+    "Facebook Reel publishing failed for briefing-9x16-reel.mp4: Reel publication still pending; source and session ID retained, no duplicate POST. Original video retained; Telegram will still be attempted.",
+    "Facebook recovery video saved: /home/runner/work/goals-scanner/goals-scanner/tmp/facebook-retry/recovery/briefing-9x16-reel-21f16de43cac75e85a9a.mp4 (download the workflow's video-recovery artifact)."
+  ],
+  "status": "failed",
+  "reel_id": null
+}
