@@ -137,7 +137,7 @@ These are local Chromium measurements with simulated network latency, not Androi
 
 ### Android validation status
 
-Local Java/Gradle/Android SDK/emulator are unavailable. The unchanged existing `Build Android app` pull-request validation job compiles `assembleDebug` and runs `testDebugUnitTest` without publishing a release. Its result will be recorded here once available. No physical-device or emulator offline/Doze/scrolling/battery measurement is claimed.
+Local Java/Gradle/Android SDK/emulator are unavailable, but **GitHub Android validation passed** using the unchanged existing `Build Android app` pull-request job: `assembleDebug` and `testDebugUnitTest` completed successfully in 1m42s ([run 41052675055](https://github.com/perfectndumiso1-netizen/goals-scanner/actions/runs/41052675055)). This confirms Kotlin/resource compilation and the existing native unit tests; it does not constitute Android SQLite/WorkManager instrumentation. Python CI and secret scan also passed. The publishing APK job was deliberately skipped for this pull request. No physical-device or emulator offline/Doze/scrolling/battery measurement is claimed.
 
 ## 6. Files changed/created
 
@@ -164,7 +164,7 @@ Modified:
 
 ## 7. Remaining limitations / release gate
 
-- Native build validation and a device/emulator pass are distinct from browser and host-SQL tests. Check Android connectivity/rotation, database eviction, low-storage behaviour, offline process restart and prolonged Doze on a phone before release.
+- Native compile/unit validation passed; a device/emulator cache-integration pass is still required. Check Android connectivity/rotation, database eviction, low-storage behaviour, offline process restart and prolonged Doze on a phone before release.
 - WorkManager is best-effort and Android may defer it; this is not an always-running live-score service. Closed-app warming downloads latest only, not every team/league or the whole backend archive.
 - A never-downloaded resource cannot be shown offline. Useful history is retained until explicit clear, OS data removal, or cache-budget eviction.
 - SQLite stores original snapshot bodies to preserve flexible existing formats, not a new queryable football-domain schema. Parsing a newly loaded/changed JSON body still occurs in JavaScript; repeated unchanged bodies are not reparsed.
