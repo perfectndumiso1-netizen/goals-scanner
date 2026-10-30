@@ -16,7 +16,7 @@ from facebook_post import _NoRedirect
 from .content import local
 from .provider import ProviderError, safe_error_reason
 
-SLOTS=('API_FOOTBALL_KEY','API_FOOTBALL_KEY_1','API_FOOTBALL_KEY2')
+SLOTS=('API_FOOTBALL_KEY','API_FOOTBALL_KEY_1','API_FOOTBALL_KEY_2')
 
 
 def daily_quota(errors, remaining):

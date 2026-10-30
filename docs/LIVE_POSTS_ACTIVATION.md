@@ -7,8 +7,8 @@ The owner explicitly requested committing the changes, triggering **real Faceboo
 - `event_monitor.publish_enabled=true` (previously false).
 - `event_monitor.daily_request_budget=100`, `daily_request_reserve=0`: up to the provider-verified allowance, never beyond it.
 - `credential_revision="2"`: reverify corrected/renamed credentials without resetting existing account usage, snapshots, reservations or post IDs.
-- Slots, in priority order: `API_FOOTBALL_KEY` → `primary`; **`API_FOOTBALL_KEY_1`** → `backup-1`; `API_FOOTBALL_KEY2` → `backup-2`.
-- `API_FOOTBALL_KEY1` (without the underscore before 1) is no longer the event monitor's backup slot. No GitHub secret is deleted or its value read/copied into source.
+- Slots, in priority order: `API_FOOTBALL_KEY` → `primary`; **`API_FOOTBALL_KEY_1`** → `backup-1`; `API_FOOTBALL_KEY_2` → `backup-2`.
+- Both numbered slots use an underscore: `API_FOOTBALL_KEY_1` and `API_FOOTBALL_KEY_2`. The older unseparated spellings are no longer read. No GitHub secret is deleted or its value read/copied into source.
 - The owner has confirmed provider permission and an independent allowance for each slot. The existing rights, active-Free-plan, main-branch, Page credential, repository `FACEBOOK_FEED_PUBLISH`, durable-checkpoint, image-hash, content-expiry and unknown-send protections remain mandatory.
 
 ## Failover and capacity
