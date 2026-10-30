@@ -235,9 +235,18 @@ def normalize(value,now):
         p=[penalties.get('home'),penalties.get('away')]
         if not all(isinstance(n,int) and not isinstance(n,bool) and n>=0 for n in p):
             p=None
+        def period(name):
+            value=(value_score.get(name) or {})
+            if not isinstance(value,dict):return None
+            values=[value.get('home'),value.get('away')]
+            if not all(type(n) is int and n>=0 and g is not None and n<=g for n,g in zip(values,numbers)):return None
+            return values
+        value_score=value.get('score') or {}
+        extra=fixture['status'].get('extra')
+        extra=extra if type(extra) is int and 0<=extra<=30 else None
         return dict(id=str(fixture['id']),home_team_id=teams['home'].get('id'),away_team_id=teams['away'].get('id'),home=teams['home']['name'],away=teams['away']['name'],
                     kickoff=kickoff.isoformat(),status=status,elapsed=elapsed,home_goals=numbers[0],away_goals=numbers[1],
-                    competition=league['name'],country=league['country'],round=league.get('round'),penalties=p)
+                    competition=league['name'],country=league['country'],round=league.get('round'),penalties=p,halftime=period('halftime'),fulltime=period('fulltime'),added_time=extra)
     except (KeyError,TypeError,ValueError,OverflowError,AttributeError):
         return None
 
@@ -245,7 +254,7 @@ def normalize(value,now):
 STATISTICS = {
     'Corner Kicks': 'corners', 'Yellow Cards': 'yellow_cards', 'Red Cards': 'red_cards',
     'Ball Possession': 'possession', 'Shots on Goal': 'shots_on_target', 'Total Shots': 'total_shots',
-    'Fouls': 'fouls', 'Offsides': 'offsides',
+    'Fouls': 'fouls', 'Offsides': 'offsides', 'Goalkeeper Saves': 'saves',
 }
 
 
