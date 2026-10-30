@@ -1,3 +1,5 @@
+> **Current account selection:** the suspended original `API_FOOTBALL_KEY` is disabled without deleting its secret or history. The owner specifically confirmed provider permission to use the two independent approved backups for this project while it is suspended. Active order is `_1 → _2`, with 200 gross/day, not 300. Historical three-account descriptions below are superseded; see [LIVE_API_DIAGNOSTIC.md](LIVE_API_DIAGNOSTIC.md).
+
 > **Activation update:** [LIVE_POSTS_ACTIVATION.md](LIVE_POSTS_ACTIVATION.md) records the current renamed secret, 100/day allocations and explicit real-publishing request; the historical off/reserve notes below are superseded.
 
 # Live score image: stadium template

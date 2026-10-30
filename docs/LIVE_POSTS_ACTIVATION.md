@@ -1,3 +1,5 @@
+> **Current selected accounts:** `API_FOOTBALL_KEY` is disabled after the provider suspension report. The owner specifically confirmed that this project may use the independent `_1` and `_2` accounts while it is suspended. Monitoring now starts with `_1`, with `_2` as fallback; active gross capacity is 200/day. See [LIVE_API_DIAGNOSTIC.md](LIVE_API_DIAGNOSTIC.md). Historical three-account capacity descriptions below are superseded by that selection.
+
 # Real live-post activation and renamed key slot — 30 October 2026
 
 The owner explicitly requested committing the changes, triggering **real Facebook posts**, using each of the three independently authorised Free allocations at **100 requests/day**, and switching when an allocation actually runs out. This supersedes the initial dry-only gate and the event monitor's 90+10 reserve. The legacy provider/prediction/Reel budgets and all Reel/Android schedules remain unchanged.

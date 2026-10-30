@@ -154,11 +154,12 @@
     "max_source_age_seconds": 180,
     "credential_revision": "3",
     "failover_permitted": true,
-    "permission_reference": "Owner confirmed on 2026-10-30: provider permits failover and each of the three configured key slots has an independently authorised daily allocation.",
+    "permission_reference": "Owner confirmed on 2026-10-30 that API-Sports permits this project to use the independently authorised API_FOOTBALL_KEY_1 and API_FOOTBALL_KEY_2 accounts while the original account is suspended.",
     "key_slots": {
       "API_FOOTBALL_KEY": {
-        "authorised": true,
-        "quota_group": "primary"
+        "authorised": false,
+        "quota_group": "primary",
+        "disabled_reason": "Provider reported account_suspended; leave this account untouched."
       },
       "API_FOOTBALL_KEY_2": {
         "authorised": true,

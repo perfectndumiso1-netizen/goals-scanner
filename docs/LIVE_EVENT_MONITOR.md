@@ -1,3 +1,5 @@
+> **Current account selection:** the suspended original `API_FOOTBALL_KEY` is disabled without deleting its secret or history. The owner specifically confirmed provider permission to use the two independent approved backups for this project while it is suspended. Active order is `_1 → _2`, with 200 gross/day, not 300. Historical three-account descriptions below are superseded; see [LIVE_API_DIAGNOSTIC.md](LIVE_API_DIAGNOSTIC.md).
+
 > **Current activation and key names:** see [LIVE_POSTS_ACTIVATION.md](LIVE_POSTS_ACTIVATION.md). The owner has now requested real publishing and full 100/day per authorised allocation; this supersedes the earlier dry-only/90+10 settings below.
 
 # PlayReport ZA: meaningful live events, 24-hour schedule
