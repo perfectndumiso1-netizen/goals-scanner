@@ -159,6 +159,7 @@ class Highlightly:
         result=self.request('matches/'+key.split(':')[1])
         if not isinstance(result,list) or len(result)!=1 or not isinstance(result[0],dict) or result[0].get('id')!=int(key.split(':')[1]):
             raise ProviderError('Highlightly detail identity mismatch')
+        if not isinstance(result[0].get('events'),list):raise ProviderError('Highlightly detail event schema unverified')
         return observation(result[0],self.now)
 
 
@@ -167,14 +168,28 @@ def diagnose(cfg,state,now,api=None):
     report={'mode':'read_only_highlightly_diagnostic','outcome':'blocked','reason':'not_attempted',
             'facebook_requests':0,'checked_at':now.isoformat(),'slot':'HIGHLIGHTLY_API_KEY',
             'configured':bool(api.key),'http_attempted':False}
+    report.update(coverage='not_verified',match_detail_verified=False,ready_for_activation=False)
+    phase='match_list'
     try:
-        rows,total=api.page()
+        rows=api.matches();stamp=api.at
+        phase='match_schema'
         parsed=[observation(row,now) for row in rows]
-        report.update(outcome='verified_read_only',reason='verified_free_match_response',
-                      page_rows=len(rows),usable_observations=sum(m is not None for m in parsed),
-                      total_rows=total,coverage='complete_day' if total<=100 else 'first_page_only')
+        usable=[m for m in parsed if m is not None]
+        report.update(total_rows=len(rows),list_rows=len(rows),pages_read=max(1,(len(rows)+99)//100),
+                      usable_observations=len(usable),coverage='complete_day')
+        if usable:
+            phase='match_detail'
+            sample=next((m for m in usable if m['status'] in ACTIVE),usable[0])
+            detailed=api.detail(sample['id'])
+            if not detailed or any(detailed.get(k)!=sample.get(k) for k in ('id','source','home_team_id','away_team_id','home','away','kickoff')):
+                raise ProviderError('Highlightly diagnostic detail identity/schema mismatch')
+            oldest=min(local(stamp),local(api.at))
+            if not -30<=(now-oldest).total_seconds()<=cfg['event_monitor']['max_source_age_seconds']:
+                raise ProviderError('Highlightly diagnostic assembled observations expired')
+            report.update(match_detail_verified=True,ready_for_activation=True)
+        report.update(outcome='verified_read_only',reason='verified_full_match_list_and_detail' if usable else 'verified_list_no_usable_detail_sample')
     except ProviderError:
-        report['reason']=api.reason if api.reason!='response_received' else 'invalid_match_schema'
+        report['reason']=api.reason if api.reason!='response_received' else phase+'_validation_failed'
     except Exception:report['reason']='unexpected_response_shape'
     report.update(http_attempted=api.attempted)
     for key in ('allocation','requests','remaining'):report[key]=api.budget.get(key)
