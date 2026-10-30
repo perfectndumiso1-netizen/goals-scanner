@@ -49,6 +49,32 @@ def authentication_rejection(errors):
     return not any(term in text for term in restricted)
 
 
+SAFE_ERROR_FIELDS={'token','key','apikey','authentication','authorization','access','ip','ipaddress',
+                   'whitelist','allowlist','plan','subscription','season','coverage','requests',
+                   'ratelimit','quota','limit','parameters','parameter','date','timezone','league','fixture'}
+
+
+def safe_error_fields(errors):
+    if not isinstance(errors,dict):return ['unstructured']
+    names={str(k).casefold().replace('_','').replace('-','') for k in errors}
+    return sorted({name if name in SAFE_ERROR_FIELDS else 'other' for name in names})
+
+
+def rejection_category(errors):
+    """Closed, non-secret categories only. Never return provider messages/unknown keys."""
+    fields=set(safe_error_fields(errors))
+    text=' '.join(str(v) for v in errors.values()).casefold() if isinstance(errors,dict) else ''
+    if fields & {'ip','ipaddress','whitelist','allowlist'} or any(w in text for w in ('ip address','ip restriction','whitelist','blacklist')):return 'ip_access_restriction'
+    if 'suspend' in text:return 'account_suspended'
+    if any(w in text for w in ('banned','blocked','account disabled','account deactivated')):return 'account_access_restriction'
+    if authentication_rejection(errors):return 'authentication_rejected'
+    if fields & {'token','key','apikey','authentication','authorization','access'}:return 'mixed_authentication_rejection'
+    if fields & {'plan','subscription','season','coverage'}:return 'plan_or_coverage_rejection'
+    if fields & {'requests','ratelimit','quota','limit'}:return 'rate_or_quota_rejection'
+    if fields & {'parameters','parameter','date','timezone','league','fixture'}:return 'parameter_rejection'
+    return 'unclassified_provider_rejection'
+
+
 
 class EventAPI:
     BASE='https://v3.football.api-sports.io'
@@ -61,6 +87,15 @@ class EventAPI:
         self.keys={name:os.getenv(name,'').strip() for name in SLOTS}
         self.at=None
         self.active=None
+        self.diagnostics=[]
+
+    def note(self,slot,endpoint,category,**facts):
+        # Call sites use fixed categories and slot constants; never provider values.
+        row={'slot':slot if slot in SLOTS else 'unknown',
+             'endpoint':endpoint if endpoint in ('status','fixtures') else 'provider','category':category}
+        row.update(facts)
+        self.diagnostics.append(row)
+        self.diagnostics=self.diagnostics[-60:]
 
     def group(self,name):
         group=self.state['groups'].setdefault(name,{})
@@ -81,23 +116,28 @@ class EventAPI:
             if index and (not self.cfg['failover_permitted'] or not self.cfg['permission_reference'] or group_name==first_group):continue
             budget=self.group(group_name)
             if budget.get('exhausted') or budget.get('remaining')==0 or (budget.get('allocation') is not None and budget.get('provider_used',0)>=budget['allocation']):
+                self.note(slot,endpoint,'skipped_daily_quota')
                 if index==0 and not self.cfg['failover_permitted']:raise QuotaExceeded('API account budget unavailable; cached data preserved, no key rotation')
                 continue
-            if budget['requests']>=self.cfg['daily_request_budget']:raise ProviderError('Safe local request ceiling reached; not a provider quota failover')
+            if budget['requests']>=self.cfg['daily_request_budget']:
+                self.note(slot,endpoint,'local_request_ceiling');raise ProviderError('Safe local request ceiling reached; not a provider quota failover')
             slotstate=self.state['slots'].setdefault(slot,{})
             revision=self.cfg['credential_revision']
             if slotstate.get('revision')!=revision:slotstate.clear();slotstate['revision']=revision
             if slotstate.get('invalid_until') and self.now<local(slotstate['invalid_until']):
+                self.note(slot,endpoint,'skipped_credential_cooldown',authentication_fallback_allowed=bool(auth_fallback and slotstate.get('failure_kind')=='authentication'))
                 if auth_fallback and slotstate.get('failure_kind')=='authentication':
                     auth_unavailable=True;continue
                 raise ProviderError('Primary credential unavailable; correct secret/revision before retrying')
-            if budget.get('after') and self.now<local(budget['after']):raise ProviderError('API cooldown active; no key switching')
+            if budget.get('after') and self.now<local(budget['after']):
+                self.note(slot,endpoint,'account_cooldown');raise ProviderError('API cooldown active; no key switching')
             try:
                 if budget.get('plan_checked')!=self.day or slotstate.get('plan_checked')!=self.day:
                     account=self._request(slot,budget,'status')
                     if not isinstance(account,dict):raise ProviderError('Invalid account status; raw response omitted')
                     subscription=account.get('subscription') or {};usage=account.get('requests') or {}
                     if str(subscription.get('plan','')).casefold()!='free' or subscription.get('active') is not True:
+                        self.note(slot,'status','plan_not_authorised')
                         raise ProviderError('Only an active verified Free allocation is authorised')
                     for field in ('current','limit'):
                         if type(usage.get(field)) is not int or usage[field]<0:raise ProviderError('Account allowance could not be verified')
@@ -116,6 +156,7 @@ class EventAPI:
                 slotstate['failure_kind']='authentication'
                 slotstate['invalid_until']=(self.now+timedelta(hours=6)).isoformat()
                 auth_unavailable=True
+                self.note(slot,endpoint,'authentication_fallback' if auth_fallback else 'authentication_fallback_disabled')
                 if not auth_fallback:raise
                 continue
             except QuotaExceeded:
@@ -129,6 +170,7 @@ class EventAPI:
     def _request(self,slot,budget,endpoint,params=None):
         if budget['requests']>=self.cfg['daily_request_budget']:raise ProviderError('Safe local API request ceiling reached; no rotation')
         budget['requests']+=1
+        self.note(slot,endpoint,'request_started')
         request=Request(self.BASE+'/'+endpoint+('?' + urlencode(params) if params else ''),
                         headers={'x-apisports-key':self.keys[slot],'Accept':'application/json'})
         try:
@@ -136,6 +178,7 @@ class EventAPI:
                 observed=self.now+timedelta(seconds=monotonic()-self.start)
                 stamp=parsedate_to_datetime(response.headers.get('Date',''))
                 if not -30<=(observed-stamp).total_seconds()<=self.cfg['max_source_age_seconds']:
+                    self.note(slot,endpoint,'stale_timestamp')
                     raise ProviderError('Stale/missing API timestamp; no live observation used')
                 self.at=stamp.isoformat()
                 remaining=response.headers.get('x-ratelimit-requests-remaining')
@@ -148,9 +191,10 @@ class EventAPI:
                 if len(raw)>8*1024*1024:raise ProviderError('API payload exceeds bounded response size')
                 data=json.loads(raw)
         except HTTPError as error:
+            self.note(slot,endpoint,'http_rejection',http_status=int(error.code))
             # An ordinary 429 is a minute/rate error, not proof of daily exhaustion.
             if error.code==429 and error.headers.get('x-ratelimit-requests-remaining')=='0':
-                budget['remaining']=0;raise QuotaExceeded('Documented daily quota exhausted') from None
+                self.note(slot,endpoint,'daily_quota_rejected');budget['remaining']=0;raise QuotaExceeded('Documented daily quota exhausted') from None
             if error.code in (429,503):
                 try:
                     retry=error.headers.get('Retry-After','300')
@@ -161,15 +205,18 @@ class EventAPI:
                 try:body=error.read(65536).decode('utf-8',errors='replace').casefold()
                 except Exception:body=''
                 if not any(term in body for term in ('suspend','banned','blocked','whitelist','ip address','ip restriction')):
+                    self.note(slot,endpoint,'authentication_rejected')
                     raise AuthenticationRejected('API authentication rejected; credential details omitted') from None
             if error.code in (401,403):
                 self.state['slots'][slot]['failure_kind']='access_restriction'
                 self.state['slots'][slot]['invalid_until']=(self.now+timedelta(hours=6)).isoformat()
             raise ProviderError(f'API HTTP {error.code}; no ordinary-error key failover') from None
         except ProviderError:raise
-        except Exception:raise ProviderError('API transport/response failure; no key switching; details omitted') from None
+        except Exception:
+            self.note(slot,endpoint,'transport_or_invalid_response');raise ProviderError('API transport/response failure; no key switching; details omitted') from None
         if not isinstance(data,dict):raise ProviderError('Malformed API response wrapper')
         if data.get('errors'):
+            self.note(slot,endpoint,rejection_category(data['errors']),error_fields=safe_error_fields(data['errors']),authentication_fallback_eligible=authentication_rejection(data['errors']))
             if daily_quota(data['errors'],remaining_value):
                 budget['remaining']=0;raise QuotaExceeded('Documented daily quota exhausted')
             if authentication_rejection(data['errors']):raise AuthenticationRejected('API authentication rejected; credential details omitted')
@@ -181,4 +228,5 @@ class EventAPI:
             budget['remaining']=remaining_value
             budget['provider_used']=max(budget.get('provider_used',0),budget.get('allocation',100)-remaining_value)
             budget['requests']=max(budget['requests'],budget['provider_used'])
+        self.note(slot,endpoint,'response_received')
         return data.get('response')
