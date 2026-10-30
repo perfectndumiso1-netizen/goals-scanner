@@ -132,7 +132,12 @@ class EventAPI:
             if budget.get('after') and self.now<local(budget['after']):
                 self.note(slot,endpoint,'account_cooldown');raise ProviderError('API cooldown active; no key switching')
             try:
-                if budget.get('plan_checked')!=self.day or slotstate.get('plan_checked')!=self.day:
+                if endpoint=='status':
+                    cap=min(self.cfg['daily_request_budget'],max(0,budget.get('allocation',100)-self.cfg.get('daily_request_reserve',10)))
+                    if budget['requests']>=cap:
+                        self.note(slot,endpoint,'local_request_ceiling')
+                        raise ProviderError('Safe account reserve reached; no quota rotation')
+                if endpoint=='status' or budget.get('plan_checked')!=self.day or slotstate.get('plan_checked')!=self.day:
                     account=self._request(slot,budget,'status')
                     if not isinstance(account,dict):raise ProviderError('Invalid account status; raw response omitted')
                     subscription=account.get('subscription') or {};usage=account.get('requests') or {}
@@ -144,10 +149,15 @@ class EventAPI:
                     budget['requests']=max(budget['requests'],usage['current']);budget['allocation']=usage['limit']
                     budget['provider_used']=max(budget.get('provider_used',0),usage['current'])
                     budget['plan_checked']=self.day;slotstate['plan_checked']=self.day
-                cap=min(self.cfg['daily_request_budget'],max(0,budget.get('allocation',100)-self.cfg.get('daily_request_reserve',10)))
-                if budget.get('allocation') is not None and budget.get('provider_used',0)>=budget['allocation']:raise QuotaExceeded('Verified account daily quota exhausted')
-                if budget['requests']>=cap:raise ProviderError('Safe account reserve reached; no quota rotation')
-                data=self._request(slot,budget,endpoint,params)
+                if endpoint=='status':
+                    # The admitted request already succeeded and was validated. Even
+                    # the final permitted status response is valid; make no more calls.
+                    data=account
+                else:
+                    cap=min(self.cfg['daily_request_budget'],max(0,budget.get('allocation',100)-self.cfg.get('daily_request_reserve',10)))
+                    if budget.get('allocation') is not None and budget.get('provider_used',0)>=budget['allocation']:raise QuotaExceeded('Verified account daily quota exhausted')
+                    if budget['requests']>=cap:raise ProviderError('Safe account reserve reached; no quota rotation')
+                    data=self._request(slot,budget,endpoint,params)
                 self.active=slot
                 self.state['last_successful_slot']=slot;self.state['last_successful_at']=self.at
                 slotstate.pop('failure_kind',None);slotstate.pop('invalid_until',None)

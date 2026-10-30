@@ -17,7 +17,12 @@ ROOT=Path(__file__).resolve().parents[1]
 NOW=datetime(2026,10,30,20,0,tzinfo=content.SAST)
 
 @pytest.fixture
-def cfg():return cli.config(ROOT/'config/facebook-feed.json')
+def cfg():
+    cfg=cli.config(ROOT/'config/facebook-feed.json')
+    # Exhaustive three-slot replay fixture, not the current production selection.
+    # Production exclusion of the suspended slot is covered separately.
+    cfg['event_monitor']['key_slots']['API_FOOTBALL_KEY']['authorised']=True
+    return cfg
 
 
 def raw(fid=1,score=(0,0),minute=50,status='2H',events=None):
