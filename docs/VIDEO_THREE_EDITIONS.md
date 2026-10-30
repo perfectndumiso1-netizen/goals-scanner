@@ -1,5 +1,7 @@
 # Three daily videos, separate morning results, app-covered Facebook scores
 
+> **Subsequent score update:** API-FOOTBALL is now the selected (still approval-gated) Facebook source, with 10-minute checks during 08:00–24:00 SAST and optional emoji-labelled statistics. See [LIVE_SCORE_STATS.md](LIVE_SCORE_STATS.md). Earlier app-source/five-minute descriptions below are rollout history, not the current score configuration.
+
 ## Current owner request and implemented scope (30 October 2026)
 
 Return to three videos per day at the previous times; Telegram plus Facebook only; move video warnings to an animated bottom footer instead of a full-screen disclaimer; remove yesterday's results from videos; publish those results separately each morning; prepare live-score updates for the matches covered by the app.

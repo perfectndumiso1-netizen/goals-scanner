@@ -17,6 +17,7 @@ def cfg():
     cfg=cli.config(ROOT/'config/facebook-feed.json')
     cfg.pop('authorized_kinds',None)
     cfg['score_source']='api-football'
+    cfg['live']['app_coverage_only']=False  # Legacy editorial-selection adapter contract.
     return cfg
 
 
@@ -172,7 +173,7 @@ def test_reel_schedule_music_and_explicit_cover_implementation_match_pinned_inva
 def test_frozen_in_play_snapshot_is_suppressed_even_when_http_fetch_is_new(tmp_path,monkeypatch,cfg):
     from test_facebook_feed import match
     m=match();fingerprint=json.dumps([m['status'],m['elapsed'],m['home_goals'],m['away_goals']],sort_keys=True)
-    state={'posts':[],'score_observations':{m['id']:{'fingerprint':fingerprint,'since':(NOW-timedelta(minutes=40)).isoformat()}}}
+    state={'posts':[],'score_observations':{'api-football:'+m['id']:{'fingerprint':fingerprint,'since':(NOW-timedelta(minutes=40)).isoformat()}}}
     monkeypatch.setattr(cli,'APIFootball',lambda *a:SimpleNamespace(fixtures=lambda:([m],NOW.isoformat())))
     assert cli.build('live',tmp_path,NOW,cfg,state,preview=True)[0] is None
 

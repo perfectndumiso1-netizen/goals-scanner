@@ -21,7 +21,11 @@ ROOT=Path(__file__).resolve().parents[1]
 NOW=datetime(2026,10,30,8,0,tzinfo=content.SAST)
 
 @pytest.fixture
-def cfg():return cli.config(ROOT/'config/facebook-feed.json')
+def cfg():
+    config=cli.config(ROOT/'config/facebook-feed.json')
+    config['score_source']='app'  # Retain independent tests for the old explicitly selectable reader.
+    config['live']['app_coverage_only']=False
+    return config
 
 
 def root(tmp_path):
