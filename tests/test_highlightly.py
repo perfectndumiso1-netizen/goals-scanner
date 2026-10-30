@@ -40,7 +40,7 @@ class Response:
 
 def api(cfg,monkeypatch,*responses,state=None,now=NOW):
     monkeypatch.setenv('HIGHLIGHTLY_API_KEY','synthetic-private-highlightly')
-    opener=Opener(*(responses or [Response()]))
+    opener=Opener(*(responses or [Response(),Response([row()],98)]))
     return highlightly.Highlightly(cfg,{} if state is None else state,now,opener),opener
 
 
@@ -57,7 +57,7 @@ def test_direct_auth_fixed_host_plan_and_safe_report(cfg,monkeypatch):
     report=highlightly.diagnose(cfg,state,NOW,client)
     assert report['outcome']=='verified_read_only' and report['facebook_requests']==0
     assert report['http_attempted'] and report['usable_observations']==1
-    assert report['allocation']==100 and report['requests']==1
+    assert report['allocation']==100 and report['requests']==2 and report['match_detail_verified'] and report['ready_for_activation']
     request=opener.calls[0]
     assert request.full_url.startswith('https://soccer.highlightly.net/matches?')
     assert request.get_header('X-rapidapi-key')=='synthetic-private-highlightly'
@@ -124,14 +124,15 @@ def test_bad_freshness_quota_plan_error_and_incomplete_page_block(cfg,monkeypatc
     assert 'PRIVATE' not in json.dumps(report)
 
 
-def test_complete_pagination_and_first_page_diagnostic_disclosure(cfg,monkeypatch):
+def test_complete_pagination_and_full_diagnostic_verification(cfg,monkeypatch):
     first=[row(i) for i in range(1,101)];last=[row(101)]
     client,opener=api(cfg,monkeypatch,Response(envelope(first,101)),Response(envelope(last,101,100),98))
     assert len(client.matches())==101 and len(opener.calls)==2
     assert 'offset=100' in opener.calls[1].full_url
-    client,_=api(cfg,monkeypatch,Response(envelope(first,101)))
+    client,_=api(cfg,monkeypatch,Response(envelope(first,101)),Response(envelope(last,101,100),98),Response([row()],97))
     report=highlightly.diagnose(cfg,{},NOW,client)
-    assert report['coverage']=='first_page_only' and report['total_rows']==101
+    assert report['coverage']=='complete_day' and report['total_rows']==101 and report['pages_read']==2
+    assert report['match_detail_verified'] and report['ready_for_activation']
 
 
 @pytest.mark.parametrize('failure',['bound','duplicate','changed_total','quota'])
@@ -164,7 +165,7 @@ def test_verified_events_only_and_penalties_separate():
     assert len(m['events'])==2 and m['penalties']==[4,3] and m['home_goals']==1
 
 
-def test_read_only_diagnostic_does_not_query_detail_or_arbitrary_routes(cfg,monkeypatch):
+def test_direct_client_refuses_arbitrary_routes_and_cross_provider_detail_ids(cfg,monkeypatch):
     client,opener=api(cfg,monkeypatch)
     for route in ('status','odds','predictions','highlights','matches/1?x=bad','https://evil.invalid'):
         with pytest.raises(ProviderError):client.request(route)
@@ -283,7 +284,7 @@ def test_retry_after_is_honoured_and_details_require_verified_plan(cfg,monkeypat
 def test_empty_day_is_verified_empty_not_fabricated_matches(cfg,monkeypatch):
     client,_=api(cfg,monkeypatch,Response(envelope([])))
     report=highlightly.diagnose(cfg,{},NOW,client)
-    assert report['outcome']=='verified_read_only' and report['page_rows']==0 and report['usable_observations']==0
+    assert report['outcome']=='verified_read_only' and report['list_rows']==0 and report['usable_observations']==0
     assert not cli.scores_approved(cfg)
 
 
@@ -296,3 +297,45 @@ def test_existing_unknown_send_guard_blocks_new_provider_post(cfg):
     new=content.candidate('live','new','new-topic','New factual caption',snapshot=[highlightly.observation(row(),NOW)],event_ids=['new-event'])
     allowed,reason=policy.allowed(new,state,NOW,cfg)
     assert not allowed and 'unresolved live publication' in reason and entry['status']=='unknown'
+
+
+def test_full_diagnostic_verifies_all_284_rows_and_one_detail_without_event_changes(cfg,monkeypatch):
+    state={'posts':[{'status':'unknown'}],'live_event_ledger':{'sentinel':'untouched'},'event_api':{'primary':'untouched'}}
+    before=deepcopy(state)
+    pages=[Response(envelope([row(i) for i in range(1,101)],284),99),
+           Response(envelope([row(i) for i in range(101,201)],284,100),98),
+           Response(envelope([row(i) for i in range(201,285)],284,200),97),Response([row()],96)]
+    client,opener=api(cfg,monkeypatch,*pages,state=state)
+    report=highlightly.diagnose(cfg,state,NOW,client)
+    assert report['outcome']=='verified_read_only' and report['ready_for_activation']
+    assert report['total_rows']==284 and report['pages_read']==3 and report['match_detail_verified']
+    assert len(opener.calls)==4 and report['requests']==4 and report['remaining']==96
+    assert report['facebook_requests']==0 and all(state[k]==before[k] for k in before)
+    assert not cli.scores_approved(cfg)
+
+
+@pytest.mark.parametrize('case',['quota','missing_events','wrong_team','partial_pages','network'])
+def test_failed_full_diagnostic_never_reports_ready_or_advances_state(cfg,monkeypatch,case):
+    state={'posts':[{'status':'unknown'}],'live_event_ledger':{'sentinel':'untouched'}}
+    before=deepcopy(state)
+    detail=row()
+    if case=='missing_events':detail.pop('events')
+    if case=='wrong_team':detail['homeTeam']['name']='Wrong identity'
+    if case=='partial_pages':
+        cfg['highlightly']['max_pages_per_poll']=1
+        responses=[Response(envelope([row(i) for i in range(1,101)],101))]
+    else:
+        responses=[Response(remaining=0 if case=='quota' else 99),OSError('PRIVATE synthetic-private-highlightly') if case=='network' else Response([detail],98)]
+    client,opener=api(cfg,monkeypatch,*responses,state=state)
+    report=highlightly.diagnose(cfg,state,NOW,client)
+    assert report['outcome']=='blocked' and not report['ready_for_activation'] and not report['match_detail_verified']
+    assert report['facebook_requests']==0 and all(state[k]==before[k] for k in before)
+    assert len(opener.calls)==(1 if case in ('quota','partial_pages') else 2)
+    assert 'PRIVATE' not in json.dumps(report) and 'synthetic-private' not in json.dumps(report)
+
+
+def test_verified_empty_list_is_not_ready_for_activation_without_detail_sample(cfg,monkeypatch):
+    client,opener=api(cfg,monkeypatch,Response(envelope([])))
+    report=highlightly.diagnose(cfg,{},NOW,client)
+    assert report['outcome']=='verified_read_only' and report['coverage']=='complete_day'
+    assert not report['ready_for_activation'] and not report['match_detail_verified'] and len(opener.calls)==1
