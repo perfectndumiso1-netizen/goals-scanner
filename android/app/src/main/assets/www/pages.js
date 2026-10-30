@@ -1,4 +1,4 @@
-/* PlayReport — stacked pages: match, team, day, analysis, performance, guide, settings. */
+/* Mr 2 Odds — stacked pages: match, team, day, analysis, performance, guide, settings. */
 (function (PR) {
   'use strict';
   const { $, $$, esc, pct, f1, f2, signed, state, settings, fx, pill, koShort, koTime, dayName, niceDate, toast, selLabel, selGroup,
@@ -247,7 +247,7 @@
         <div class="h2h-bar"><span class="h" style="flex:${wins(f.home) || 0.001}">${wins(f.home)}</span><span class="d" style="flex:${dr || 0.001}">${dr}</span><span class="a" style="flex:${wins(f.away) || 0.001}">${wins(f.away)}</span></div><div class="lbl tiny muted row"><span class="grow">${esc(f.home)} wins</span><span>draws</span><span class="grow right">${esc(f.away)} wins</span></div>
         <table class="tbl" style="margin-top:6px">${ah2h.map((m) => `<tr class="tap" data-fx="${esc(histId(m.date, m.country || f.country, m.home, m.away))}"><td class="tiny muted nowrap">${esc(m.date || '')}</td><td class="${m.hg > m.ag ? 'b' : ''}"><div class="row" style="gap:6px">${esc(m.home)}</div></td><td class="right nowrap"><b>${m.hg} – ${m.ag}</b></td><td class="${m.ag > m.hg ? 'b' : ''}">${esc(m.away)}</td><td class="tiny muted">${esc(m.league || '')}</td></tr>`).join('')}</table></div>`);
     }
-    parts.push(`<div class="card tiny muted">The full pre-match analysis (trends, markets, data audit) is kept permanently — once PlayReport analyses a fixture, that analysis, its result, statistics and goals stay on record.</div>`);
+    parts.push(`<div class="card tiny muted">The full pre-match analysis (trends, markets, data audit) is kept permanently — once Mr 2 Odds analyses a fixture, that analysis, its result, statistics and goals stay on record.</div>`);
     view().innerHTML = parts.join('');
     wireBack();
   }
@@ -339,13 +339,13 @@
   function matchSheet(parts, f) {
     const sm = f.sheet_model;
     if (!sm) {
-      parts.push(`<div class="card empty">The sheet model was not on this analysis yet — it is filled on the next scan. PlayReport's own numbers on the other tabs are unchanged.</div>`);
+      parts.push(`<div class="card empty">The sheet model was not on this analysis yet — it is filled on the next scan. Mr 2 Odds's own numbers on the other tabs are unchanged.</div>`);
       return;
     }
     const inp = sm.inputs || {};
     const eng = sm.model || {};
     const cell = (v, d) => (v == null || v === '') ? '<span class="muted">N/A</span>' : esc(String(d ? d(v) : v));
-    parts.push(`<div class="card tiny muted"><b>Your Google Sheet model (V1)</b> — the same MATCH_INPUT → MODEL_ENGINE → SCORE_MATRIX → MARKETS formulas, filled with <b>this match's available data</b>. PlayReport's Dixon-Coles model is not changed; the two sit side by side so you can compare them. Missing inputs are N/A, never invented.</div>`);
+    parts.push(`<div class="card tiny muted"><b>Your Google Sheet model (V1)</b> — the same MATCH_INPUT → MODEL_ENGINE → SCORE_MATRIX → MARKETS formulas, filled with <b>this match's available data</b>. Mr 2 Odds's Dixon-Coles model is not changed; the two sit side by side so you can compare them. Missing inputs are N/A, never invented.</div>`);
     parts.push(`<div class="card compact"><div class="b">${icon('info', 'sm')} Match information</div>
       <table class="tbl" style="margin-top:6px">
         <tr><td>Competition</td><td>${cell(inp.competition)}</td></tr>
@@ -370,21 +370,21 @@
       parts.push(`<div class="card empty">V1 cannot run until the six statistical inputs are present. Nothing was invented.</div>`);
     } else {
       parts.push(`<div class="card compact"><div class="b">${icon('sparkle', 'sm')} Sheet engine (unchanged formulas)</div>
-        <table class="tbl head" style="margin-top:6px"><tr><th></th><th class="right">Sheet</th><th class="right">PlayReport</th></tr>
+        <table class="tbl head" style="margin-top:6px"><tr><th></th><th class="right">Sheet</th><th class="right">Mr 2 Odds</th></tr>
           <tr><td>Expected home goals (λH)</td><td class="right"><b>${f2(eng.lambda_h)}</b></td><td class="right">${f2((f.xg || {}).model_home)}</td></tr>
           <tr><td>Expected away goals (λA)</td><td class="right"><b>${f2(eng.lambda_a)}</b></td><td class="right">${f2((f.xg || {}).model_away)}</td></tr>
           <tr><td>Expected total</td><td class="right">${f2(eng.lambda_total)}</td><td class="right">${f2((f.xg || {}).model_total)}</td></tr>
         </table>
-        <div class="tiny muted" style="margin-top:4px">Sheet: league home × home attack × away defence (raw venue rates, no shrinkage). PlayReport: league × shrunk ratings × Dixon-Coles. 1X2 sheet sum ${eng.x12_sum != null ? Math.round(eng.x12_sum * 1000) / 10 + '%' : '—'} (0–7 matrix residual ${eng.matrix_residual != null ? Math.round(eng.matrix_residual * 10000) / 100 + ' pp' : '—'}).</div></div>`);
+        <div class="tiny muted" style="margin-top:4px">Sheet: league home × home attack × away defence (raw venue rates, no shrinkage). Mr 2 Odds: league × shrunk ratings × Dixon-Coles. 1X2 sheet sum ${eng.x12_sum != null ? Math.round(eng.x12_sum * 1000) / 10 + '%' : '—'} (0–7 matrix residual ${eng.matrix_residual != null ? Math.round(eng.matrix_residual * 10000) / 100 + ' pp' : '—'}).</div></div>`);
       const rows = (sm.markets || []).map((m) => {
         const sp = m.p, pp = m.playreport;
         return `<tr><td>${esc(m.name)}</td><td class="right"><b>${pct(sp)}</b><div class="tiny muted">${m.fair != null ? f2(m.fair) : ''}</div></td><td class="right">${pp == null ? '<span class="muted">—</span>' : pct(pp)}</td></tr>`;
       }).join('');
       parts.push(`<div class="card compact"><div class="b">${icon('ticket', 'sm')} Market probabilities &amp; fair odds</div>
-        <table class="tbl head" style="margin-top:6px"><tr><th>Market</th><th class="right">Sheet · fair</th><th class="right">PlayReport</th></tr>${rows}</table>
-        <div class="tiny muted" style="margin-top:4px">Fair odds = 1 / sheet probability. PlayReport column is this app's model for the same market (blank when that market is not modelled the same way, e.g. Over 0.5).</div></div>`);
+        <table class="tbl head" style="margin-top:6px"><tr><th>Market</th><th class="right">Sheet · fair</th><th class="right">Mr 2 Odds</th></tr>${rows}</table>
+        <div class="tiny muted" style="margin-top:4px">Fair odds = 1 / sheet probability. Mr 2 Odds column is this app's model for the same market (blank when that market is not modelled the same way, e.g. Over 0.5).</div></div>`);
     }
-    parts.push(`<div class="card compact"><div class="small muted">Download this match's filled MATCH_INPUT + MARKETS as a spreadsheet file (opens in Google Sheets / Excel). Calculations are the sheet's V1 formulas; PlayReport's model is not in this file except as a comparison column.</div><button class="btn" id="dl-sheet" style="margin-top:8px;width:100%">${icon('download', 'sm')} Download sheet model (CSV)</button></div>`);
+    parts.push(`<div class="card compact"><div class="small muted">Download this match's filled MATCH_INPUT + MARKETS as a spreadsheet file (opens in Google Sheets / Excel). Calculations are the sheet's V1 formulas; Mr 2 Odds's model is not in this file except as a comparison column.</div><button class="btn" id="dl-sheet" style="margin-top:8px;width:100%">${icon('download', 'sm')} Download sheet model (CSV)</button></div>`);
   }
   // ------------------------------------------------------------------ DATA / AUDIT TAB (data-first engine)
   const EVIDENCE = [[40, 'Very strong'], [20, 'Strong'], [10, 'Moderate'], [5, 'Small'], [1, 'Very small']];
@@ -676,7 +676,7 @@
     if (!total) {
       parts.push(`<div class="card empty">No recent headlines from reputable outlets for this match or either club yet. Only established sources (BBC, Sky Sports, official sites …) are shown; news refreshes at most every 6 hours with each scan.</div>`);
     } else {
-      parts.push(`<div class="card tiny muted">Reputable outlets only — tap a headline to read the article inside PlayReport (downloaded and saved on your phone; “Open original” is one tap away). News is never used by the prediction model.</div>`);
+      parts.push(`<div class="card tiny muted">Reputable outlets only — tap a headline to read the article inside Mr 2 Odds (downloaded and saved on your phone; “Open original” is one tap away). News is never used by the prediction model.</div>`);
       parts.push(sec(`${icon('sparkle', 'sm')} This match`, news.match));
       parts.push(sec(`${icon('ball', 'sm')} ${esc(f.home)}`, news.home));
       parts.push(sec(`${icon('ball', 'sm')} ${esc(f.away)}`, news.away));
@@ -1238,17 +1238,17 @@ view().innerHTML = parts.join('');
 
   // ------------------------------------------------------------------ GUIDE
   PR.pages.guide = function () {
-    const parts = [head('Guide', 'Markets, probabilities and how to read PlayReport')];
+    const parts = [head('Guide', 'Markets, probabilities and how to read Mr 2 Odds')];
     const sec = (ico, title, body) => `<div class="card guide"><div class="row"><span class="ico">${icon(ico)}</span><b>${title}</b></div><div class="small" style="margin-top:6px">${body}</div></div>`;
     parts.push(sec('ball', 'Over goals', `<p><b>Over 1.5</b> wins when the match has 2 or more goals; <b>Over 2.5</b> needs 3 or more. The half-goal line means there is never a push. Own goals count, extra time does not (90 minutes plus stoppage time only).</p><p>Typical prices: Over 1.5 around 1.20–1.40 in open leagues; Over 2.5 around 1.70–2.10.</p>`));
-    parts.push(sec('swap', 'Both teams to score (BTTS / GG)', `<p><b>Yes</b> wins if each team scores at least once, whatever the result — 1-1 and 3-2 win, 2-0 loses. <b>No</b> is the opposite. On Sportybet this is the "GG / NG" market.</p><p><b>PlayReport no longer publishes BTTS picks</b> (2026-10-27 audit): the family returned −7.0 % over 183 priced bets, and the unpriced forward test was 15 points too optimistic. The probability still appears on the match page for context; it is not offered as a selection.</p>`));
-    parts.push(sec('target', 'What PlayReport no longer offers', `<p>The 2026-10-27 audit re-graded every settled pick and turned families off for good: <b>double chance</b> (−16.7 % over 300 priced bets), <b>team goals</b> (−6.4 %, home team to score −10.1 %), <b>cards / bookings</b> (−9.4 %), <b>BTTS</b> (−7.0 %) and <b>Over 0.5</b> (−5.9 %) — plus <b>every under</b> (user rule). The boards now compete in <b>Over 1.5, Over 2.5, corners and 1X2</b>, Over 2.5 and 1X2 start from <b>55%</b>, corners from <b>65%</b>, <b>nothing priced under 1.16 is offered</b>, and a pick priced under 95 % of its own fair price waits on the watchlist. Old tickets and the track record still settle and display normally.</p>`));
+    parts.push(sec('swap', 'Both teams to score (BTTS / GG)', `<p><b>Yes</b> wins if each team scores at least once, whatever the result — 1-1 and 3-2 win, 2-0 loses. <b>No</b> is the opposite. On Sportybet this is the "GG / NG" market.</p><p><b>Mr 2 Odds no longer publishes BTTS picks</b> (2026-10-27 audit): the family returned −7.0 % over 183 priced bets, and the unpriced forward test was 15 points too optimistic. The probability still appears on the match page for context; it is not offered as a selection.</p>`));
+    parts.push(sec('target', 'What Mr 2 Odds no longer offers', `<p>The 2026-10-27 audit re-graded every settled pick and turned families off for good: <b>double chance</b> (−16.7 % over 300 priced bets), <b>team goals</b> (−6.4 %, home team to score −10.1 %), <b>cards / bookings</b> (−9.4 %), <b>BTTS</b> (−7.0 %) and <b>Over 0.5</b> (−5.9 %) — plus <b>every under</b> (user rule). The boards now compete in <b>Over 1.5, Over 2.5, corners and 1X2</b>, Over 2.5 and 1X2 start from <b>55%</b>, corners from <b>65%</b>, <b>nothing priced under 1.16 is offered</b>, and a pick priced under 95 % of its own fair price waits on the watchlist. Old tickets and the track record still settle and display normally.</p>`));
     parts.push(sec('corner', 'Corners', `<p><b>Over 9.5 corners</b> wins with 10 or more corners in the match (both teams together). Corners awarded but not taken before the final whistle still count. Modelled for the 22 main European leagues, from each team's corners for and against; average is about 10 per match.</p>`));
-    parts.push(sec('card', 'Cards / bookings', `<p><b>Over 3.5 cards</b> wins with 4 or more cards. On Sportybet a yellow counts 1 and a straight red 2 (a second yellow = yellow + red = 3 for that player); some books use "booking points" (10/25) instead — check the market name. Cards to the bench or after the whistle usually do not count. Modelled from team and referee averages in the main European leagues. <b>PlayReport no longer publishes card picks</b> (2026-10-27 — −9.4 % over the priced sample); the card statistics still feed the match page and the leagues browser.</p>`));
-    parts.push(sec('shield', 'Match result', `<p><b>1X2</b>: home win, draw or away win after 90 minutes. Shown on every match page for context; PlayReport's high-probability selections stay in the goals, corners and 1X2 markets, must carry a price of 1.16 or more, and are shown with the model-anchored probability.</p>`));
+    parts.push(sec('card', 'Cards / bookings', `<p><b>Over 3.5 cards</b> wins with 4 or more cards. On Sportybet a yellow counts 1 and a straight red 2 (a second yellow = yellow + red = 3 for that player); some books use "booking points" (10/25) instead — check the market name. Cards to the bench or after the whistle usually do not count. Modelled from team and referee averages in the main European leagues. <b>Mr 2 Odds no longer publishes card picks</b> (2026-10-27 — −9.4 % over the priced sample); the card statistics still feed the match page and the leagues browser.</p>`));
+    parts.push(sec('shield', 'Match result', `<p><b>1X2</b>: home win, draw or away win after 90 minutes. Shown on every match page for context; Mr 2 Odds's high-probability selections stay in the goals, corners and 1X2 markets, must carry a price of 1.16 or more, and are shown with the model-anchored probability.</p>`));
     parts.push(sec('trend', 'How the probabilities are made (data-first)', `<p>Every probability starts from <b>football data</b> and is then anchored to the price — a 25 % model / 75 % de-vigged-market blend (2026-10-27 audit: the market forecast better than the model over 3,910 settled priced picks, and the blend scored best on Brier and log-loss). The raw model number is shown beside it as <b>model</b>. Each team gets a time-weighted attack and defence rating from its last 60 competitive matches (recent games weighted most, league-normalised, home and away blended, shrunk towards the league average when the sample is small). League baseline × attack × opponent's defence gives the <b>Model xG</b> of each team, and a Dixon-Coles Poisson score matrix turns that into a probability for every line.</p><p>Bookmaker prices have two jobs: the margin is removed and the implied probability shown with the difference in points and the EV, and — since the audit — that de-vigged number <b>sets the anchor for the published probability</b>. The blend is capped at market + 3 points and at 90 % (80 % when nothing is priced), so a wild model value can never be published. <b>Market xG</b> (from the prices) is shown next to Model xG as a comparison.</p><p>Every statistic carries its sample size — Very small 1–4, Small 5–9, Moderate 10–19, Strong 20–39, Very strong 40+ — and each match has a <b>data quality</b> assessment (completeness, sample, recency, consistency, competition, home/away relevance, source) under the <b>Data</b> tab, with the raw matches used, the extreme results flagged and the model's own numbers. Data quality drives the confidence wording, never the probability. Missing data is shown as N/A, never as 0.</p><p><b>High-probability selection</b> = published probability of at least 70% (its market bar, whichever is higher) in the goals, corners and 1X2 markets, <b>priced at 1.16 or more</b> and at least 95 % of its own fair price — the price anchors the probability now, so it is a gate as well as a display. <b>⭐ Bets of the day</b> = the best of those at 07:00, one market per match. <b>Low data</b> = fewer than four useful matches for a team; those games are shown but never selected. No selection is ever certain — a 75% probability loses one time in four.</p>`));
-    parts.push(sec('ticket', 'Bet slip & tickets', `<p>Tap <b>+</b> next to any priced selection (match page › Markets, high-probability selections, bets of the day) to put it on your slip — one selection per match, like a real multiple. Press <b>Done</b> to lock the ticket: PlayReport multiplies the prices, records an optional stake, and then follows the scores. Goals markets settle from the final score; corners and cards settle from the match statistics a few hours after full time. You get a notification when the ticket is won or lost, and ☰ › <b>My tickets</b> keeps your record.</p><p>This is a private record on your phone — nothing is placed with a bookmaker.</p>`));
-    parts.push(sec('info', 'Reading the numbers honestly', `<p>A 75% bet loses one time in four. A card of five 75% singles has all five winning only about 24% of the time — that is why PlayReport shows singles and grades every one of them, and does not build accumulators. Compare the <b>Hit</b> and <b>Exp.</b> columns under Performance: they should be close over a few weeks.</p><p>Coverage: every competition on the live feed, worldwide, including women's and youth leagues, priced by Sportybet South Africa. Prices move; check the price before you bet. Statistical information, not betting advice. 18+, bet responsibly.</p>`));
+    parts.push(sec('ticket', 'Bet slip & tickets', `<p>Tap <b>+</b> next to any priced selection (match page › Markets, high-probability selections, bets of the day) to put it on your slip — one selection per match, like a real multiple. Press <b>Done</b> to lock the ticket: Mr 2 Odds multiplies the prices, records an optional stake, and then follows the scores. Goals markets settle from the final score; corners and cards settle from the match statistics a few hours after full time. You get a notification when the ticket is won or lost, and ☰ › <b>My tickets</b> keeps your record.</p><p>This is a private record on your phone — nothing is placed with a bookmaker.</p>`));
+    parts.push(sec('info', 'Reading the numbers honestly', `<p>A 75% bet loses one time in four. A card of five 75% singles has all five winning only about 24% of the time — that is why Mr 2 Odds shows singles and grades every one of them, and does not build accumulators. Compare the <b>Hit</b> and <b>Exp.</b> columns under Performance: they should be close over a few weeks.</p><p>Coverage: every competition on the live feed, worldwide, including women's and youth leagues, priced by Sportybet South Africa. Prices move; check the price before you bet. Statistical information, not betting advice. 18+, bet responsibly.</p>`));
     parts.push(sec('star', 'Bets of the day, favourites & alerts', `<p><b>⭐ Bets of the day</b> is built on Over 1.5, Over 2.5, 1X2 and corners (up to seven picks a block); <b>1X2 claims its matches first — up to five picks a day</b> — then <b>Over 2.5</b> gets its place, then the rest: 1X2 needs ≥70% and Over 2.5 needs ≥55%, all with recent form backing them; corners need ≥65%. Every one must carry a price of 1.16 or more. Overs only, one market per match, picked by the first analysis of the day and graded separately — so the performance page can compare the markets fairly. Every match page has <b>Download stats (CSV)</b> and the ☰ menu downloads the whole day's analysis as a spreadsheet file. <b>Top leagues</b> ranks the major leagues by home wins, away wins, overs, corners and bookings.</p><p>Tap <b>☆</b> in a match header to make it a favourite: you get goal, half-time, full-time and kick-off alerts for it, it appears under Your matches on Home, and in the ★ filter of Matches.</p>`));
     parts.push(PR.editorCard(false));
     parts.push(contactCard(false));
@@ -1282,14 +1282,14 @@ view().innerHTML = parts.join('');
       <label>Analysis timezone offset from UTC (hours; South Africa = 2)</label><input id="s-tz" type="number" value="${settings.tzOffset}">
       <div style="margin-top:12px"><button class="btn primary" id="s-save">Save</button><button class="btn" id="s-clear">Clear saved data</button></div>
       <div class="tiny muted" style="margin-top:6px">${(() => { const c = PR.cache.size(); return `${c.n} analysed pages saved on this phone (${c.kb} KB) — they open instantly and refresh in the background.`; })()}</div></div>`);
-    parts.push(`<div class="card settings"><h2>${icon('info')} App</h2><div class="row"><div class="grow small">PlayReport ${PR.APP_VERSION ? 'v' + PR.APP_VERSION : '(browser preview)'}${state.update ? ` · <b>v${esc(state.update.version)} available</b>` : ' · up to date'}</div>
+    parts.push(`<div class="card settings"><h2>${icon('info')} App</h2><div class="row"><div class="grow small">Mr 2 Odds ${PR.APP_VERSION ? 'v' + PR.APP_VERSION : '(browser preview)'}${state.update ? ` · <b>v${esc(state.update.version)} available</b>` : ' · up to date'}</div>
       ${state.update ? `<button class="btn primary" id="s-install">Update</button>` : `<button class="btn" id="s-check">Check for update</button>`}</div>
       ${state.update && PR.notesList(state.update.notes).length ? `<div class="small" style="margin-top:8px"><b>What's new in ${esc(state.update.version)}</b><ul class="notes">${PR.notesList(state.update.notes).map((x) => `<li>${esc(x)}</li>`).join('')}</ul></div>` : ''}
       <div class="tiny muted" style="margin-top:6px">Updates are downloaded and checked against the release's own SHA-256 digest before anything happens; Android then asks you to install. The app never installs anything by itself and asks for no install permission. Your tickets, favourites and settings are kept.</div>
       <div style="margin-top:8px"><button class="btn" id="s-whatsnew">What's new in this version</button></div></div>`);
     parts.push(PR.editorCard(false));
     parts.push(contactCard(false));
-    parts.push(`<div class="card small"><b>About PlayReport</b><div class="muted" style="margin-top:4px">Football analysis for every competition worldwide, refreshed every 30 minutes with a full report at 07:00, 12:00 and 17:00 SAST: expected goals, probabilities for every market, high-probability selections, bets of the day, trends, head-to-head, live scores and an audited day-by-day record. Live scores come from a public feed and never influence the model.</div>
+    parts.push(`<div class="card small"><b>About Mr 2 Odds</b><div class="muted" style="margin-top:4px">Football analysis for every competition worldwide, refreshed every 30 minutes with a full report at 07:00, 12:00 and 17:00 SAST: expected goals, probabilities for every market, high-probability selections, bets of the day, trends, head-to-head, live scores and an audited day-by-day record. Live scores come from a public feed and never influence the model.</div>
       <div class="muted" style="margin-top:6px">Statistical information, not betting advice. Bet responsibly — 18+.</div></div>`);
     view().innerHTML = parts.join('');
     wireBack();
@@ -1309,11 +1309,11 @@ view().innerHTML = parts.join('');
     const c = $('#s-check'); if (c) c.onclick = () => { toast('Checking…'); state.updateChecked = 'manual'; if (PR.native && PR.native.checkUpdate) PR.native.checkUpdate(); else toast('Updates are only available in the Android app'); };
     const i = $('#s-install'); if (i) i.onclick = () => PR.startUpdate();
     $$('[data-play]').forEach((b) => { b.onclick = () => { try { const a = new Audio(`sounds/pr_${b.dataset.play}.wav`); a.volume = 0.9; a.play().catch(() => toast('Preview not available here')); } catch (e) { toast('Preview not available here'); } }; });
-    $$('[data-chan]').forEach((b) => { b.onclick = () => { try { PR.native.openChannelSettings(b.dataset.chan); } catch (e) { toast('Open Android Settings → Apps → PlayReport → Notifications'); } }; });
+    $$('[data-chan]').forEach((b) => { b.onclick = () => { try { PR.native.openChannelSettings(b.dataset.chan); } catch (e) { toast('Open Android Settings → Apps → Mr 2 Odds → Notifications'); } }; });
   };
 
   // ------------------------------------------------------------------ IN-APP NEWS READER
-  // Headline tap → the article is downloaded once and saved on the phone, then read inside PlayReport
+  // Headline tap → the article is downloaded once and saved on the phone, then read inside Mr 2 Odds
   // (no redirect to an external browser). "Open original" stays available on every screen of the reader.
   const artHash = (str) => { let x = 5381; for (let i = 0; i < String(str).length; i++) x = ((x << 5) + x + String(str).charCodeAt(i)) | 0; return (x >>> 0).toString(36); };
   function extractArticle(html) {
@@ -1346,7 +1346,7 @@ view().innerHTML = parts.join('');
         <div style="margin-top:10px">${paras.map((t) => `<p style="font-size:14.5px;line-height:1.6;margin:0 0 10px">${esc(t)}</p>`).join('')}</div>
       </div>
       <button class="btn wide" id="rd-open">${icon('next', 'sm')} Open the original article</button>
-      <div class="note">Downloaded for reading inside PlayReport and kept on this phone. The source owns the full article — open it for images, video and comments.</div>`);
+      <div class="note">Downloaded for reading inside Mr 2 Odds and kept on this phone. The source owns the full article — open it for images, video and comments.</div>`);
     const fail = () => {
       const top = state.stack[state.stack.length - 1];
       if (!top || top.type !== 'reader') return;   // never overwrite a page the user has moved on to
@@ -1373,7 +1373,7 @@ view().innerHTML = parts.join('');
     const parts = [head(`Bet advisor · ${esc(dayName(today))}`, 'Statistical information from the model — not betting advice')];
     const record = d.advisor || {};
     const metric = (v) => v == null ? '—' : (100 * Number(v)).toFixed(1) + '%';
-    parts.push(`<section class="advisor-hero"><img class="pr-disc" src="logo.png" alt="PlayReport"><div class="b">ADVISOR · LIVE RECORD</div><div class="small muted">Two daily editions · 08:00 &amp; 16:00 SAST</div>
+    parts.push(`<section class="advisor-hero"><img class="pr-disc" src="logo.png" alt="Mr 2 Odds"><div class="b">ADVISOR · LIVE RECORD</div><div class="small muted">Two daily editions · 08:00 &amp; 16:00 SAST</div>
       <div class="advisor-metrics"><div><b>${metric(record.hit_rate)}</b><span>settled hit rate</span></div><div><b>${record.settled || 0}</b><span>settled picks</span></div><div><b>${metric(record.roi)}</b><span>flat-stake ROI</span></div></div>
       <div class="tiny muted" style="margin-top:12px">${record.wins || 0} won · ${record.losses || 0} lost · ${record.pending || 0} pending · ${record.void || 0} void. ${Number(record.profit_units || 0).toFixed(2)} units profit. Tracking ${record.since ? 'since ' + esc(record.since) : 'starts with the next publication'}; no historical backfill. First published prices, 1-unit singles; not combined-card returns.</div></section>`);
     if (record.markets && Object.keys(record.markets).length) parts.push(`<div class="card compact"><div class="b">Advisor record by market</div><table class="tbl"><tr><th>Market</th><th>W / L</th><th>Hit rate</th><th>ROI</th></tr>${Object.entries(record.markets).map(([sel,r]) => `<tr><td>${esc(selLabel(sel))}</td><td>${r.wins} / ${r.losses}</td><td>${metric(r.hit_rate)}</td><td>${metric(r.roi)}</td></tr>`).join('')}</table><div class="tiny muted">Pending and void picks are excluded from hit rate and ROI. Small samples are not proof of an edge.</div></div>`);
@@ -1633,7 +1633,7 @@ view().innerHTML = parts.join('');
     const when = meta.generated || '';
     const slides = [
       {
-        kicker: 'PlayReport · 16:9 Briefing',
+        kicker: 'Mr 2 Odds · 16:9 Briefing',
         title: 'Today’s shortlist',
         sub: `${picks.length} selection${picks.length === 1 ? '' : 's'} · ${esc(when)} SAST`,
         line: 'Results recap & today’s selections · SAST',
@@ -1712,10 +1712,10 @@ view().innerHTML = parts.join('');
       }
     });
     slides.push({
-      kicker: 'PlayReport',
+      kicker: 'Mr 2 Odds',
       title: 'That’s the list',
       sub: 'Like, share or subscribe if this helped — no pressure.',
-      line: 'Statistical information, not betting advice. 18+. © PlayReport. All rights reserved.',
+      line: 'Statistical information, not betting advice. 18+. © Mr 2 Odds. All rights reserved.',
     });
     const combined = picks.reduce((v,p) => v*Number(p.odds),1);
     slides.push({stage:'evidence', kicker:'Bet Advisor · the full card', title:`Combined odds ${combined.toFixed(2)}`,
@@ -1769,7 +1769,7 @@ view().innerHTML = parts.join('');
     const bullets = (s.bullets || []).length ? `<ul class="bul">${s.bullets.map((b) => `<li>${esc(b)}</li>`).join('')}</ul>` : '';
     const h2h = (s.h2h || []).length ? `<div class="tiny muted">Head to head</div><ul class="bul">${s.h2h.map((r) => `<li>${esc(r.date)} · ${esc(r.home)} v ${esc(r.away)} · ${r.hg}–${r.ag} <b>${r.res}</b></li>`).join('')}</ul>` : '';
     const recent = (s.recent || []).length ? s.recent.map((t) => `<div class="tiny muted">${esc(t.team)}</div><ul class="bul">${t.rows.map((r) => `<li>${esc(r.opp)} · ${r.gf}–${r.ga} <b>${r.res}</b></li>`).join('')}</ul>`).join('') : '';
-    return `<img class="pr-disc" src="logo.png" alt="PlayReport"><div class="kicker">${esc(s.kicker)}</div><h2>${esc(s.title)}</h2><div class="sub">${esc(s.sub || '')}</div><div class="line">${esc(s.line || '')}</div>${bars}${bullets}${h2h}${recent}${s.note ? `<div class="note">${esc(s.note)}</div>` : ''}`;
+    return `<img class="pr-disc" src="logo.png" alt="Mr 2 Odds"><div class="kicker">${esc(s.kicker)}</div><h2>${esc(s.title)}</h2><div class="sub">${esc(s.sub || '')}</div><div class="line">${esc(s.line || '')}</div>${bars}${bullets}${h2h}${recent}${s.note ? `<div class="note">${esc(s.note)}</div>` : ''}`;
   }
   function briefingRecord(slides, done) {
     // Canvas webm — best-effort. Some WebViews cannot record; caller falls back to HTML.
@@ -1830,7 +1830,7 @@ view().innerHTML = parts.join('');
         });
         if (s.note) {g.font='17px sans-serif';g.fillStyle='#bbd2df';wrapText(s.note,65,610,W-130,22,1);}
         g.fillStyle='#2ce1cc';g.fillRect(65,645,(i+1)/slides.length*(W-130),4);
-        g.font='16px sans-serif';g.fillStyle='#bbd2df';g.fillText('PlayReport · Statistical information, not betting advice · 18+',65,680);
+        g.font='16px sans-serif';g.fillStyle='#bbd2df';g.fillText('Mr 2 Odds · Statistical information, not betting advice · 18+',65,680);
         animation = requestAnimationFrame(paint);
       };
       paint();
@@ -1914,8 +1914,8 @@ view().innerHTML = parts.join('');
     const dl = () => {
       toast('Building your video…');
       briefingRecord(slides, (blob) => {
-        if (blob && blob.size > 1000) { saveBlob(`PlayReport-briefing-${ymd(tzNow())}.webm`, blob, 'video/webm'); return; }
-        PR.saveTextFile(`PlayReport-briefing-${ymd(tzNow())}.html`, briefingHtml(slides), 'text/html');
+        if (blob && blob.size > 1000) { saveBlob(`Mr 2 Odds-briefing-${ymd(tzNow())}.webm`, blob, 'video/webm'); return; }
+        PR.saveTextFile(`Mr 2 Odds-briefing-${ymd(tzNow())}.html`, briefingHtml(slides), 'text/html');
       });
     };
     $('#brief-dl').onclick = dl;

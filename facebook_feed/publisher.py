@@ -85,11 +85,11 @@ class PageFeed:
             image=Path(post['image'])
             if image.stat().st_size>8*1024*1024:
                 raise PublishError('Graphic exceeds the local size cap')
-            boundary='PlayReport'+uuid.uuid4().hex
+            boundary='Mr 2 Odds'+uuid.uuid4().hex
             fields=[]
             for name,value in (('caption',post['caption']),('published','true')):
                 fields.append(f'--{boundary}\r\nContent-Disposition: form-data; name="{name}"\r\n\r\n{value}\r\n'.encode())
-            fields.append(f'--{boundary}\r\nContent-Disposition: form-data; name="source"; filename="PlayReport.jpg"\r\nContent-Type: image/jpeg\r\n\r\n'.encode())
+            fields.append(f'--{boundary}\r\nContent-Disposition: form-data; name="source"; filename="Mr 2 Odds.jpg"\r\nContent-Type: image/jpeg\r\n\r\n'.encode())
             body=b''.join(fields)+image.read_bytes()+f'\r\n--{boundary}--\r\n'.encode()
             result=self.call('POST',self.page+'/photos',body=body,content_type=f'multipart/form-data; boundary={boundary}')
             identity=str(result.get('post_id',''))

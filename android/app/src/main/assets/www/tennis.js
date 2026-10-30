@@ -1,4 +1,4 @@
-/* PlayReport — TENNIS section (separate from football).
+/* Mr 2 Odds — TENNIS section (separate from football).
    Reads only the tennis scanner's published files (data/app/tennis/…, tennis-data branch). Nothing here touches the
    football data, views, pages or trackers: the sport switch wraps the five tab views and renders the tennis version
    when settings.sport === 'tennis'; otherwise the original football view runs untouched (plus the switch bar).

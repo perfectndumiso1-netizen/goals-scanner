@@ -292,7 +292,7 @@ def test_the_hook_uploads_then_tells_telegram(monkeypatch, tmp_path):
     said = []
     res = dh.handoff(tmp_path / "briefing-16x9.mp4", notify=said.append)
     assert res["id"] == "f1"
-    assert said == ["📤 YouTube handoff: briefing-16x9 → PlayReport/YouTube"]
+    assert said == ["📤 YouTube handoff: briefing-16x9 → Mr 2 Odds/YouTube"]
 
 
 def test_a_drive_failure_is_reported_and_swallowed(monkeypatch, tmp_path):

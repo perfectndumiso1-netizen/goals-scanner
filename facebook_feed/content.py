@@ -8,7 +8,7 @@ import re
 from zoneinfo import ZoneInfo
 
 SAST = ZoneInfo('Africa/Johannesburg')
-SOURCE = 'PlayReport fixture archive (Livescore / football-data.co.uk)'
+SOURCE = 'Mr 2 Odds fixture archive (Livescore / football-data.co.uk)'
 
 
 def local(value):
@@ -160,7 +160,7 @@ def match_card(items, now):
         if not item['hv'] or not item['av'] or not story(item):
             continue
         f = item['fixture']; ko = local(f['kickoff'])
-        lines = ['PLAYREPORT ZA — INTERESTING STATS MATCH CARD', f"{f['home']} vs {f['away']}",
+        lines = ['MR 2 ODDS ZA — INTERESTING STATS MATCH CARD', f"{f['home']} vs {f['away']}",
                  f"{f['competition']} · {ko:%a %d %b %Y, %H:%M} SAST", '',
                  sample_line(f['home'],item['home']), sample_line(f['away'],item['away']), '',
                  sample_line(f"{f['home']} at home",item['hv']), sample_line(f"{f['away']} away",item['av'])]
@@ -203,7 +203,7 @@ def community(items, book, now, history):
             if not wins+losses:
                 continue
             pending=sum(r.get('status') not in ('hit','miss','void') for r in rows); void=sum(r.get('status')=='void' for r in rows)
-            caption=(f"PLAYREPORT ZA — THE HONEST REVIEW\n{yesterday}: {wins} won, {losses} lost; {pending} pending and {void} void. "
+            caption=(f"MR 2 ODDS ZA — THE HONEST REVIEW\n{yesterday}: {wins} won, {losses} lost; {pending} pending and {void} void. "
                 f"{100*wins/(wins+losses):.1f}% across {wins+losses} settled selections, not matches.\n"
                 "First-published Advisor selections; no backfill. We report losses too. Pending/void excluded from hit rate.\n"
                 "Which part of a prediction review helps you most: the reasoning or the result?\n18+ · Past results do not guarantee future outcomes.")
@@ -220,7 +220,7 @@ def community(items, book, now, history):
                 'fact':'Does that scoring record change how you see this match?',
                 'debate':'Would you favour a patient start or an aggressive opening here?',
                 'development':'Which of these recent patterns is more likely to change next?'}
-            caption='\n'.join([f"PLAYREPORT ZA — {mode.upper()}",f"{f['home']} vs {f['away']} · {f['competition']}",
+            caption='\n'.join([f"MR 2 ODDS ZA — {mode.upper()}",f"{f['home']} vs {f['away']} · {f['competition']}",
                 f"{ko:%a %d %b, %H:%M} SAST",'',sample_line(f['home'],item['home']),sample_line(f['away'],item['away']),
                 '',*story(item),'',questions[mode], '',f'Source: {SOURCE}. Observed results, not model estimates or guaranteed outcomes.'])
             return candidate('community',f'community:{day}',topic,caption,mode=mode,fixture_ids=[f['id']])
@@ -272,7 +272,7 @@ def weekly(items, root, now):
     if len(chosen)<3:
         return None
     week=now.strftime('%G-W%V')
-    lines=['PLAYREPORT ZA — TEAMS TO WATCH THIS WEEK',f"Verified archive fixtures · next 7 days: {now:%d %b}–{now+timedelta(days=7):%d %b %Y}", '']
+    lines=['MR 2 ODDS ZA — TEAMS TO WATCH THIS WEEK',f"Verified archive fixtures · next 7 days: {now:%d %b}–{now+timedelta(days=7):%d %b %Y}", '']
     sections=[]
     for team in chosen:
         s=team['stats']

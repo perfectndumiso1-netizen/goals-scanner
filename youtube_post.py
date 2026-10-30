@@ -1,4 +1,4 @@
-"""YouTube auto-poster for PlayReport videos — probe, upload, check, publish, delete.
+"""YouTube auto-poster for Mr 2 Odds videos — probe, upload, check, publish, delete.
 
 The videos are already built and sent to Telegram each day; this module is the second delivery lane. It talks to
 the YouTube Data API directly with `requests` (no google-api-python-client, so the hashed requirements stay as they
@@ -223,7 +223,7 @@ def _pick_line(x: dict) -> str:
 
 
 def description_for_shortlist(day: str, picks: list[dict], *, recap: str = "") -> str:
-    lines = [f"Today's shortlist for {day}: the matches PlayReport rates, and why each one made the list.",
+    lines = [f"Today's shortlist for {day}: the matches Mr 2 Odds rates, and why each one made the list.",
              "Over 1.5 total goals, team goals, corners and bookings only. Every selection is a single — "
              "no accumulators."]
     if recap:
@@ -303,7 +303,7 @@ def read_meta(video: Path) -> dict:
 
 def _metadata(m: dict, privacy: str, publish_at: str | None) -> dict:
     snippet = {
-        "title": clean(m.get("title") or "", TITLE_MAX) or "PlayReport",
+        "title": clean(m.get("title") or "", TITLE_MAX) or "Mr 2 Odds",
         "description": clean(m.get("description") or "", DESC_MAX),
         "tags": [clean(t, 60) for t in (m.get("tags") or TAGS)][:30],
         "categoryId": str(m.get("categoryId") or CATEGORY_SPORTS),
@@ -447,7 +447,7 @@ def probe(*, work: Path | None = None, keep: bool = False) -> dict:
     clip = probe_clip(work / "probe.mp4")
     try:
         res = upload_video(clip, {
-            "title": "PlayReport API probe", "description": "Automatic upload check. Deleting this clip.",
+            "title": "Mr 2 Odds API probe", "description": "Automatic upload check. Deleting this clip.",
             "tags": ["probe"], "categoryId": "22", "madeForKids": False,
         }, token=token, privacy="unlisted")
         # Re-read from the API: the upload response is the best source, but a second look catches a delayed lock.
@@ -509,7 +509,7 @@ def publish_breakdown(video: Path, *, day: str, matches: list[dict], credits: st
 # ------------------------------------------------------------------ cli
 
 def _main(argv: list[str] | None = None) -> int:
-    ap = argparse.ArgumentParser(description="PlayReport YouTube auto-poster")
+    ap = argparse.ArgumentParser(description="Mr 2 Odds YouTube auto-poster")
     sub = ap.add_subparsers(dest="cmd", required=True)
 
     sub.add_parser("info", help="channel identity, granted scopes and audience")

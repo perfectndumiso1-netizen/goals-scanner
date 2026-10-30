@@ -266,7 +266,7 @@ class XiArchive:
         if h.get("status") != "ok" and a.get("status") != "ok":
             return None
         return {"home": h, "away": a,
-                "note": "Predicted by PlayReport from each club's archived confirmed line-ups — a projection, never official."}
+                "note": "Predicted by Mr 2 Odds from each club's archived confirmed line-ups — a projection, never official."}
 
 
 def facts_for(fx, now: datetime, client: Client | None, lead_min: float = 120.0, eid: str | None = None,

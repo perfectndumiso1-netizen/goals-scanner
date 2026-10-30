@@ -1,4 +1,4 @@
-/* PlayReport — core: settings, data access, native bridge, helpers, navigation.
+/* Mr 2 Odds — core: settings, data access, native bridge, helpers, navigation.
    The published analysis (latest.json, day files, team files) is read through the native bridge;
    nothing about the publishing backend is ever shown. */
 window.PR = (function () {
@@ -176,7 +176,7 @@ window.PR = (function () {
   applyTheme();
   function md(text) {
     let html;
-    const clean = String(text || '').replace(/Goals Scanner/g, 'PlayReport').replace(/https?:\/\/(?:www\.)?(?:github\.com|raw\.githubusercontent\.com)\/\S*/g, '');
+    const clean = String(text || '').replace(/PlayReport(?: ZA)?|Goals Scanner/g, 'Mr 2 Odds').replace(/https?:\/\/(?:www\.)?(?:github\.com|raw\.githubusercontent\.com)\/\S*/g, '');
     try { html = marked.parse(clean, { gfm: true, breaks: false }); } catch (e) { return `<pre>${esc(clean)}</pre>`; }
     const box = document.createElement('div'); box.innerHTML = html;
     box.querySelectorAll('a[href]').forEach((a) => { if (/github\.com|githubusercontent\.com/i.test(a.href)) { const s = document.createElement('span'); s.textContent = a.textContent; a.replaceWith(s); } });
@@ -436,7 +436,7 @@ window.PR = (function () {
     } catch (e) {
       if (!state.data) { let c = null; try { c = localStorage.getItem('pr_latest'); } catch (e0) { c = null; } if (c) { try { state.data = indexData(JSON.parse(c)); statusLine(); render(); } catch (e2) { /* ignore */ } } }
       // a storage problem is not a network problem — say which one it is
-      const why = /quota|setItem|storage/i.test(String(e && e.message)) ? 'Could not save the analysis on this phone (' + e.message + ')' : 'Could not reach the PlayReport server (' + e.message + ')';
+      const why = /quota|setItem|storage/i.test(String(e && e.message)) ? 'Could not save the analysis on this phone (' + e.message + ')' : 'Could not reach the Mr 2 Odds server (' + e.message + ')';
       toast(why + (state.data ? ' — showing saved data' : ''));
       if (!state.data) $('#view').innerHTML = `<div class="empty">No data yet.<br>Check your connection and pull to refresh.</div>`;
     } finally { state.loading = false; $('#btn-refresh').classList.remove('spin'); if (native && native.refreshDone) native.refreshDone(); }
@@ -541,7 +541,7 @@ window.PR = (function () {
   // ------------------------------------------------------------------ navigation (primary shell: Home / Scan / Live / Matches / More —
   // Low odds, Shortlist, Sequences, Days and Leagues remain valid secondary destinations under More)
   const TABS = ['home', 'bets', 'live', 'matches', 'lowodds', 'shortlist', 'x12', 'sequences', 'days', 'leagues', 'more'];
-  const TAB_TITLE = { home: 'PlayReport', bets: 'Scan', live: 'Live', matches: 'Matches', lowodds: 'Low odds 1.19 – 1.45', more: 'More', days: 'Days', leagues: 'Leagues', shortlist: 'Shortlist', x12: '1X2', sequences: 'Sequences' };
+  const TAB_TITLE = { home: 'Mr 2 Odds', bets: 'Scan', live: 'Live', matches: 'Matches', lowodds: 'Low odds 1.19 – 1.45', more: 'More', days: 'Days', leagues: 'Leagues', shortlist: 'Shortlist', x12: '1X2', sequences: 'Sequences' };
   const MORE_TABS = ['lowodds', 'shortlist', 'x12', 'sequences', 'days', 'leagues'];
   const NAV_PREF_KEYS = ['sort', 'matchFilter', 'matchesView', 'homeTab', 'homeSort', 'homeMk', 'homeShow', 'slMk', 'betsView', 'liveView', 'lgSort', 'lgTableSort', 'betGroup', 'board'];
   function navKey() {
@@ -578,7 +578,7 @@ window.PR = (function () {
   loadNav();
   function paintChrome(tab) {
     const navTab = MORE_TABS.includes(tab) ? 'more' : tab;
-    const ttl = $('#top .title'); if (ttl) ttl.textContent = TAB_TITLE[tab] || 'PlayReport';
+    const ttl = $('#top .title'); if (ttl) ttl.textContent = TAB_TITLE[tab] || 'Mr 2 Odds';
     $$('#tabs button').forEach((b) => {
       const active = b.dataset.tab === navTab;
       b.classList.toggle('active', active);
@@ -590,7 +590,7 @@ window.PR = (function () {
     closeMenu();
     const top = state.stack[state.stack.length - 1];
     if (state.data && (state.data.version || 1) < 3 && !(top && top.type === 'settings')) {
-      $('#view').innerHTML = `<div class="card empty">This version of PlayReport needs the new analysis format.<br>It arrives with the next scheduled analysis — pull down to refresh later.</div>`;
+      $('#view').innerHTML = `<div class="card empty">This version of Mr 2 Odds needs the new analysis format.<br>It arrives with the next scheduled analysis — pull down to refresh later.</div>`;
       return;
     }
     const v = $('#view'); v.classList.remove('enter'); void v.offsetWidth; v.classList.add('enter');
@@ -694,7 +694,7 @@ window.PR = (function () {
 
   // ------------------------------------------------------------------ shared UI fragments
   const EDITOR = { name: 'Ndumiso Msani', role: 'Founder & Football Analyst', place: 'Mthwalume, KwaZulu-Natal',
-    bio: 'Founder of PlayReport and a football analyst with a data-first approach. Ndumiso built the platform to turn thousands of match results, prices and team statistics into a small number of disciplined, graded selections every day — specialising in the goals and corners markets across world football. Every pick is published before kick-off and graded against the final result.' };
+    bio: 'Founder of Mr 2 Odds and a football analyst with a data-first approach. Ndumiso built the platform to turn thousands of match results, prices and team statistics into a small number of disciplined, graded selections every day — specialising in the goals and corners markets across world football. Every pick is published before kick-off and graded against the final result.' };
   function editorCard(compact) {
     // compact: round avatar next to the name (home page); full: portrait photo with the profile (About / Guide)
     if (!compact) return `<div class="card"><div class="editor full"><div class="portrait"><img src="editor.jpg" alt="${esc(EDITOR.name)}" onerror="this.parentNode.style.display='none'"></div><div class="grow"><div class="b" style="font-size:17px">${esc(EDITOR.name)}</div><div class="small muted">${esc(EDITOR.role)}</div><div class="small muted">${esc(EDITOR.place)}</div><div class="small" style="margin-top:8px">${esc(EDITOR.bio)}</div></div></div>

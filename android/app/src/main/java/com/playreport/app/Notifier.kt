@@ -16,13 +16,13 @@ import androidx.core.content.ContextCompat
 
 /** Notification channels: new analysis, goals in tracked matches, app updates. */
 object Notifier {
-    // Every channel has PlayReport's own sound (res/raw/pr_*.wav). Android fixes a channel's sound when the
+    // Every channel has Mr 2 Odds's own sound (res/raw/pr_*.wav). Android fixes a channel's sound when the
     // channel is first created, so the ids carry a version suffix and the old channels are deleted.
     // v4 (2026-10-13): the whole family was re-synthesised — softer, warmer chimes that match what each
     // notification means (goal = rising arpeggio, pick = warm marimba, full-time = calm resolve, ...).
     const val CH_REPORTS = "reports_v4"
     const val CH_GOALS = "goals_v4"
-    // v2: the update channel becomes HIGH importance with PlayReport's sound — a new release must
+    // v2: the update channel becomes HIGH importance with Mr 2 Odds's sound — a new release must
     // announce itself like goals do (the old silent, low-priority channel is deleted).
     const val CH_UPDATES = "updates_v2"
     const val CH_BETS = "bets_v4"
@@ -54,7 +54,7 @@ object Notifier {
         val nm = ctx.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         for (old in OLD_CHANNELS) try { nm.deleteNotificationChannel(old) } catch (e: Exception) { /* not present */ }
         nm.createNotificationChannel(channel(ctx, CH_REPORTS, "New analysis", NotificationManager.IMPORTANCE_DEFAULT,
-            "A new PlayReport analysis has been published", "pr_report", vibrate = false))
+            "A new Mr 2 Odds analysis has been published", "pr_report", vibrate = false))
         nm.createNotificationChannel(channel(ctx, CH_GOALS, "Goals in tracked matches", NotificationManager.IMPORTANCE_HIGH,
             "Score changes in tracked and shortlisted matches", "pr_goal"))
         nm.createNotificationChannel(channel(ctx, CH_BETS, "New selections & tickets", NotificationManager.IMPORTANCE_HIGH,
@@ -118,7 +118,7 @@ object Notifier {
             .filter { it.isNotBlank() && !it.startsWith("#") && !it.startsWith("Download") }.take(3)
         val text = if (whatsNew.isEmpty()) "Tap to download it — tickets and favourites are kept."
         else "New: " + whatsNew.joinToString(" · ") + " — tap to download it."
-        notify(ctx, CH_UPDATES, 1002, "PlayReport $version is available", text, "install")
+        notify(ctx, CH_UPDATES, 1002, "Mr 2 Odds $version is available", text, "install")
     }
 
     /** Remember a (match, score) pair so the same goal is never announced twice (app open or background). */

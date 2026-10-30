@@ -23,7 +23,7 @@ from .facts import Fact, make_fact
 from .fatigue import norm
 
 log = logging.getLogger("research.motivation")
-SOURCE = "PlayReport competition record (feed + own archive)"
+SOURCE = "Mr 2 Odds competition record (feed + own archive)"
 
 CUP_HINTS = re.compile(r"\bcup\b|\btrophy\b|copa|coupe|pokal|beker|taca|taça|copa|super ?cup|shield", re.I)
 QUAL_HINTS = re.compile(r"qualif|play-?off|playoff|promotion|relegation|barrage", re.I)

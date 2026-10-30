@@ -1,4 +1,4 @@
-"""PlayReport shortlist video — 16:9 widescreen (1920x1080) or 9:16 vertical, one music bed, no narration.
+"""Mr 2 Odds shortlist video — 16:9 widescreen (1920x1080) or 9:16 vertical, one music bed, no narration.
 
 2026-10-21 (user rule): there is no voice any more — no neural TTS, no Piper, no eSpeak, nothing to speak. Every
 video carries the user's track `assets/reel/under_the_stadium_lights.mp3` for its whole length (looped, faded and
@@ -64,7 +64,7 @@ MAX_TOTAL = 600.0
 RECAP_ROWS = 9       # results per recap slide (readable in both 16:9 and 9:16)
 MAX_RECAP = 60       # every selection from yesterday's three videos, with a hard ceiling
 
-INTRO_SCRIPT = "PlayReport. These are the matches worth your attention today."
+INTRO_SCRIPT = "Mr 2 Odds. These are the matches worth your attention today."
 DISCLAIMER_SCRIPT = (
     "Quick note before we start. This is statistical information, not betting advice. "
     "It's eighteen plus only, so please bet responsibly. "
@@ -73,7 +73,7 @@ DISCLAIMER_SCRIPT = (
 CLOSER_SCRIPT = (
     "That's the list. Take them as singles, take fewer, or skip the ones you don't like. "
     "If this helped, give it a like, share it with a mate, and subscribe for tomorrow's list. "
-    "PlayReport. All rights reserved."
+    "Mr 2 Odds. All rights reserved."
 )
 def spoken_text(text: str) -> str:
     """Normalise football abbreviations and telegraphic punctuation for plain, broadcast-style wording.
@@ -211,7 +211,7 @@ def _circle_badge(path: Path, d: int):
 def _wordmark(d, y=44, *, width: int | None = None):
     cw = width if width is not None else _resolve_size()[0]
     fnt = _font(38, True)
-    lab = "PLAYREPORT"
+    lab = "MR 2 ODDS"
     d.text(((cw - _tw(d, lab, fnt)) // 2, y), lab, fill=WHITE, font=fnt)
     d.rectangle(((cw - 120) // 2, y + 48, (cw + 120) // 2, y + 52), fill=GREEN)
 
@@ -252,7 +252,7 @@ def render_intro(logo: Path, bg: Path, dest: Path, *, aspect: str | None = None,
         tiny = _font(26, False)
         for idx, ln in enumerate(_wrap(d, "Football intelligence  ·  Results recap & today's selections  ·  SAST", tiny, cw - 140, 2)):
             d.text(((cw - _tw(d, ln, tiny)) // 2, 1105 + idx * 38), ln, fill=MUTED, font=tiny)
-        foot = "PlayReport  ·  18+"
+        foot = "Mr 2 Odds  ·  18+"
         d.text(((cw - _tw(d, foot, _font(22, True))) // 2, ch - 110), foot, fill=MUTED, font=_font(22, True))
     else:
         # 16:9 widescreen layout (1920x1080)
@@ -269,7 +269,7 @@ def render_intro(logo: Path, bg: Path, dest: Path, *, aspect: str | None = None,
         tiny = _font(26, False)
         t = "Football intelligence  ·  Results recap & today's selections  ·  SAST"
         d.text(((cw - _tw(d, t, tiny)) // 2, 668), t, fill=MUTED, font=tiny)
-        foot = "PlayReport  ·  18+"
+        foot = "Mr 2 Odds  ·  18+"
         d.text(((cw - _tw(d, foot, _font(20, True))) // 2, ch - 64), foot, fill=MUTED, font=_font(20, True))
     im.convert("RGB").save(dest, quality=92)
 
@@ -300,7 +300,7 @@ def render_disclaimer(logo: Path, bg: Path, dest: Path, *, aspect: str | None = 
                 d.text(((cw - _tw(d, wrapped, fnt)) // 2, y), wrapped, fill=WHITE, font=fnt)
                 y += 50
             y += 28
-        foot = "PlayReport  ·  18+"
+        foot = "Mr 2 Odds  ·  18+"
         d.text(((cw - _tw(d, foot, _font(22, True))) // 2, ch - 110), foot, fill=MUTED, font=_font(22, True))
     else:
         # 16:9 widescreen layout (1920x1080)
@@ -318,7 +318,7 @@ def render_disclaimer(logo: Path, bg: Path, dest: Path, *, aspect: str | None = 
                 d.text(((cw - _tw(d, wrapped, fnt)) // 2, y), wrapped, fill=WHITE, font=fnt)
                 y += 46
             y += 18
-        foot = "PlayReport  ·  18+"
+        foot = "Mr 2 Odds  ·  18+"
         d.text(((cw - _tw(d, foot, _font(20, True))) // 2, ch - 64), foot, fill=MUTED, font=_font(20, True))
     im.convert("RGB").save(dest, quality=92)
 
@@ -389,7 +389,7 @@ def render_results(results: list[dict], logo: Path, bg: Path, dest: Path, *, day
                     font=bf,
                 )
                 y += row_h
-        foot = "PlayReport  ·  verified pre-match shortlist ledger  ·  18+"
+        foot = "Mr 2 Odds  ·  verified pre-match shortlist ledger  ·  18+"
         d.text(((cw - _tw(d, foot, _font(20, False))) // 2, ch - 100), foot, fill=MUTED, font=_font(20, False))
     else:
         # 16:9 widescreen layout (1920x1080)
@@ -432,7 +432,7 @@ def render_results(results: list[dict], logo: Path, bg: Path, dest: Path, *, day
                     font=bf,
                 )
                 y += row_h
-        foot = "PlayReport  ·  verified pre-match shortlist ledger  ·  18+"
+        foot = "Mr 2 Odds  ·  verified pre-match shortlist ledger  ·  18+"
         d.text(((cw - _tw(d, foot, _font(20, False))) // 2, ch - 56), foot, fill=MUTED, font=_font(20, False))
     im.convert("RGB").save(dest, quality=92)
 
@@ -523,7 +523,7 @@ def render_pick(pick: dict, i: int, n: int, bg: Path, home_b: Path, away_b: Path
 
         d.rectangle((76, ch - 190, cw - 76, ch - 176), fill=(20, 48, 74))
         d.rectangle((76, ch - 190, 76 + int(i / max(n, 1) * (cw - 152)), ch - 176), fill=GREEN)
-        foot = "PlayReport  ·  not betting advice  ·  18+"
+        foot = "Mr 2 Odds  ·  not betting advice  ·  18+"
         d.text(((cw - _tw(d, foot, _font(22, False))) // 2, ch - 110), foot, fill=MUTED, font=_font(22, False))
     else:
         # 16:9 widescreen layout (1920x1080)
@@ -584,7 +584,7 @@ def render_pick(pick: dict, i: int, n: int, bg: Path, home_b: Path, away_b: Path
 
         d.rectangle((110, ch - 115, cw - 110, ch - 103), fill=(20, 48, 74))
         d.rectangle((110, ch - 115, 110 + int(i / max(n, 1) * (cw - 220)), ch - 103), fill=GREEN)
-        foot = "PlayReport  ·  not betting advice  ·  18+"
+        foot = "Mr 2 Odds  ·  not betting advice  ·  18+"
         d.text(((cw - _tw(d, foot, _font(20, False))) // 2, ch - 64), foot, fill=MUTED, font=_font(20, False))
     im.convert("RGB").save(dest, quality=92)
 
@@ -638,7 +638,7 @@ def _stage_header(d, cw: int, ch: int, stage: str, i: int, n: int, comp: str, *,
 
 
 def _stage_footer(d, cw: int, ch: int, *, wide: bool) -> None:
-    foot = "PlayReport  ·  not betting advice  ·  18+"
+    foot = "Mr 2 Odds  ·  not betting advice  ·  18+"
     f = _font(20 if wide else 22, False)
     d.text(((cw - _tw(d, foot, f)) // 2, ch - (58 if wide else 92)), foot, fill=MUTED, font=f)
 
@@ -1083,7 +1083,7 @@ def render_closer(logo: Path, bg: Path, dest: Path, *, aspect: str | None = None
             d.text(((cw - _tw(d, ln, _font(30, False))) // 2, 805 + idx * 42), ln, fill=MUTED, font=_font(30, False))
         n = "Statistical information, not betting advice. 18+."
         d.text(((cw - _tw(d, n, _font(26, False))) // 2, 950), n, fill=MUTED, font=_font(26, False))
-        c = "© PlayReport. All rights reserved."
+        c = "© Mr 2 Odds. All rights reserved."
         d.text(((cw - _tw(d, c, _font(26, True))) // 2, 1110), c, fill=WHITE, font=_font(26, True))
         p = "Unauthorised copying or re-upload is prohibited."
         d.text(((cw - _tw(d, p, _font(22, False))) // 2, 1160), p, fill=MUTED, font=_font(22, False))
@@ -1099,7 +1099,7 @@ def render_closer(logo: Path, bg: Path, dest: Path, *, aspect: str | None = None
         d.text(((cw - _tw(d, s, _font(28, False))) // 2, 525), s, fill=MUTED, font=_font(28, False))
         n = "Statistical information, not betting advice. 18+."
         d.text(((cw - _tw(d, n, _font(24, False))) // 2, 625), n, fill=MUTED, font=_font(24, False))
-        c = "© PlayReport. All rights reserved."
+        c = "© Mr 2 Odds. All rights reserved."
         d.text(((cw - _tw(d, c, _font(24, True))) // 2, 725), c, fill=WHITE, font=_font(24, True))
         p = "Unauthorised copying or re-upload is prohibited."
         d.text(((cw - _tw(d, p, _font(20, False))) // 2, 770), p, fill=MUTED, font=_font(20, False))
@@ -1111,7 +1111,7 @@ def fetch_badge(rel: str, dest: Path, fallback: Path) -> Path:
         return dest
     if rel:
         try:
-            req = urllib.request.Request(BADGE_BASE + rel, headers={"User-Agent": "Mozilla/5.0 PlayReport"})
+            req = urllib.request.Request(BADGE_BASE + rel, headers={"User-Agent": "Mozilla/5.0 Mr 2 Odds"})
             with urllib.request.urlopen(req, timeout=15) as r:
                 dest.write_bytes(r.read())
             if dest.stat().st_size > 100:
@@ -1682,7 +1682,7 @@ def load_detail(pick: dict, fx_dir: Path | None) -> dict | None:
 
 
 def _data_dir(*parts: str) -> Path | None:
-    root = Path(os.getenv("PLAYREPORT_DATA_DIR") or "data")
+    root = Path(os.getenv("MR 2 ODDS_DATA_DIR") or "data")
     path = root.joinpath("app", *parts)
     return path if path.exists() else None
 
