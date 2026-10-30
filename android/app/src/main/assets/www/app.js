@@ -105,14 +105,14 @@
         setTimeout(go, 80);                       // let the sport switch finish before stacking the page
       } else go();
     },
-    onResume() { if (state.data && Date.now() - (state.data._loadedAt || 0) > 5 * 60000) PR.loadData(false); if (state.tab === 'live' || state.tab === 'home') PR.live.refresh(false); updateCheck(); const top = state.stack[state.stack.length - 1]; if (top && top.type === 'settings') PR.render(); },
+    onResume() { PR.refreshVisible(true); if (state.data && Date.now() - (state.data._loadedAt || 0) > 5 * 60000) PR.loadData(false); if (state.tab === 'live' || state.tab === 'home') PR.live.refresh(false); updateCheck(); const top = state.stack[state.stack.length - 1]; if (top && top.type === 'settings') PR.render(); },
     onPermission(granted) { toast(granted ? 'Notifications on — new bets, analysis, goals and updates' : 'Notifications are off — you can enable them in Settings'); const top = state.stack[state.stack.length - 1]; if (top && top.type === 'settings') PR.render(); },
     state, settings, PR,
   };
 
   // boot: cached first, then network
   const cached = PR.stored ? PR.stored('pr_latest') : localStorage.getItem('pr_latest');
-  if (cached) { try { state.data = PR.indexData(JSON.parse(cached)); PR.statusLine(); PR.render(); } catch (e) { /* ignore */ } }
+  if (cached) { try { const saved = JSON.parse(cached); if (!PR.validResource(PR.rawUrl('data/app/latest.json'), saved)) throw new Error('Invalid saved copy'); state.data = PR.indexData(saved); PR.statusLine(); PR.render(); } catch (e) { /* ignore */ } }
   PR.loadBadges().then(() => { if (state.data) PR.render(); });
   PR.loadData(false).then(() => { if (state.data) { PR.live.refresh(false); setTimeout(() => PR.prefetchDetails(), 1500); } });
   PR.live.schedule();

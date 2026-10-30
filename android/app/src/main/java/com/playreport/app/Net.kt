@@ -1,9 +1,11 @@
 package com.playreport.app
 
-import java.io.BufferedReader
 import java.io.File
 import java.net.HttpURLConnection
 import java.net.URL
+import java.util.concurrent.CompletableFuture
+import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.TimeUnit
 
 /** Minimal HTTP helpers shared by the WebView bridge, the background checker and the updater. */
 object Net {
@@ -17,20 +19,53 @@ object Net {
     val ALERTS_JSON get() = "https://raw.githubusercontent.com/$REPO/$BRANCH/data/app/alerts.json"
     val RELEASES_LATEST get() = "https://api.github.com/repos/$REPO/releases/latest"
 
-    data class Response(val code: Int, val body: String)
+    data class Response(val code: Int, val body: String, val etag: String = "", val modified: String = "", val retryAfter: Long = 0)
 
-    fun get(url: String, userAgent: String = UA, accept: String = "application/json, text/plain, */*"): Response {
-        if (!Security.nativeAllowed(url)) return Response(0, "blocked host")
+    private val pending = ConcurrentHashMap<String, CompletableFuture<Response>>()
+
+    fun get(url: String, userAgent: String = UA, accept: String = "application/json, text/plain, */*", etag: String? = null, modified: String? = null): Response {
+        val key = listOf(url, userAgent, accept, etag ?: "", modified ?: "").joinToString("\n")
+        val mine = CompletableFuture<Response>()
+        val existing = pending.putIfAbsent(key, mine)
+        if (existing != null) return try { existing.get(50, TimeUnit.SECONDS) } catch (_: Exception) { Response(0, "request timeout") }
         return try {
-            val conn = open(url, userAgent, accept)
-            val code = conn.responseCode
-            val stream = if (code < 400) conn.inputStream else conn.errorStream
-            val body = stream?.bufferedReader(Charsets.UTF_8)?.use(BufferedReader::readText) ?: ""
-            conn.disconnect()
-            Response(code, body)
+            val result = request(url, userAgent, accept, etag, modified)
+            mine.complete(result); result
+        } catch (_: Exception) {
+            val result = Response(0, "network error"); mine.complete(result); result
+        } finally { pending.remove(key, mine) }
+    }
+
+    private fun request(url: String, userAgent: String, accept: String, etag: String?, modified: String?): Response {
+        if (!Security.nativeAllowed(url)) return Response(0, "blocked host")
+        var conn: HttpURLConnection? = null
+        return try {
+            val connection = open(url, userAgent, accept)
+            conn = connection
+            if (!etag.isNullOrBlank()) connection.setRequestProperty("If-None-Match", etag)
+            else if (!modified.isNullOrBlank()) connection.setRequestProperty("If-Modified-Since", modified)
+            val code = connection.responseCode
+            val stream = if (code == 304) null else if (code < 400) connection.inputStream else connection.errorStream
+            val body = stream?.bufferedReader(Charsets.UTF_8)?.use { reader ->
+                val text = StringBuilder(); val buffer = CharArray(8192)
+                while (true) {
+                    val count = reader.read(buffer); if (count < 0) break
+                    if (text.length + count > 8 * 1024 * 1024) throw IllegalStateException("response too large")
+                    text.append(buffer, 0, count)
+                }
+                text.toString()
+            } ?: ""
+            val retry = connection.getHeaderField("Retry-After")?.let { value ->
+                value.toLongOrNull()?.times(1000) ?: try {
+                    java.text.SimpleDateFormat("EEE, dd MMM yyyy HH:mm:ss zzz", java.util.Locale.US).parse(value)?.time?.minus(System.currentTimeMillis())
+                } catch (_: Exception) { null }
+            } ?: 0L
+            val reset = connection.getHeaderField("X-RateLimit-Reset")?.toLongOrNull()?.times(1000)?.minus(System.currentTimeMillis()) ?: 0L
+            val result = Response(code, body, connection.getHeaderField("ETag") ?: "", connection.getHeaderField("Last-Modified") ?: "", maxOf(0L, retry, if (code == 403 || code == 429) reset else 0L))
+            result
         } catch (e: Exception) {
-            Response(0, e.message ?: "network error")
-        }
+            Response(0, "network error")
+        } finally { conn?.disconnect() }
     }
 
     fun download(url: String, target: File): Boolean {

@@ -21,8 +21,10 @@ class CheckWorker(ctx: Context, params: WorkerParameters) : Worker(ctx, params) 
     override fun doWork(): Result {
         val ctx = applicationContext
         val prefs = ctx.getSharedPreferences(Notifier.PREFS, Context.MODE_PRIVATE)
-        val r = Net.get(Net.META_JSON + "?t=" + System.currentTimeMillis())
+        val r = try { PublishedSync.heartbeat(ctx) } catch (_: Exception) { Net.get(Net.META_JSON) }
         val meta = if (r.code == 200) (try { JSONObject(r.body) } catch (e: Exception) { JSONObject() }) else JSONObject()
+
+        try { PublishedSync.refresh(ctx, meta) } catch (_: Exception) { /* retain snapshot; notifications are independent */ }
 
         // 1. full analysis published
         val generated = meta.optString("generated")

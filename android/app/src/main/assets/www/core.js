@@ -43,15 +43,75 @@ window.PR = (function () {
 
   const $ = (sel, root) => (root || document).querySelector(sel);
   const $$ = (sel, root) => Array.from((root || document).querySelectorAll(sel));
-  function saveSettings() { persist('pr_settings', JSON.stringify(settings)); }
+  function saveSettings() { if (resources) resources.policies.live = Math.max(20, Math.min(30, settings.liveEvery)) * 1000; persist('pr_settings', JSON.stringify(settings)); }
 
   // ------------------------------------------------------------------ fetch bridge
   let fid = 0; const pending = {};
-  window.__fetchDone = function (id, code, body) { const cb = pending[id]; delete pending[id]; if (cb) cb({ code, body }); };
-  function nfetch(url, ua) {
-    if (native && native.fetch) return new Promise((resolve) => { const id = ++fid; pending[id] = resolve; native.fetch(id, url, ua || null); });
-    return fetch(url).then(async (r) => ({ code: r.status, body: await r.text() })).catch((e) => ({ code: 0, body: String(e) }));
+  window.__fetchDone = function (id, code, body, metadata) { const cb = pending[id]; delete pending[id]; if (cb) cb(Object.assign({ code, body }, metadata)); };
+  function nfetch(url, ua, validators) {
+    if (native && native.fetch) return new Promise((resolve) => {
+      const id = ++fid, timer = setTimeout(() => { delete pending[id]; resolve({ code: 0, body: 'Request timed out' }); }, 50000);
+      pending[id] = (r) => { clearTimeout(timer); resolve(r); };
+      if (validators && native.fetchConditional) native.fetchConditional(id, url, ua || null, validators.etag || null, validators.modified || null);
+      else native.fetch(id, url, ua || null);
+    });
+    const controller = new AbortController(), timer = setTimeout(() => controller.abort(), 20000);
+    const headers = {};
+    if (validators && validators.etag) headers['If-None-Match'] = validators.etag;
+    else if (validators && validators.modified) headers['If-Modified-Since'] = validators.modified;
+    return fetch(url, { headers, signal: controller.signal }).then(async (r) => ({ code: r.status, body: r.status === 304 ? '' : await r.text(),
+      etag: r.headers.get('ETag') || '', modified: r.headers.get('Last-Modified') || '',
+      retryAfter: /^\d+$/.test(r.headers.get('Retry-After') || '') ? Number(r.headers.get('Retry-After')) * 1000 : Math.max(0, Date.parse(r.headers.get('Retry-After')) - Date.now()) || 0 }))
+      .catch(() => ({ code: 0, body: 'Connection unavailable' })).finally(() => clearTimeout(timer));
   }
+  let cid = 0; const cachePending = {};
+  window.__cacheDone = function (id, value) { const cb = cachePending[id]; delete cachePending[id]; if (cb) cb(value); };
+  function cacheCall(method, args) {
+    return new Promise((resolve, reject) => {
+      const id = ++cid, timer = setTimeout(() => { delete cachePending[id]; reject(new Error('Storage unavailable')); }, 5000);
+      cachePending[id] = (value) => { clearTimeout(timer); if (value === false) reject(new Error('Storage unavailable')); else resolve(value); };
+      try { native[method].apply(native, [id].concat(args)); } catch (e) { clearTimeout(timer); delete cachePending[id]; reject(e); }
+    });
+  }
+  function validRows(rows, date) {
+    if (!Array.isArray(rows)) return false;
+    const ids = new Set();
+    return rows.every((f) => {
+      if (!f || typeof f.id !== 'string' || !f.id || ids.has(f.id)) return false;
+      ids.add(f.id);
+      if (f.sels && (!Array.isArray(f.sels) || new Set(f.sels.map((s) => Array.isArray(s) ? s[0] : s.sel)).size !== f.sels.length)) return false;
+      return (!date || f.id.slice(0, 10) === date) && (!f.kickoff || f.id.slice(0, 10) === f.kickoff.slice(0, 10));
+    });
+  }
+  function validResource(url, j) {
+    if (!j || typeof j !== 'object' || Array.isArray(j) || !Object.keys(j).length) return false;
+    const path = new URL(url).pathname, part = path.split('/data/app/')[1] || '';
+    if (path.includes('/reports/')) return typeof j.md === 'string' && j.md.trim().length > 0 && !/^\s*</.test(j.md);
+    if (part === 'latest.json') return !!(j.meta && typeof j.meta.generated === 'string' && /^\d{4}-\d\d-\d\d/.test(j.meta.generated) && j.version >= 3 && j.safe && j.picks && j.history && Array.isArray(j.tracked) && (!j.safe.bets || Array.isArray(j.safe.bets) && new Set(j.safe.bets.map((b) => b.id)).size === j.safe.bets.length) && validRows(j.fixtures) && j.fixtures.length);
+    const detail = part.match(/^fx\/([a-f0-9]{12})\.json$/);
+    if (detail) { const row = fx(j.id); return (!j.sels || Array.isArray(j.sels)) && (!j.h2h || Array.isArray(j.h2h)) && (!row || j.home === row.home && j.away === row.away) && typeof j.id === 'string' && sha1hex(j.id).slice(0, 12) === detail[1] && typeof j.home === 'string' && typeof j.away === 'string' && (!j.kickoff || j.id.slice(0, 10) === j.kickoff.slice(0, 10)); }
+    const day = part.match(/^days\/(\d{4}-\d\d-\d\d)\.json$/);
+    if (day) return j.date === day[1] && validRows(j.fixtures, day[1]);
+    if (part === 'leagues/index.json') return Array.isArray(j.leagues) && new Set(j.leagues.map((l) => l.slug)).size === j.leagues.length;
+    if (part === 'leagues/fixtures.json') return Array.isArray(j.fixtures);
+    if (part.startsWith('leagues/')) return typeof j.key === 'string' && part === 'leagues/' + j.key.replace(/\//g, '__').replace(/[^A-Za-z0-9_.-]+/g, '_') + '.json' && Array.isArray(j.table) && Array.isArray(j.results) && Array.isArray(j.fixtures);
+    if (part === 'badges.json') return Object.values(j).every((v) => typeof v === 'string' && !v.includes('..') && !/^(?:https?:|\/)/.test(v));
+    if (part === 'teams/teams-index.json') return Array.isArray(j.teams);
+    if (part.startsWith('teams/')) return typeof j.div === 'string' && part === 'teams/' + slug(j.div) + '.json' && !!j.teams && typeof j.teams === 'object' && !Array.isArray(j.teams);
+    if (url.includes('/date/soccer/')) return Array.isArray(j.Stages);
+    return true;
+  }
+  const resources = window.PRResourceCache ? window.PRResourceCache.create({
+    fetch: (url, validators) => nfetch(url, null, validators).then((r) => url.includes('/reports/') && r.code === 200 ? Object.assign({}, r, { body: JSON.stringify({ md: r.body }) }) : r), validate: validResource,
+    online: () => native && native.online ? native.online() : navigator.onLine !== false,
+    policies: { live: Math.max(20, Math.min(30, settings.liveEvery)) * 1000 },
+    store: native && native.cacheRead ? {
+      get: (key) => cacheCall('cacheRead', [key]), put: (key, value) => cacheCall('cacheWrite', [key, JSON.stringify(value)]),
+      touch: (key, time, headers) => cacheCall('cacheTouch', [key, time, headers ? headers.etag : null, headers ? headers.modified : null]),
+      failure: (key, value) => cacheCall('cacheFailure', [key, value ? JSON.stringify(value) : null]), clear: () => cacheCall('cacheClear', [])
+    } : window.PRResourceCache.browserStore()
+  }) : null;
+  function managed(url) { return (url.startsWith(RAW_BASE + 'data/app/') && /\.json(?:\?|$)/.test(url)) || (url.startsWith(RAW_BASE + 'reports/') && /\.md(?:\?|$)/.test(url)) || url.startsWith('https://prod-public-api.livescore.com/v1/api/app/'); }
   // The native shell only answers for the hosts this app actually uses (Security.kt holds the list), so the
   // page refuses anything else itself: a bad link or a corrupted cache entry fails loudly here instead of
   // turning the app into a fetcher for whatever URL it was handed.
@@ -64,14 +124,30 @@ window.PR = (function () {
     }
     catch (e) { return false; }
   }
-  async function getJson(url, ua) {
+  async function getJson(url, ua, options) {
     if (!hostAllowed(url)) throw new Error(`blocked host: ${String(url).slice(0, 80)}`);
+    if (resources && managed(url)) return resources.get(url, options);
     const r = await nfetch(url, ua);
     if (r.code !== 200) throw new Error(`HTTP ${r.code}`);
+    if (url.startsWith(RAW_BASE + 'reports/')) return { md: r.body };
     return JSON.parse(r.body);
   }
   const rawUrl = (path) => RAW_BASE + path;
 
+  async function migrateResource(url, legacyKey) {
+    if (!resources || resources.status(url).cached) return;
+    let record;
+    try {
+      const raw = legacyKey === 'pr_latest' ? stored(legacyKey) : localStorage.getItem(cache.key(legacyKey));
+      if (!raw) return;
+      record = JSON.parse(raw);
+      await resources.seed(url, legacyKey === 'pr_latest' ? record : record.d, legacyKey === 'pr_latest' ? record._loadedAt : record.t);
+      if (resources.status(url).persisted) {
+        localStorage.removeItem(legacyKey === 'pr_latest' ? legacyKey : cache.key(legacyKey));
+        if (legacyKey === 'pr_latest' && native && native.setString) native.setString('latest', '');
+      }
+    } catch (_) { /* valid existing copies are never erased after a migration failure */ }
+  }
   // ------------------------------------------------------------------ formatting helpers
   const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const pct = (x) => (x == null || isNaN(x)) ? '–' : Math.round(x * 100) + '%';
@@ -140,7 +216,7 @@ window.PR = (function () {
     img = img || state.badges[name];
     const cls = `badge s${size || 24}`;
     if (!img) return `<span class="${cls} nb" style="--h:${hue(name)}"><i>${esc(initials(name))}</i></span>`;
-    return `<span class="${cls}" style="--h:${hue(name)}"><img src="${esc(BADGE_BASE + img)}" alt="" loading="lazy" onerror="this.parentNode.classList.add('nb');this.remove()"><i>${esc(initials(name))}</i></span>`;
+    return `<span class="${cls}" style="--h:${hue(name)}"><img src="${esc(BADGE_BASE + img)}" alt="" loading="lazy" decoding="async" onerror="this.parentNode.classList.add('nb');this.remove()"><i>${esc(initials(name))}</i></span>`;
   }
   const fxBadge = (f, side) => badge(f[side], f.badges && f.badges[side]);
   /** Sofascore-style match row: kick-off / status column, two team lines with badges and score, optional right block */
@@ -294,7 +370,7 @@ window.PR = (function () {
       const items = [];
       for (let i = 0; i < localStorage.length; i++) {
         const k = localStorage.key(i);
-        if (!k || !k.startsWith('pr_c:')) continue;
+        if (!k || !k.startsWith('pr_d:')) continue;
         const v = localStorage.getItem(k) || '';
         let t = 0; try { t = (JSON.parse(v) || {}).t || 0; } catch (e) { t = 0; }
         items.push({ k, t, b: v.length });
@@ -315,14 +391,14 @@ window.PR = (function () {
       }
       this.bytes = total;   // running size used by put() to keep the cache inside its budget
     },
-    size() { let n = 0, b = 0; for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); if (k && k.startsWith('pr_c:')) { n++; b += (localStorage.getItem(k) || '').length; } } return { n, kb: Math.round(b / 1024) }; },
-    clear() { const keys = []; for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); if (k && k.startsWith('pr_c:')) keys.push(k); } keys.forEach((k) => localStorage.removeItem(k)); },
+    size() { let n = 0, b = 0; for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); if (k && k.startsWith('pr_d:')) { n++; b += (localStorage.getItem(k) || '').length; } } return { n, kb: Math.round(b / 1024) }; },
+    clear() { const keys = []; for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); if (k && k.startsWith('pr_d:')) keys.push(k); } keys.forEach((k) => localStorage.removeItem(k)); },
   };
   try {   // one-time sweep of the pre-1.6.61 cache namespace (see key() above)
     const stale = []; for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); if (k && k.startsWith('pr_c:')) stale.push(k); }
     stale.forEach((k) => localStorage.removeItem(k));
   } catch (e) { /* storage unavailable */ }
-  const pubStamp = () => (state.data && state.data.meta ? state.data.meta.generated.replace(/\D/g, '') : '');
+  const pubStamp = () => (state.data && state.data.meta ? String(state.data.meta.generated || '').replace(/\D/g, '') : '');
   /** sha1 hex — lets the app derive a fixture's detail-file key (data/app/fx/<key>.json) even when the
       fixture is not in the 24-hour index (server key = sha1(fixture_id)[:12]). */
   function sha1hex(str) {
@@ -357,7 +433,11 @@ window.PR = (function () {
   /** full analysis of one match (per-match file); session memory first, then the on-phone cache, then the network */
   const detailKey = (id, d) => d || (fx(id) && fx(id).d) ||
     (id && String(id).includes('|') && !String(id).startsWith('live:') ? sha1hex(String(id)).slice(0, 12) : null);
-  function detailCached(id, d) { const k = detailKey(id, d); return k ? state.details[k] || null : null; }
+  function detailCached(id, d) {
+    const k = detailKey(id, d);
+    if (k && resources && state.details[k] && !state.details[k].error) loadDetail(id, d).catch(() => {});
+    return k ? state.details[k] || null : null;
+  }
   function prepDetail(j) { j.sels = (j.sels || []).map(selObj); j.trends = j.trends || {}; j.teams = j.teams || { home: {}, away: {} }; j.h2h = j.h2h || []; return j; }
   async function fetchDetail(k, stamp) {
     const j = prepDetail(await getJson(rawUrl(`data/app/fx/${k}.json`) + '?t=' + (stamp || Math.floor(Date.now() / 900000))));
@@ -365,6 +445,12 @@ window.PR = (function () {
   }
   async function loadDetail(id, d) {
     const k = detailKey(id, d); if (!k) throw new Error('no detail key');
+    if (resources) {
+      await migrateResource(rawUrl(`data/app/fx/${k}.json`), 'fx/' + k);
+      const row = fx(id);
+      const j = await getJson(rawUrl(`data/app/fx/${k}.json`), null, { validate: (value) => String(value.id) === String(id) && (!row || value.home === row.home && value.away === row.away) });
+      state.details[k] = prepDetail(j); trimModels(state.details, k, 32); return state.details[k];
+    }
     if (state.details[k] && !state.details[k].error) return state.details[k];
     const stamp = pubStamp();
     const c = cache.get('fx/' + k);
@@ -398,9 +484,9 @@ window.PR = (function () {
       if (i >= keys.length || i >= 30) return;
       const k = keys[i++]; const c = cache.get('fx/' + k);
       if (c && c.s === stamp) { next(); return; }
-      fetchDetail(k, stamp).catch(() => { /* ignore */ }).finally(() => setTimeout(next, 150));
+      (resources ? getJson(rawUrl(`data/app/fx/${k}.json`)) : fetchDetail(k, stamp)).catch(() => { /* ignore */ }).finally(() => setTimeout(next, 150));
     };
-    next(); if (keys.length > 1) setTimeout(next, 300);
+    next(); // Serial warm-up; the repository caps total foreground requests at two.
   }
   /** Keep the published index on the phone for the next cold start. A full analysis is large and the
    *  WebView's localStorage is small (and shared with the on-phone cache), so a write that does not fit
@@ -429,25 +515,49 @@ window.PR = (function () {
   }
   async function loadData(force) {
     if (state.loading) return; state.loading = true; $('#btn-refresh').classList.add('spin');
+    if (!state.data) $('#view').innerHTML = skeleton(6);
     try {
-      const d = indexData(await getJson(DATA_URL + '?t=' + Date.now()));
-      state.data = d; d._loadedAt = Date.now(); d._cached = saveLatest(d);
-      statusLine(); render(); if (force) toast('Updated');
+      await migrateResource(DATA_URL, 'pr_latest');
+      const raw = await getJson(DATA_URL, null, { force: !!force });
+      if (state.data !== raw) { state.data = indexData(raw); if (!resources) state.data._cached = saveLatest(state.data); render(); }
+      state.data._loadedAt = resources ? resources.status(DATA_URL).checkedAt : Date.now();
+      statusLine(); if (force) toast(resources ? 'Checking for updates — saved data stays visible' : 'Updated');
     } catch (e) {
-      if (!state.data) { let c = null; try { c = localStorage.getItem('pr_latest'); } catch (e0) { c = null; } if (c) { try { state.data = indexData(JSON.parse(c)); statusLine(); render(); } catch (e2) { /* ignore */ } } }
-      // a storage problem is not a network problem — say which one it is
-      const why = /quota|setItem|storage/i.test(String(e && e.message)) ? 'Could not save the analysis on this phone (' + e.message + ')' : 'Could not reach the Mr 2 Odds server (' + e.message + ')';
-      toast(why + (state.data ? ' — showing saved data' : ''));
-      if (!state.data) $('#view').innerHTML = `<div class="empty">No data yet.<br>Check your connection and pull to refresh.</div>`;
+      if (!state.data) { let c = null; try { c = stored('pr_latest'); } catch (_) { /* keep memory */ } if (c) { try { const j = JSON.parse(c); if (validResource(DATA_URL, j)) { state.data = indexData(j); render(); } } catch (_) { /* invalid legacy copy */ } } }
+      statusLine();
+      if (force) toast(state.data ? 'Could not refresh — showing saved data' : 'No saved data yet. Check your connection.');
+      if (!state.data) $('#view').innerHTML = '<div class="empty">No saved data yet.<br>Check your connection and pull to refresh.</div>';
     } finally { state.loading = false; $('#btn-refresh').classList.remove('spin'); if (native && native.refreshDone) native.refreshDone(); }
   }
+  function screenResource() {
+    const top = state.stack[state.stack.length - 1];
+    if (top && top.type === 'match') { const k = detailKey(top.id, top.d); if (k) return rawUrl(`data/app/fx/${k}.json`); }
+    if (top && top.type === 'day') return rawUrl(`data/app/days/${top.date}.json`);
+    if (top && top.type === 'team' && top.div) return rawUrl(`data/app/teams/${slug(top.div)}.json`);
+    if (top && top.type === 'league') return rawUrl('data/app/leagues/' + top.slug);
+    if (top && top.type === 'analysis') return rawUrl(`reports/${top.date || ((state.data.history || {}).reports || [])[0] || state.data.meta.generated.slice(0, 10)}.md`);
+    if (state.tab === 'leagues') return rawUrl('data/app/leagues/' + (state.lgTab === 'fixtures' ? 'fixtures.json' : 'index.json'));
+    if (state.tab === 'live' && state.liveResource) return state.liveResource;
+    return DATA_URL;
+  }
   function statusLine() {
-    const el = $('#status-line');
-    if (!el) return;                      // the header clock was removed — kick-off times live on each match
-    const m = state.data && state.data.meta; if (!m) return;
-    el.textContent = `Updated ${koShort(m.generated)} · next ${koTime(m.next_run || '')} · ${m.fixtures} matches`;
+    if (!resources) return;
+    const v = $('#view'); if (!v) return;
+    let el = $('#data-status');
+    if (!el) { el = document.createElement('div'); el.id = 'data-status'; el.className = 'tiny muted data-status'; el.setAttribute('role', 'status'); v.prepend(el); }
+    const info = resources.status(screenResource());
+    const m = state.data && state.data.meta;
+    let text = info.offline ? 'Offline · saved information' : info.error ? 'Refresh unavailable · saved information' : info.stale ? 'Saved information · refresh due' : 'Downloaded information';
+    if (info.checkedAt) text += ' · checked ' + new Date(info.checkedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    if (m && screenResource() === DATA_URL) {
+      text += ' · published ' + m.generated;
+      const published = parseLocal(m.generated); if (published && tzNow() - published > 60 * 60000) text += ' · publication may be out of date';
+    }
+    if ((state.tab === 'live' && (info.stale || info.offline || info.error)) || state.liveStale && (state.tab === 'live' || state.tab === 'home' || (state.stack[state.stack.length - 1] || {}).type === 'match')) text += ' · scores are not confirmed current';
+    if (el.textContent !== text) el.textContent = text;
   }
   async function loadDay(date) {
+    if (resources) { await migrateResource(rawUrl(`data/app/days/${date}.json`), 'days/' + date); const j = await getJson(rawUrl(`data/app/days/${date}.json`)); state.days[date] = j; trimModels(state.days, date, 14); return j; }
     if (state.days[date] && state.days[date].fixtures) return state.days[date];
     const c = cache.get('days/' + date); const today = ymd(tzNow());
     const fetchIt = async () => { const j = await getJson(rawUrl(`data/app/days/${date}.json`) + '?t=' + Math.floor(Date.now() / 300000)); state.days[date] = j; cache.put('days/' + date, j, date < today ? 'final' : pubStamp()); return j; };
@@ -484,13 +594,15 @@ window.PR = (function () {
   };
   const slug = (div) => String(div || '').replace(/[^A-Za-z0-9]+/g, '_').replace(/^_+|_+$/g, '');
   async function loadTeams(div) {
-    const k = slug(div); if (state.teams[k]) return state.teams[k];
+    const k = slug(div);
+    if (resources) { await migrateResource(rawUrl(`data/app/teams/${k}.json`), 'teams/' + k); const j = await getJson(rawUrl(`data/app/teams/${k}.json`)); state.teams[k] = j; trimModels(state.teams, k, 12); return j; }
+    if (state.teams[k]) return state.teams[k];
     const c = cache.get('teams/' + k);
     const fetchIt = async () => { const j = await getJson(rawUrl(`data/app/teams/${k}.json`) + '?t=' + Math.floor(Date.now() / 3600000)); state.teams[k] = j; cache.put('teams/' + k, j, ymd(tzNow())); return j; };
     if (c && c.d) { state.teams[k] = c.d; if (c.s !== ymd(tzNow())) fetchIt().then(() => render()).catch(() => { /* keep cache */ }); return c.d; }
     return fetchIt();
   }
-  function teamsCached(div) { return state.teams[slug(div)] || null; }
+  function teamsCached(div) { if (resources && state.teams[slug(div)]) loadTeams(div).catch(() => {}); return state.teams[slug(div)] || null; }
   /** Sportybet deep link for a match (public event page — opens in their app/site, no login to view). */
   function sbSlug(s) {
     s = String(s || '').normalize('NFKD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
@@ -521,6 +633,7 @@ window.PR = (function () {
   }
   /** Global club index (data/app/teams/teams-index.json) for team search — every team in the model pool. */
   async function loadTeamIndex() {
+    if (resources) { await migrateResource(rawUrl('data/app/teams/teams-index.json'), 'teams-idx'); state.teamIdx = await getJson(rawUrl('data/app/teams/teams-index.json')); return state.teamIdx; }
     if (state.teamIdx) return state.teamIdx;
     if (state.teamIdxLoading) return null;
     state.teamIdxLoading = true;
@@ -534,6 +647,7 @@ window.PR = (function () {
     return state.teamIdx;
   }
   async function loadBadges() {
+    if (resources) { try { state.badges = await getJson(rawUrl('data/app/badges.json')); } catch (_) { /* offline */ } return; }
     try { const c = stored('pr_badges'); if (c) state.badges = JSON.parse(c); } catch (e) { /* ignore */ }
     try { const j = await getJson(rawUrl('data/app/badges.json') + '?t=' + Math.floor(Date.now() / 86400000)); if (j && typeof j === 'object') { state.badges = j; saveAux('pr_badges', JSON.stringify(j)); } } catch (e) { /* offline: keep cache */ }
   }
@@ -585,7 +699,7 @@ window.PR = (function () {
       if (active) b.setAttribute('aria-current', 'page'); else b.removeAttribute('aria-current');
     });
   }
-  function render() {
+  function render(quiet) {
     if (!state.data && !(state.stack.length && state.stack[state.stack.length - 1].type === 'settings')) return;
     closeMenu();
     const top = state.stack[state.stack.length - 1];
@@ -593,12 +707,14 @@ window.PR = (function () {
       $('#view').innerHTML = `<div class="card empty">This version of Mr 2 Odds needs the new analysis format.<br>It arrives with the next scheduled analysis — pull down to refresh later.</div>`;
       return;
     }
-    const v = $('#view'); v.classList.remove('enter'); void v.offsetWidth; v.classList.add('enter');
+    const v = $('#view'); if (quiet !== true) { v.classList.remove('enter'); void v.offsetWidth; v.classList.add('enter'); }
     document.body.classList.toggle('depth', !!top);
     paintChrome(state.tab);
     if (top) PR.pages[top.type](top); else PR.views[state.tab]();
     injectSearch();
+    statusLine();
     persistNav();
+    if (resources) setTimeout(refreshVisible, 0);
   }
   function setTab(tab, opts) {
     opts = opts || {};
@@ -859,7 +975,77 @@ window.PR = (function () {
     paintResults();
   }
 
-  return { native, settings, state, $, $$, saveSettings, nfetch, getJson, rawUrl, esc, pct, f1, f2, signed, DAYS, MONTHS, parseLocal, tzNow, ymd, stored, persist, cache, prefetchDetails, pubStamp,
+  function trimModels(map, keep, limit) {
+    const keys = Object.keys(map).filter((k) => map[k] && typeof map[k] === 'object');
+    while (keys.length > limit) { const key = keys.shift(); if (key !== keep) delete map[key]; }
+  }
+  let repaintTimer;
+  function quietRender() {
+    clearTimeout(repaintTimer);
+    repaintTimer = setTimeout(() => {
+      if (document.hidden || !state.data) return;
+      const scroll = window.scrollY, focused = document.activeElement, search = focused && focused.id === 'gq';
+      const position = search ? focused.selectionStart : null;
+      render(true); window.scrollTo(0, scroll);
+      if (search && $('#gq')) { $('#gq').focus(); try { $('#gq').setSelectionRange(position, position); } catch (_) { /* search input */ } }
+    }, 80);
+  }
+  if (resources) resources.subscribe((event) => {
+    statusLine();
+    if (event.type !== 'changed') return;
+    const j = event.data, part = new URL(event.url).pathname.split('/data/app/')[1] || '';
+    if (part === 'latest.json') {
+      const old = pubStamp(); state.data = indexData(j); state.data._loadedAt = resources.status(DATA_URL).checkedAt;
+      if (old && old !== pubStamp()) resources.invalidate(rawUrl('data/app/fx/'));
+    } else if (part.startsWith('fx/')) {
+      const k = part.slice(3, -5), row = fx(j.id);
+      if (!row || row.home === j.home && row.away === j.away) state.details[k] = prepDetail(j);
+    } else if (part.startsWith('days/')) { state.days[part.slice(5, -5)] = j; }
+    else if (part === 'teams/teams-index.json') state.teamIdx = j;
+    else if (part.startsWith('teams/')) state.teams[part.slice(6, -5)] = j;
+    else if (part === 'badges.json') state.badges = j;
+    else if (part.startsWith('leagues/') && state.lg) {
+      const file = part.slice(8);
+      if (file === 'index.json') { state.lg.idx = j; state.lg.idxStale = false; }
+      else if (file === 'fixtures.json') { state.lg.fx = j; state.lg.fxStale = false; }
+      else state.lg.det[file] = j;
+    } else if (event.url.includes('/reports/')) state.reports[event.url.match(/(\d{4}-\d\d-\d\d)\.md/)[1] + '|report'] = j;
+    else if (event.url.includes('/date/soccer/') && window.PR && PR.live.refresh) {
+      PR.live.refresh(false).then(() => PR.live.refresh(false)); return;
+    } else if (event.url.includes('prod-public-api.livescore.com')) {
+      const extra = event.url.match(/\/(statistics|lineups|incidents)\/soccer\/(\d+)/);
+      if (extra && state.lsx) state.lsx[extra[1] + ':' + extra[2]] = { t: resources.status(event.url).checkedAt, data: j };
+    }
+    trimModels(state.details, part.slice(3, -5), 32); trimModels(state.teams, part.slice(6, -5), 12); trimModels(state.days, part.slice(5, -5), 14); trimModels(state.reports, '', 8);
+    const visible = resources.key(screenResource());
+    const top = state.stack[state.stack.length - 1];
+    const match = top && top.type === 'match' && fx(top.id);
+    if (event.url === visible || part === 'latest.json' || part === 'badges.json' ||
+        part === 'teams/teams-index.json' && state.q || match && event.url.includes('/soccer/' + match.livescore_id)) quietRender();
+  });
+  function refreshVisible(fromDisk) {
+    if (!resources || document.hidden) return;
+    if (fromDisk === true) { resources.pullShared(DATA_URL).then(() => refreshVisible()); return; }
+    getJson(DATA_URL).catch(() => {});
+    getJson(screenResource()).catch(() => {});
+  }
+  function connectionChanged() { if (resources) resources.reconnect(); refreshVisible(); statusLine(); }
+  if (window.addEventListener) {
+    window.addEventListener('online', connectionChanged);
+    window.addEventListener('offline', statusLine);
+    document.addEventListener('visibilitychange', () => { if (!document.hidden) { refreshVisible(true); statusLine(); } });
+    setInterval(refreshVisible, 60000);
+  }
+  async function clearDataCache() {
+    if (resources) await resources.clear();
+    try { localStorage.removeItem('pr_latest'); cache.clear(); } catch (_) { /* unavailable legacy store */ }
+    if (native && native.setString) { try { native.setString('latest', ''); } catch (_) { /* unavailable legacy preference */ } }
+    state.data = null; state.days = {}; state.teams = {}; state.details = {}; state.teamIdx = null; state.reports = {};
+    if (state.lg) { state.lg.idx = null; state.lg.fx = null; state.lg.det = {}; state.lg.error = null; state.lg.fxError = null; }
+    state.stack = []; await loadData(true);
+  }
+
+  return { native, settings, state, $, $$, saveSettings, nfetch, getJson, resources, migrateResource, validResource, refreshVisible, connectionChanged, clearDataCache, rawUrl, esc, pct, f1, f2, signed, DAYS, MONTHS, parseLocal, tzNow, ymd, stored, persist, cache, prefetchDetails, pubStamp,
     dayName, niceDate, koTime, koShort, toast, pill, bar, wdl, formBadges, md, GROUPS, GROUP_ICON, selGroup, isUnder, isDropped, SEL_FLOOR, selLabel, selShort, settleSel,
     liveVerdict, isLive, isFT, indexData, fx, loadDetail, detailCached, detailKey, loadData, saveLatest, saveAux, statusLine, isOutlier, loadDay, dayRecord, finalFor, storedIncidents, loadTeams, teamsCached, loadTeamIndex, realTable, slug, TABS, render, setTab, push, replace,
     sbEventUrl, sbShareUrl, openSportybet, openBookingCode, openExternal, copyText, namesAgree, displayName, fittedSbEvent,

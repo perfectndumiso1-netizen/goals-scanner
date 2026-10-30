@@ -20,25 +20,37 @@
     return (d.fixtures || []).filter((f) => ids.has(f.id)).sort((a, b) => a.kickoff.localeCompare(b.kickoff));
   };
   const LIVE_STATUS = (e) => e.Eps || '';
-  live.refresh = async function (manual) {
+  let refreshFlight = null;
+  live.refresh = function (manual) {
+    if (refreshFlight) return refreshFlight;
+    refreshFlight = refreshLive(manual).finally(() => { refreshFlight = null; });
+    return refreshFlight;
+  };
+  async function refreshLive(manual) {
     const d = state.data; if (!d) return;
     const tracked = live.tracked().filter((f) => f.livescore_id);
     const now = tzNow(); const days = new Set(tracked.map((f) => f.kickoff.slice(0, 10))); days.add(ymd(now));
     if (now.getHours() < 3) days.add(ymd(new Date(now.getTime() - 86400000)));
     const want = new Set(tracked.map((f) => f.livescore_id));
     const byEid = {}; (d.fixtures || []).forEach((f) => { if (f.livescore_id) byEid[f.livescore_id] = f; });
+    let changed = state.liveAll == null, successful = 0, stale = false;
     const goalEvents = []; const all = []; const seenAll = new Set(); const phaseEvents = [];
     for (const day of days) {
       try {
-        const j = await PR.getJson(`https://prod-public-api.livescore.com/v1/api/app/date/soccer/${day.replace(/-/g, '')}/${settings.tzOffset}?MD=1`);
+        const url = `https://prod-public-api.livescore.com/v1/api/app/date/soccer/${day.replace(/-/g, '')}/${settings.tzOffset}?MD=1`;
+        const j = await PR.getJson(url); successful++;
+        state.liveResource = url;
+        const info = PR.resources ? PR.resources.status(url) : { checkedAt: Date.now() };
+        const saved = !!(info.stale || info.offline || info.error); stale = stale || saved;
         (j.Stages || []).forEach((st) => (st.Events || []).forEach((e) => {
           const eid = String(e.Eid); const status = LIVE_STATUS(e);
           const ns = !status || status === 'NS';
-          const cur = { status, hg: !ns && e.Tr1 != null && e.Tr1 !== '' ? +e.Tr1 : null, ag: !ns && e.Tr2 != null && e.Tr2 !== '' ? +e.Tr2 : null, ht: [e.Trh1, e.Trh2], t: Date.now() };
+          const cur = { status, hg: !ns && e.Tr1 != null && e.Tr1 !== '' ? +e.Tr1 : null, ag: !ns && e.Tr2 != null && e.Tr2 !== '' ? +e.Tr2 : null, ht: [e.Trh1, e.Trh2], t: info.checkedAt, cached: saved };
           const prev = state.live[eid];
+          if (!prev || prev.status !== cur.status || prev.hg !== cur.hg || prev.ag !== cur.ag) changed = true;
           state.live[eid] = cur;
-          if (want.has(eid) && prev && prev.hg != null && cur.hg != null && (cur.hg + cur.ag) > (prev.hg + prev.ag)) goalEvents.push(eid);
-          if (want.has(eid) && prev && prev.status !== cur.status && (cur.status === 'HT' || isFT(cur))) phaseEvents.push(eid);
+          if (!saved && want.has(eid) && prev && prev.hg != null && cur.hg != null && (cur.hg + cur.ag) > (prev.hg + prev.ag)) goalEvents.push(eid);
+          if (!saved && want.has(eid) && prev && prev.status !== cur.status && (cur.status === 'HT' || isFT(cur))) phaseEvents.push(eid);
           if (isLive(cur) && !seenAll.has(eid)) {
             seenAll.add(eid);
             const t1 = (e.T1 || [])[0] || {}, t2 = (e.T2 || [])[0] || {};
@@ -47,6 +59,8 @@
         }));
       } catch (e) { if (manual) toast('Live scores unavailable (' + e.message + ')'); }
     }
+    if (!successful) { PR.statusLine(); return; }
+    state.liveStale = stale;
     state.liveAll = all; state.lastLiveAll = Date.now();
     state.lastLive = Date.now();
     const dot = $('#live-dot'); if (dot) dot.classList.toggle('on', live.inPlay().length > 0);
@@ -65,8 +79,8 @@
       } catch (e) { /* ignore */ }
     }
     const top = state.stack[state.stack.length - 1];
-    if ((state.tab === 'live' || state.tab === 'home') && !top) PR.render();
-    if (top && top.type === 'match') PR.render();
+    if ((manual || changed) && (((state.tab === 'live' || state.tab === 'home') && !top) || top && top.type === 'match')) PR.render();
+    else PR.statusLine();
     goalEvents.forEach(announceGoal);
     phaseEvents.forEach(announcePhase);
     if (PR.settleTickets) PR.settleTickets(true);
