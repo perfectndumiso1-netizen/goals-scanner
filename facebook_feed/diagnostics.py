@@ -90,7 +90,10 @@ def main():
     state=storage.restore(repo,'main',os.getenv('GITHUB_REPOSITORY_ID',''),prefix,token,work)
     if state is None:raise storage.StateError('No existing production quota ledger; refusing diagnostic bootstrap/reset')
     output('prefix',prefix)
-    report=diagnose_accounts(cfg,state,now)
+    if cfg.get('score_source')=='highlightly':
+        from .highlightly import diagnose as diagnose_highlightly
+        report=diagnose_highlightly(cfg,state,now)
+    else:report=diagnose_accounts(cfg,state,now)
     # Keep usage/cooldowns durable without changing matches, posts or pending events.
     storage.write(work/'checkpoint/state.json',state)
     storage.write(work/'api-diagnostic.json',report)

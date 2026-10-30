@@ -18,7 +18,8 @@ def digest(value):return hashlib.sha256(json.dumps(value,sort_keys=True,separato
 def normalise_observation(raw,now):
     m=normalize(raw,now,allow_overnight=True)
     if not m:return None
-    m['source']='api-football'
+    m['source']='highlightly' if raw.get('_source')=='highlightly' else 'api-football'
+    if m['source']=='highlightly':m['id']='highlightly:'+m['id']
     m['events']=[]
     values=raw.get('events')
     if values is not None and not isinstance(values,list):return None

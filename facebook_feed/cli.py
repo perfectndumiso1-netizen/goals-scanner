@@ -50,7 +50,7 @@ def config(path):
     window=data['live'].get('coverage_window')
     if 'coverage_window' in data['live']:
         if window!={'start':'08:00','end':'24:00'}:raise ValueError('Live coverage must remain 08:00 to midnight SAST')
-    if data.get('score_source', 'api-football') not in ('api-football', 'app'):raise ValueError('Unsupported score source')
+    if data.get('score_source', 'api-football') not in ('api-football', 'app', 'highlightly'):raise ValueError('Unsupported score source')
     if 'authorized_kinds' in data and (not isinstance(data['authorized_kinds'],list) or any(k not in KINDS for k in data['authorized_kinds'])):raise ValueError('Invalid authorized kinds')
     if data.get('score_source')=='app':
         app=data.get('app_scores',{})
@@ -74,16 +74,27 @@ def config(path):
         if set(event.get('key_slots',{}))!=set(SLOTS):raise ValueError('Invalid API key slots')
         for slot in event['key_slots'].values():
             if type(slot.get('authorised')) is not bool or not isinstance(slot.get('quota_group'),str) or not slot['quota_group']:raise ValueError('Invalid authorised account allocation')
-        if uses_events(data) and event['enabled'] and (not data['live'].get('image_required') or data.get('score_source','api-football')!='api-football'):raise ValueError('Event monitoring requires the authorised API source and match picture')
+        if uses_events(data) and event['enabled'] and (not data['live'].get('image_required') or data.get('score_source','api-football') not in ('api-football','highlightly')):raise ValueError('Event monitoring requires the authorised API source and match picture')
         if event['failover_permitted'] and not event['permission_reference'].strip():raise ValueError('Documented provider failover permission required')
+    if data.get('score_source')=='highlightly':
+        h=data.get('highlightly',{})
+        if not uses_events(data):raise ValueError('Highlightly is for factual live events only')
+        if any(type(h.get(k)) is not bool for k in ('verification_only','rights_confirmed','account_coverage_verified')):raise ValueError('Highlightly approval switches must be booleans')
+        if type(h.get('daily_request_budget')) is not int or not 1<=h['daily_request_budget']<=100:raise ValueError('Unsafe Highlightly budget')
+        for k,lo,hi in (('poll_interval_minutes',20,60),('max_pages_per_poll',1,10),('max_details_per_poll',0,5)):
+            if type(h.get(k)) is not int or not lo<=h[k]<=hi:raise ValueError('Unsafe Highlightly polling bounds')
     return data
 
 
 def source_freshness(cfg):
+    if cfg.get('score_source')=='highlightly':return cfg['event_monitor']['max_source_age_seconds']
     return cfg['app_scores']['max_source_age_seconds'] if cfg.get('score_source')=='app' else cfg['provider']['max_fetch_age_seconds']
 
 
 def scores_approved(cfg):
+    if cfg.get('score_source')=='highlightly':
+        h=cfg['highlightly']
+        return h['rights_confirmed'] and h['account_coverage_verified'] and not h['verification_only']
     if cfg.get('score_source')=='app':
         return cfg['app_scores']['rights_confirmed'] and cfg['app_scores']['coverage_verified']
     return cfg['provider']['rights_confirmed'] and cfg['provider']['account_coverage_verified']

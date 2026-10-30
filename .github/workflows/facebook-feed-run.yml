@@ -93,6 +93,7 @@ jobs:
         if: inputs.diagnostic
         env:
           GH_READ_TOKEN: ${{ github.token }}
+          HIGHLIGHTLY_API_KEY: ${{ secrets.HIGHLIGHTLY_API_KEY }}
           API_FOOTBALL_KEY: ${{ secrets.API_FOOTBALL_KEY }}
           API_FOOTBALL_KEY_1: ${{ secrets.API_FOOTBALL_KEY_1 }}
           API_FOOTBALL_KEY_2: ${{ secrets.API_FOOTBALL_KEY_2 }}
@@ -102,6 +103,7 @@ jobs:
         id: prepare
         env:
           GH_READ_TOKEN: ${{ github.token }}
+          HIGHLIGHTLY_API_KEY: ${{ secrets.HIGHLIGHTLY_API_KEY }}
           API_FOOTBALL_KEY: ${{ secrets.API_FOOTBALL_KEY }}
           API_FOOTBALL_KEY_1: ${{ secrets.API_FOOTBALL_KEY_1 }}
           API_FOOTBALL_KEY_2: ${{ secrets.API_FOOTBALL_KEY_2 }}

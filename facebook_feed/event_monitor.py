@@ -7,6 +7,9 @@ from .provider import ProviderError
 
 
 def poll(cfg,state,now,api=None):
+    if cfg.get('score_source')=='highlightly':
+        from .highlightly import poll as highlightly_poll
+        return highlightly_poll(cfg,state,now,api)
     settings=cfg['event_monitor'];book=ledger(state)
     cache=state.setdefault('event_monitor_cache',{})
     if cache.get('next_poll') and now<local(cache['next_poll']):return False,'awaiting next polling/discovery interval'
@@ -128,6 +131,7 @@ def build(cfg,state,now,api=None):
     for e in book['events'].values():
         if e['status']!='pending':continue
         m=book['matches'].get(e['fixture_id'])
+        if m and m['snapshot'].get('source')!=cfg.get('score_source','api-football'):continue
         if not m or not timedelta(seconds=-30)<=now-local(m['observed_at'])<=timedelta(seconds=cfg['event_monitor']['max_source_age_seconds']):continue
         if e.get('retry_after') and now<local(e['retry_after']):continue
         available.append(e)

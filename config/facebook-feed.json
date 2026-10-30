@@ -140,7 +140,7 @@
     "live"
   ],
   "results_time": "08:00",
-  "score_source": "api-football",
+  "score_source": "highlightly",
   "app_scores": {
     "rights_confirmed": false,
     "coverage_verified": false,
@@ -159,19 +159,31 @@
       "API_FOOTBALL_KEY": {
         "authorised": false,
         "quota_group": "primary",
-        "disabled_reason": "Provider reported account_suspended; leave this account untouched."
+        "disabled_reason": "Owner confirmed API-Sports accounts suspended; keep secrets and history, do not query."
       },
       "API_FOOTBALL_KEY_2": {
-        "authorised": true,
-        "quota_group": "backup-2"
+        "authorised": false,
+        "quota_group": "backup-2",
+        "disabled_reason": "Owner confirmed API-Sports accounts suspended; keep secrets and history, do not query."
       },
       "API_FOOTBALL_KEY_1": {
-        "authorised": true,
-        "quota_group": "backup-1"
+        "authorised": false,
+        "quota_group": "backup-1",
+        "disabled_reason": "Owner confirmed API-Sports accounts suspended; keep secrets and history, do not query."
       }
     },
     "mode": "events",
     "daily_request_reserve": 0,
     "authentication_failover_permitted": true
+  },
+  "highlightly": {
+    "verification_only": true,
+    "rights_confirmed": true,
+    "account_coverage_verified": false,
+    "daily_request_budget": 100,
+    "poll_interval_minutes": 20,
+    "max_pages_per_poll": 10,
+    "max_details_per_poll": 2,
+    "scope": "Factual live scores/events only; no predictions, odds, betting or video reuse. Owner requested Highlightly integration; live coverage still requires observed verification."
   }
 }

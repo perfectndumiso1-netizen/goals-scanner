@@ -109,7 +109,7 @@ def test_workflow_diagnostic_is_explicit_and_cannot_prepare_a_post():
     engine=yaml.safe_load((ROOT/'.github/workflows/facebook-feed-run.yml').read_text())
     steps=engine['jobs']['feed']['steps'];diagnostic=next(s for s in steps if s.get('id')=='diagnostic')
     assert diagnostic['if']=='inputs.diagnostic'
-    assert set(diagnostic['env'])=={'GH_READ_TOKEN','API_FOOTBALL_KEY','API_FOOTBALL_KEY_1','API_FOOTBALL_KEY_2'}
+    assert set(diagnostic['env'])=={'GH_READ_TOKEN','API_FOOTBALL_KEY','API_FOOTBALL_KEY_1','API_FOOTBALL_KEY_2','HIGHLIGHTLY_API_KEY'}
     prepare=next(s for s in steps if s.get('id')=='prepare')
     assert '!inputs.diagnostic' in prepare['if']
     send=next(s for s in steps if s['name'].startswith('Publish or edit'))
