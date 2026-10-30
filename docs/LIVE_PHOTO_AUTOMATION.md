@@ -1,3 +1,5 @@
+> **Superseded for live monitoring:** see [LIVE_EVENT_MONITOR.md](LIVE_EVENT_MONITOR.md) for five-minute/24-hour, meaningful-event-only monitoring and its dry-run activation gate. The historical periodic/daytime/app-only live settings below are not the active event-mode policy.
+
 # Ten-minute live updates with one score picture
 
 ## What happened

@@ -61,6 +61,7 @@ jobs:
       - name: Check out feed code
         uses: actions/checkout@v4.4.0
       - name: Read scanner publication without modifying its state
+        if: inputs.kind != 'live'
         uses: actions/checkout@v4.4.0
         with:
           ref: data
@@ -85,6 +86,11 @@ jobs:
         env:
           GH_READ_TOKEN: ${{ github.token }}
           API_FOOTBALL_KEY: ${{ secrets.API_FOOTBALL_KEY }}
+          API_FOOTBALL_KEY1: ${{ secrets.API_FOOTBALL_KEY1 }}
+          API_FOOTBALL_KEY2: ${{ secrets.API_FOOTBALL_KEY2 }}
+          # Only used for read-only acknowledgement reconciliation when publish gates allow it.
+          FACEBOOK_PAGE_ACCESS_TOKEN: ${{ secrets.FACEBOOK_PAGE_ACCESS_TOKEN }}
+          FACEBOOK_PAGE_ID: ${{ secrets.FACEBOOK_PAGE_ID }}
         run: |
           args=()
           [[ "$REQUEST_PUBLISH" != "true" ]] || args+=(--publish)

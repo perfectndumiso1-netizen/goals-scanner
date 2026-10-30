@@ -13,7 +13,10 @@ from facebook_feed.provider import normalize
 ROOT=Path(__file__).resolve().parents[1]
 
 @pytest.fixture
-def cfg():return cli.config(ROOT/'config/facebook-feed.json')
+def cfg():
+    cfg=cli.config(ROOT/'config/facebook-feed.json')
+    cfg['event_monitor']['mode']='legacy'  # Retired periodic adapter contract only.
+    return cfg
 
 
 def match():
@@ -26,7 +29,7 @@ def posted(cfg,now=NOW):
     return p,state
 
 
-def test_new_production_cadence_and_photo_requirements(cfg):
+def test_legacy_periodic_cadence_and_photo_requirements(cfg):
     assert cfg['live_post_cooldown_minutes']==10 and cfg['live']['max_posts_per_day']==90
     assert cfg['live']['publish_every_poll'] and cfg['live']['image_required']
     assert not cfg['live']['edit_existing'] and cfg['provider']['daily_request_budget']==90
@@ -122,14 +125,13 @@ def test_photo_publisher_handoff_uses_existing_upload_lane(tmp_path,cfg):
     assert calls[0][1]=='123/photos' and b'image/jpeg' in calls[0][2]['body']
 
 
-def test_schedule_and_trusted_backend_fallback_share_existing_engine():
+def test_independent_event_schedule_uses_existing_engine():
     workflow=yaml.safe_load((ROOT/'.github/workflows/facebook-live.yml').read_text())
     on=workflow.get('on',workflow.get(True))
-    assert on['schedule'][0]['cron']=='3-59/10 6-21 * * *'
-    assert on['workflow_run']['workflows']==['PlayReport scan (every 30 min)']
+    assert on['schedule'][0]['cron']=='*/5 * * * *'
+    assert 'workflow_run' not in on  # Independent event monitor, not scan-triggered.
     job=workflow['jobs']['content']
-    assert "head_branch == 'main'" in job['if'] and 'head_repository.full_name == github.repository' in job['if']
-    assert 'conclusion' in job['if'] and job['uses']=='./.github/workflows/facebook-feed-run.yml'
+    assert job['uses']=='./.github/workflows/facebook-feed-run.yml'
     engine=(ROOT/'.github/workflows/facebook-feed-run.yml').read_text()
     assert "inputs.kind == 'live'" in engine and 'require-hashes' in engine
 

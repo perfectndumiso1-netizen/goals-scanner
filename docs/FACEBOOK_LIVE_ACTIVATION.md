@@ -1,3 +1,5 @@
+> **Superseded for live monitoring:** see [LIVE_EVENT_MONITOR.md](LIVE_EVENT_MONITOR.md) for five-minute/24-hour, meaningful-event-only monitoring and its dry-run activation gate. The historical periodic/daytime/app-only live settings below are not the active event-mode policy.
+
 # Facebook live-score activation — 30 October 2026
 
 > **Latest owner request supersedes the old three/day and hourly limits:** periodic live updates now use a ten-minute cooldown and require a single-match score picture. See [LIVE_PHOTO_AUTOMATION.md](LIVE_PHOTO_AUTOMATION.md) for cadence, scheduler fallback, quota limitations and the denied immediate trigger. Earlier limits below are historical.

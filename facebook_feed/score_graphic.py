@@ -9,7 +9,9 @@ ROOT=Path(__file__).resolve().parents[1]
 def render_score(spec,path):
     from PIL import Image,ImageDraw,ImageFont
     m=spec['match']
-    if not pair([m.get('home_goals'),m.get('away_goals')]):
+    has_score=pair([m.get('home_goals'),m.get('away_goals')])
+    status_only=spec.get('status_only') is True and m.get('status') in ('PST','CANC','ABD','SUSP','INT')
+    if not has_score and not status_only:
         raise ValueError('Live picture requires a verified score')
     im=Image.new('RGB',(1080,1350));d=ImageDraw.Draw(im)
     for y in range(1350):
@@ -30,7 +32,8 @@ def render_score(spec,path):
         return lines+[line]
     d.rounded_rectangle((35,35,1045,1315),32,outline='#285266',width=2)
     d.rectangle((75,70,81,131),fill=green)
-    d.text((105,77),'Live Matches SAST',font=font(48,True),fill=white)
+    header=spec.get('header','Live Matches SAST')
+    d.text((105,77),header,font=font(38 if spec.get('header') else 48,True),fill=white)
     center(f"{local(spec['checked_at']):%d %b %Y  |  %H:%M} SAST",151,27,muted)
     league=f"{m.get('country','')} | {m.get('competition','')}"
     league_lines=wrap(league,900,30)
@@ -49,9 +52,10 @@ def render_score(spec,path):
             size-=2
             if size<34:raise ValueError('Team name exceeds legible score picture area')
         for i,line in enumerate(lines):center(line,430+i*(size+10),size,x=x,bold=True)
-    score=f"{m['home_goals']}  -  {m['away_goals']}"
-    if d.textlength(score,font=font(142,True))>900:raise ValueError('Score exceeds picture bounds')
-    center(score,620,142,green,bold=True)
+    score=f"{m['home_goals']}  -  {m['away_goals']}" if has_score else {'PST':'POSTPONED','CANC':'CANCELLED','ABD':'ABANDONED','SUSP':'SUSPENDED','INT':'INTERRUPTED'}[m['status']]
+    score_size=142 if has_score else 70
+    if d.textlength(score,font=font(score_size,True))>900:raise ValueError('Score exceeds picture bounds')
+    center(score,620,score_size,green,bold=True)
     elapsed=m.get('elapsed')
     phase=m['status']
     if phase in ('1H','2H','ET') and type(elapsed) is int:phase+=f"  |  {elapsed}'"

@@ -9,13 +9,18 @@ from facebook_post import _NoRedirect
 from scripts.inspect_facebook_recovery import github_download
 
 
+MAX_STATE_BYTES=16*1024*1024
+
+
 class StateError(RuntimeError):
     pass
 
 
 def write(path,value):
     path=Path(path);path.parent.mkdir(parents=True,exist_ok=True)
-    temporary=path.with_suffix('.tmp');temporary.write_text(json.dumps(value,ensure_ascii=False,sort_keys=True,indent=2)+'\n')
+    text=json.dumps(value,ensure_ascii=False,sort_keys=True,indent=2)+'\n'
+    if path.name=='state.json' and len(text.encode())>MAX_STATE_BYTES:raise StateError('State checkpoint size bound exceeded; no mutation permitted')
+    temporary=path.with_suffix('.tmp');temporary.write_text(text,encoding='utf-8')
     temporary.replace(path)
 
 
@@ -56,7 +61,7 @@ def restore(repo,branch,repository_id,prefix,token,directory):
         github_download(repo,f"actions/artifacts/{latest['id']}/zip",archive,token)
         with zipfile.ZipFile(archive) as source:
             files=[i for i in source.infolist() if i.filename=='state.json']
-            if len(files)!=1 or files[0].file_size>512*1024:
+            if len(files)!=1 or files[0].file_size>MAX_STATE_BYTES:
                 raise StateError('Invalid state checkpoint size/shape')
             state=json.loads(source.read(files[0]))
         archive.unlink()

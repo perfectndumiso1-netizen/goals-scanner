@@ -14,6 +14,7 @@ def history(state, now, days=28):
     latest=next((p for p in reversed(posts) if p.get('kind')=='live' and p.get('status')=='published' and local(p['at']).date()==now.date()),None)
     for p in posts:
         if p.get('kind')=='live' and p.get('status')=='published' and p is not latest:
+            p.pop('event_ids',None)  # Published event IDs already live in the bounded event ledger.
             p.pop('fixture_ids',None)  # Redundant old live lists; never used for editorial dedupe.
             p['snapshot']=[{k:m.get(k) for k in ('id','home','away','kickoff','source','status')}
                            for m in p.get('snapshot',[]) if m.get('status') in ('FT','AET','PEN')]
@@ -56,7 +57,7 @@ def allowed(post, state, now, config):
         return False,'unresolved live publication; inspect/reconcile before creating another'
     if not live and in_quiet_window(now,config):
         return False,'Reel quiet window'
-    interval=config['live_post_cooldown_minutes'] if live else config['min_feed_interval_minutes']
+    interval=5 if post.get('event_ids') else config['live_post_cooldown_minutes'] if live else config['min_feed_interval_minutes']
     if counted and now-max(local(p['at']) for p in counted)<timedelta(minutes=interval):
         return False,'feed cooldown'
     if post['kind']=='card':
@@ -67,7 +68,7 @@ def allowed(post, state, now, config):
 
 
 def reserve(post, state, now):
-    entry={k:v for k,v in post.items() if k in ('kind','key','topic','mode','caption_hash','fixture_ids','operation','target_id','snapshot','image_sha256')}
+    entry={k:v for k,v in post.items() if k in ('kind','key','topic','mode','caption_hash','fixture_ids','operation','target_id','snapshot','image_sha256','event_ids')}
     entry.update(at=now.isoformat(),status='reserved')
     state.setdefault('posts',[]).append(entry)
     return entry

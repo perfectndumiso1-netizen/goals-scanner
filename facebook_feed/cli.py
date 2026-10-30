@@ -7,7 +7,7 @@ import os
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
-from . import content,policy,storage
+from . import content,policy,storage,match_events,event_monitor
 from .graphics import render
 from .provider import APIFootball,ProviderError
 from .app_scores import AppScores
@@ -15,6 +15,10 @@ from .live_window import in_window, eligible_kickoff, app_candidates, match_app_
 from .publisher import PageFeed,PublishError
 
 KINDS=('community','card','weekly','live','roundup','results','preflight')
+
+
+def uses_events(cfg):
+    return 'event_monitor' in cfg and cfg['event_monitor'].get('mode','events')=='events'
 
 
 def config(path):
@@ -53,6 +57,20 @@ def config(path):
     for key in ('community_time','weekly_time','card_time','roundup_time'):
         datetime.strptime(data[key],'%H:%M')
     datetime.strptime(data.get('results_time','08:00'),'%H:%M')
+    event=data.get('event_monitor')
+    if event is not None:
+        from .event_provider import SLOTS
+        if event.get('mode','events') not in ('events','legacy'):raise ValueError('Unsupported live monitoring mode')
+        if any(type(event.get(k)) is not bool for k in ('enabled','publish_enabled','failover_permitted')):raise ValueError('Event safety switches must be booleans')
+        if type(event.get('daily_request_budget')) is not int or not 1<=event['daily_request_budget']<=90:raise ValueError('Unsafe event account budget')
+        if type(event.get('max_source_age_seconds')) is not int or not 30<=event['max_source_age_seconds']<=180:raise ValueError('Unsafe event freshness')
+        if not isinstance(event.get('credential_revision'),str) or not event['credential_revision']:raise ValueError('Credential revision required')
+        if not isinstance(event.get('permission_reference'),str):raise ValueError('Failover permission reference must be text')
+        if set(event.get('key_slots',{}))!=set(SLOTS):raise ValueError('Invalid API key slots')
+        for slot in event['key_slots'].values():
+            if type(slot.get('authorised')) is not bool or not isinstance(slot.get('quota_group'),str) or not slot['quota_group']:raise ValueError('Invalid authorised account allocation')
+        if uses_events(data) and event['enabled'] and (not data['live'].get('image_required') or data.get('score_source','api-football')!='api-football'):raise ValueError('Event monitoring requires the authorised API source and match picture')
+        if event['failover_permitted'] and not event['permission_reference'].strip():raise ValueError('Documented provider failover permission required')
     return data
 
 
@@ -69,7 +87,7 @@ def scores_approved(cfg):
 def is_due(kind,now,cfg):
     if kind=='preflight':return False
     if kind not in cfg.get('authorized_kinds',KINDS):return False
-    if kind=='live':return cfg['live']['enabled'] and in_window(now,cfg)
+    if kind=='live':return cfg['live']['enabled'] and (cfg['event_monitor']['enabled'] if uses_events(cfg) else in_window(now,cfg))
     if kind=='card' and now.weekday() not in cfg['card_days']:return False
     if kind=='weekly' and now.weekday()!=cfg['weekly_day']:return False
     key={'community':'community_time','weekly':'weekly_time','card':'card_time','roundup':'roundup_time','results':'results_time'}[kind]
@@ -80,6 +98,10 @@ def is_due(kind,now,cfg):
 
 def build(kind,root,now,cfg,state,preview=False):
     if not preview and not is_due(kind,now,cfg):return None,'not due'
+    if kind=='live' and uses_events(cfg):
+        if not cfg['event_monitor']['enabled'] or not cfg['live']['enabled']:return None,'event monitoring disabled'
+        try:return event_monitor.build(cfg,state,now)
+        except ProviderError as error:return None,str(error)
     if kind=='results':return content.morning_results(root,now,cfg),'exact filmed history + verified app ledger'
     items=[] if kind in ('live','roundup','preflight') else content.verified_fixtures(root,now,cfg)
     if kind in ('community','card'):
@@ -166,6 +188,7 @@ def reconcile(args,cfg,now,work):
         PageFeed().verify_hash(args.post_id,entry['caption_hash'])
         entry.update(status='published',post_id=args.post_id)
     else:entry.update(status='cancelled',resolution='Operator confirmed Page inspection and absence')
+    match_events.publication_state(state,entry,'published' if args.post_id else 'pending',now)
     entry['reconciled_at']=now.isoformat();entry.pop('error',None)
     storage.write(work/'checkpoint/state.json',state)
     print('::notice::Reservation reconciled. No Facebook creation/edit request was made.')
@@ -195,6 +218,9 @@ def main(argv=None):
     requested=args.publish and os.getenv('FACEBOOK_FEED_PUBLISH','').lower()=='true'
     source_blocked=(args.phase=='prepare' and args.kind in ('live','roundup') and not args.preview and not scores_approved(cfg))
     publish=requested and cfg['enabled'] and not cfg['dry_run'] and args.phase!='preview' and not source_blocked
+    event_mode=uses_events(cfg) and args.kind in ('live','all')
+    if event_mode:
+        publish=publish and cfg['event_monitor']['enabled'] and cfg['event_monitor']['publish_enabled'] and os.getenv('GITHUB_REF_NAME','local')=='main'
     if args.phase=='send':
         if not publish or not args.checkpoint:
             raise ValueError('Publish gates/checkpoint confirmation absent; nothing sent')
@@ -202,6 +228,8 @@ def main(argv=None):
         run_key=os.getenv('GITHUB_RUN_ID','local')+'-'+os.getenv('GITHUB_RUN_ATTEMPT','1')
         publisher=None;failed=False
         for post in plans:
+            if post.get('event_ids') and (not uses_events(cfg) or not cfg['event_monitor']['enabled'] or not cfg['event_monitor']['publish_enabled'] or os.getenv('GITHUB_REF_NAME','local')!='main'):
+                raise ValueError('Live-event publication gate changed; nothing sent')
             entries=[p for p in state['posts'] if p['key']==post['key'] and p.get('run_key')==run_key]
             if len(entries)!=1 or entries[0]['status']!='reserved':
                 raise ValueError('Reservation ownership mismatch; no retry')
@@ -209,26 +237,33 @@ def main(argv=None):
             score_content=post['kind'] in ('live','roundup')
             source_changed=score_content and any(m.get('source')!=cfg.get('score_source','api-football') for m in post.get('snapshot',[]))
             if post['kind'] not in cfg.get('authorized_kinds',KINDS) or score_content and (not cfg['live']['enabled'] or not scores_approved(cfg) or source_changed):
-                entry['status']='cancelled';entry['error']='Content/source authorisation changed before sending';storage.write(statepath,state);continue
-            if hashlib.sha256(post['caption'].encode()).hexdigest()!=entry['caption_hash'] or any(entry.get(k)!=post.get(k) for k in ('kind','topic','fixture_ids','operation','target_id','snapshot','image_sha256')):
+                entry['status']='cancelled';entry['error']='Content/source authorisation changed before sending';match_events.publication_state(state,entry,'pending',now);storage.write(statepath,state);continue
+            if hashlib.sha256(post['caption'].encode()).hexdigest()!=entry['caption_hash'] or any(entry.get(k)!=post.get(k) for k in ('kind','topic','fixture_ids','operation','target_id','snapshot','image_sha256','event_ids')):
                 raise ValueError('Prepared content does not match its durable reservation')
-            if datetime.now(content.SAST)>=content.local(post['expires_at']) or post['kind'] in ('live','roundup') and not in_window(datetime.now(content.SAST),cfg):
-                entry['status']='cancelled';entry['error']='Prepared content expired before sending';storage.write(statepath,state);continue
+            if datetime.now(content.SAST)>=content.local(post['expires_at']) or post['kind'] in ('live','roundup') and not (post.get('event_ids') or in_window(datetime.now(content.SAST),cfg)):
+                entry['status']='cancelled';entry['error']='Prepared content expired before sending';match_events.publication_state(state,entry,'pending',now);storage.write(statepath,state);continue
             if post['kind']=='live' and cfg['live'].get('image_required'):
                 image=Path(post.get('image') or '')
                 if not image.is_file() or not post.get('image_sha256') or hashlib.sha256(image.read_bytes()).hexdigest()!=entry.get('image_sha256'):
                     raise ValueError('Live-score picture missing or changed; nothing sent')
-            entry['status']='unknown';storage.write(statepath,state)
+            entry['status']='unknown';match_events.publication_state(state,entry,'unknown',now);storage.write(statepath,state)
+            mutation_started=False
             try:
                 if publisher is None:publisher=PageFeed()
-                if datetime.now(content.SAST)>=content.local(post['expires_at']) or post['kind'] in ('live','roundup') and not in_window(datetime.now(content.SAST),cfg):
-                    entry['status']='cancelled';entry['error']='Content expired during credential verification; no mutation sent';continue
+                if datetime.now(content.SAST)>=content.local(post['expires_at']) or post['kind'] in ('live','roundup') and not (post.get('event_ids') or in_window(datetime.now(content.SAST),cfg)):
+                    entry['status']='cancelled';entry['error']='Content expired during credential verification; no mutation sent';match_events.publication_state(state,entry,'pending',now);continue
+                mutation_started=True
                 identity=publisher.send(post)
                 entry['post_id']=identity;storage.write(statepath,state)
                 publisher.verify(identity,post['caption'])
                 entry['status']='published'
+                match_events.publication_state(state,entry,'published',datetime.now(content.SAST))
                 print(f'::notice::Facebook {post["kind"]} confirmed: https://www.facebook.com/{identity}')
             except PublishError as error:
+                if post.get('event_ids') and not mutation_started:
+                    entry['status']='cancelled';match_events.publication_state(state,entry,'pending',now)
+                    for eid in post['event_ids']:
+                        match_events.ledger(state)['events'][eid]['retry_after']=(now+timedelta(minutes=15)).isoformat()
                 entry['error']=str(error);failed=True
                 print('::error::Feed publication not confirmed; reservation retained. '+str(error).replace('%','%25').replace('\n',' '))
             finally:storage.write(statepath,state)
@@ -246,6 +281,13 @@ def main(argv=None):
     state['posts']=policy.history(state,now,cfg['topic_history_days'])
     if 'score_observations' in state:
         state['score_observations']={k:v for k,v in state['score_observations'].items() if now-content.local(v['since'])<timedelta(hours=6)}
+    if publish and event_mode:
+        for entry in state['posts']:
+            if entry.get('event_ids') and entry.get('status')=='unknown' and entry.get('post_id'):
+                try:
+                    PageFeed().verify_hash(entry['post_id'],entry['caption_hash'])
+                    entry['status']='published';match_events.publication_state(state,entry,'published',now)
+                except PublishError:pass  # Never send a replacement for an ambiguous attempt.
     plans=[];report=[]
     kinds=KINDS if args.kind=='all' else (args.kind,)
     for kind in kinds:
@@ -277,6 +319,9 @@ def main(argv=None):
         (work/f'{kind}.txt').write_text(post['caption'],encoding='utf-8')
         entry=policy.reserve(post,state if args.phase!='preview' else {'posts':[]},now)
         entry['run_key']=os.getenv('GITHUB_RUN_ID','local')+'-'+os.getenv('GITHUB_RUN_ATTEMPT','1')
+        if post.get('event_ids') and args.phase!='preview':
+            # Simulated entries dedupe the dry-run namespace, never consume production events.
+            match_events.publication_state(state,entry,'reserved' if publish else 'simulated',now)
         if not publish:entry['status']='simulated'
         plans.append(post);report.append({'kind':kind,'status':'reserved' if publish else 'dry_run','key':post['key']})
     storage.write(manifest,plans);storage.write(work/'report.json',report);storage.write(statepath,state)
