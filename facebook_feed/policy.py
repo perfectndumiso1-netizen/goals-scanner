@@ -141,7 +141,7 @@ def score_post(matches,state,now,config,roundup=False):
         return None
     if not matches:
         return None
-    snapshot=[{k:m.get(k) for k in ('id','home','away','competition','country','kickoff','status','home_goals','away_goals','penalties','source','statistics','statistics_at')} for m in matches]
+    snapshot=[{k:m.get(k) for k in ('id','home','away','competition','country','kickoff','status','home_goals','away_goals','penalties','source','statistics','statistics_at','halftime','fulltime')} for m in matches]
     for m in snapshot:
         if m['source'] is None:m['source']=config.get('score_source','api-football')
     fingerprint=hashlib.sha256(json.dumps(snapshot,sort_keys=True).encode()).hexdigest()[:20]
@@ -153,6 +153,9 @@ def score_post(matches,state,now,config,roundup=False):
         lines += ['']
     lines += ['Which result stands out to you?' if roundup else 'Which of these matches are you following?',
               '', 'Source: API-FOOTBALL / API-SPORTS. Statuses and scores may be corrected by the provider.']
+    if not roundup:
+        from .live_presentation import caption
+        lines=caption(matches).splitlines()
     kind='roundup' if roundup else 'live'
     post=candidate(kind,f'{kind}:{now.date()}:{fingerprint}',f'{kind}:{now.date()}:{fingerprint}','\n'.join(lines),snapshot=snapshot)
     if centre and not roundup and config['live']['edit_existing']:

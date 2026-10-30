@@ -207,9 +207,9 @@ def test_emoji_caption_stats_and_no_stats_only_spam(cfg):
     match=dict(provider.normalize(raw(),NOW),fixture_id='app-id',source='api-football',
                statistics=provider.normalize_statistics(stats(),provider.normalize(raw(),NOW)),statistics_at=NOW.isoformat())
     post=policy.score_post([match],{'posts':[]},NOW,cfg)
-    assert '⚽ MR 2 ODDS' in post['caption'] and '⏸️ Arsenal 1–0 Tottenham · HT' in post['caption']
-    for line in ['🚩 Corners: 4–2','🟨 Yellow cards: 1–1','🟥 Red cards: 0–0',
-                 '📊 Possession: 60%–40%','🎯 Shots on target: 2–2','🥅 Total shots: 5–5','⚠️ Fouls: 4–4']:
+    assert post['caption'].startswith('Live Matches SAST\n') and '⏸ HT | Arsenal 1–0 Tottenham' in post['caption']
+    for line in ['🚩 Corners 4–2','🟨 Yellow 1–1','🟥 Red 0–0',
+                 '📊 Possession 60%–40%','🎯 On target 2–2','🥅 Shots 5–5','⚠️ Fouls 4–4']:
         assert line in post['caption']
     assert '🚫 Offsides' not in post['caption']
     state={'posts':[]};entry=policy.reserve(post,state,NOW);entry.update(status='published',post_id='123_456')
@@ -229,7 +229,7 @@ def test_build_enriches_matched_scores_and_preserves_app_fixture_ids(tmp_path,mo
     monkeypatch.setattr(cli,'APIFootball',lambda *a:SimpleNamespace(
         fixtures=lambda **kw:([match],NOW.isoformat()),enrich_statistics=enrich))
     post,_=cli.build('live',tmp_path,NOW,cfg,{'posts':[]},preview=True)
-    assert post['fixture_ids']==['app-original-id'] and '🚩 Corners: 4–2' in post['caption']
+    assert post['fixture_ids']==['app-original-id'] and '🚩 Corners 4–2' in post['caption']
     assert len(calls)==1
     # Unchanged type caps/cooldowns stop optional spend too.
     state={'posts':[]};entry=policy.reserve(post,state,NOW);entry.update(status='published',post_id='1_2')
