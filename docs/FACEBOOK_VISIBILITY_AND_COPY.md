@@ -1,32 +1,40 @@
-# Picture-first posts, public visibility and caption changes
+# Reels-only update — owner decision, 30 October 2026
 
-## What changed
+## Pause other Facebook posts
 
-- Statistical community posts and honest prediction reviews now render original 1080×1350 pictures, like match cards and weekly features. The workflow installs the existing locked Pillow dependency for community editions too. A graphic failure skips the post instead of falling back to an unwanted text-only stats post.
-- Community/card captions are shorter: an actual statistical observation, the match/time and one football question. Sample sizes, form, goals and date ranges remain on the picture; complete evidence is retained in the planning manifest. Weekly copy remains factual and includes the known forward fixtures.
-- No `PlayReport ZA` banner or `Source:` credit appears in new feed captions or new stats pictures. Source/provenance remains internal. This does not override a supplier's mandatory attribution terms: any new provider requiring public attribution must remain disabled unless the publication arrangement permits this format. Scores/roundups remain disabled pending the existing coverage/rights checks.
-- Facebook Reel captions remove the branded/technical `16:9 widescreen`, `selection(s)` boilerplate. They retain the actual pick count, date, morning record (including losses) and 18+ warning. Telegram text is passed through unchanged. Existing video visuals/logo, renderer, native Reel publisher, music, schedules, picks and deletion/error handling are not changed.
-- These changes affect future editions. No old post is deleted, edited, reuploaded or duplicated, and no extra Reel is generated.
+The owner has deferred text/community posts, stats cards, weekly features, live scores and roundups while Meta requests business verification. `config/facebook-feed.json` is now `enabled:false`, `dry_run:true`, `live.enabled:false`. Their workflows can still produce dry-run reports, but cannot publish. This gate is independent of the existing two Reels. There is no new API subscription and no extra Reel/manual delivery trigger.
 
-## Why an API success can still be invisible to other people
+Business verification/app access restrictions may also affect API-published Reels. Repository changes cannot bypass Meta review or prove that a non-role viewer can see a Reel. See Meta's official [App Modes guide](https://developers.facebook.com/docs/development/build-and-test/app-modes/).
 
-The old check established that the owning Page token could read the published post and expected message. **That does not establish public visibility.** The updated notice makes this distinction explicit. Text publication now explicitly sets `published=true`; photo publication already did so. Neither parameter can override Meta app mode or Page restrictions.
+## Exact Facebook Reel caption
 
-Meta's official [App Modes documentation](https://developers.facebook.com/docs/development/build-and-test/app-modes/) states that data generated in Development mode, including test posts, is visible only to role users. Switching to Live makes that data visible to non-role users. Meta also says to complete development/App Review requirements before switching modes. This is a likely explanation for an admin seeing a post that other people cannot see, **not a remotely verified diagnosis of this specific app**.
+The Facebook-only adapter now emits exactly:
 
-### Owner check on a phone
+```
+Today's Football Predictions
+30 October 2026
 
-1. Open Meta for Developers → **My Apps → Daily Workflow** (the app used to obtain the publishing token).
-2. Check **Development / Live** status in the dashboard (or its Publish section). Complete any required settings, permissions review or verification before making it Live. Repository code cannot switch the Meta dashboard for you.
-3. Check the Page's age/country restrictions and whether the post is hidden. Test the **direct post link** from an ordinary Facebook account with no admin/developer/tester role. Seeing nothing in somebody's News Feed is not by itself evidence that the post is private; distribution is a separate issue.
-4. Do not repost merely to test visibility. Meta documents that existing Development-mode data becomes accessible after the switch; first inspect the original post again.
+#FootballPredictions #Football #Soccer #SoccerPredictions #FootballTips
+```
 
-### Read-only diagnostic workflow
+The date is calculated at send time in **Africa/Johannesburg**, not hard-coded or taken from yesterday's recap. No brand, source, odds, selection count, recap, extra commentary or technical aspect-ratio wording is added. Telegram captions are untouched. The existing 18+ / responsible-gambling warning remains inside the videos.
 
-After this PR is merged, Actions → **Check Facebook post visibility (read only)**. Supply the numeric suffix of the existing post, not a token. The default is the first confirmed community post, `122152496451000672`. The script combines it with the configured Page ID and uses GET only. It checks reported publication, hidden state, audience and publishing-app name, and saves a credential-free JSON report. It never edits privacy, creates another post or changes app mode.
+### Hashtag research and honest limits
 
-Even `is_published=true` and audience `EVERYONE` are not sufficient to prove a non-role user can see a Development-mode post. Therefore the report always leaves `public_visibility_verified=false`; a real non-role viewer check is still required. Missing/unsupported Graph fields or permissions fail safely rather than invent a public result. The app mode itself is not inferred from this endpoint.
+These are a compact set of broad and subject-specific football terms, not a claim of the five most-used Facebook tags. Public hashtag directories mainly expose **Instagram** counts and do not establish Facebook search volume. The researched football-related lists include these terms [1](https://best-hashtags.com/hashtag/soccerpredictions/); they are used here for relevance, not as proof of reach. No paid hashtag service, follower manipulation, unrelated trending tag, `#surebet` or guaranteed-win tag is used.
 
-## Validation
+Meta cautions against long distracting captions and excessive hashtags, which can reduce distribution [1](https://about.fb.com/news/2025/04/cracking-down-spammy-content-facebook/). Five relevant tags fit the owner's short caption request; no hashtag can guarantee views or search placement. Meta's [Reels publishing guide](https://developers.facebook.com/docs/video-api/guides/reels-publishing/) explicitly supports hashtags in `description`.
 
-Offline tests cover picture rendering (including losing reviews), removal of public branding/source boilerplate, retention of sample evidence, humanised video counts/records, unchanged Telegram/media delivery, explicit published text requests, read-only visibility diagnostics and non-public/unknown audience handling. Dry-run previews use actual published archive records and make no Facebook calls. A successful mock test is not a successful public photo-post or external-viewer integration test.
+## Matches-only cover and opening frame
+
+- After the renderer's final verification/filtering, the **exact same filmed picks**, in the same order, generate an original 1080×1920 JPEG named `<video>.cover.jpg`.
+- The cover reads only team names. Selection, odds, price, model probability and reason fields are never read by the cover renderer. Every filmed match appears; duplicates, blank names, more than eight matches or unreadable overflow fail closed.
+- For the Facebook portrait cut, that JPEG replaces the existing intro picture **without adding a slide or changing its hold time**. Telegram's landscape intro, all match/reason/record slides, pick logic, music and the two delivery slots remain unchanged.
+- After the native Reel is confirmed published, the publisher makes one best-effort preferred-thumbnail request on the existing video ID. Meta's [Video Thumbnails reference](https://developers.facebook.com/docs/graph-api/reference/video/thumbnails/) documents multipart `source` and `is_preferred=true` plus additional permission requirements.
+- A cover is reported verified only when the upload succeeds and a **new** preferred thumbnail ID is read back. Not every Page/app/Reel permission combination is established to support this endpoint. Rejection/timeout is logged as **unconfirmed**, not hidden or treated as successful.
+- Cover failure never turns a published Reel into a failed video delivery and never creates/reuploads another Reel. The matches-only opening frame is still embedded in the video; Facebook may choose or crop thumbnails differently across surfaces. Without successful thumbnail read-back, the actual UI cover cannot be promised.
+- No old Reel is rerendered or reuploaded. These settings are for the next normal edition, not an extra test video.
+
+## Tests
+
+Tests cover exact caption/date rollover; whitelisted cover text against poisoned market/odds fields; one-to-eight match bounds and duplicate rejection; real JPEG rendering; header-only token authentication; preferred-thumbnail read-back; ambiguous cover failures; already-published Reel idempotency; unchanged Telegram/media; paused non-Reel gates; unchanged calendar and locked music. Renderer/publisher invariant hashes were updated only for the explicitly requested cover feature; original calendar/music hashes remain fixed. Offline contracts and a layout preview are not a real Facebook thumbnail integration success.

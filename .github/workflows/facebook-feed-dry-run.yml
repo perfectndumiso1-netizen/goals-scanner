@@ -38,6 +38,20 @@ jobs:
         env:
           API_FOOTBALL_KEY: ${{ secrets.API_FOOTBALL_KEY }}
         run: python -m facebook_feed.cli preview --kind all --source tmp/feed-source/data/app
+      - name: Preview the requested Reel caption and matches-only layout (not a publication)
+        run: |
+          python - <<'PYCODE'
+          import json
+          from pathlib import Path
+          from facebook_captions import reel_caption
+          from facebook_cover import render_matches
+          source=json.loads(Path('tmp/feed-source/data/app/latest.json').read_text())
+          work=Path('tmp/facebook-feed');work.mkdir(parents=True,exist_ok=True)
+          (work/'reel-caption.txt').write_text(reel_caption()+'\n')
+          rows=source.get('fixtures',[])[:5]
+          if rows:render_matches(rows,work/'reel-cover-layout-preview.jpg')
+          (work/'reel-cover-note.txt').write_text('Layout preview only. Actual Reel cover uses the exact final filmed picks, not this sample.\n')
+          PYCODE
       - name: Keep real captions, original graphics and skip reasons for review
         if: always()
         uses: actions/upload-artifact@v4.6.2

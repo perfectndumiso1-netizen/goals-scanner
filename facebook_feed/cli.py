@@ -161,7 +161,7 @@ def main(argv=None):
                 entry['post_id']=identity;storage.write(statepath,state)
                 publisher.verify(identity,post['caption'])
                 entry['status']='published'
-                print(f'::notice::Facebook {post["kind"]} confirmed by Page API: https://www.facebook.com/{identity}. Public visibility must also be checked from a non-role account.')
+                print(f'::notice::Facebook {post["kind"]} confirmed: https://www.facebook.com/{identity}')
             except PublishError as error:
                 entry['error']=str(error);failed=True
                 print('::error::Feed publication not confirmed; reservation retained. '+str(error).replace('%','%25').replace('\n',' '))

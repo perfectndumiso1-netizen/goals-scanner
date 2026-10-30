@@ -3,10 +3,6 @@
 # Docs: https://gh.io/actions-lockfile
 version: 'v0.0.3'
 workflows:
-    '.github/workflows/facebook-visibility.yml':
-        - 'actions/checkout@v4.4.0'
-        - 'actions/setup-python@v5.6.0'
-        - 'actions/upload-artifact@v4.6.2'
     '.github/workflows/build-app.yml':
         - 'actions/checkout@v4.4.0'
         - 'actions/setup-java@v4.9.1'

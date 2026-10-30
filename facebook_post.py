@@ -221,6 +221,19 @@ def publish(path: Path, caption: str = "") -> UploadResult:
             if (status.get("publishing_phase") or {}).get("status") == "complete":
                 _save(path, info, "published")
                 log.info("Facebook: 9:16 Reel published for PlayReport ZA (video ID %s).", info["video_id"])
+                # A cover failure must never retry or invalidate an already published Reel.
+                try:
+                    from facebook_cover import apply_preferred
+                    cover_status = apply_preferred(opener, info['video_id'], token, path.with_suffix('.cover.jpg'), GRAPH_VERSION)
+                    if cover_status:
+                        info['cover_status'] = cover_status
+                        _save(path, info, 'published')
+                        if cover_status == 'verified':
+                            log.info('Facebook: matches-only preferred cover verified for Reel %s.', info['video_id'])
+                        else:
+                            log.warning('Facebook: preferred cover not confirmed; matches-only opening frame is present. Do not reupload this Reel.')
+                except Exception:
+                    log.warning('Facebook: cover setup not confirmed; published Reel is retained as published, no duplicate retry.')
                 return UploadResult("uploaded", str(info["video_id"]))
             if attempt + 1 < STATUS_ATTEMPTS:
                 time.sleep(STATUS_INTERVAL)

@@ -1736,7 +1736,13 @@ def build(picks: list, outfile: Path, *, assets: Path, work: Path | None = None,
         crests.mkdir(exist_ok=True)
 
         n = len(picks)
-        render_intro(logo, bgs[0], slides_dir / "intro.jpg")
+        if aspect == "9:16":
+            # The Facebook cover/opening uses only the exact, already verified filmed matches.
+            from facebook_cover import render_matches
+            cover = render_matches(picks, Path(outfile).with_suffix(".cover.jpg"))
+            __import__("shutil").copyfile(cover, slides_dir / "intro.jpg")
+        else:
+            render_intro(logo, bgs[0], slides_dir / "intro.jpg")
         render_disclaimer(logo, bgs[1], slides_dir / "disclaimer.jpg")
 
         texts = [INTRO_SCRIPT, DISCLAIMER_SCRIPT]

@@ -29,7 +29,7 @@ def render(spec,path):
         return y
     draw.rounded_rectangle((30,30,1050,1320),radius=28,fill='#12243b',outline='#24dbb8',width=3)
     draw.rectangle((70,73,82,126),fill='#24dbb8')
-    draw.text((104,78),'FOOTBALL • IN FOCUS',font=font(38,True),fill='#ffffff')
+    draw.text((104,78),'PLAYREPORT ZA',font=font(38,True),fill='#ffffff')
     y=text_block(spec['title'],72,175,size=35,bold=True,fill='#24dbb8')+20
     y=text_block(spec['subtitle'],72,y,size=33,bold=True)+10
     y=text_block(spec['context'],72,y,size=25,fill='#c3d1e2')+30
@@ -45,11 +45,9 @@ def render(spec,path):
         y=text_block(note,75,y,size=23,fill='#c3d1e2')+6
         if y>1100:
             raise ValueError('Graphic notes overflow; needs editorial review')
-    if spec.get('question'):
-        text_block(spec['question'],75,1150,size=31,bold=True,fill='#24dbb8')
-    footer='W = win · D = draw · L = loss · Latest result first'
-    if any('GF' in row for row in spec['rows']):footer='GF = goals scored · GA = goals conceded · Latest result first'
-    if 'YESTERDAY' in spec['title']:footer='18+ · No result is guaranteed.'
-    draw.text((75,1265),footer,font=font(21),fill='#c3d1e2')
+    question='Which team will you watch this week?' if 'TEAMS' in spec['title'] else 'Which pattern will matter most?'
+    text_block(question,75,1150,size=31,bold=True,fill='#24dbb8')
+    text_block('Observed results — not guaranteed outcomes.',75,1210,size=23,fill='#c3d1e2')
+    draw.text((75,1265),'Source: PlayReport fixture archive | Full samples in caption',font=font(21),fill='#c3d1e2')
     path=Path(path);path.parent.mkdir(parents=True,exist_ok=True);image.save(path,quality=92)
     return path
