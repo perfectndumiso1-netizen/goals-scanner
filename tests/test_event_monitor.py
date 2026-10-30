@@ -57,8 +57,9 @@ def baseline(cfg,rows=None):
 
 def test_production_is_event_driven_but_not_activated(cfg):
     assert cfg['event_monitor']['enabled'] and not cfg['event_monitor']['publish_enabled']
-    assert cfg['live']['image_required'] and not cfg['event_monitor']['failover_permitted']
-    assert {v['quota_group'] for v in cfg['event_monitor']['key_slots'].values()}=={'primary'}
+    assert cfg['live']['image_required'] and cfg['event_monitor']['failover_permitted']
+    assert cfg['event_monitor']['permission_reference']
+    assert {v['quota_group'] for v in cfg['event_monitor']['key_slots'].values()}=={'primary','backup-1','backup-2'}
     assert cli.is_due('live',NOW.replace(hour=2),cfg)
 
 
@@ -216,6 +217,7 @@ def allow_failover(cfg):
 
 def test_default_daily_quota_never_pools_keys_and_utc_resets(cfg,monkeypatch):
     keys(monkeypatch);state={}
+    for slot in cfg['event_monitor']['key_slots'].values():slot['quota_group']='primary'  # Shared-account regression: never pool keys.
     opener=Opener(Response(account()),HTTPError('https://example',429,'quota',{'x-ratelimit-requests-remaining':'0'},io.BytesIO()))
     with pytest.raises(QuotaExceeded):EventAPI(cfg,state,NOW,opener).get('fixtures',{'live':'all'})
     assert len(opener.calls)==2
@@ -425,3 +427,25 @@ def test_event_send_gate_cannot_be_bypassed_by_different_cli_kind(cfg,tmp_path,m
     monkeypatch.setattr(cli,'PageFeed',forbidden)
     with pytest.raises(ValueError,match='publication gate changed'):
         cli.main(['send','--kind','results','--config',str(tmp_path/'cfg.json'),'--work',str(tmp_path),'--publish','--checkpoint'])
+
+
+def test_three_confirmed_allocations_fail_over_only_on_documented_daily_exhaustion(cfg,monkeypatch):
+    keys(monkeypatch);state={}
+    opener=Opener(Response(account()),Response([],0,{'requests':'You have reached the request limit for the day'}),
+                  Response(account()),HTTPError('https://example',429,'daily',{'x-ratelimit-requests-remaining':'0'},io.BytesIO()),
+                  Response(account()),Response([{'verified_third_allocation':True}],98))
+    assert EventAPI(cfg,state,NOW,opener).get('fixtures')==[{'verified_third_allocation':True}]
+    assert [r.get_header('X-apisports-key') for r in opener.calls]==['synthetic-private-primary']*2+['synthetic-private-secondary']*2+['synthetic-private-third']*2
+    groups=state['event_api']['groups']
+    assert groups['primary']['exhausted'] and groups['backup-1']['exhausted']
+    assert groups['primary']['requests']==100 and groups['backup-1']['requests']==100
+    assert groups['backup-2']['requests']==2 and not groups['backup-2'].get('exhausted')
+    assert 'synthetic-private' not in json.dumps(state)
+
+
+def test_mapping_backups_does_not_reset_existing_primary_budget(cfg):
+    state={'event_api':{'groups':{'primary':{'utc_date':'2026-10-30','requests':55,'remaining':45}},'slots':{}}}
+    api=EventAPI(cfg,state,NOW,Opener())
+    assert api.group('primary')['requests']==55 and api.group('primary')['remaining']==45
+    assert api.group('backup-1')['requests']==0 and api.group('backup-2')['requests']==0
+    assert api.group('primary')['requests']==55

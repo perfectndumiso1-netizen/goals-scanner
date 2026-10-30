@@ -145,5 +145,5 @@ def build(cfg,state,now,api=None):
                    expires_at=(local(at)+timedelta(seconds=cfg['event_monitor']['max_source_age_seconds'])).isoformat())
     if cfg['live']['image_required']:
         feature=next((m for m in matches if type(m.get('home_goals')) is int and type(m.get('away_goals')) is int),matches[0])
-        post['graphic']={'kind':'live-score','match':dict(feature),'checked_at':at,'status_only':True,'header':'PLAYREPORT ZA | LIVE SCORES'}
+        post['graphic']={'kind':'live-score','match':dict(feature),'checked_at':at,'status_only':True,'header':'PLAYREPORT ZA | LIVE SCORES','style':cfg['live'].get('graphic_style','classic')}
     return post,reason

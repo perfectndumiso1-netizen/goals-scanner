@@ -36,6 +36,8 @@ def config(path):
         raise ValueError('Live posting cap exceeds approved maximum')
     for flag in ('publish_every_poll','image_required'):
         if flag in data['live'] and type(data['live'][flag]) is not bool:raise ValueError('Live switches must be booleans')
+    if data['live'].get('graphic_style','classic') not in ('classic','stadium'):raise ValueError('Unsupported live picture style')
+    if type(data['live'].get('crests_enabled',False)) is not bool:raise ValueError('Crest switch must be a boolean')
     if data['live'].get('publish_every_poll') and data['live'].get('image_required') is not True:raise ValueError('Periodic live updates require a score picture')
     if data['live'].get('publish_every_poll') and data['live_post_cooldown_minutes']<10:raise ValueError('Live publication interval cannot be below ten minutes')
     if data['provider']['poll_interval_minutes']<10 or not 1<=data['provider']['daily_request_budget']<=90:
@@ -312,6 +314,9 @@ def main(argv=None):
         post['expires_at']=expiry.isoformat()
         if post.get('graphic'):
             try:
+                if post['graphic'].get('style')=='stadium' and cfg['live'].get('crests_enabled'):
+                    from .crest_cache import prepare as prepare_crests
+                    prepare_crests(post['graphic'],work/'crests')
                 post['image']=str(render(post['graphic'],work/f'{kind}.jpg'))
                 if kind=='live':post['image_sha256']=hashlib.sha256(Path(post['image']).read_bytes()).hexdigest()
             except ValueError as error:

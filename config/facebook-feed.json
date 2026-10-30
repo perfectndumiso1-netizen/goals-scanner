@@ -130,7 +130,9 @@
       "end": "24:00"
     },
     "publish_every_poll": true,
-    "image_required": true
+    "image_required": true,
+    "graphic_style": "stadium",
+    "crests_enabled": true
   },
   "editorial_competitions": [],
   "authorized_kinds": [
@@ -151,8 +153,8 @@
     "daily_request_budget": 90,
     "max_source_age_seconds": 180,
     "credential_revision": "1",
-    "failover_permitted": false,
-    "permission_reference": "",
+    "failover_permitted": true,
+    "permission_reference": "Owner confirmed on 2026-10-30: provider permits failover and each of the three configured key slots has an independently authorised daily allocation.",
     "key_slots": {
       "API_FOOTBALL_KEY": {
         "authorised": true,
@@ -160,11 +162,11 @@
       },
       "API_FOOTBALL_KEY1": {
         "authorised": true,
-        "quota_group": "primary"
+        "quota_group": "backup-1"
       },
       "API_FOOTBALL_KEY2": {
         "authorised": true,
-        "quota_group": "primary"
+        "quota_group": "backup-2"
       }
     },
     "mode": "events"

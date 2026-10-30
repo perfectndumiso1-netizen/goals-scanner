@@ -1,7 +1,8 @@
 """Quota-aware API-SPORTS transport for the event monitor; secrets remain memory-only.
 
-All slots share one quota group by default. Merely possessing multiple free keys
-NEVER authorises pooling their allowances. Failover is quota-only and opt-in.
+Slots sharing an account must share one quota group. Merely possessing multiple
+free keys NEVER authorises pooling allowances. Separate groups require explicit
+provider authorisation; failover remains quota-only and opt-in.
 """
 from datetime import timedelta, timezone
 from email.utils import parsedate_to_datetime
@@ -87,7 +88,8 @@ class EventAPI:
                 self.active=slot
                 return data
             except QuotaExceeded:
-                budget['exhausted']=True
+                budget['exhausted']=True;budget['remaining']=0;budget['exhausted_at']=self.now.isoformat()
+                if budget.get('allocation') is not None:budget['requests']=max(budget['requests'],budget['allocation'])
                 # Only a different provider-authorised quota allocation may follow.
                 continue
         raise QuotaExceeded('All permitted account allocations unavailable; last successful data preserved')
