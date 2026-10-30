@@ -1,7 +1,10 @@
 {
-  "artifact_id": 12882196632,
-  "request_id": "morning-2026-10-29-existing-reel-publication-check",
-  "caption": "⚽ PlayReport ZA — Morning Bet Advisor | Thursday 29 October 2026\nFive selections for your review, with recent form and head-to-head context.\n18+ · No guaranteed returns. A shortlist for your review, not an instruction to bet.",
+  "artifact_id": 12959466264,
+  "source_run_id": 41012489982,
+  "request_id": "facebook-only-morning-2026-10-30",
+  "video_date": "2026-10-30",
+  "expires_at": "2026-10-30T16:00:00+02:00",
+  "caption": "Today's Football Predictions\n30 October 2026\n\n#FootballPredictions #Football #Soccer #SoccerPredictions #FootballTips",
   "resolve_page_token": true,
-  "action": "check_publication"
+  "action": "publish"
 }
