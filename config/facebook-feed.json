@@ -35,12 +35,15 @@
   "max_source_age_hours": 12,
   "provider": {
     "name": "api-football",
-    "poll_interval_minutes": 20,
+    "poll_interval_minutes": 10,
     "daily_request_budget": 90,
     "max_fetch_age_seconds": 300,
     "rights_confirmed": false,
     "account_coverage_verified": false,
-    "coverage_check_days": 7
+    "coverage_check_days": 7,
+    "statistics_enabled": true,
+    "statistics_daily_request_budget": 6,
+    "statistics_max_matches_per_update": 2
   },
   "live": {
     "enabled": true,
@@ -120,7 +123,12 @@
           "Premiership"
         ]
       }
-    ]
+    ],
+    "app_coverage_only": true,
+    "coverage_window": {
+      "start": "08:00",
+      "end": "24:00"
+    }
   },
   "editorial_competitions": [],
   "authorized_kinds": [
@@ -128,7 +136,7 @@
     "live"
   ],
   "results_time": "08:00",
-  "score_source": "app",
+  "score_source": "api-football",
   "app_scores": {
     "rights_confirmed": false,
     "coverage_verified": false,

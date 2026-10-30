@@ -11,6 +11,7 @@ from . import content,policy,storage
 from .graphics import render
 from .provider import APIFootball,ProviderError
 from .app_scores import AppScores
+from .live_window import in_window, eligible_kickoff, app_candidates, match_app_coverage, outstanding_candidates
 from .publisher import PageFeed,PublishError
 
 KINDS=('community','card','weekly','live','roundup','results','preflight')
@@ -29,8 +30,16 @@ def config(path):
             raise ValueError('Posting intervals must be positive')
     if not 0<=data['live']['max_posts_per_day']<=3 or not 1<=data['live']['max_matches']<=30:
         raise ValueError('Live posting cap exceeds approved maximum')
-    if data['provider']['poll_interval_minutes']<20 or not 1<=data['provider']['daily_request_budget']<=90:
+    if data['provider']['poll_interval_minutes']<10 or not 1<=data['provider']['daily_request_budget']<=90:
         raise ValueError('Free-plan polling/request budget is unsafe')
+    settings=data['provider']
+    if type(settings.get('statistics_enabled',False)) is not bool or any(type(settings.get(k,0)) is not int or not 0<=settings.get(k,0)<=limit for k,limit in (('statistics_daily_request_budget',6),('statistics_max_matches_per_update',2))):
+        raise ValueError('Unsafe optional statistics budget')
+    if 'app_coverage_only' in data['live'] and type(data['live']['app_coverage_only']) is not bool:
+        raise ValueError('App coverage restriction must be a boolean')
+    window=data['live'].get('coverage_window')
+    if 'coverage_window' in data['live']:
+        if window!={'start':'08:00','end':'24:00'}:raise ValueError('Live coverage must remain 08:00 to midnight SAST')
     if data.get('score_source', 'api-football') not in ('api-football', 'app'):raise ValueError('Unsupported score source')
     if 'authorized_kinds' in data and (not isinstance(data['authorized_kinds'],list) or any(k not in KINDS for k in data['authorized_kinds'])):raise ValueError('Invalid authorized kinds')
     if data.get('score_source')=='app':
@@ -56,7 +65,7 @@ def scores_approved(cfg):
 def is_due(kind,now,cfg):
     if kind=='preflight':return False
     if kind not in cfg.get('authorized_kinds',KINDS):return False
-    if kind=='live':return cfg['live']['enabled']
+    if kind=='live':return cfg['live']['enabled'] and in_window(now,cfg)
     if kind=='card' and now.weekday() not in cfg['card_days']:return False
     if kind=='weekly' and now.weekday()!=cfg['weekly_day']:return False
     key={'community':'community_time','weekly':'weekly_time','card':'card_time','roundup':'roundup_time','results':'results_time'}[kind]
@@ -68,7 +77,7 @@ def is_due(kind,now,cfg):
 def build(kind,root,now,cfg,state,preview=False):
     if not preview and not is_due(kind,now,cfg):return None,'not due'
     if kind=='results':return content.morning_results(root,now,cfg),'exact filmed history + verified app ledger'
-    items=[] if kind in ('live','roundup','preflight') and cfg.get('score_source')=='app' else content.verified_fixtures(root,now,cfg)
+    items=[] if kind in ('live','roundup','preflight') else content.verified_fixtures(root,now,cfg)
     if kind in ('community','card'):
         covered={key for p in policy.history(state,now,cfg['topic_history_days']) if p.get('kind') in ('community','card') and p.get('status') not in ('cancelled','rejected') for key in p.get('fixture_ids',[])}
         items=[item for item in items if item['fixture']['id'] not in covered]
@@ -79,29 +88,48 @@ def build(kind,root,now,cfg,state,preview=False):
     if kind in ('live','roundup','preflight'):
         if not preview and not cfg['live']['enabled']:return None,'live scores disabled pending verification'
         try:
+            # Preview may bypass calendar timing for editorial content, never overnight score safety.
+            if kind!='preflight' and not in_window(now,cfg):return None,'outside 08:00–24:00 SAST score coverage'
+            if not preview and not cfg['live']['edit_existing']:
+                sent=[p for p in state.get('posts',[]) if p.get('kind') in ('live','roundup') and
+                      p.get('status') not in ('cancelled','rejected') and p.get('operation')!='edit' and content.local(p['at']).date()==now.date()]
+                if len(sent)>=cfg['live']['max_posts_per_day']:return None,'daily score post cap reached; conserving API allowance'
+            coverage=None
+            if kind!='preflight' and cfg['live'].get('app_coverage_only'):
+                coverage=outstanding_candidates(app_candidates(root,now,cfg),state,cfg.get('score_source','api-football'))
+                if not coverage:return None,'no eligible app-covered match in progress window; no API request'
             provider=AppScores(Path(root),cfg,state,now) if cfg.get('score_source')=='app' else APIFootball(cfg,state,now)
             if kind=='preflight':return None,json.dumps(provider.coverage(),sort_keys=True)
-            matches,fetched=provider.fixtures()
+            matches,fetched=provider.fixtures(coverage=coverage) if coverage is not None and cfg.get('score_source')!='app' else provider.fixtures()
             if now-content.local(fetched)>timedelta(seconds=source_freshness(cfg)):
                 return None,'cached scores are too old to publish'
+            if coverage is not None:matches=match_app_coverage(matches,coverage)
+            if cfg['live'].get('coverage_window'):matches=[m for m in matches if eligible_kickoff(m['kickoff'],now,cfg)]
             # Prevent a frozen in-play minute/status from being treated as a fresh observation forever.
             seen=state.setdefault('score_observations',{})
             valid=[]
             for match in matches:
                 fingerprint=json.dumps([match['status'],match.get('elapsed'),match['home_goals'],match['away_goals']],sort_keys=True)
-                prior=seen.get(match['id'])
+                observation_key=cfg.get('score_source','api-football')+':'+str(match['id'])
+                match['source']=cfg.get('score_source','api-football')
+                prior=seen.get(observation_key)
                 if prior and prior['fingerprint']==fingerprint:
                     if match['status'] in ('1H','2H','HT','ET','BT','P') and now-content.local(prior['since'])>timedelta(minutes=35):
                         continue
-                else:seen[match['id']]={'fingerprint':fingerprint,'since':now.isoformat()}
+                else:seen[observation_key]={'fingerprint':fingerprint,'since':now.isoformat()}
                 valid.append(match)
             selected=policy.selected_matches(valid,cfg,[item['fixture'] for item in items])
             post=policy.score_post(selected,state,now,cfg,roundup=kind=='roundup')
+            if post and cfg.get('score_source')!='app' and policy.allowed(post,state,now,cfg)[0]:
+                enriched=provider.enrich_statistics(selected)
+                post=policy.score_post(enriched,state,now,cfg,roundup=kind=='roundup')
             if post:
-                post['expires_at']=(content.local(fetched)+timedelta(seconds=source_freshness(cfg))).isoformat()
+                timestamps=[content.local(fetched)]+[content.local(m['statistics_at']) for m in post['snapshot'] if m.get('statistics_at')]
+                post['expires_at']=(min(timestamps)+timedelta(seconds=source_freshness(cfg))).isoformat()
                 post['caption']=post['caption'].replace(f'checked {now:%d %b %H:%M}',f'checked {content.local(fetched):%d %b %H:%M}')
-                if cfg.get('score_source')=='app':
+                if cfg.get('score_source')=='app' or cfg['live'].get('app_coverage_only'):
                     post['fixture_ids']=[m['fixture_id'] for m in selected if m.get('fixture_id')]
+                if cfg.get('score_source')=='app':
                     post['caption']=post['caption'].replace('Source: API-FOOTBALL / API-SPORTS.', 'Source: the same Livescore feed used by the Mr 2 Odds app; app-covered fixture IDs only.')
                 post['caption_hash']=hashlib.sha256(post['caption'].encode()).hexdigest()
             return post,'selected verified provider snapshots'
@@ -173,16 +201,18 @@ def main(argv=None):
             if len(entries)!=1 or entries[0]['status']!='reserved':
                 raise ValueError('Reservation ownership mismatch; no retry')
             entry=entries[0]
-            if post['kind'] not in cfg.get('authorized_kinds',KINDS) or post['kind'] in ('live','roundup') and not (cfg['live']['enabled'] and scores_approved(cfg)):
+            score_content=post['kind'] in ('live','roundup')
+            source_changed=score_content and any(m.get('source')!=cfg.get('score_source','api-football') for m in post.get('snapshot',[]))
+            if post['kind'] not in cfg.get('authorized_kinds',KINDS) or score_content and (not cfg['live']['enabled'] or not scores_approved(cfg) or source_changed):
                 entry['status']='cancelled';entry['error']='Content/source authorisation changed before sending';storage.write(statepath,state);continue
             if hashlib.sha256(post['caption'].encode()).hexdigest()!=entry['caption_hash'] or any(entry.get(k)!=post.get(k) for k in ('kind','topic','fixture_ids','operation','target_id','snapshot')):
                 raise ValueError('Prepared content does not match its durable reservation')
-            if datetime.now(content.SAST)>=content.local(post['expires_at']):
+            if datetime.now(content.SAST)>=content.local(post['expires_at']) or post['kind'] in ('live','roundup') and not in_window(datetime.now(content.SAST),cfg):
                 entry['status']='cancelled';entry['error']='Prepared content expired before sending';storage.write(statepath,state);continue
             entry['status']='unknown';storage.write(statepath,state)
             try:
                 if publisher is None:publisher=PageFeed()
-                if datetime.now(content.SAST)>=content.local(post['expires_at']):
+                if datetime.now(content.SAST)>=content.local(post['expires_at']) or post['kind'] in ('live','roundup') and not in_window(datetime.now(content.SAST),cfg):
                     entry['status']='cancelled';entry['error']='Content expired during credential verification; no mutation sent';continue
                 identity=publisher.send(post)
                 entry['post_id']=identity;storage.write(statepath,state)

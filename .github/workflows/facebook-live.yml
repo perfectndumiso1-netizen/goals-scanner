@@ -1,7 +1,7 @@
 name: Facebook selected score centre
 on:
   schedule:
-    - cron: "*/5 * * * *"
+    - cron: "*/10 6-21 * * *"
   workflow_dispatch:
     inputs:
       publish:

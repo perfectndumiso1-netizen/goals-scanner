@@ -10,7 +10,7 @@ def history(state, now, days=28):
     posts=[p for p in state.get('posts',[]) if local(p['at'])>=cutoff or p.get('status') in ('reserved','unknown')]
     # Old score payloads aren't needed for dedupe; retain immutable reservation keys/hashes.
     for p in posts:
-        if p.get('kind')=='live' and local(p['at']).date()<now.date() and p.get('status')=='published':p.pop('snapshot',None)
+        if p.get('kind')=='live' and local(p['at']).date()<now.date() and p.get('status') in ('published','simulated'):p.pop('snapshot',None)
     return posts
 
 
@@ -65,7 +65,7 @@ def reserve(post, state, now):
 
 def selected_matches(matches, config, stories=()):
     settings=config['live']
-    if config.get('score_source')=='app':
+    if config.get('score_source')=='app' or settings.get('app_coverage_only'):
         # Reader already verifies exact app IDs, clubs, kickoff and HTTP freshness. No editorial
         # competition/rivalry filter may expand or silently narrow the app's coverage universe.
         active=[m for m in matches if m.get('fixture_id') and m['status'] not in ('NS',)]
@@ -97,10 +97,11 @@ def score_text(m):
     if status is None:
         return None
     if m['status'] in ('NS','PST','CANC'):
-        return f"{m['home']} vs {m['away']} · {status} · {local(m['kickoff']):%H:%M} SAST"
+        return f"📅 {m['home']} vs {m['away']} · {status} · {local(m['kickoff']):%H:%M} SAST"
     if m.get('home_goals') is None or m.get('away_goals') is None:
         return None
-    text=f"{m['home']} {m['home_goals']}–{m['away_goals']} {m['away']} · {status}"
+    icon='🏁' if m['status'] in ('FT','AET','PEN') else '⏸️' if m['status'] in ('HT','BT','SUSP','INT') else '🔴'
+    text=f"{icon} {m['home']} {m['home_goals']}–{m['away_goals']} {m['away']} · {status}"
     penalties=m.get('penalties')
     if m['status']=='PEN' and penalties:
         text+=f" (penalties {penalties[0]}–{penalties[1]})"
@@ -126,7 +127,8 @@ def score_post(matches,state,now,config,roundup=False):
     centres=[p for p in state.get('posts',[]) if p['kind']=='live' and p.get('status')=='published'
              and local(p['at']).date()==now.date() and p.get('post_id')]
     centre=centres[-1] if centres else None
-    previous={str(m['id']):m for m in (centre or {}).get('snapshot',[])}
+    previous={str(m['id']):m for m in (centre or {}).get('snapshot',[])
+              if not config['live'].get('app_coverage_only') or m.get('source')==config.get('score_source')}
     # New combined updates also compare the last NEW live post when editing is disabled.
     if roundup:
         completed=[m for m in matches if m['status'] in ('FT','AET','PEN')]
@@ -135,16 +137,20 @@ def score_post(matches,state,now,config,roundup=False):
         matches=[m for m in completed if str(m['id']) not in covered]
         if len(matches)<2:
             return None
-    elif not any((significant(previous.get(str(m['id'])),m) or config.get('score_source')=='app' and previous.get(str(m['id'])) and any(previous[str(m['id'])].get(k)!=m.get(k) for k in ('status','home_goals','away_goals'))) for m in matches):
+    elif not any((significant(previous.get(str(m['id'])),m) or (config.get('score_source')=='app' or config['live'].get('app_coverage_only')) and previous.get(str(m['id'])) and any(previous[str(m['id'])].get(k)!=m.get(k) for k in ('status','home_goals','away_goals'))) for m in matches):
         return None
     if not matches:
         return None
-    snapshot=[{k:m.get(k) for k in ('id','home','away','competition','country','kickoff','status','home_goals','away_goals','penalties')} for m in matches]
+    snapshot=[{k:m.get(k) for k in ('id','home','away','competition','country','kickoff','status','home_goals','away_goals','penalties','source','statistics','statistics_at')} for m in matches]
+    for m in snapshot:
+        if m['source'] is None:m['source']=config.get('score_source','api-football')
     fingerprint=hashlib.sha256(json.dumps(snapshot,sort_keys=True).encode()).hexdigest()[:20]
-    lines=['MR 2 ODDS — '+('RESULTS ROUNDUP' if roundup else 'SELECTED LIVE SCORE CENTRE'),
+    lines=['⚽ MR 2 ODDS — '+('RESULTS ROUNDUP' if roundup else 'SELECTED LIVE SCORE CENTRE'),
            f"Latest reported scores · checked {now:%d %b %H:%M} SAST", 'Periodic updates, not a minute-by-minute service.', '']
     for m in matches:
-        lines += [score_text(m),m['competition'],'']
+        lines += [score_text(m),m['competition']]
+        lines += statistics_lines(m)
+        lines += ['']
     lines += ['Which result stands out to you?' if roundup else 'Which of these matches are you following?',
               '', 'Source: API-FOOTBALL / API-SPORTS. Statuses and scores may be corrected by the provider.']
     kind='roundup' if roundup else 'live'
@@ -152,3 +158,26 @@ def score_post(matches,state,now,config,roundup=False):
     if centre and not roundup and config['live']['edit_existing']:
         post.update(operation='edit',target_id=centre['post_id'])
     return post
+
+
+# Fixed labels: no unsupported metric can leak from the provider into a caption.
+STAT_LABELS = {
+    'corners': '🚩 Corners', 'yellow_cards': '🟨 Yellow cards', 'red_cards': '🟥 Red cards',
+    'possession': '📊 Possession', 'shots_on_target': '🎯 Shots on target',
+    'total_shots': '🥅 Total shots', 'fouls': '⚠️ Fouls', 'offsides': '🚫 Offsides',
+}
+
+
+def statistics_lines(match):
+    stats=match.get('statistics') or {}
+    if not stats or not match.get('statistics_at'):return []
+    lines=[f"📈 Match stats · home–away · {local(match['statistics_at']):%H:%M} SAST"]
+    for key,label in STAT_LABELS.items():
+        values=stats.get(key)
+        if not isinstance(values,list) or len(values)!=2:continue
+        if any(type(n) not in (int,float) or not 0<=n<=(100 if key=='possession' else 200) for n in values):continue
+        if key=='possession' and abs(sum(values)-100)>1:continue
+        if key!='possession' and any(int(n)!=n for n in values):continue
+        suffix='%' if key=='possession' else ''
+        lines.append(f'{label}: {values[0]:g}{suffix}–{values[1]:g}{suffix}')
+    return lines if len(lines)>1 else []

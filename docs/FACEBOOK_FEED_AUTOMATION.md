@@ -1,5 +1,7 @@
 # PlayReport ZA: independent Facebook feed automation
 
+> **Subsequent score update:** API-FOOTBALL is now the selected (still approval-gated) Facebook source, with 10-minute checks during 08:00–24:00 SAST and optional emoji-labelled statistics. See [LIVE_SCORE_STATS.md](LIVE_SCORE_STATS.md). Earlier app-source/five-minute descriptions below are rollout history, not the current score configuration.
+
 ## Current follow-up (30 October 2026)
 
 The owner subsequently requested three videos, separate morning video results, and app-covered scores. See [VIDEO_THREE_EDITIONS.md](VIDEO_THREE_EDITIONS.md) for the **current** scope, schedule and unresolved activation gates. Only `results` and `live` are authorised in configuration; community/cards/weekly/late roundups remain paused. The historical calendar and rollout below are retained as history, not current permission. The app-source reader does not inherit API-FOOTBALL rights approval; its own rights/coverage switches remain false.
