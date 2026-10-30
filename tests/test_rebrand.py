@@ -69,7 +69,7 @@ def test_android_icons_use_new_art_with_adaptive_padding_and_themed_mask():
 
 
 def test_video_report_copy_is_new_brand_without_changing_legacy_data_keys():
-    for name in ('shortlist_reel.py','match_breakdown.py','scanner.py','pdfgen.py','youtube_post.py','facebook_post.py'):
+    for name in ('shortlist_reel.py','match_breakdown.py','breakdown_script.py','scanner.py','pdfgen.py','youtube_post.py','facebook_post.py'):
         tree=ast.parse((ROOT/name).read_text())
         strings=[node.value for node in ast.walk(tree) if isinstance(node,ast.Constant) and isinstance(node.value,str)]
         assert any('Mr 2 Odds' in value for value in strings)
@@ -102,3 +102,26 @@ def test_music_schedule_and_model_files_remain_identical_to_before_rebrand():
     pins=json.loads((ROOT/'tests/fixtures/facebook-feed-reel-invariants.json').read_text())
     for name in ('.github/workflows/scan.yml','music.py','reel_insights.py','reel_verify.py','assets/reel/under_the_stadium_lights.mp3'):
         assert hashlib.sha256((ROOT/name).read_bytes()).hexdigest()==pins[name]
+
+
+def test_legacy_render_and_briefing_environment_keys_are_preserved(monkeypatch,tmp_path):
+    import shortlist_reel
+    marker=tmp_path/'app'/'days';marker.mkdir(parents=True)
+    monkeypatch.setenv('PLAYREPORT_DATA_DIR',str(tmp_path))
+    assert shortlist_reel._data_dir('days')==marker
+    assert 'os.getenv("PLAYREPORT_BRIEFING_VIDEO")' in (ROOT/'scanner.py').read_text()
+    for name in ('scanner.py','shortlist_reel.py'):
+        assert 'MR 2 ODDS_' not in (ROOT/name).read_text()
+
+
+def test_new_brand_keeps_original_silent_slide_timing():
+    import shortlist_reel as reel
+    import match_breakdown as breakdown
+    import music
+    for index,text in ((0,reel.INTRO_SCRIPT),(1,reel.CLOSER_SCRIPT)):
+        old=text.replace('Mr 2 Odds','PlayReport')
+        before=reel.frame_hold(reel.hold_seconds(index,music.reading_seconds(old)))
+        after=reel.frame_hold(reel.hold_seconds(index,reel.script_reading_seconds(text)))
+        assert before==after
+    assert breakdown._holds([{'text':'Welcome back to Mr 2 Odds.'}])==breakdown._holds([{'text':'Welcome back to PlayReport.'}])
+    assert ".replace(/Mr 2 Odds/g, 'Mr2Odds').trim().split" in (WWW/'pages.js').read_text()

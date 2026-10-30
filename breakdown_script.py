@@ -689,7 +689,7 @@ def intro_text(matches: list[dict], day_label: str, ch: sp.Chooser) -> str:
     evening = sp.all_evening(str(m.get("kickoff") or "")[11:16] for m in matches)
     dp = "tonight" if evening else "today"
     num = _WHEN.get(n, str(n))
-    greet = ch.pick("greet", ["Hello and welcome back to PlayReport.", "Hi everyone, and welcome back to PlayReport.", "Welcome back to PlayReport."])
+    greet = ch.pick("greet", ["Hello and welcome back to Mr 2 Odds.", "Hi everyone, and welcome back to Mr 2 Odds.", "Welcome back to Mr 2 Odds."])
     head = ch.pick("head", [f"It's {day_label}, and I've got {num} games lined up for you {dp}.",
                              f"It's {day_label}, and there are {num} games to get through {dp}."])
     trip = ch.pick("trip", [f"We're heading to {country_run(matches)}.", f"We'll be visiting {country_run(matches)}."])
@@ -712,7 +712,7 @@ def closer_text(matches: list[dict], ch: sp.Chooser) -> str:
     return (f"And that's the lot for {dp}. All {num} picks are on your screen now, so grab a screenshot if you want them. {ask} "
             "One last reminder: this is statistical information, not betting advice. "
             "Eighteen plus only, please bet responsibly, and never bet more than you can afford to lose. "
-            "PlayReport. All rights reserved.")
+            "Mr 2 Odds. All rights reserved.")
 
 
 # ---------------------------------------------------------------------------- assembly

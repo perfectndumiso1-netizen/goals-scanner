@@ -1096,7 +1096,7 @@ def _gather_photos(matches: list[dict], pack: dict, work: Path, supplied: list |
 
 def _holds(slides: list[dict]) -> list[float]:
     """Seconds on screen for every slide: how long its own words take to read, plus the house tail."""
-    return [reel.frame_hold(reel.hold_seconds(i, music.reading_seconds(s["text"])))
+    return [reel.frame_hold(reel.hold_seconds(i, reel.script_reading_seconds(s["text"])))
             for i, s in enumerate(slides)]
 
 

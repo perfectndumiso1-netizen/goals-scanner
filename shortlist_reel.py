@@ -75,6 +75,11 @@ CLOSER_SCRIPT = (
     "If this helped, give it a like, share it with a mate, and subscribe for tomorrow's list. "
     "Mr 2 Odds. All rights reserved."
 )
+def script_reading_seconds(text: str) -> float:
+    """Treat the multiword brand as one timing token, retaining pre-rebrand holds."""
+    return music.reading_seconds(str(text).replace("Mr 2 Odds", "Mr2Odds"))
+
+
 def spoken_text(text: str) -> str:
     """Normalise football abbreviations and telegraphic punctuation for plain, broadcast-style wording.
 
@@ -1682,7 +1687,7 @@ def load_detail(pick: dict, fx_dir: Path | None) -> dict | None:
 
 
 def _data_dir(*parts: str) -> Path | None:
-    root = Path(os.getenv("MR 2 ODDS_DATA_DIR") or "data")
+    root = Path(os.getenv("PLAYREPORT_DATA_DIR") or "data")
     path = root.joinpath("app", *parts)
     return path if path.exists() else None
 
@@ -1801,7 +1806,7 @@ def build(picks: list, outfile: Path, *, assets: Path, work: Path | None = None,
 
         # A float in `texts` is a fixed hold (the chart/evidence slides, which nobody reads aloud); a string is timed
         # by how long its words take at the old narration pace.
-        durations = [frame_hold(t if isinstance(t, float) else hold_seconds(i, music.reading_seconds(t)))
+        durations = [frame_hold(t if isinstance(t, float) else hold_seconds(i, script_reading_seconds(t)))
                      for i, t in enumerate(texts)]
 
         total = sum(durations)

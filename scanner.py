@@ -3825,7 +3825,7 @@ def main() -> None:
     report_url = f"{server}/{repo}/blob/data/reports/{today_str}.md" if repo else None
     if report_run:
         send_telegram(telegram_text(ctx, rows, picks, report_url))
-        briefing = os.getenv("MR 2 ODDS_BRIEFING_VIDEO")
+        briefing = os.getenv("PLAYREPORT_BRIEFING_VIDEO")
         if briefing:
             send_telegram_video(
                 Path(briefing),

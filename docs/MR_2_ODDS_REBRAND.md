@@ -18,7 +18,7 @@ The release workflow produces `Mr2Odds-1.6.85.apk` and a checksum with the match
 
 ## Intentionally stable identifiers
 
-This must install **over the existing app**, not as a second app. Do not rename `com.playreport.app`, Kotlin packages, FileProvider authorities, signing secrets, `window.PR`, `pr_*` settings/favourites/ticket/cache keys, existing notification-channel IDs, the `playreport` comparison-probability field, Drive appProperties, temp/recovery paths, GitHub repository/branch or external folder IDs. These are compatibility contracts, not visible branding. Preserving them plus the signing key lets Android retain the app's existing records during an in-place upgrade.
+This must install **over the existing app**, not as a second app. Do not rename `com.playreport.app`, Kotlin packages, FileProvider authorities, signing secrets, `window.PR`, `pr_*` settings/favourites/ticket/cache keys, existing notification-channel IDs, the `playreport` comparison-probability field, Drive appProperties, legacy `PLAYREPORT_*` environment keys, temp/recovery paths, GitHub repository/branch or external folder IDs. These are compatibility contracts, not visible branding. Preserving them plus the signing key lets Android retain the app's existing records during an in-place upgrade.
 
 Existing historical publications, receipts, audit fixtures and already-uploaded videos retain their original identity. Nothing is deleted, resent or retroactively edited. External Facebook Page/YouTube channel names and the owner's Drive/Zapier folder names are **not** changed by this repository patch; changing those accounts requires their separate owner settings and must not break existing handoff IDs.
 
@@ -33,6 +33,6 @@ Existing historical publications, receipts, audit fixtures and already-uploaded 
 
 ## Validation
 
-Eight new branding tests cover identity/storage continuity, theme references and public copy, identical logo exports, adaptive/themed icons, future video/report text, exact Facebook-caption and cover separation, paused feed configuration and release safeguards. Existing rendering tests exercise both aspect ratios; original music, schedule, verification and insights hashes remain unchanged. Only the renderer/publisher display-branding pins were deliberately updated.
+Ten new branding tests cover identity/storage continuity, theme references and public copy, identical logo exports, adaptive/themed icons, future video/report text, exact Facebook-caption and cover separation, paused feed configuration and release safeguards. Existing rendering tests exercise both aspect ratios; original music, schedule, verification and insights hashes remain unchanged. Only the renderer/publisher branding pins were deliberately updated. The new multiword brand is counted as one token for intro/closing read-time calculations, retaining the original holds on the pipeline and phone player.
 
 A mobile-width Chromium smoke test with read-only published fixture data verifies the new title/logo, Settings and Guide copy, retained settings and no page errors. Separate intro/disclaimer/closer layout renders verify both aspect ratios without producing or publishing a new video.

@@ -1738,7 +1738,7 @@ view().innerHTML = parts.join('');
       const floor = stage === 'pick' ? 6.5 : stage === 'evidence' ? 7.5 : 8.5;
       return Math.round(Math.min(16, Math.max(floor, secs)) * 1000);
     }
-    const words = String(((slide && slide.title) || '') + ' ' + ((slide && slide.sub) || '') + ' ' + ((slide && slide.line) || '')).trim().split(/\s+/).filter(Boolean).length;
+    const words = String(((slide && slide.title) || '') + ' ' + ((slide && slide.sub) || '') + ' ' + ((slide && slide.line) || '')).replace(/Mr 2 Odds/g, 'Mr2Odds').trim().split(/\s+/).filter(Boolean).length;
     // 4 s–45 s at 1.85 words a second: a results card is something to scan, and a long one still ends.
     return Math.min(45000, Math.max(4000, Math.round((words / 1.85) * 1000)));
   }
