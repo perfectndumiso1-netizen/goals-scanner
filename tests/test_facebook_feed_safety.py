@@ -16,6 +16,7 @@ from datetime import timezone
 def cfg():
     cfg=cli.config(ROOT/'config/facebook-feed.json')
     cfg.pop('authorized_kinds',None)
+    cfg['provider']['rights_confirmed']=cfg['provider']['account_coverage_verified']=False  # Explicit unapproved regression fixture.
     cfg['score_source']='api-football'
     cfg['live']['app_coverage_only']=False  # Legacy editorial-selection adapter contract.
     return cfg

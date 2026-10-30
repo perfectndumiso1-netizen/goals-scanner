@@ -66,7 +66,8 @@ def test_production_config_limits_and_approvals(cfg):
     assert cfg['provider']['statistics_max_matches_per_update']==2
     assert cfg['live']['app_coverage_only']
     assert cfg['live']['coverage_window']=={'start':'08:00','end':'24:00'}
-    assert not cli.scores_approved(cfg) and not cfg['live']['edit_existing']
+    assert cli.scores_approved(cfg) and not cfg['live']['edit_existing']
+    assert not cfg['app_scores']['rights_confirmed'] and not cfg['app_scores']['coverage_verified']
     assert set(cfg['authorized_kinds'])=={'live','results'}
 
 
@@ -292,3 +293,15 @@ def test_reported_terminal_fixture_and_daily_cap_stop_unnecessary_polling(tmp_pa
     assert cli.build('live',tmp_path,NOW,cfg,state)[0] is None
     state={'posts':[{'kind':'live','status':'published','at':NOW.isoformat()} for _ in range(3)]}
     assert cli.build('live',tmp_path,NOW,cfg,state)[0] is None
+
+
+@pytest.mark.parametrize('approval',['rights_confirmed','account_coverage_verified'])
+def test_revoking_either_approval_blocks_scheduled_publishing(tmp_path,monkeypatch,cfg,approval):
+    cfg['provider'][approval]=False
+    assert not cli.scores_approved(cfg)
+    storage.write(tmp_path/'config.json',cfg)
+    monkeypatch.setenv('FACEBOOK_FEED_PUBLISH','true')
+    monkeypatch.setattr(cli,'build',lambda *a,**k:pytest.fail('Revoked approval must block before API or Page access'))
+    assert cli.main(['prepare','--kind','live','--publish','--config',str(tmp_path/'config.json'),
+                     '--work',str(tmp_path/'work')])==0
+    assert content.load(tmp_path/'work/report.json')[0]['status']=='blocked'
