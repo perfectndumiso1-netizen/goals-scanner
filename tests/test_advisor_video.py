@@ -123,6 +123,6 @@ def test_video_recap_keeps_filmed_price():
 
 def test_apk_release_verifies_signature_upgrade_and_version():
     wf=Path('.github/workflows/build-app.yml').read_text()
-    for text in ('1.6.85','apksigner','zipalign','adb install -r','previous-signature','--min-sdk-version 26'):
+    for text in ('APP_VERSION_NAME:',"grep 'versionName=",'apksigner','zipalign','adb install -r','previous-signature','--min-sdk-version 26'):
         assert text in wf
     assert Path('assets/reel/logo.png').read_bytes()==Path('android/app/src/main/assets/www/logo.png').read_bytes()

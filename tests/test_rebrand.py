@@ -18,7 +18,8 @@ def test_app_identity_and_saved_records_survive_rebrand():
     gradle = (ROOT/'android/app/build.gradle.kts').read_text()
     assert 'applicationId = "com.playreport.app"' in gradle
     assert 'namespace = "com.playreport.app"' in gradle
-    assert '1.6.85' in gradle
+    version = re.search(r'val appVersionName = .*?\?: "(\d+\.\d+\.\d+)"', gradle).group(1)
+    assert tuple(map(int, version.split('.'))) >= (1, 6, 85)
     core = (WWW/'core.js').read_text()
     for key in ('pr_settings','pr_favs_full','pr_nav','pr_latest','pr_d:'):
         assert key in core
@@ -90,7 +91,11 @@ def test_rebrand_does_not_insert_brand_into_exact_facebook_caption_or_cover():
 
 def test_release_filename_version_and_upgrade_safeguards():
     wf=(ROOT/'.github/workflows/build-app.yml').read_text()
-    assert 'APP_VERSION_NAME: "1.6.85"' in wf
+    gradle = (ROOT/'android/app/build.gradle.kts').read_text()
+    version = re.search(r'val appVersionName = .*?\?: "(\d+\.\d+\.\d+)"', gradle).group(1)
+    assert f'APP_VERSION_NAME: "{version}"' in wf
+    assert f"grep 'versionName={version}'" in wf
+    assert f'Mr 2 Odds {version}' in (ROOT/'android/RELEASE_NOTES.md').read_text()
     assert '--title "Mr 2 Odds v${APP_VERSION_NAME}"' in wf
     assert 'Mr2Odds-${APP_VERSION_NAME}.apk' in wf
     for check in ('signing-key-continuity','increasing-version-code','adb install -r','apksigner','zipalign','com.playreport.app'):

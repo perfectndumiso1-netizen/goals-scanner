@@ -2,7 +2,7 @@
 
 ## Release preparation follow-up
 
-After the implementation was complete, the owner requested "Commit everything and update app". Release preparation bumps the app to **1.6.86** in `android/app/build.gradle.kts`, updates `android/RELEASE_NOTES.md`, and changes only the two hard-coded version labels in `.github/workflows/build-app.yml`. No workflow logic, triggers, schedules or safeguards change. The original inspection and implementation report below records the scope before this authorised release preparation. Release publication and device-test status must be checked separately; a version bump alone does not mean the APK was published.
+After the implementation was complete, the owner requested "Commit everything and update app". Release preparation bumps the app to **1.6.86** in `android/app/build.gradle.kts`, updates `android/RELEASE_NOTES.md`, and changes only the two hard-coded version labels in `.github/workflows/build-app.yml`. No workflow logic, triggers, schedules or safeguards change. `tests/test_rebrand.py` and `tests/test_advisor_video.py` now verify consistent release versions and existing safeguards instead of requiring the old 1.6.85 literal; the full suite passed again (730 passed, 1 skipped, 8 subtests). The original inspection and implementation report below records the scope before this authorised release preparation. Release publication and device-test status must be checked separately; a version bump alone does not mean the APK was published.
 
 ## Scope and preservation
 
