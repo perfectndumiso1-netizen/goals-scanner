@@ -64,6 +64,7 @@ def config(path):
         from .event_provider import SLOTS
         if event.get('mode','events') not in ('events','legacy'):raise ValueError('Unsupported live monitoring mode')
         if any(type(event.get(k)) is not bool for k in ('enabled','publish_enabled','failover_permitted')):raise ValueError('Event safety switches must be booleans')
+        if type(event.get('authentication_failover_permitted',False)) is not bool:raise ValueError('Authentication failover switch must be a boolean')
         if type(event.get('daily_request_budget')) is not int or not 1<=event['daily_request_budget']<=100:raise ValueError('Unsafe event account budget')
         reserve=event.get('daily_request_reserve',10)
         if type(reserve) is not int or not 0<=reserve<event['daily_request_budget']:raise ValueError('Unsafe event account reserve')

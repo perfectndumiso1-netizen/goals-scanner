@@ -152,7 +152,7 @@
     "publish_enabled": true,
     "daily_request_budget": 100,
     "max_source_age_seconds": 180,
-    "credential_revision": "2",
+    "credential_revision": "3",
     "failover_permitted": true,
     "permission_reference": "Owner confirmed on 2026-10-30: provider permits failover and each of the three configured key slots has an independently authorised daily allocation.",
     "key_slots": {
@@ -170,6 +170,7 @@
       }
     },
     "mode": "events",
-    "daily_request_reserve": 0
+    "daily_request_reserve": 0,
+    "authentication_failover_permitted": true
   }
 }

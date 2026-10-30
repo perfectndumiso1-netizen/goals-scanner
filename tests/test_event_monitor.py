@@ -397,7 +397,8 @@ def test_no_invented_goal_minute_when_only_score_known(cfg):
     assert "Status: Second half | 55'" in post['caption']
 
 
-def test_bad_credentials_with_zero_header_do_not_enable_later_failover(cfg,monkeypatch):
+def test_bad_credentials_with_zero_header_do_not_enable_later_failover_when_auth_fallback_off(cfg,monkeypatch):
+    cfg['event_monitor']['authentication_failover_permitted']=False
     keys(monkeypatch);allow_failover(cfg);state={}
     opener=Opener(Response(account()),Response([],0,{'token':'synthetic-private-primary'}))
     with pytest.raises(ProviderError):EventAPI(cfg,state,NOW,opener).get('fixtures')
@@ -504,3 +505,90 @@ def test_corrected_third_slot_reverifies_without_resetting_backup_usage(cfg,monk
     assert state['event_api']['groups']['primary']['requests']==100
     assert state['event_api']['groups']['backup-1']['requests']==100
     assert state['event_api']['slots']['API_FOOTBALL_KEY_2']['plan_checked']==api.day
+
+
+def test_primary_auth_rejection_immediately_uses_second_key_without_quota_poisoning(cfg,monkeypatch):
+    keys(monkeypatch);state={}
+    opener=Opener(Response([],0,{'token':'synthetic-private-primary'}),Response(account()),Response([{'second_verified':True}],98))
+    api=EventAPI(cfg,state,NOW,opener)
+    assert api.get('fixtures')==[{'second_verified':True}]
+    assert [r.get_header('X-apisports-key') for r in opener.calls]==['synthetic-private-primary']+['synthetic-private-secondary']*2
+    assert api.active=='API_FOOTBALL_KEY_1' and state['event_api']['last_successful_slot']==api.active
+    assert not state['event_api']['groups']['primary'].get('exhausted')
+    assert state['event_api']['groups']['primary']['remaining'] is None
+    assert state['event_api']['slots']['API_FOOTBALL_KEY']['failure_kind']=='authentication'
+    assert 'synthetic-private' not in json.dumps(state)
+
+
+def test_first_two_auth_rejections_immediately_use_third_key(cfg,monkeypatch):
+    keys(monkeypatch);state={}
+    opener=Opener(Response([],99,{'token':'rejected'}),Response([],99,{'key':'rejected'}),Response(account()),Response([{'third_verified':True}],98))
+    assert EventAPI(cfg,state,NOW,opener).get('fixtures')==[{'third_verified':True}]
+    assert [r.get_header('X-apisports-key') for r in opener.calls]==['synthetic-private-primary','synthetic-private-secondary']+['synthetic-private-third']*2
+    assert state['event_api']['last_successful_slot']=='API_FOOTBALL_KEY_2'
+
+
+def test_known_auth_rejection_skips_primary_during_cooldown(cfg,monkeypatch):
+    keys(monkeypatch);state={}
+    first=Opener(Response([],99,{'token':'rejected'}),Response(account()),Response([],98))
+    EventAPI(cfg,state,NOW,first).get('fixtures')
+    fresh=Response([{'still_second':True}],97);fresh.headers['Date']=format_datetime(NOW+timedelta(minutes=5))
+    again=Opener(fresh)
+    assert EventAPI(cfg,state,NOW+timedelta(minutes=5),again).get('fixtures')==[{'still_second':True}]
+    assert len(again.calls)==1 and again.calls[0].get_header('X-apisports-key')=='synthetic-private-secondary'
+
+
+def test_credential_failure_on_fixture_without_quota_header_can_fall_back(cfg,monkeypatch):
+    keys(monkeypatch);failed=Response([],99,{'token':'rejected'});failed.headers.pop('x-ratelimit-requests-remaining')
+    opener=Opener(Response(account()),failed,Response(account()),Response([{'verified':True}],98))
+    assert EventAPI(cfg,{},NOW,opener).get('fixtures')==[{'verified':True}]
+
+
+def test_http_401_auth_challenge_can_use_verified_backup(cfg,monkeypatch):
+    keys(monkeypatch)
+    opener=Opener(HTTPError('https://example',401,'unauthorised',{},io.BytesIO(b'authentication required')),Response(account()),Response([],98))
+    assert EventAPI(cfg,{},NOW,opener).get('fixtures')==[]
+    assert len(opener.calls)==3
+
+
+@pytest.mark.parametrize('errors',[{'ip':'not allowed'},{'token':'account suspended'},{'token':'IP address not allowed'},{'token':'bad','parameters':'bad'},{'plan':'not covered'}])
+def test_access_restrictions_plan_and_parameter_failures_never_switch_keys(cfg,monkeypatch,errors):
+    keys(monkeypatch);opener=Opener(Response([],99,errors))
+    with pytest.raises(ProviderError):EventAPI(cfg,{},NOW,opener).get('fixtures')
+    assert len(opener.calls)==1
+
+
+@pytest.mark.parametrize('code,body',[(403,b'forbidden'),(401,b'account suspended'),(401,b'IP address restriction')])
+def test_http_restriction_never_switches_keys(cfg,monkeypatch,code,body):
+    keys(monkeypatch);state={};opener=Opener(HTTPError('https://example',code,'rejected',{},io.BytesIO(body)))
+    with pytest.raises(ProviderError):EventAPI(cfg,state,NOW,opener).get('fixtures')
+    again=Opener()
+    with pytest.raises(ProviderError):EventAPI(cfg,state,NOW+timedelta(minutes=5),again).get('fixtures')
+    assert len(opener.calls)==1 and not again.calls
+
+
+def test_all_credentials_rejected_preserves_previous_good_data(cfg,monkeypatch):
+    from facebook_feed.event_provider import AuthenticationRejected
+    keys(monkeypatch);state={'live_event_ledger':{'sentinel':'last confirmed data'}}
+    opener=Opener(*(Response([],99,{'token':'synthetic-private-primary'}) for _ in range(3)))
+    with pytest.raises(AuthenticationRejected) as caught:EventAPI(cfg,state,NOW,opener).get('fixtures')
+    assert len(opener.calls)==3 and state['live_event_ledger']=={'sentinel':'last confirmed data'}
+    assert all(not g.get('exhausted') for g in state['event_api']['groups'].values())
+    assert 'synthetic-private' not in str(caught.value) and 'synthetic-private' not in json.dumps(state)
+
+
+def test_auth_fallback_requires_existing_provider_permission(cfg,monkeypatch):
+    keys(monkeypatch);cfg['event_monitor']['failover_permitted']=False
+    opener=Opener(Response([],99,{'token':'rejected'}))
+    with pytest.raises(ProviderError):EventAPI(cfg,{},NOW,opener).get('fixtures')
+    assert len(opener.calls)==1
+
+
+def test_policy_revision_reverifies_old_cooldown_without_resetting_usage(cfg,monkeypatch):
+    keys(monkeypatch);state={};api=EventAPI(cfg,state,NOW,Opener())
+    api.group('primary').update(requests=55,remaining=45,allocation=100,plan_checked=api.day)
+    api.state['slots']['API_FOOTBALL_KEY']={'revision':'2','invalid_until':(NOW+timedelta(hours=6)).isoformat()}
+    opener=Opener(Response([],45,{'token':'rejected'}),Response(account()),Response([],98))
+    assert EventAPI(cfg,state,NOW,opener).get('fixtures')==[]
+    assert state['event_api']['groups']['primary']['requests']==56
+    assert len(opener.calls)==3
