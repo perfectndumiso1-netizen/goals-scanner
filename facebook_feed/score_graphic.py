@@ -7,6 +7,9 @@ ROOT=Path(__file__).resolve().parents[1]
 
 
 def render_score(spec,path):
+    if spec.get('style')=='stadium':
+        from .stadium_graphic import render_stadium
+        return render_stadium(spec,path)
     from PIL import Image,ImageDraw,ImageFont
     m=spec['match']
     has_score=pair([m.get('home_goals'),m.get('away_goals')])

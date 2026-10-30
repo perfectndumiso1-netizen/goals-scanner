@@ -16,7 +16,7 @@ GitHub cron is best effort: configured five-minute scheduling is not proof of fi
 
 ## Critical Free-plan capacity limit
 
-Five-minute global live requests for 24 hours require **288 requests/day minimum**, before account checks, calendars and terminal confirmation. This cannot fit a Free account's **100/day**, or the standing **90 operational / 10 reserve** limit. Three keys do **not** establish three allowances.
+Five-minute global live requests for 24 hours require **288 requests/day minimum**, before account checks, calendars and terminal confirmation. This cannot fit a Free account's **100/day**, or the standing **90 operational / 10 reserve** limit. Three keys alone do **not** establish three allowances; the separate account allocations were subsequently explicitly confirmed by the owner. Even three 90-call operational ceilings total only **270**, below the **288 minimum** plus overhead. Quota-only failover also does not rotate at the local reserve, so this is not a promise of 270 usable polls or all-day coverage.
 
 The transport verifies an active Free allocation, counts failed requests, honours reported account usage and remaining quota (including other consumers), enforces at most 90 operational requests per configured authorised account allocation, and stops at the reserve. It preserves the latest good observations and pending events when quota/network/coverage is unavailable, but **does not post cached scores as fresh updates**. Daily accounting/exhaustion resets at **00:00 UTC / 02:00 SAST**.
 
@@ -43,12 +43,12 @@ Read through existing GitHub Secrets, in order:
 
 The requested spelling `API_FOOTBALL_KEY 2` contains a space and is not a valid GitHub Actions secret name. Set the third slot with the valid name above in GitHub's Secrets UI; never send its value in chat. No existing secrets are removed, renamed by this code, or copied into config, state, posts or artifacts. State contains slot names and quota-group accounting only, not key values or key fingerprints.
 
-All three slots default to the same `primary` quota group. The first configured, authorised slot is used. Network errors, malformed/invalid requests, credentials/plan failures, unrelated 5xx and ordinary minute-rate 429s **never** cause key switching. Credential failures back off; when correcting/replacing secrets, also bump the non-secret `credential_revision` to force re-verification.
+The owner has separately confirmed independent authorised allowances: `API_FOOTBALL_KEY` maps to `primary`, `API_FOOTBALL_KEY1` to `backup-1`, and `API_FOOTBALL_KEY2` to `backup-2`. Preserve the existing `primary` accounting; do not reset it. If keys share an account in a future setup, they must instead share a quota group. The first configured, authorised slot is used. Network errors, malformed/invalid requests, credentials/plan failures, unrelated 5xx and ordinary minute-rate 429s **never** cause key switching. Credential failures back off; when correcting/replacing secrets, also bump the non-secret `credential_revision` to force re-verification.
 
-Failover is **off**, because provider permission for pooling/separate allocations has not been established. Code permits quota-only failover only when all of these hold:
+The owner confirmed on **30 October 2026** that the provider permits failover between independently authorised allocations. That attestation is recorded and `failover_permitted=true`. The owner also explicitly confirmed that **each of the three keys has an independently authorised allowance**, so the backup groups are now mapped separately. This is an owner attestation, not an independently audited provider account record. Code permits quota-only failover only when all of these hold:
 
 - The provider has explicitly authorised the specific alternative account allocation for this use; do not create multiple Free accounts to increase the limit.
-- `failover_permitted=true` and `permission_reference` contains a non-secret reference to that written permission.
+- `failover_permitted=true` and `permission_reference` contains a non-secret reference to the owner's confirmation of that provider permission.
 - The backup slot is explicitly authorised and belongs to a **different, genuinely independently authorised** quota group. Relabelling keys does not grant permission.
 - The primary has documented daily exhaustion: a daily quota rejection / daily-remaining-zero 429, or verified allocation usage reaching its actual daily limit. A local 90-call reserve is **not** a failover trigger.
 - The backup itself passes active Free-plan and account-usage checks. Each group retains its own reserve. Exhausted groups are not probed repeatedly before UTC reset.
@@ -85,7 +85,7 @@ Scores are updated when meaningful match events occur.
 #PlayReportZA #LiveScores
 ```
 
-The existing native Page photo publisher uploads an original 1080×1350 JPEG highlighting exactly one changed match from the bulletin. It uses the current verified score, not a prediction or synthetic fixture. A confirmed cancellation/postponement/abandonment with no score gets an honest status panel, never a fabricated 0–0. No third-party assets or paid graphics/API requests are required. Render/hash/expiry checks still fail closed.
+The existing native Page photo publisher uploads an original 1080×1350 JPEG highlighting exactly one changed match from the bulletin. It uses the current verified score, not a prediction or synthetic fixture. A confirmed cancellation/postponement/abandonment with no score gets an honest status panel, never a fabricated 0–0. The image now follows the owner's stadium/crest/central-score template in the existing portrait format; see [LIVE_SCORE_TEMPLATE.md](LIVE_SCORE_TEMPLATE.md). Only actual team-ID provider crests may be added when available; they are optional, not invented replacements. The existing local stadium asset is reused and no paid graphics service or extra football-data endpoint is introduced. Render/hash/expiry checks still fail closed.
 
 ## Persistence and failed Facebook sends
 
@@ -111,4 +111,4 @@ Local synthetic preview images/captions are **not real results and were not sent
 
 Provider reference: https://api-sports.io/documentation/football/v3 (`live=all`, embedded events, `ids` batch ≤20). Rights/publication approval already recorded for the existing source remains required; separate API-account failover authorisation has not been presumed.
 
-Local validation (30 October 2026): `python -m pytest leagues/tests tests tennis/tests -q` — **886 passed, 1 skipped, 8 subtests passed**. The event replay file contains **45 tests**. Secret scan covers **282 tracked files**, with no credential patterns. The 1080×1350 synthetic JPEG was rendered and visually inspected locally, not uploaded.
+Local validation (30 October 2026): `python -m pytest leagues/tests tests tennis/tests -q` — **918 passed, 1 skipped, 8 subtests passed**. The event replay file contains **47 tests**. Secret scan covers **286 tracked files**, with no credential patterns. The 1080×1350 synthetic JPEG was rendered and visually inspected locally, not uploaded.
