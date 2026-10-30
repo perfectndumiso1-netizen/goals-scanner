@@ -1,5 +1,7 @@
 # Facebook live-score activation — 30 October 2026
 
+> **Latest owner request supersedes the old three/day and hourly limits:** periodic live updates now use a ten-minute cooldown and require a single-match score picture. See [LIVE_PHOTO_AUTOMATION.md](LIVE_PHOTO_AUTOMATION.md) for cadence, scheduler fallback, quota limitations and the denied immediate trigger. Earlier limits below are historical.
+
 ## Evidence and permission boundary
 
 The owner requested live Facebook publishing and explicitly selected **“Yes, permission confirmed”** when asked whether the applicable API-Football data-publication permissions cover the Page, including any required rights-holder permissions. This is the owner's confirmation, **not independent legal verification and not a claim that an API key grants publication rights**. API-Football's [terms](https://www.api-football.com/terms) distinguish API access from publication permission.

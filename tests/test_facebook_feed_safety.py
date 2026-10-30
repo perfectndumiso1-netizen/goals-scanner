@@ -17,6 +17,8 @@ def cfg():
     cfg=cli.config(ROOT/'config/facebook-feed.json')
     cfg.pop('authorized_kinds',None)
     cfg['provider']['rights_confirmed']=cfg['provider']['account_coverage_verified']=False  # Explicit unapproved regression fixture.
+    cfg['live'].update(max_posts_per_day=3,publish_every_poll=False,image_required=False)  # Legacy three-post policy contract.
+    cfg['live_post_cooldown_minutes']=60
     cfg['score_source']='api-football'
     cfg['live']['app_coverage_only']=False  # Legacy editorial-selection adapter contract.
     return cfg

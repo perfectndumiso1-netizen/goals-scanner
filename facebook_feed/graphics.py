@@ -5,6 +5,9 @@ ROOT=Path(__file__).resolve().parents[1]
 
 
 def render(spec,path):
+    if spec.get('kind')=='live-score':
+        from .score_graphic import render_score
+        return render_score(spec,path)
     from PIL import Image,ImageDraw,ImageFont
     image=Image.new('RGB',(1080,1350),'#081425');draw=ImageDraw.Draw(image)
     def font(size,bold=False):

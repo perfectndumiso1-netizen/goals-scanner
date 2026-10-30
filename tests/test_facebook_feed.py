@@ -22,6 +22,8 @@ ROOT=Path(__file__).resolve().parents[1]
 def cfg():
     cfg=cli.config(ROOT/'config/facebook-feed.json')
     cfg['provider']['rights_confirmed']=cfg['provider']['account_coverage_verified']=False  # Explicit unapproved regression fixture.
+    cfg['live'].update(max_posts_per_day=3,publish_every_poll=False,image_required=False)  # Legacy three-post policy contract.
+    cfg['live_post_cooldown_minutes']=60
     cfg['score_source']='api-football'
     cfg['live']['app_coverage_only']=False  # Legacy editorial-selection adapter contract.
     cfg.pop('authorized_kinds',None)
@@ -313,7 +315,7 @@ def test_new_workflows_keep_independent_state_and_score_safety_gates(cfg):
     text=(ROOT/'.github/workflows/facebook-feed-run.yml').read_text()
     assert 'group: facebook-feed-' in text and 'git push' not in text and 'goals-scan' not in text.split('concurrency:',1)[1]
     assert text.index('Save durable reservation')<text.index('Publish or edit only')
-    for kind,cron in [('community','15 10 * * *'),('weekly','15 8 * * 1'),('card','15 16 * * 2,4,6'),('live','*/10 6-21 * * *')]:
+    for kind,cron in [('community','15 10 * * *'),('weekly','15 8 * * 1'),('card','15 16 * * 2,4,6'),('live','3-59/10 6-21 * * *')]:
         workflow=yaml.safe_load((ROOT/f'.github/workflows/facebook-{kind}.yml').read_text())
         on=workflow.get('on',workflow.get(True))
         assert on['schedule'][0]['cron']==cron

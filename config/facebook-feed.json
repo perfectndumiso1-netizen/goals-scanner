@@ -15,7 +15,7 @@
   "roundup_time": "23:15",
   "max_ordinary_posts_per_day": 2,
   "min_feed_interval_minutes": 120,
-  "live_post_cooldown_minutes": 60,
+  "live_post_cooldown_minutes": 10,
   "edit_cooldown_minutes": 20,
   "reel_quiet_windows": [
     [
@@ -47,7 +47,7 @@
   },
   "live": {
     "enabled": true,
-    "max_posts_per_day": 3,
+    "max_posts_per_day": 90,
     "max_matches": 30,
     "edit_existing": false,
     "selection_min_score": 2,
@@ -128,7 +128,9 @@
     "coverage_window": {
       "start": "08:00",
       "end": "24:00"
-    }
+    },
+    "publish_every_poll": true,
+    "image_required": true
   },
   "editorial_competitions": [],
   "authorized_kinds": [

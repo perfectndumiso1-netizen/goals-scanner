@@ -1,5 +1,7 @@
 # API-Football live score checks and optional statistics
 
+> **Latest owner request supersedes the old three/day and hourly limits:** periodic live updates now use a ten-minute cooldown and require a single-match score picture. See [LIVE_PHOTO_AUTOMATION.md](LIVE_PHOTO_AUTOMATION.md) for cadence, scheduler fallback, quota limitations and the denied immediate trigger. Earlier limits below are historical.
+
 > **Live-post presentation update:** the owner requested the screenshot-style scoreboard. Public live text now starts with exactly `Live Matches SAST`, groups country/league blocks, uses compact labelled emoji stats, and ends with at most ten relevant league/football hashtags. No name/branding, source line, timestamp preamble, disclaimer or engagement caption is printed. Technical provenance/freshness remains internal. Earlier presentation examples below describe the initial rollout. See [LIVE_MATCHES_LAYOUT.md](LIVE_MATCHES_LAYOUT.md).
 
 > **Current activation update:** the owner has now confirmed publication permission, and real app-matched fixture access passed a read-only test. The API-Football approval flags are enabled on that evidence. See [FACEBOOK_LIVE_ACTIVATION.md](FACEBOOK_LIVE_ACTIVATION.md). Earlier “approvals false” and first-key failure notes below are historical. Actual Facebook posting/public visibility are not yet confirmed.

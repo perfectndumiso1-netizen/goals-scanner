@@ -1,7 +1,11 @@
 name: Facebook selected score centre
 on:
   schedule:
-    - cron: "*/10 6-21 * * *"
+    - cron: "3-59/10 6-21 * * *"
+  # Fallback when a fresh backend scan completes; still subject to the same ten-minute guard.
+  workflow_run:
+    workflows: ["PlayReport scan (every 30 min)"]
+    types: [completed]
   workflow_dispatch:
     inputs:
       publish:
@@ -18,10 +22,15 @@ permissions:
   actions: read
 jobs:
   content:
+    if: >-
+      github.event_name != 'workflow_run' ||
+      (github.event.workflow_run.conclusion == 'success' &&
+       github.event.workflow_run.head_branch == 'main' &&
+       github.event.workflow_run.head_repository.full_name == github.repository)
     uses: ./.github/workflows/facebook-feed-run.yml
     with:
       kind: live
-      publish: ${{ github.event_name == 'schedule' || inputs.publish }}
+      publish: ${{ github.event_name == 'schedule' || github.event_name == 'workflow_run' || inputs.publish }}
       preview: ${{ github.event_name == 'workflow_dispatch' && inputs.preview }}
       bootstrap: ${{ inputs.bootstrap || false }}
     secrets: inherit

@@ -8,8 +8,16 @@ from .content import candidate, local, norm
 def history(state, now, days=28):
     cutoff=now-timedelta(days=days)
     posts=[p for p in state.get('posts',[]) if local(p['at'])>=cutoff or p.get('status') in ('reserved','unknown')]
-    # Old score payloads aren't needed for dedupe; retain immutable reservation keys/hashes.
+    # High-frequency photos must not grow the restore checkpoint beyond its size bound.
+    # Keep the latest comparison snapshot, completed fixtures, immutable keys/hashes, and
+    # EVERY unresolved reservation. Never erase unknown-send evidence.
+    latest=next((p for p in reversed(posts) if p.get('kind')=='live' and p.get('status')=='published' and local(p['at']).date()==now.date()),None)
     for p in posts:
+        if p.get('kind')=='live' and p.get('status')=='published' and p is not latest:
+            p.pop('fixture_ids',None)  # Redundant old live lists; never used for editorial dedupe.
+            p['snapshot']=[{k:m.get(k) for k in ('id','home','away','kickoff','source','status')}
+                           for m in p.get('snapshot',[]) if m.get('status') in ('FT','AET','PEN')]
+
         if p.get('kind')=='live' and local(p['at']).date()<now.date() and p.get('status') in ('published','simulated'):p.pop('snapshot',None)
     return posts
 
@@ -26,7 +34,7 @@ def allowed(post, state, now, config):
         return False,'duplicate or unresolved previous attempt'
     if any(p.get('topic')==post.get('topic') for p in counted):
         return False,'topic recently covered'
-    if any(p.get('caption_hash')==post['caption_hash'] for p in counted):
+    if any(p.get('caption_hash')==post['caption_hash'] for p in counted) and not (post['kind']=='live' and config['live'].get('publish_every_poll')):
         return False,'caption repeated'
     today=[p for p in counted if local(p['at']).date()==now.date() and p.get('operation')!='edit']
     live=post['kind'] in ('live','roundup')
@@ -44,6 +52,8 @@ def allowed(post, state, now, config):
     limit=config['live']['max_posts_per_day'] if live else config['max_ordinary_posts_per_day']
     if sum((p['kind'] in ('live','roundup'))==live for p in today)>=limit:
         return False,'daily post cap'
+    if post['kind']=='live' and any(p.get('kind')=='live' and p.get('status') in ('reserved','unknown') for p in counted):
+        return False,'unresolved live publication; inspect/reconcile before creating another'
     if not live and in_quiet_window(now,config):
         return False,'Reel quiet window'
     interval=config['live_post_cooldown_minutes'] if live else config['min_feed_interval_minutes']
@@ -57,7 +67,7 @@ def allowed(post, state, now, config):
 
 
 def reserve(post, state, now):
-    entry={k:v for k,v in post.items() if k in ('kind','key','topic','mode','caption_hash','fixture_ids','operation','target_id','snapshot')}
+    entry={k:v for k,v in post.items() if k in ('kind','key','topic','mode','caption_hash','fixture_ids','operation','target_id','snapshot','image_sha256')}
     entry.update(at=now.isoformat(),status='reserved')
     state.setdefault('posts',[]).append(entry)
     return entry
@@ -137,13 +147,18 @@ def score_post(matches,state,now,config,roundup=False):
         matches=[m for m in completed if str(m['id']) not in covered]
         if len(matches)<2:
             return None
-    elif not any((significant(previous.get(str(m['id'])),m) or (config.get('score_source')=='app' or config['live'].get('app_coverage_only')) and previous.get(str(m['id'])) and any(previous[str(m['id'])].get(k)!=m.get(k) for k in ('status','home_goals','away_goals'))) for m in matches):
+    elif not config['live'].get('publish_every_poll') and not any((significant(previous.get(str(m['id'])),m) or (config.get('score_source')=='app' or config['live'].get('app_coverage_only')) and previous.get(str(m['id'])) and any(previous[str(m['id'])].get(k)!=m.get(k) for k in ('status','home_goals','away_goals'))) for m in matches):
         return None
     if not matches:
         return None
     snapshot=[{k:m.get(k) for k in ('id','home','away','competition','country','kickoff','status','home_goals','away_goals','penalties','source','statistics','statistics_at','halftime','fulltime')} for m in matches]
     for m in snapshot:
         if m['source'] is None:m['source']=config.get('score_source','api-football')
+    if not roundup and config['live'].get('publish_every_poll'):
+        # A new verified observation is a legitimate update even if the score is unchanged.
+        # At least one in-play match is required; never repeat an all-final bulletin.
+        if not any(m['status'] in ('1H','HT','2H','ET','BT','P') for m in matches):
+            if not any(significant(previous.get(str(m['id'])),m) for m in matches):return None
     fingerprint=hashlib.sha256(json.dumps(snapshot,sort_keys=True).encode()).hexdigest()[:20]
     lines=['⚽ MR 2 ODDS — '+('RESULTS ROUNDUP' if roundup else 'SELECTED LIVE SCORE CENTRE'),
            f"Latest reported scores · checked {now:%d %b %H:%M} SAST", 'Periodic updates, not a minute-by-minute service.', '']
@@ -157,7 +172,11 @@ def score_post(matches,state,now,config,roundup=False):
         from .live_presentation import caption
         lines=caption(matches).splitlines()
     kind='roundup' if roundup else 'live'
+    if not roundup and config['live'].get('publish_every_poll'):fingerprint=f'{now.hour:02d}{now.minute//10:02d}:'+fingerprint
     post=candidate(kind,f'{kind}:{now.date()}:{fingerprint}',f'{kind}:{now.date()}:{fingerprint}','\n'.join(lines),snapshot=snapshot)
+    if not roundup and config['live'].get('image_required'):
+        featured=next((m for m in matches if m['status'] in ('1H','2H','HT','ET','BT','P')),matches[0])
+        post['graphic']={'kind':'live-score','match':dict(featured),'checked_at':now.isoformat()}
     if centre and not roundup and config['live']['edit_existing']:
         post.update(operation='edit',target_id=centre['post_id'])
     return post

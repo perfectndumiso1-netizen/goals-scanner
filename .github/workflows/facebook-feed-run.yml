@@ -77,7 +77,7 @@ jobs:
         with:
           python-version: "3.12"
       - name: Install existing locked graphics dependency only when needed
-        if: inputs.kind == 'card' || inputs.kind == 'weekly'
+        if: inputs.kind == 'card' || inputs.kind == 'weekly' || inputs.kind == 'live'
         run: |
           pip install --require-hashes --only-binary=:all: --no-deps -q -r requirements-feed.txt
       - name: Restore independent ledger and prepare verified content

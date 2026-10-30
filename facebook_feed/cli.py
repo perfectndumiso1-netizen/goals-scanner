@@ -28,8 +28,12 @@ def config(path):
     for key in ('min_feed_interval_minutes','live_post_cooldown_minutes','edit_cooldown_minutes'):
         if not isinstance(data.get(key),int) or data[key]<1:
             raise ValueError('Posting intervals must be positive')
-    if not 0<=data['live']['max_posts_per_day']<=3 or not 1<=data['live']['max_matches']<=30:
+    if not 0<=data['live']['max_posts_per_day']<=(90 if data['live'].get('publish_every_poll') is True else 3) or not 1<=data['live']['max_matches']<=30:
         raise ValueError('Live posting cap exceeds approved maximum')
+    for flag in ('publish_every_poll','image_required'):
+        if flag in data['live'] and type(data['live'][flag]) is not bool:raise ValueError('Live switches must be booleans')
+    if data['live'].get('publish_every_poll') and data['live'].get('image_required') is not True:raise ValueError('Periodic live updates require a score picture')
+    if data['live'].get('publish_every_poll') and data['live_post_cooldown_minutes']<10:raise ValueError('Live publication interval cannot be below ten minutes')
     if data['provider']['poll_interval_minutes']<10 or not 1<=data['provider']['daily_request_budget']<=90:
         raise ValueError('Free-plan polling/request budget is unsafe')
     settings=data['provider']
@@ -125,6 +129,7 @@ def build(kind,root,now,cfg,state,preview=False):
                 post=policy.score_post(enriched,state,now,cfg,roundup=kind=='roundup')
             if post:
                 timestamps=[content.local(fetched)]+[content.local(m['statistics_at']) for m in post['snapshot'] if m.get('statistics_at')]
+                if post.get('graphic',{}).get('kind')=='live-score':post['graphic']['checked_at']=content.local(fetched).isoformat()
                 post['expires_at']=(min(timestamps)+timedelta(seconds=source_freshness(cfg))).isoformat()
                 post['caption']=post['caption'].replace(f'checked {now:%d %b %H:%M}',f'checked {content.local(fetched):%d %b %H:%M}')
                 if cfg.get('score_source')=='app' or cfg['live'].get('app_coverage_only'):
@@ -132,7 +137,7 @@ def build(kind,root,now,cfg,state,preview=False):
                 if cfg.get('score_source')=='app':
                     post['caption']=post['caption'].replace('Source: API-FOOTBALL / API-SPORTS.', 'Source: the same Livescore feed used by the Mr 2 Odds app; app-covered fixture IDs only.')
                 post['caption_hash']=hashlib.sha256(post['caption'].encode()).hexdigest()
-            return post,'selected verified provider snapshots'
+            return post,('selected verified provider snapshots' if post else 'no new final or verified in-play score observation')
         except ProviderError as error:return None,str(error)
     return None,'no useful verified candidate'
 
@@ -205,10 +210,14 @@ def main(argv=None):
             source_changed=score_content and any(m.get('source')!=cfg.get('score_source','api-football') for m in post.get('snapshot',[]))
             if post['kind'] not in cfg.get('authorized_kinds',KINDS) or score_content and (not cfg['live']['enabled'] or not scores_approved(cfg) or source_changed):
                 entry['status']='cancelled';entry['error']='Content/source authorisation changed before sending';storage.write(statepath,state);continue
-            if hashlib.sha256(post['caption'].encode()).hexdigest()!=entry['caption_hash'] or any(entry.get(k)!=post.get(k) for k in ('kind','topic','fixture_ids','operation','target_id','snapshot')):
+            if hashlib.sha256(post['caption'].encode()).hexdigest()!=entry['caption_hash'] or any(entry.get(k)!=post.get(k) for k in ('kind','topic','fixture_ids','operation','target_id','snapshot','image_sha256')):
                 raise ValueError('Prepared content does not match its durable reservation')
             if datetime.now(content.SAST)>=content.local(post['expires_at']) or post['kind'] in ('live','roundup') and not in_window(datetime.now(content.SAST),cfg):
                 entry['status']='cancelled';entry['error']='Prepared content expired before sending';storage.write(statepath,state);continue
+            if post['kind']=='live' and cfg['live'].get('image_required'):
+                image=Path(post.get('image') or '')
+                if not image.is_file() or not post.get('image_sha256') or hashlib.sha256(image.read_bytes()).hexdigest()!=entry.get('image_sha256'):
+                    raise ValueError('Live-score picture missing or changed; nothing sent')
             entry['status']='unknown';storage.write(statepath,state)
             try:
                 if publisher is None:publisher=PageFeed()
@@ -236,7 +245,7 @@ def main(argv=None):
         state={'schema':1,'namespace':prefix,'posts':[]}
     state['posts']=policy.history(state,now,cfg['topic_history_days'])
     if 'score_observations' in state:
-        state['score_observations']={k:v for k,v in state['score_observations'].items() if now-content.local(v['since'])<timedelta(days=2)}
+        state['score_observations']={k:v for k,v in state['score_observations'].items() if now-content.local(v['since'])<timedelta(hours=6)}
     plans=[];report=[]
     kinds=KINDS if args.kind=='all' else (args.kind,)
     for kind in kinds:
@@ -260,7 +269,9 @@ def main(argv=None):
                     expiry=min(expiry,content.local(fixture['kickoff']))
         post['expires_at']=expiry.isoformat()
         if post.get('graphic'):
-            try:post['image']=str(render(post['graphic'],work/f'{kind}.jpg'))
+            try:
+                post['image']=str(render(post['graphic'],work/f'{kind}.jpg'))
+                if kind=='live':post['image_sha256']=hashlib.sha256(Path(post['image']).read_bytes()).hexdigest()
             except ValueError as error:
                 report.append({'kind':kind,'status':'skipped','reason':str(error)});continue
         (work/f'{kind}.txt').write_text(post['caption'],encoding='utf-8')
