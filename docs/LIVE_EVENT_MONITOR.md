@@ -1,3 +1,5 @@
+> **Current activation and key names:** see [LIVE_POSTS_ACTIVATION.md](LIVE_POSTS_ACTIVATION.md). The owner has now requested real publishing and full 100/day per authorised allocation; this supersedes the earlier dry-only/90+10 settings below.
+
 # PlayReport ZA: meaningful live events, 24-hour schedule
 
 This is the current live-monitor specification. It supersedes the ten-minute periodic posts, app-only coverage, daytime window and old live caption described in earlier live-score documents. Results, predictions, Android, Reels and their schedules are unchanged.
@@ -7,7 +9,7 @@ This is the current live-monitor specification. It supersedes the ten-minute per
 - Workflow: **Facebook meaningful live events (24h)**, `.github/workflows/facebook-live.yml`.
 - UTC cron: **`*/5 * * * *`**, every five minutes throughout the day/night. SAST has no daylight-saving change.
 - The live job calls the existing isolated feed engine. It no longer depends on scanner completion or checks out scanner data. Existing repository/ref concurrency and durable pre-send reservations remain. No workflow was removed and no Reel schedule changed.
-- **The new monitor starts DRY RUN ONLY:** `event_monitor.mode = "events"`, `enabled = true`, **`publish_enabled = false`**. A scheduled request for publishing cannot override this gate, even if the existing repository publish variable is true. Dry-run state uses the existing dry namespace, never the production ledger.
+- **Current live configuration:** `event_monitor.mode = "events"`, `enabled = true`, **`publish_enabled = true` (owner-requested activation)**. A scheduled request for publishing cannot override this gate, even if the existing repository publish variable is true. Dry-run state uses the existing dry namespace, never the production ledger.
 - Manual dry monitoring: Actions → this workflow → Run workflow → `publish=false`, `preview=true`, `bootstrap=false`. Repeated executions restore the dry ledger, establish baselines, then report meaningful changes. An initial observation intentionally produces no retrospective goal/card bulletin.
 - Do not enable automatic posting until a real-provider dry run/checkpoint has been reviewed. After that review, change only `event_monitor.publish_enabled` to true in a reviewed change. Existing config/master-variable/source-rights gates must also pass. Real sends are restricted to `main`. **Do not bootstrap/reset the existing production ledger.** Its unresolved attempts still block new sends.
 - `enabled=false` disables event monitoring; it does not fall through into periodic posting. The explicit `mode="legacy"` option exists only for older-adapter regression/rollback investigation, not the requested production mode.
@@ -38,12 +40,12 @@ Known-empty periods back off to the next cached kickoff or at most 60 minutes, w
 Read through existing GitHub Secrets, in order:
 
 1. `API_FOOTBALL_KEY`
-2. `API_FOOTBALL_KEY1`
+2. `API_FOOTBALL_KEY_1`
 3. **`API_FOOTBALL_KEY2`**
 
 The requested spelling `API_FOOTBALL_KEY 2` contains a space and is not a valid GitHub Actions secret name. Set the third slot with the valid name above in GitHub's Secrets UI; never send its value in chat. No existing secrets are removed, renamed by this code, or copied into config, state, posts or artifacts. State contains slot names and quota-group accounting only, not key values or key fingerprints.
 
-The owner has separately confirmed independent authorised allowances: `API_FOOTBALL_KEY` maps to `primary`, `API_FOOTBALL_KEY1` to `backup-1`, and `API_FOOTBALL_KEY2` to `backup-2`. Preserve the existing `primary` accounting; do not reset it. If keys share an account in a future setup, they must instead share a quota group. The first configured, authorised slot is used. Network errors, malformed/invalid requests, credentials/plan failures, unrelated 5xx and ordinary minute-rate 429s **never** cause key switching. Credential failures back off; when correcting/replacing secrets, also bump the non-secret `credential_revision` to force re-verification.
+The owner has separately confirmed independent authorised allowances: `API_FOOTBALL_KEY` maps to `primary`, `API_FOOTBALL_KEY_1` to `backup-1`, and `API_FOOTBALL_KEY2` to `backup-2`. Preserve the existing `primary` accounting; do not reset it. If keys share an account in a future setup, they must instead share a quota group. The first configured, authorised slot is used. Network errors, malformed/invalid requests, credentials/plan failures, unrelated 5xx and ordinary minute-rate 429s **never** cause key switching. Credential failures back off; when correcting/replacing secrets, also bump the non-secret `credential_revision` to force re-verification.
 
 The owner confirmed on **30 October 2026** that the provider permits failover between independently authorised allocations. That attestation is recorded and `failover_permitted=true`. The owner also explicitly confirmed that **each of the three keys has an independently authorised allowance**, so the backup groups are now mapped separately. This is an owner attestation, not an independently audited provider account record. Code permits quota-only failover only when all of these hold:
 
@@ -111,4 +113,4 @@ Local synthetic preview images/captions are **not real results and were not sent
 
 Provider reference: https://api-sports.io/documentation/football/v3 (`live=all`, embedded events, `ids` batch ≤20). Rights/publication approval already recorded for the existing source remains required; separate API-account failover authorisation has not been presumed.
 
-Local validation (30 October 2026): `python -m pytest leagues/tests tests tennis/tests -q` — **918 passed, 1 skipped, 8 subtests passed**. The event replay file contains **47 tests**. Secret scan covers **286 tracked files**, with no credential patterns. The 1080×1350 synthetic JPEG was rendered and visually inspected locally, not uploaded.
+Local validation (30 October 2026): `python -m pytest leagues/tests tests tennis/tests -q` — **922 passed, 1 skipped, 8 subtests passed**. The event replay file contains **51 tests**. Secret scan covers **287 tracked files**, with no credential patterns. The 1080×1350 synthetic JPEG was rendered and visually inspected locally, not uploaded.

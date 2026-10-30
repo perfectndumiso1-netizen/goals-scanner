@@ -16,7 +16,7 @@ from facebook_post import _NoRedirect
 from .content import local
 from .provider import ProviderError, safe_error_reason
 
-SLOTS=('API_FOOTBALL_KEY','API_FOOTBALL_KEY1','API_FOOTBALL_KEY2')
+SLOTS=('API_FOOTBALL_KEY','API_FOOTBALL_KEY_1','API_FOOTBALL_KEY2')
 
 
 def daily_quota(errors, remaining):
@@ -60,7 +60,7 @@ class EventAPI:
             group_name=self.cfg['key_slots'][slot]['quota_group']
             if index and (not self.cfg['failover_permitted'] or not self.cfg['permission_reference'] or group_name==first_group):continue
             budget=self.group(group_name)
-            if budget.get('exhausted') or budget.get('remaining')==0:
+            if budget.get('exhausted') or budget.get('remaining')==0 or (budget.get('allocation') is not None and budget.get('provider_used',0)>=budget['allocation']):
                 if index==0 and not self.cfg['failover_permitted']:raise QuotaExceeded('API account budget unavailable; cached data preserved, no key rotation')
                 continue
             if budget['requests']>=self.cfg['daily_request_budget']:raise ProviderError('Safe local request ceiling reached; not a provider quota failover')
@@ -80,9 +80,10 @@ class EventAPI:
                     for field in ('current','limit'):
                         if type(usage.get(field)) is not int or usage[field]<0:raise ProviderError('Account allowance could not be verified')
                     budget['requests']=max(budget['requests'],usage['current']);budget['allocation']=usage['limit']
+                    budget['provider_used']=max(budget.get('provider_used',0),usage['current'])
                     budget['plan_checked']=self.day;slotstate['plan_checked']=self.day
-                cap=min(self.cfg['daily_request_budget'],max(0,budget.get('allocation',100)-10))
-                if budget.get('allocation') is not None and budget['requests']>=budget['allocation']:raise QuotaExceeded('Verified account daily quota exhausted')
+                cap=min(self.cfg['daily_request_budget'],max(0,budget.get('allocation',100)-self.cfg.get('daily_request_reserve',10)))
+                if budget.get('allocation') is not None and budget.get('provider_used',0)>=budget['allocation']:raise QuotaExceeded('Verified account daily quota exhausted')
                 if budget['requests']>=cap:raise ProviderError('Safe account reserve reached; no quota rotation')
                 data=self._request(slot,budget,endpoint,params)
                 self.active=slot
@@ -141,5 +142,6 @@ class EventAPI:
         if not isinstance(paging,dict) or paging.get('total',1)!=1:raise ProviderError('Incomplete/paginated API response rejected')
         if remaining_value is not None:
             budget['remaining']=remaining_value
-            budget['requests']=max(budget['requests'],budget.get('allocation',100)-remaining_value)
+            budget['provider_used']=max(budget.get('provider_used',0),budget.get('allocation',100)-remaining_value)
+            budget['requests']=max(budget['requests'],budget['provider_used'])
         return data.get('response')

@@ -86,7 +86,7 @@ jobs:
         env:
           GH_READ_TOKEN: ${{ github.token }}
           API_FOOTBALL_KEY: ${{ secrets.API_FOOTBALL_KEY }}
-          API_FOOTBALL_KEY1: ${{ secrets.API_FOOTBALL_KEY1 }}
+          API_FOOTBALL_KEY_1: ${{ secrets.API_FOOTBALL_KEY_1 }}
           API_FOOTBALL_KEY2: ${{ secrets.API_FOOTBALL_KEY2 }}
           # Only used for read-only acknowledgement reconciliation when publish gates allow it.
           FACEBOOK_PAGE_ACCESS_TOKEN: ${{ secrets.FACEBOOK_PAGE_ACCESS_TOKEN }}

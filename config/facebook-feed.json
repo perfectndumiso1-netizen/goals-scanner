@@ -149,10 +149,10 @@
   },
   "event_monitor": {
     "enabled": true,
-    "publish_enabled": false,
-    "daily_request_budget": 90,
+    "publish_enabled": true,
+    "daily_request_budget": 100,
     "max_source_age_seconds": 180,
-    "credential_revision": "1",
+    "credential_revision": "2",
     "failover_permitted": true,
     "permission_reference": "Owner confirmed on 2026-10-30: provider permits failover and each of the three configured key slots has an independently authorised daily allocation.",
     "key_slots": {
@@ -160,15 +160,16 @@
         "authorised": true,
         "quota_group": "primary"
       },
-      "API_FOOTBALL_KEY1": {
-        "authorised": true,
-        "quota_group": "backup-1"
-      },
       "API_FOOTBALL_KEY2": {
         "authorised": true,
         "quota_group": "backup-2"
+      },
+      "API_FOOTBALL_KEY_1": {
+        "authorised": true,
+        "quota_group": "backup-1"
       }
     },
-    "mode": "events"
+    "mode": "events",
+    "daily_request_reserve": 0
   }
 }
