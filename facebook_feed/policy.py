@@ -7,7 +7,11 @@ from .content import candidate, local, norm
 
 def history(state, now, days=28):
     cutoff=now-timedelta(days=days)
-    return [p for p in state.get('posts',[]) if local(p['at'])>=cutoff or p.get('status') in ('reserved','unknown')]
+    posts=[p for p in state.get('posts',[]) if local(p['at'])>=cutoff or p.get('status') in ('reserved','unknown')]
+    # Old score payloads aren't needed for dedupe; retain immutable reservation keys/hashes.
+    for p in posts:
+        if p.get('kind')=='live' and local(p['at']).date()<now.date() and p.get('status')=='published':p.pop('snapshot',None)
+    return posts
 
 
 def in_quiet_window(now, config):
@@ -60,7 +64,13 @@ def reserve(post, state, now):
 
 
 def selected_matches(matches, config, stories=()):
-    settings=config['live'];manual={str(x) for x in settings['fixture_ids']}
+    settings=config['live']
+    if config.get('score_source')=='app':
+        # Reader already verifies exact app IDs, clubs, kickoff and HTTP freshness. No editorial
+        # competition/rivalry filter may expand or silently narrow the app's coverage universe.
+        active=[m for m in matches if m.get('fixture_id') and m['status'] not in ('NS',)]
+        return sorted(active,key=lambda m:(m['status'] in ('FT','AET','PEN'),m['kickoff'],str(m['id'])))[:settings['max_matches']]
+    manual={str(x) for x in settings['fixture_ids']}
     featured={norm(t) for t in settings['featured_teams']}
     story_pairs={frozenset((norm(f['home']),norm(f['away']))) for f in stories}
     rivalries=[frozenset(map(norm,pair)) for pair in settings['rivalries']]
@@ -112,7 +122,7 @@ def significant(old, new):
 
 
 def score_post(matches,state,now,config,roundup=False):
-    matches=[m for m in matches if score_text(m) and local(m['kickoff']).date()==now.date()]
+    matches=[m for m in matches if score_text(m) and (local(m['kickoff']).date()==now.date() or config.get('score_source')=='app' and now-timedelta(hours=12)<=local(m['kickoff'])<=now)]
     centres=[p for p in state.get('posts',[]) if p['kind']=='live' and p.get('status')=='published'
              and local(p['at']).date()==now.date() and p.get('post_id')]
     centre=centres[-1] if centres else None
@@ -125,7 +135,7 @@ def score_post(matches,state,now,config,roundup=False):
         matches=[m for m in completed if str(m['id']) not in covered]
         if len(matches)<2:
             return None
-    elif not any(significant(previous.get(str(m['id'])),m) for m in matches):
+    elif not any((significant(previous.get(str(m['id'])),m) or config.get('score_source')=='app' and previous.get(str(m['id'])) and any(previous[str(m['id'])].get(k)!=m.get(k) for k in ('status','home_goals','away_goals'))) for m in matches):
         return None
     if not matches:
         return None

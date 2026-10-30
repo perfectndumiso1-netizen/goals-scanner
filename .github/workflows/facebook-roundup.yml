@@ -1,7 +1,7 @@
-name: Facebook combined results roundup
+name: Facebook morning video results
 on:
   schedule:
-    - cron: "15 21 * * *"
+    - cron: "0 6 * * *"
   workflow_dispatch:
     inputs:
       publish:
@@ -20,7 +20,7 @@ jobs:
   content:
     uses: ./.github/workflows/facebook-feed-run.yml
     with:
-      kind: roundup
+      kind: results
       publish: ${{ github.event_name == 'schedule' || inputs.publish }}
       preview: ${{ github.event_name == 'workflow_dispatch' && inputs.preview }}
       bootstrap: ${{ inputs.bootstrap || false }}

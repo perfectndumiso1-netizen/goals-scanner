@@ -61,7 +61,7 @@ jobs:
       FORCE_DAILY_REEL: ${{ github.event.inputs.send_reel || 'false' }}
       # YouTube auto-poster (youtube_post.py). Inert unless the three channel secrets exist: an empty secret makes
       # the module report "not configured" and the scan behaves exactly as before. YT_UPLOAD=1 is the master switch.
-      YT_UPLOAD: "1"
+      YT_UPLOAD: "0"
       YT_SLOTS: "morning,evening"                       # only the first video of the day; widen to morning,noon,evening
       YT_UPLOAD_BREAKDOWN: "0"                  # the daily match breakdown also goes up
       YT_PRIVACY: "public"                      # set to unlisted while trialling, private until the audit clears
@@ -71,7 +71,7 @@ jobs:
       # Google Drive handoff (drive_handoff.py): the finished 16:9 video is copied into a Drive folder, where a free
       # Zapier Zap (Drive "New File in Folder" -> YouTube "Upload Video") publishes it. Inert unless both secrets
       # exist; DRIVE_HANDOFF=1 is the master switch.
-      DRIVE_HANDOFF: "1"
+      DRIVE_HANDOFF: "0"
       GDRIVE_FOLDER_ID: ${{ secrets.GDRIVE_FOLDER_ID }}
       # Preferred: act as the user's own account (scripts/drive_auth.py), because a service account has no storage
       # quota and Drive refuses it in a personal My Drive. The service-account key stays as the fallback, and only
@@ -111,7 +111,8 @@ jobs:
           from zoneinfo import ZoneInfo
 
           now = datetime.now(ZoneInfo(os.environ["TIMEZONE"]))
-          edition_due = now.hour >= 8  # Catch up a missed edition on the next available scan.
+          from video_schedule import slot
+          edition_due = slot(now) is not None  # Same three SAST windows as the scanner.
           force = os.environ.get("FORCE_DAILY_REEL", "").strip().lower() in ("1", "true", "yes")
           configured = bool(os.environ.get("TELEGRAM_BOT_TOKEN") and os.environ.get("TELEGRAM_CHAT_ID"))
           with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as fh:

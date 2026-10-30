@@ -233,11 +233,11 @@ def test_short_reel_is_silent_slides_over_one_music_bed(monkeypatch, tmp_path, r
     )
 
     assert outfile.exists()
-    # intro, disclaimer and the closer are the only slides that carry words now; the pick slides are silent
-    assert len(seen_texts) == 3
+    # intro and closer are the only timed furniture; warnings use the moving footer; the pick slides are silent
+    assert len(seen_texts) == 2
     assert not any(hasattr(reel, n) for n in ("synthesize_speech", "pad_audio", "voice_identity"))
-    # intro 5s floor, disclaimer + closer 3s of words + tail, the pick slide its own fixed hold
-    expected = [reel.frame_hold(reel.hold_seconds(0, 3.0)), reel.frame_hold(3.0 + reel.TAIL),
+    # intro 5s floor and closer 3s of words + tail, the pick slide its own fixed hold
+    expected = [reel.frame_hold(reel.hold_seconds(0, 3.0)),
                 *([reel.frame_hold(reel.stage_seconds("pick")), reel.frame_hold(reel.stage_seconds("evidence"))]*5),
                 reel.frame_hold(3.0 + reel.TAIL), 16.0]
     assert video_holds == expected
@@ -332,7 +332,7 @@ def test_widescreen_16x9_dimensions_and_slide_renders(tmp_path):
             assert im.size == (1920, 1080)
 
 
-def test_yesterday_results_recap_starts_before_todays_selections(monkeypatch, tmp_path, render_pipeline):
+def test_yesterday_results_are_not_embedded_in_video(monkeypatch, tmp_path, render_pipeline):
     from pathlib import Path
 
     assets = tmp_path / "assets"
@@ -392,13 +392,9 @@ def test_yesterday_results_recap_starts_before_todays_selections(monkeypatch, tm
 
     # a pick is three slides when it has evidence and a record; with no fixture detail it still earns
     # THE PICK and WHY IT'S HERE (the model line), and THE RECORD is skipped because there is nothing to show
-    assert slide_order == ["intro", "disclaimer", "results"] + ["pick", "evidence"]*5 + ["closer", "combined"]
-    assert len(spoken_scripts) == 4                                 # only the recap and the furniture say anything
-    # the recap is the video's own card: yesterday carried one Over 1.5 (the corner pick was never a video market)
-    assert "look back at yesterday" in spoken_scripts[2] and "one from two" in spoken_scripts[2]
-    assert "Flamengo against Botafogo" in spoken_scripts[2] and "two-one" in spoken_scripts[2]
-    assert "Now, today's shortlist." in spoken_scripts[2]
-    assert "percent" not in spoken_scripts[2].lower() and "%" not in spoken_scripts[2]
+    assert slide_order == ["intro"] + ["pick", "evidence"]*5 + ["closer", "combined"]
+    assert len(spoken_scripts) == 2  # intro/closer only; recap and warning cards removed
+    assert not any('yesterday' in text.lower() for text in spoken_scripts)
 
 
 def test_shortlist_yesterday_results_extraction():
@@ -574,10 +570,10 @@ def test_dual_resolutions_16x9_and_9x16_share_the_same_slides_and_music(monkeypa
         fixtures=[],
     )
     assert out16.exists() and out9.exists()
-    # Intro + Disclaimer + THE PICK + WHY IT'S HERE + Closer = 5 slides per cut, same timings, one bed each
-    assert len(holds) == 28
-    assert holds[:14] == holds[14:]
-    assert beds[0] == beds[1] == pytest.approx(sum(holds[:14]), abs=0.01)
+    # Intro + five pick/evidence pairs + closer + combined card = 13 slides per cut; one music bed each
+    assert len(holds) == 26
+    assert holds[:13] == holds[13:]
+    assert beds[0] == beds[1] == pytest.approx(sum(holds[:13]), abs=0.01)
 
 
 
@@ -639,22 +635,23 @@ def _pick(i, **over):
     return p
 
 
-def test_only_the_first_video_of_the_day_carries_the_recap(monkeypatch, tmp_path, render_pipeline):
+def test_no_edition_embeds_results_even_with_legacy_recap_flag(monkeypatch, tmp_path, render_pipeline):
     yesterday = {"day": "2026-10-19", "items": [
         {"home": "A", "away": "B", "sel": "O15", "label": "Over 1.5 goals", "result": "hit", "score": "2-1", "odds": 1.8},
     ]}
     picks = [_pick(i) for i in range(1, 4)]
     order_recap, texts_recap, _ = _capture_build(monkeypatch, tmp_path, picks, yesterday=yesterday,
                                                  recap=True, name="recap.mp4")
-    assert order_recap[:3] == ["intro", "disclaimer", "results"]
-    assert "look back at yesterday" in texts_recap[2]
+    assert order_recap[:3] == ["intro", "pick", "evidence"]
+    assert "results" not in order_recap and "disclaimer" not in order_recap
+    assert not any("yesterday" in t.lower() for t in texts_recap if isinstance(t,str))
     order_noon, texts_noon, pages_noon = _capture_build(monkeypatch, tmp_path, picks, yesterday=yesterday,
                                                         recap=False, name="noon.mp4")
     assert "results" not in order_noon and not pages_noon
     assert "yesterday" not in " ".join(t for t in texts_noon if isinstance(t, str)).lower()
 
 
-def test_the_morning_recap_covers_every_video_from_yesterday_across_pages(monkeypatch, tmp_path, render_pipeline):
+def test_long_legacy_result_cards_cannot_reappear_as_video_slides(monkeypatch, tmp_path, render_pipeline):
     items = []
     for i in range(22):
         items.append({"home": f"T{i}", "away": f"U{i}", "sel": "O15", "label": "Over 1.5 goals", "market": "goals",
@@ -662,22 +659,18 @@ def test_the_morning_recap_covers_every_video_from_yesterday_across_pages(monkey
     yesterday = {"day": "2026-10-19", "items": items}
     order, texts, pages = _capture_build(monkeypatch, tmp_path, [_pick(1), _pick(2), _pick(3)],
                                          yesterday=yesterday, recap=True, name="long.mp4")
-    assert order.count("results") == 3                              # 22 rows over RECAP_ROWS (9) per slide
-    assert [len(p) for p in pages] == [9, 9, 4]
-    assert sum(len(p) for p in pages) == 22                         # every selection, nothing truncated
-    first = texts[2]
-    assert "across all of yesterday's videos" in first
-    assert "We went" in first and "The standout" in first
-    # Later pages are one line each — the card is on screen, not read match by match
-    assert all(len(t) < 120 for t in texts[3:5])
+    assert "results" not in order and "disclaimer" not in order
+    assert pages == []
+    assert not any("yesterday" in t.lower() for t in texts if isinstance(t,str))
+
 
 
 def test_combined_summary_and_each_match_shown_once(monkeypatch, tmp_path, render_pipeline):
     picks = [_pick(i) for i in range(1, 7)]
     order, texts, _ = _capture_build(monkeypatch, tmp_path, picks, name="order.mp4")
     assert order.count("pick") == 6
-    assert order[0] == "intro" and order[1] == "disclaimer" and order[-1] == "combined"
-    assert order.count("combined") == 1                                  # accumulators are gone from the video
+    assert order[0] == "intro" and order[1] == "pick" and order[-1] == "combined"
+    assert order.count("combined") == 1                                  # exactly one final combined-odds calculation
     said_texts = [t for t in texts if isinstance(t, str)]
     assert not any("combine" in t.lower() or "treble" in t.lower() for t in said_texts)
     # every match gets its own THE PICK slide and its own evidence slide, once each

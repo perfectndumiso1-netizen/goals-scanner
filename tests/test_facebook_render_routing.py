@@ -8,7 +8,7 @@ import advisor_tracking
 import scanner
 
 
-@pytest.mark.parametrize('hour,forced_edition', [(8,None),(9,None),(12,None),(17,'morning'),(19,None)])
+@pytest.mark.parametrize('hour,forced_edition', [(5,None),(6,None),(11,None),(12,None),(17,'morning'),(16,None)])
 @pytest.mark.parametrize('portrait_failure',[False,True])
 def test_daily_renderer_routes_portrait_without_blocking_telegram(monkeypatch,tmp_path,portrait_failure,hour,forced_edition):
     monkeypatch.delenv("FORCE_DAILY_REEL",raising=False)
@@ -45,8 +45,8 @@ def test_daily_renderer_routes_portrait_without_blocking_telegram(monkeypatch,tm
     assert sent[0][0]==built[0][1]
     assert built[1][1].exists() is not portrait_failure
 
-    expected = forced_edition or ('evening' if hour >= 16 else 'morning')
+    expected = forced_edition or ('evening' if hour >= 16 else 'noon' if hour>=11 else 'morning')
     assert state['briefing_slots']['2026-10-28'] == [expected]
-    assert built[0][2]['recap'] == (expected == 'morning')
+    assert built[0][2]['recap'] is False and built[1][2]['recap'] is False
     scanner.maybe_send_daily_reel({}, datetime(2026,10,28,hour,30))
     assert len(sent) == 1 and len(built) == 2  # A delayed/repeated scan must not repost the edition.

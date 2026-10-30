@@ -1,7 +1,7 @@
 {
   "version": 1,
-  "enabled": false,
-  "dry_run": true,
+  "enabled": true,
+  "dry_run": false,
   "timezone": "Africa/Johannesburg",
   "community_time": "12:15",
   "weekly_day": 0,
@@ -19,12 +19,16 @@
   "edit_cooldown_minutes": 20,
   "reel_quiet_windows": [
     [
-      "07:30",
-      "08:45"
+      "04:30",
+      "07:45"
+    ],
+    [
+      "10:30",
+      "12:45"
     ],
     [
       "15:30",
-      "16:45"
+      "17:45"
     ]
   ],
   "topic_history_days": 28,
@@ -39,9 +43,9 @@
     "coverage_check_days": 7
   },
   "live": {
-    "enabled": false,
+    "enabled": true,
     "max_posts_per_day": 3,
-    "max_matches": 4,
+    "max_matches": 30,
     "edit_existing": false,
     "selection_min_score": 2,
     "fixture_ids": [],
@@ -118,5 +122,17 @@
       }
     ]
   },
-  "editorial_competitions": []
+  "editorial_competitions": [],
+  "authorized_kinds": [
+    "results",
+    "live"
+  ],
+  "results_time": "08:00",
+  "score_source": "app",
+  "app_scores": {
+    "rights_confirmed": false,
+    "coverage_verified": false,
+    "max_source_age_seconds": 180,
+    "poll_interval_minutes": 5
+  }
 }

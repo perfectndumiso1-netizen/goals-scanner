@@ -68,9 +68,11 @@ def test_missing_cover_never_calls_meta(tmp_path):
     assert apply_preferred(SimpleNamespace(open=lambda *a,**kw:pytest.fail('network')),'123','synthetic',tmp_path/'none.jpg','v25.0') is None
 
 
-def test_non_reel_feed_is_paused_and_calendar_music_remain_unchanged():
+def test_only_requested_feeds_authorized_and_music_remains_locked():
     config=json.loads((ROOT/'config/facebook-feed.json').read_text())
-    assert not config['enabled'] and config['dry_run'] and not config['live']['enabled']
+    assert set(config['authorized_kinds'])=={'results','live'}
+    assert not config['app_scores']['rights_confirmed'] and not config['app_scores']['coverage_verified']
+    assert not config['live']['edit_existing']
     baseline=json.loads((ROOT/'tests/fixtures/facebook-feed-reel-invariants.json').read_text())
     import hashlib
     for name in ('.github/workflows/scan.yml','music.py','assets/reel/under_the_stadium_lights.mp3'):

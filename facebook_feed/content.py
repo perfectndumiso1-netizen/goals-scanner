@@ -291,3 +291,60 @@ def weekly(items, root, now):
                      context='Next seven days · kickoff times SAST',rows=sections,
                      notes=['Each form sample is 5 recorded competitive matches; dates and competitions in caption.']),teams=chosen,
         fixture_ids=sorted({f['id'] for t in chosen for f in t['fixtures']}))
+
+
+def morning_results(root, now, config):
+    """Yesterday's exact filmed selections, including losses/void/unsettled, once per day.
+
+    Never substitute the current shortlist or a winning-only sample. The advisor ledger
+    supplies verified settlement; the filmed history supplies the original market/price.
+    """
+    import advisor_tracking
+    root = Path(root)
+    source = load(root/'latest.json', {})
+    try:
+        generated = local(source['meta']['generated'])
+        if not timedelta(minutes=-5) <= now-generated <= timedelta(hours=config['max_source_age_hours']):
+            return None
+    except (KeyError, TypeError, ValueError):
+        return None
+    day = (now.date()-timedelta(days=1)).isoformat()
+    history = (load(root/'telegram_state.json', {}) or {}).get('briefing_history', {}).get(day, [])
+    unique = {}
+    for p in history:
+        if not isinstance(p, dict) or str(p.get('kickoff', ''))[:10] != day:
+            continue
+        if not all(isinstance(p.get(k), str) and p[k].strip() for k in ('home','away','sel')):
+            continue
+        key = (p['home'], p['away'], p['sel'], p['kickoff'])
+        unique.setdefault(key, p)
+    if not unique or len(unique)>24:
+        return None
+    filmed = list(unique.values())
+    settled = advisor_tracking.video_results(load(root.parent/'advisor_ledger.json', []), filmed)
+    resolved = {(p['home'],p['away'],p['sel'],p['kickoff']):p for p in settled}
+    won = sum(p['result']=='hit' for p in settled)
+    lost = sum(p['result']=='miss' for p in settled)
+    void = sum(p['result']=='void' for p in settled)
+    lines = ['MR 2 ODDS — YESTERDAY’S VIDEO RESULTS', day,
+             f'Latest app publication: {generated:%d %b %H:%M} SAST',
+             f'{won} won · {lost} lost · {void} void · {len(filmed)-len(settled)} not yet settled',
+             f'All {len(filmed)} filmed selections across the day’s editions; no winning-only selection.', '']
+    for key, p in unique.items():
+        r = resolved.get(key)
+        label = p.get('label') or p['sel']
+        status = {'hit':'WON','miss':'LOST','void':'VOID'}.get((r or {}).get('result'), 'NOT YET SETTLED')
+        score = ''
+        if r and r.get('score') not in (None, '', '-'):
+            value=str(r['score'])
+            score=f" · FT goals {value}" if re.fullmatch(r"\d+\s*[-–:]\s*\d+",value) else f" · recorded {value}"
+        price = ''
+        try:
+            odds = float(p['odds'])
+            if 1 < odds < 1000:price=f' @ {odds:.2f}'
+        except (KeyError, TypeError, ValueError):pass
+        lines += [f"{p['home']} v {p['away']}", f'{label}{price} · {status}{score}', '']
+    lines += ['Original filmed selections and prices; verified settlement from the app ledger.',
+              'Unsettled picks are excluded from win/loss totals. Past results do not guarantee future outcomes.']
+    return candidate('results', f'video-results:{day}', f'video-results:{day}', '\n'.join(lines),
+                     result_date=day, fixture_ids=[])

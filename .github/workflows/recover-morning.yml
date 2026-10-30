@@ -28,13 +28,13 @@ jobs:
       VIDEO_RECOVERY_DIR: ${{ github.workspace }}/tmp/video-recovery
       VIDEO_RECOVERY_REPORT: ${{ github.workspace }}/tmp/morning-recovery/result.json
       TMPDIR: ${{ github.workspace }}/tmp
-      YT_UPLOAD: "1"
+      YT_UPLOAD: "0"
       YT_SLOTS: morning,evening
       YT_PRIVACY: public
       YT_CLIENT_ID: ${{ secrets.YT_CLIENT_ID }}
       YT_CLIENT_SECRET: ${{ secrets.YT_CLIENT_SECRET }}
       YT_REFRESH_TOKEN: ${{ secrets.YT_REFRESH_TOKEN }}
-      DRIVE_HANDOFF: "1"
+      DRIVE_HANDOFF: "0"
       GDRIVE_FOLDER_ID: ${{ secrets.GDRIVE_FOLDER_ID }}
       GDRIVE_CLIENT_ID: ${{ secrets.GDRIVE_CLIENT_ID }}
       GDRIVE_CLIENT_SECRET: ${{ secrets.GDRIVE_CLIENT_SECRET }}

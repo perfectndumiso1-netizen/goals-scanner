@@ -7,8 +7,10 @@ import recover_morning as recovery
 import scanner
 
 
-@pytest.mark.parametrize('hour,minute,expected', [(0,0,None),(7,59,None),(8,0,'morning'),
-    (9,25,'morning'),(12,0,'morning'),(15,59,'morning'),(16,0,'evening'),(19,15,'evening'),(23,59,'evening')])
+@pytest.mark.parametrize('hour,minute,expected', [(0,0,None),(4,59,None),(5,0,'morning'),
+    (7,19,'morning'),(7,20,None),(10,59,None),(11,0,'noon'),(12,19,'noon'),(12,20,None),
+    (15,59,None),(16,0,'evening'),(17,19,'evening'),(17,20,None),(23,59,None)])
+
 def test_delayed_scheduler_has_a_due_slot(hour,minute,expected):
     assert scanner._reel_slot(datetime(2026,10,29,hour,minute)) == expected
 
