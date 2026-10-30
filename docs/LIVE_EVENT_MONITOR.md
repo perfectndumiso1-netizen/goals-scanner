@@ -41,11 +41,11 @@ Read through existing GitHub Secrets, in order:
 
 1. `API_FOOTBALL_KEY`
 2. `API_FOOTBALL_KEY_1`
-3. **`API_FOOTBALL_KEY2`**
+3. **`API_FOOTBALL_KEY_2`**
 
 The requested spelling `API_FOOTBALL_KEY 2` contains a space and is not a valid GitHub Actions secret name. Set the third slot with the valid name above in GitHub's Secrets UI; never send its value in chat. No existing secrets are removed, renamed by this code, or copied into config, state, posts or artifacts. State contains slot names and quota-group accounting only, not key values or key fingerprints.
 
-The owner has separately confirmed independent authorised allowances: `API_FOOTBALL_KEY` maps to `primary`, `API_FOOTBALL_KEY_1` to `backup-1`, and `API_FOOTBALL_KEY2` to `backup-2`. Preserve the existing `primary` accounting; do not reset it. If keys share an account in a future setup, they must instead share a quota group. The first configured, authorised slot is used. Network errors, malformed/invalid requests, credentials/plan failures, unrelated 5xx and ordinary minute-rate 429s **never** cause key switching. Credential failures back off; when correcting/replacing secrets, also bump the non-secret `credential_revision` to force re-verification.
+The owner has separately confirmed independent authorised allowances: `API_FOOTBALL_KEY` maps to `primary`, `API_FOOTBALL_KEY_1` to `backup-1`, and `API_FOOTBALL_KEY_2` to `backup-2`. Preserve the existing `primary` accounting; do not reset it. If keys share an account in a future setup, they must instead share a quota group. The first configured, authorised slot is used. Network errors, malformed/invalid requests, credentials/plan failures, unrelated 5xx and ordinary minute-rate 429s **never** cause key switching. Credential failures back off; when correcting/replacing secrets, also bump the non-secret `credential_revision` to force re-verification.
 
 The owner confirmed on **30 October 2026** that the provider permits failover between independently authorised allocations. That attestation is recorded and `failover_permitted=true`. The owner also explicitly confirmed that **each of the three keys has an independently authorised allowance**, so the backup groups are now mapped separately. This is an owner attestation, not an independently audited provider account record. Code permits quota-only failover only when all of these hold:
 

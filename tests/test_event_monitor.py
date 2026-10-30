@@ -207,7 +207,7 @@ def account():return {'subscription':{'plan':'Free','active':True},'requests':{'
 def keys(monkeypatch):
     monkeypatch.setenv('API_FOOTBALL_KEY','synthetic-private-primary')
     monkeypatch.setenv('API_FOOTBALL_KEY_1','synthetic-private-secondary')
-    monkeypatch.setenv('API_FOOTBALL_KEY2','synthetic-private-third')
+    monkeypatch.setenv('API_FOOTBALL_KEY_2','synthetic-private-third')
 
 
 def allow_failover(cfg):
@@ -482,8 +482,25 @@ def test_status_verified_exhaustion_switches_without_probing_fixtures_on_full_ac
 
 def test_activation_uses_exact_renamed_slots_and_full_verified_limits(cfg):
     from facebook_feed.event_provider import SLOTS
-    assert SLOTS==('API_FOOTBALL_KEY','API_FOOTBALL_KEY_1','API_FOOTBALL_KEY2')
+    assert SLOTS==('API_FOOTBALL_KEY','API_FOOTBALL_KEY_1','API_FOOTBALL_KEY_2')
     assert cfg['event_monitor']['publish_enabled'] and cfg['event_monitor']['daily_request_budget']==100
     assert cfg['event_monitor']['daily_request_reserve']==0
     workflow=(ROOT/'.github/workflows/facebook-feed-run.yml').read_text()
     assert 'secrets.API_FOOTBALL_KEY_1' in workflow and 'secrets.API_FOOTBALL_KEY1' not in workflow
+    assert 'secrets.API_FOOTBALL_KEY_2' in workflow and 'secrets.API_FOOTBALL_KEY2' not in workflow
+
+
+def test_corrected_third_slot_reverifies_without_resetting_backup_usage(cfg,monkeypatch):
+    keys(monkeypatch);state={};api=EventAPI(cfg,state,NOW,Opener())
+    api.group('primary').update(exhausted=True,requests=100,remaining=0)
+    api.group('backup-1').update(exhausted=True,requests=100,remaining=0)
+    api.group('backup-2').update(requests=55,allocation=100,provider_used=55,remaining=45,plan_checked=api.day)
+    used=account();used['requests']['current']=56
+    opener=Opener(Response(used,44),Response([{'third_slot_verified':True}],43))
+    assert EventAPI(cfg,state,NOW,opener).get('fixtures')==[{'third_slot_verified':True}]
+    assert len(opener.calls)==2
+    assert all(r.get_header('X-apisports-key')=='synthetic-private-third' for r in opener.calls)
+    assert state['event_api']['groups']['backup-2']['requests']==57
+    assert state['event_api']['groups']['primary']['requests']==100
+    assert state['event_api']['groups']['backup-1']['requests']==100
+    assert state['event_api']['slots']['API_FOOTBALL_KEY_2']['plan_checked']==api.day

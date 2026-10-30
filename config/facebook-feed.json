@@ -160,7 +160,7 @@
         "authorised": true,
         "quota_group": "primary"
       },
-      "API_FOOTBALL_KEY2": {
+      "API_FOOTBALL_KEY_2": {
         "authorised": true,
         "quota_group": "backup-2"
       },

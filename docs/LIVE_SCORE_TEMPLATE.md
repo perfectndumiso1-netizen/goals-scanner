@@ -28,7 +28,7 @@ No additional `/fixtures`, event, statistics, or account API call is needed for 
 
 ## Failover confirmation and account mapping
 
-The owner's confirmation that the provider permits failover across independently authorised allocations is recorded in `event_monitor.permission_reference`, with `failover_permitted=true`. The owner separately confirmed **three independent authorised allowances**. Slots now map to `primary` (`API_FOOTBALL_KEY`), `backup-1` (`API_FOOTBALL_KEY_1`) and `backup-2` (`API_FOOTBALL_KEY2`). Existing `primary` usage is preserved, not reset. If that allocation arrangement changes, keys sharing an allowance must be put back in the same group; permission alone must not be treated as a second allowance.
+The owner's confirmation that the provider permits failover across independently authorised allocations is recorded in `event_monitor.permission_reference`, with `failover_permitted=true`. The owner separately confirmed **three independent authorised allowances**. Slots now map to `primary` (`API_FOOTBALL_KEY`), `backup-1` (`API_FOOTBALL_KEY_1`) and `backup-2` (`API_FOOTBALL_KEY_2`). Existing `primary` usage is preserved, not reset. If that allocation arrangement changes, keys sharing an allowance must be put back in the same group; permission alone must not be treated as a second allowance.
 
 The existing quota-only conditions remain: documented daily exhaustion, no switching for ordinary 429/network/credentials/invalid-request/5xx errors, no rotation at the local 90-call reserve, active Free-plan verification and UTC reset. Actual Facebook publishing remains **off** pending the real-provider dry-run review; this image change does not activate posts.
 
