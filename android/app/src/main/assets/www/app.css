@@ -1039,3 +1039,57 @@ body::before { content: ''; position: fixed; inset: 0; z-index: -1; pointer-even
 
 /* Freshness is deliberately a small status line, not a screen redesign. */
 .data-status { padding: 5px 4px 9px; line-height: 1.5; overflow-wrap: anywhere; }
+
+/* Home 1.6.87 — original, lightweight football graphics; no remote artwork or animation. */
+.home-launchpad { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:9px; margin:0 0 15px; }
+.home-quick { position:relative; display:flex; flex-direction:column; align-items:flex-start; gap:8px; min-width:0; padding:14px 11px 12px; border:1px solid var(--line); border-radius:18px; background:var(--card); color:var(--text); text-align:left; box-shadow:var(--shadow); }
+.home-quick strong { font-size:13px; line-height:1.3; min-height:34px; }
+.quick-icon { display:grid; place-items:center; width:36px; height:36px; border-radius:12px; background:var(--brand-soft); color:var(--brand-text); }
+.home-quick.daily .quick-icon { background:var(--warn-soft); color:var(--warn); }
+.home-quick.eighty .quick-icon { background:var(--accent-soft); color:var(--good); }
+.quick-caption { font-size:10px; line-height:1.4; color:var(--muted); }
+.quick-arrow { position:absolute; top:16px; right:9px; color:var(--muted); }
+.home-quick[aria-pressed="true"] { border-color:var(--brand-text); background:linear-gradient(140deg,var(--brand-soft),var(--card) 75%); }
+.home-quick:active { transform:translateY(1px); }
+.home-quick:focus-visible { outline:3px solid var(--brand-text); outline-offset:3px; }
+.home-stadium { background:linear-gradient(125deg,#0d2531,#104f48); border-color:#286b61; color:#f2faf6; padding:21px 16px 16px; }
+.home-stadium::after { display:none; }
+.home-stadium .matchday-heading, .home-stadium .matchday-stats, .home-stadium .matchday-foot, .home-stadium .live-strip { position:relative; }
+.home-stadium .matchday-heading .eyebrow { color:#8fe0c0; }
+.home-stadium .matchday-intro { color:#f2faf6; font-size:20px; font-weight:750; letter-spacing:-.5px; margin-top:5px; }
+.home-stadium .coverage-tag { background:#123d3c; color:#d0e9e0; border-color:#367468; }
+.home-stadium .matchday-stats > div { background:rgba(4,24,28,.58); border-color:#337167; padding:12px 3px 10px; }
+.home-stadium .matchday-stats b, .home-stadium .matchday-foot b { color:#f3fcf7; }
+.home-stadium .matchday-stats span, .home-stadium .matchday-foot { color:#c0dbd2; }
+.pitch-art { position:absolute; right:-26px; top:-30px; width:230px; height:160px; border:1px solid rgba(175,244,214,.16); border-radius:5px; transform:rotate(-20deg); pointer-events:none; background:repeating-linear-gradient(90deg,transparent 0 27px,rgba(175,244,214,.035) 27px 54px); }
+.pitch-art::before { content:''; position:absolute; left:50%; top:0; height:100%; border-left:1px solid rgba(175,244,214,.2); }
+.pitch-art::after { content:''; position:absolute; width:58px; height:58px; border:1px solid rgba(175,244,214,.2); border-radius:50%; top:50%; left:50%; transform:translate(-50%,-50%); }
+.pitch-art i, .pitch-art span { position:absolute; top:30%; width:34px; height:40%; border:1px solid rgba(175,244,214,.2); }
+.pitch-art i { left:-1px; } .pitch-art span { right:-1px; }
+.home-board-head { scroll-margin-top:80px; margin:20px 2px 12px; outline:none; }
+.home-board-head h2 { font-size:23px; letter-spacing:-.6px; margin:4px 0; }
+.home-board-head p { color:var(--muted); font-size:12px; margin:0; }
+.home-board-head:focus-visible { outline:2px solid var(--brand-text); border-radius:8px; }
+.home-board-controls .seg { flex-wrap:wrap; overflow:visible; }
+.home-board-controls .seg button { flex:1 1 40%; padding:10px 7px; white-space:normal; min-height:44px; font-size:12px; }
+@media (max-width:360px) {
+  .home-launchpad { gap:6px; } .home-quick { padding:12px 8px; }
+  .home-quick strong { font-size:12px; } .quick-arrow { right:5px; }
+  .home-stadium .matchday-heading { flex-wrap:wrap; }
+  .matchday-head { align-items:flex-start; flex-wrap:wrap; gap:8px; }
+}
+@media (max-width:480px) {
+  /* Reflow the selection table into match cards rather than shrinking or clipping it on a phone. */
+  .home-selection-table, .home-selection-table tbody { display:block; width:100%; }
+  .home-selection-table tr:first-child:not([data-fx]) { display:none; }
+  .home-selection-table tr[data-fx] { display:grid; grid-template-columns:minmax(0,1fr) auto; gap:8px; padding:13px 0; border-bottom:1px solid var(--line); }
+  .home-selection-table tr[data-fx]:last-child { border-bottom:0; }
+  .home-selection-table td { display:block; padding:0; border:0; }
+  .home-selection-table td:nth-child(1), .home-selection-table td:nth-child(2) { grid-column:1 / -1; min-width:0; overflow-wrap:anywhere; }
+  .home-selection-table td:nth-child(1) { font-size:11px; }
+  .home-selection-table td:nth-child(3) { grid-column:1; text-align:left; }
+  .home-selection-table td:nth-child(3)::before { content:'Sportybet '; color:var(--muted); font-size:11px; }
+  .home-selection-table td:nth-child(4) { grid-column:2; }
+  .home-selection-table td:nth-child(4)::before { content:'Model '; color:var(--muted); font-size:11px; }
+}
+.matchday-head { flex-wrap:wrap; gap:8px; }
