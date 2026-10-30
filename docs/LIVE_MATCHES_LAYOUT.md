@@ -1,5 +1,7 @@
 # Compact Facebook live scoreboard
 
+> **Latest owner request supersedes the old three/day and hourly limits:** periodic live updates now use a ten-minute cooldown and require a single-match score picture. See [LIVE_PHOTO_AUTOMATION.md](LIVE_PHOTO_AUTOMATION.md) for cadence, scheduler fallback, quota limitations and the denied immediate trigger. Earlier limits below are historical.
+
 Owner requested the supplied screenshot's compact country/league/match structure, exactly **Live Matches SAST** as title, no owner/Page name, source or promotional caption, and up to ten league/football-keyword hashtags.
 
 ## Public presentation

@@ -23,6 +23,8 @@ NOW=datetime(2026,10,30,8,0,tzinfo=content.SAST)
 @pytest.fixture
 def cfg():
     config=cli.config(ROOT/'config/facebook-feed.json')
+    config['live'].update(max_posts_per_day=3,publish_every_poll=False,image_required=False)
+    config['live_post_cooldown_minutes']=60
     config['score_source']='app'  # Retain independent tests for the old explicitly selectable reader.
     config['live']['app_coverage_only']=False
     return config
