@@ -120,3 +120,13 @@ mutation was performed during diagnosis. Keep the 100-request shared allowance,
 45-minute feed spacing, ten-distinct-slot cap, source verification, current
 kickoff/expiry and unknown-state checks. Actual publication still requires a
 Graph acknowledgement plus read-back; code/tests/merge alone do not prove it.
+
+
+## Delivery watchdog
+
+[Outcome-based supervision and safe recovery](EDITORIAL_DELIVERY_WATCHDOG.md)
+adds bounded admission/retries, positive Graph reconciliation and intervention
+alerts to the existing ten editorial slots. It shares the production ledger and
+mutex; no blind resends, source relaxation, stale-slot backlog, quota bypass or
+scanner/Reel schedule changes. It remains dependent on GitHub Actions until an
+independent authenticated external scheduler is actually configured.

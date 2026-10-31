@@ -12,7 +12,9 @@ from facebook_post import GRAPH_VERSION, _NoRedirect
 
 
 class PublishError(RuntimeError):
-    pass
+    def __init__(self, message, *, retryable=False):
+        super().__init__(message)
+        self.retryable = retryable  # Only meaningful BEFORE a creation request.
 
 
 class PageFeed:
@@ -65,9 +67,9 @@ class PageFeed:
                 code=int(value.get('code',0));subcode=int(value.get('error_subcode',0))
             except (ValueError,TypeError,AttributeError):
                 detail='Response omitted';code=subcode=0
-            raise PublishError(f'Graph HTTP {error.code}, code {code}, subcode {subcode}: {detail}') from None
+            raise PublishError(f'Graph HTTP {error.code}, code {code}, subcode {subcode}: {detail}', retryable=method=='GET' and (error.code==429 or error.code>=500)) from None
         except Exception:
-            raise PublishError('Graph network/response failure; outcome may be ambiguous. No automatic retry.') from None
+            raise PublishError('Graph network/response failure; outcome may be ambiguous. No automatic retry.', retryable=method=='GET') from None
         if not isinstance(data,dict) or 'error' in data:
             raise PublishError('Invalid Graph response; inspect the Page before any manual retry')
         return data
@@ -106,6 +108,34 @@ class PageFeed:
         if str(data.get('id'))!=identity or str(data.get('message','')).strip()!=caption.strip() or data.get('is_published') is not True:
             raise PublishError('Post content not yet verified; keep reservation and inspect the Page')
         return True
+
+    def find_reserved(self,entry):
+        """Bounded positive discovery only; never infer that an empty feed is absence.
+
+        Used for a lost POST acknowledgement/crashed run. Exact caption hash,
+        configured Page, published flag and time proximity are all required.
+        verify_hash performs a separate read-back before ledger reconciliation.
+        """
+        from datetime import timedelta
+        from .content import local
+        at=local(entry['at'])
+        data=self.call('GET',self.page+'/feed',{'fields':'id,message,is_published,created_time',
+            'limit':100,'since':int((at-timedelta(minutes=5)).timestamp()),
+            'until':int((at+timedelta(minutes=15)).timestamp())})
+        rows=data.get('data')
+        if not isinstance(rows,list) or len(rows)>100:
+            raise PublishError('Unverified Page feed discovery; reservation retained')
+        found=[]
+        for row in rows:
+            if not isinstance(row,dict):continue
+            identity=str(row.get('id',''))
+            try:when=local(row['created_time'])
+            except (KeyError,ValueError,TypeError):continue
+            if (re.fullmatch(re.escape(self.page)+r'_\d+',identity) and row.get('is_published') is True and
+                at-timedelta(minutes=5)<=when<=at+timedelta(minutes=15) and
+                hashlib.sha256(str(row.get('message','')).encode()).hexdigest()==entry['caption_hash']):
+                found.append(identity)
+        return found[0] if len(found)==1 else None
 
     def verify_hash(self,identity,caption_hash):
         if not re.fullmatch(re.escape(self.page)+r'_\d+',identity):

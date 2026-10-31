@@ -250,6 +250,7 @@ def main(argv=None):
     parser.add_argument('--bootstrap',action='store_true')
     parser.add_argument('--preview',action='store_true')
     parser.add_argument('--checkpoint',action='store_true',help='Workflow confirms durable reservation artifact was saved')
+    parser.add_argument('--watchdog-checkpoint',action='store_true',help='Workflow saved the editorial admission artifact before preparation')
     parser.add_argument('--reservation-key')
     parser.add_argument('--post-id')
     parser.add_argument('--cancel-reservation',action='store_true')
@@ -295,7 +296,7 @@ def main(argv=None):
             if hashlib.sha256(post['caption'].encode()).hexdigest()!=entry['caption_hash'] or any(entry.get(k)!=post.get(k) for k in ('kind','topic','fixture_ids','operation','target_id','snapshot','image_sha256','event_ids','slot_key')):
                 raise ValueError('Prepared content does not match its durable reservation')
             if datetime.now(content.SAST)>=content.local(post['expires_at']) or post['kind'] in ('live','roundup') and not in_window(datetime.now(content.SAST),cfg):
-                entry['status']='cancelled';entry['error']='Prepared content expired before sending';match_events.publication_state(state,entry,'pending',now);storage.write(statepath,state);continue
+                entry['status']='cancelled';entry['delivery_failure']='expired_before_mutation';entry['error']='Prepared content expired before sending';match_events.publication_state(state,entry,'pending',now);storage.write(statepath,state);continue
             if post['kind']=='live' and cfg['live'].get('image_required') or post['kind']=='editorial' and (entry.get('image_sha256') or post.get('graphic')):
                 image=Path(post.get('image') or '')
                 if not image.is_file() or not post.get('image_sha256') or hashlib.sha256(image.read_bytes()).hexdigest()!=entry.get('image_sha256'):
@@ -305,7 +306,7 @@ def main(argv=None):
             try:
                 if publisher is None:publisher=PageFeed()
                 if datetime.now(content.SAST)>=content.local(post['expires_at']) or post['kind'] in ('live','roundup') and not in_window(datetime.now(content.SAST),cfg):
-                    entry['status']='cancelled';entry['error']='Content expired during credential verification; no mutation sent';match_events.publication_state(state,entry,'pending',now);continue
+                    entry['status']='cancelled';entry['delivery_failure']='expired_before_mutation';entry['error']='Content expired during credential verification; no mutation sent';match_events.publication_state(state,entry,'pending',now);continue
                 mutation_started=True
                 identity=publisher.send(post)
                 entry['post_id']=identity;storage.write(statepath,state)
@@ -314,6 +315,11 @@ def main(argv=None):
                 match_events.publication_state(state,entry,'published',datetime.now(content.SAST))
                 print(f'::notice::Facebook {post["kind"]} confirmed: https://www.facebook.com/{identity}')
             except PublishError as error:
+                if post['kind']=='editorial' and not mutation_started:
+                    # Credential identity GET failed before any creation request.
+                    # This positive local evidence alone permits a fresh prepare.
+                    entry['status']='cancelled'
+                    entry['delivery_failure']='preflight_temporary' if getattr(error,'retryable',False) else 'facebook_preflight_blocked'
                 if post.get('event_ids') and not mutation_started:
                     entry['status']='cancelled';match_events.publication_state(state,entry,'pending',now)
                     for eid in post['event_ids']:
@@ -325,7 +331,21 @@ def main(argv=None):
     branch=os.getenv('GITHUB_REF_NAME','local');repo=os.getenv('GITHUB_REPOSITORY','local/repo')
     prefix=storage.namespace(repo,branch,publish);output('prefix',prefix)
     state=None
-    if args.phase!='preview' and os.getenv('GH_READ_TOKEN'):
+    if args.watchdog_checkpoint:
+        from .watchdog import slot_at
+        run_key=os.getenv('GITHUB_RUN_ID','')+'-'+os.getenv('GITHUB_RUN_ATTEMPT','1')
+        admission=content.load(work/'watchdog-admission.json',{})
+        state=content.load(statepath,{})
+        current=slot_at(now)
+        row=state.get('editorial_delivery',{}).get('slots',{}).get(current[0] if current else '',{})
+        if (args.phase!='prepare' or args.kind!='editorial' or not publish or args.bootstrap or
+            state.get('schema')!=1 or state.get('namespace')!=prefix or
+            admission.get('allowed') is not True or admission.get('run_key')!=run_key or
+            row.get('run_key')!=run_key or row.get('status')!='preparing'):
+            raise storage.StateError('Editorial admission checkpoint mismatch/expired; no provider access')
+        from .watchdog import release_quota_hold
+        release_quota_hold(state,row)
+    elif args.phase!='preview' and os.getenv('GH_READ_TOKEN'):
         state=storage.restore(repo,branch,os.getenv('GITHUB_REPOSITORY_ID',''),prefix,os.environ['GH_READ_TOKEN'],work)
     output('restored','true' if state is not None else 'false')
     if state is None:
@@ -389,6 +409,9 @@ def main(argv=None):
         if os.getenv('GITHUB_STEP_SUMMARY'):
             with open(os.environ['GITHUB_STEP_SUMMARY'],'a',encoding='utf-8') as target:
                 target.write('## Selected live watchlist\n\nUp to five matches; not worldwide coverage. No scores inferred from cached schedules.\n\n```json\n'+json.dumps(watchlist,indent=2)+'\n```\n')
+    if args.watchdog_checkpoint:
+        from .watchdog import record
+        record(state,now,report)
     storage.write(manifest,plans);storage.write(work/'report.json',report);storage.write(statepath,state)
     output('should_publish','true' if publish and plans else 'false')
     print('::notice::Facebook feed '+('LIVE PLAN' if publish else 'DRY RUN — no Facebook requests')+': '+json.dumps(report,separators=(',',':')))
