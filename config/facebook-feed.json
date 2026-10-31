@@ -184,7 +184,21 @@
     "poll_interval_minutes": 20,
     "max_pages_per_poll": 10,
     "max_details_per_poll": 2,
-    "scope": "Factual live scores/events only; no predictions, odds, betting or video reuse. Full match-list and one detail access verified in owner-triggered diagnostic 41164360718 on 2026-10-31; publishing remains subject to 08:00\u201324:00 SAST, quota, freshness, baseline, meaningful-event and reservation safeguards.",
-    "verification_reference": "Owner-triggered run 41164360718 at 2026-10-31T05:26:13+02:00: verified_read_only, complete_day, 868 rows/9 pages, match_detail_verified=true, ready_for_activation=true; 0 Facebook requests."
+    "scope": "Selected factual live scores/events only: up to five matches per SAST day from PSL, LaLiga, EPL, Bundesliga, Ligue 1 and Serie A. No worldwide coverage, predictions, odds, betting or video reuse. Full match-list and one detail access verified in owner-triggered diagnostic 41164360718 on 2026-10-31; publishing remains subject to 08:00\u201324:00 SAST, quota, freshness, baseline, meaningful-event and reservation safeguards.",
+    "verification_reference": "Owner-triggered run 41164360718 at 2026-10-31T05:26:13+02:00: verified_read_only, complete_day, 868 rows/9 pages, match_detail_verified=true, ready_for_activation=true; 0 Facebook requests.",
+    "monitor_mode": "selected",
+    "watchlist": {
+      "max_matches": 5,
+      "catalog_refresh_hours": 8,
+      "max_catalog_attempts_per_day": 2,
+      "leagues": [
+        "psl",
+        "laliga",
+        "epl",
+        "bundesliga",
+        "ligue1",
+        "seriea"
+      ]
+    }
   }
 }
