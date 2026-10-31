@@ -5,6 +5,11 @@ on:
     - cron: "30 5,6,17 * * *"
     # Six featured matches, one hour apart: 10–15 SAST; finals at 23:00.
     - cron: "0 8-13,21 * * *"
+    # Backup checks at slot +50 minutes, away from the busy :00/:30 queues.
+    # Same daily slot/ledger: never a second post after a successful attempt.
+    # +50 also permits the unchanged 45-minute spacing after a late prior slot.
+    - cron: "20 6,7,18 * * *"
+    - cron: "50 8-13,21 * * *"
   workflow_dispatch:
     inputs:
       publish:
