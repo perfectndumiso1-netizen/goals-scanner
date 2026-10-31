@@ -14,7 +14,11 @@ from test_event_monitor import NOW,Opener
 ROOT=Path(__file__).resolve().parents[1]
 
 @pytest.fixture
-def cfg():return cli.config(ROOT/'config/facebook-feed.json')
+def cfg():
+    cfg=cli.config(ROOT/'config/facebook-feed.json')
+    # Explicit staging regression fixture; current production activation is tested separately.
+    cfg['highlightly'].update(verification_only=True,account_coverage_verified=False)
+    return cfg
 
 
 def row(mid=1,status='Second half',score='1 - 0',clock=65,events=None):
@@ -44,7 +48,7 @@ def api(cfg,monkeypatch,*responses,state=None,now=NOW):
     return highlightly.Highlightly(cfg,{} if state is None else state,now,opener),opener
 
 
-def test_current_source_staged_and_suspended_accounts_disabled(cfg,monkeypatch):
+def test_staging_gate_blocks_reads_and_suspended_accounts_stay_disabled(cfg,monkeypatch):
     assert cfg['score_source']=='highlightly' and not cli.scores_approved(cfg)
     assert all(not s['authorised'] for s in cfg['event_monitor']['key_slots'].values())
     client,opener=api(cfg,monkeypatch)
@@ -339,3 +343,42 @@ def test_verified_empty_list_is_not_ready_for_activation_without_detail_sample(c
     report=highlightly.diagnose(cfg,{},NOW,client)
     assert report['outcome']=='verified_read_only' and report['coverage']=='complete_day'
     assert not report['ready_for_activation'] and not report['match_detail_verified'] and len(opener.calls)==1
+
+
+def test_verified_production_config_is_activated_with_all_existing_limits():
+    current=cli.config(ROOT/'config/facebook-feed.json')
+    assert current['score_source']=='highlightly' and cli.scores_approved(current)
+    assert current['highlightly']['verification_only'] is False
+    assert current['highlightly']['account_coverage_verified'] is True
+    assert '41164360718' in current['highlightly']['verification_reference']
+    assert current['highlightly']['daily_request_budget']==100
+    assert current['highlightly']['poll_interval_minutes']==20
+    assert current['highlightly']['max_pages_per_poll']==10 and current['highlightly']['max_details_per_poll']==2
+    assert current['live']['coverage_window']=={'start':'08:00','end':'24:00'}
+    assert all(not s['authorised'] for s in current['event_monitor']['key_slots'].values())
+    assert current['event_monitor']['credential_revision']=='3'
+    assert not cli.is_due('live',NOW.replace(hour=7,minute=59),current)
+    assert cli.is_due('live',NOW.replace(hour=8,minute=0),current)
+    assert not cli.is_due('live',NOW.replace(hour=0,minute=0),current)
+
+
+@pytest.mark.parametrize('field,value',[('verification_only',True),('account_coverage_verified',False),('rights_confirmed',False)])
+def test_activated_config_still_requires_all_source_approval_gates(field,value):
+    current=cli.config(ROOT/'config/facebook-feed.json')
+    current['highlightly'][field]=value
+    assert not cli.scores_approved(current)
+
+
+def test_activated_production_still_baselines_before_any_new_meaningful_event(monkeypatch):
+    current=cli.config(ROOT/'config/facebook-feed.json')
+    state={'posts':[],'event_api':{'groups':{'primary':{'requests':17}}}}
+    old=deepcopy(state['event_api'])
+    client,opener=api(current,monkeypatch,state=state)
+    assert event_monitor.build(current,state,NOW,client)[0] is None
+    assert len(opener.calls)==2 and state['event_api']==old
+    later=NOW+timedelta(minutes=20)
+    changed=row(score='2 - 0',clock=85)
+    client,opener=api(current,monkeypatch,Response(envelope([changed]),97,stamp=later),Response([changed],96,stamp=later),state=state,now=later)
+    post,_=event_monitor.build(current,state,later,client)
+    assert post and post['event_ids'] and post['snapshot'][0]['id']=='highlightly:1'
+    assert state['event_api']==old and '2–0' in post['caption']
