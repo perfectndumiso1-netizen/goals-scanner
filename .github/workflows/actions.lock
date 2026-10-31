@@ -33,6 +33,8 @@ workflows:
         []
     '.github/workflows/facebook-roundup.yml':
         []
+    '.github/workflows/facebook-watchdog.yml':
+        - 'actions/checkout@v4.4.0'
     '.github/workflows/facebook-feed-dry-run.yml':
         - 'actions/checkout@v4.4.0'
         - 'actions/setup-python@v5.6.0'

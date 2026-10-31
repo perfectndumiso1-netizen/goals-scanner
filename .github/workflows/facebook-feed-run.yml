@@ -4,6 +4,10 @@ on:
     outputs:
       state_restored:
         value: ${{ jobs.feed.outputs.state_restored }}
+      watchdog_alert:
+        value: ${{ jobs.feed.outputs.watchdog_alert }}
+      watchdog_report:
+        value: ${{ jobs.feed.outputs.watchdog_report }}
     inputs:
       diagnostic:
         default: false
@@ -56,7 +60,10 @@ jobs:
   feed:
     runs-on: ubuntu-latest
     outputs:
-      state_restored: ${{ steps.prepare.outputs.restored }}
+      state_restored: ${{ steps.assess.outputs.restored || steps.prepare.outputs.restored }}
+      # A failed/missing final checkpoint needs an alert even if the earlier audit was healthy.
+      watchdog_alert: ${{ steps.final.conclusion != 'success' || steps.health.outputs.alert_fallback }}
+      watchdog_report: ${{ steps.health.outputs.health_report }}
     timeout-minutes: 10
     env:
       CONTENT_KIND: ${{ inputs.kind }}
@@ -98,8 +105,26 @@ jobs:
           API_FOOTBALL_KEY_1: ${{ secrets.API_FOOTBALL_KEY_1 }}
           API_FOOTBALL_KEY_2: ${{ secrets.API_FOOTBALL_KEY_2 }}
         run: python -m facebook_feed.diagnostics
+      - name: Assess editorial delivery and allocate a bounded attempt
+        id: assess
+        if: ${{ !inputs.diagnostic && inputs.kind == 'editorial' && inputs.publish && github.ref_name == 'main' }}
+        env:
+          WATCHDOG_REQUEST_PUBLISH: 'true'
+          GH_READ_TOKEN: ${{ github.token }}
+          FACEBOOK_PAGE_ACCESS_TOKEN: ${{ secrets.FACEBOOK_PAGE_ACCESS_TOKEN }}
+          FACEBOOK_PAGE_ID: ${{ secrets.FACEBOOK_PAGE_ID }}
+        run: python -m facebook_feed.watchdog assess
+      - name: Save editorial admission BEFORE provider preparation
+        id: admission
+        if: steps.assess.outputs.allow_prepare == 'true'
+        uses: actions/upload-artifact@v4.6.2
+        with:
+          name: ${{ steps.assess.outputs.prefix }}${{ github.run_id }}-${{ github.run_attempt }}-${{ inputs.invocation || 'main' }}-admitted
+          path: tmp/facebook-feed/checkpoint/state.json
+          retention-days: 30
+          if-no-files-found: error
       - name: Restore independent ledger and prepare verified content
-        if: ${{ !inputs.diagnostic }}
+        if: ${{ !inputs.diagnostic && (inputs.kind != 'editorial' || !inputs.publish || github.ref_name != 'main' || (steps.assess.outputs.allow_prepare == 'true' && steps.admission.conclusion == 'success')) }}
         id: prepare
         env:
           GH_READ_TOKEN: ${{ github.token }}
@@ -115,6 +140,7 @@ jobs:
           [[ "$REQUEST_PUBLISH" != "true" ]] || args+=(--publish)
           [[ "$REQUEST_PREVIEW" != "true" ]] || args+=(--preview)
           [[ "$REQUEST_BOOTSTRAP" != "true" ]] || args+=(--bootstrap)
+          [[ "${{ steps.admission.conclusion }}" != "success" ]] || args+=(--watchdog-checkpoint)
           python -m facebook_feed.cli prepare --kind "$CONTENT_KIND" "${args[@]}"
       - name: Save durable reservation BEFORE any Facebook mutation
         id: reserve
@@ -126,16 +152,27 @@ jobs:
           retention-days: 30
           if-no-files-found: error
       - name: Publish or edit only after reservation checkpoint succeeded
+        id: send
         if: steps.prepare.outputs.should_publish == 'true' && steps.reserve.conclusion == 'success'
         env:
           FACEBOOK_PAGE_ACCESS_TOKEN: ${{ secrets.FACEBOOK_PAGE_ACCESS_TOKEN }}
           FACEBOOK_PAGE_ID: ${{ secrets.FACEBOOK_PAGE_ID }}
         run: python -m facebook_feed.cli send --kind "$CONTENT_KIND" --publish --checkpoint
+      - name: Audit real delivery and alert on intervention-required failures
+        id: health
+        if: ${{ always() && !inputs.diagnostic && inputs.kind == 'editorial' && inputs.publish && github.ref_name == 'main' }}
+        env:
+          WATCHDOG_REQUEST_PUBLISH: 'true'
+          WATCHDOG_PIPELINE_OK: ${{ steps.assess.conclusion == 'success' && steps.admission.conclusion != 'failure' && steps.admission.conclusion != 'cancelled' && steps.prepare.conclusion != 'failure' && steps.prepare.conclusion != 'cancelled' && steps.reserve.conclusion != 'failure' && steps.reserve.conclusion != 'cancelled' && steps.send.conclusion != 'failure' && steps.send.conclusion != 'cancelled' }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: python -m facebook_feed.watchdog audit
       - name: Save final ledger including ambiguous failures
-        if: always() && (steps.prepare.conclusion == 'success' || steps.diagnostic.conclusion == 'success')
+        id: final
+        if: always() && (steps.assess.conclusion == 'success' || steps.prepare.conclusion == 'success' || steps.diagnostic.conclusion == 'success')
         uses: actions/upload-artifact@v4.6.2
         with:
-          name: ${{ steps.prepare.outputs.prefix || steps.diagnostic.outputs.prefix }}${{ github.run_id }}-${{ github.run_attempt }}-${{ inputs.invocation || 'main' }}-final
+          name: ${{ steps.assess.outputs.prefix || steps.prepare.outputs.prefix || steps.diagnostic.outputs.prefix }}${{ github.run_id }}-${{ github.run_attempt }}-${{ inputs.invocation || 'main' }}-final
           path: tmp/facebook-feed/checkpoint/state.json
           retention-days: 30
           if-no-files-found: error
@@ -148,6 +185,7 @@ jobs:
             tmp/facebook-feed/*.jpg
             tmp/facebook-feed/*.txt
             tmp/facebook-feed/report.json
+            tmp/facebook-feed/watchdog-report.json
             tmp/facebook-feed/api-diagnostic.json
             tmp/facebook-feed/live-watchlist.json
           retention-days: 7

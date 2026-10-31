@@ -109,6 +109,7 @@ class Highlightly:
                 data=json.loads(raw)
         except HTTPError as error:
             self.reason={401:'authentication_rejected',403:'access_restriction',429:'rate_or_quota_rejection'}.get(error.code,'http_rejection')
+            self.budget['last_failure']=self.reason  # Fixed enum only; watchdog diagnosis, never raw provider text.
             try:
                 retry=error.headers.get('Retry-After','600')
                 seconds=int(retry) if str(retry).isdigit() else int((parsedate_to_datetime(retry)-self.now).total_seconds())
@@ -125,6 +126,7 @@ class Highlightly:
         if isinstance(data,dict) and (data.get('errors') or data.get('error') or data.get('statusCode',200)!=200):
             self.reason='provider_rejection';raise ProviderError('Highlightly returned a provider error; raw message omitted')
         self.reason='response_received'
+        self.budget.pop('last_failure',None)
         return data
 
     def page(self,offset=0):

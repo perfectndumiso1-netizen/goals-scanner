@@ -1,0 +1,48 @@
+name: Facebook delivery watchdog
+on:
+  schedule:
+    # Different minutes from posting triggers; same GitHub scheduler, not independent uptime.
+    - cron: "13,33,53 * * * *"
+  workflow_run:
+    workflows: ["Facebook scheduled football (10 factual slots)"]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      publish:
+        description: Allow safe recovery for the current editorial slot (never resets state)
+        type: boolean
+        default: false
+permissions:
+  contents: read
+  actions: read
+jobs:
+  monitor:
+    if: ${{ github.ref_name == 'main' && (github.event_name != 'workflow_dispatch' || inputs.publish) }}
+    uses: ./.github/workflows/facebook-feed-run.yml
+    with:
+      kind: editorial
+      publish: ${{ github.event_name != 'workflow_dispatch' || inputs.publish }}
+      preview: false
+      bootstrap: false
+      invocation: watchdog
+    secrets: inherit
+  alert:
+    needs: monitor
+    if: ${{ always() && github.ref_name == 'main' && needs.monitor.result == 'failure' && needs.monitor.outputs.watchdog_alert != 'false' && (github.event_name != 'workflow_dispatch' || inputs.publish) }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write
+    steps:
+      - uses: actions/checkout@v4.4.0
+        with:
+          # workflow_run must never check out the triggering run's arbitrary SHA.
+          ref: main
+          persist-credentials: false
+      - name: Notify through one deduplicated GitHub issue if Telegram was unavailable
+        env:
+          GH_READ_TOKEN: ${{ github.token }}
+          WATCHDOG_REQUEST_PUBLISH: 'true'
+          WATCHDOG_HEALTH: ${{ needs.monitor.outputs.watchdog_report }}
+        run: python -m facebook_feed.watchdog alert
