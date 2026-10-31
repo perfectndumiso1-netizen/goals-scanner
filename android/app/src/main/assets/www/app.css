@@ -975,7 +975,7 @@ body::before { content: ''; position: fixed; inset: 0; z-index: -1; pointer-even
 .matchday-intro { color: var(--muted); font-size: 12px; margin-top: 3px; }
 .coverage-tag { padding: 5px 9px; border: 1px solid var(--hero-line); border-radius: 999px; color: var(--muted); background: var(--card); font-size: 9px; font-weight: 750; white-space: nowrap; }
 .matchday-stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 7px; margin-top: 15px; }
-.matchday-stats > div { min-width: 0; padding: 10px 4px 8px; border: 1px solid var(--line); border-radius: 13px; background: var(--card); text-align: center; }
+.matchday-stats > button { min-width: 0; padding: 10px 4px 8px; border: 1px solid var(--line); border-radius: 13px; background: var(--card); text-align: center; }
 .matchday-stats b { display: block; color: var(--text); font-size: 27px; font-weight: 850; line-height: 1; letter-spacing: -.055em; }
 .matchday-stats span { display: block; margin-top: 5px; color: var(--muted); font-size: 8.5px; line-height: 1.15; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; }
 .matchday-foot { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 4px 10px; margin-top: 11px; color: var(--muted); font-size: 10.5px; }
@@ -1058,7 +1058,7 @@ body::before { content: ''; position: fixed; inset: 0; z-index: -1; pointer-even
 .home-stadium .matchday-heading .eyebrow { color:#8fe0c0; }
 .home-stadium .matchday-intro { color:#f2faf6; font-size:20px; font-weight:750; letter-spacing:-.5px; margin-top:5px; }
 .home-stadium .coverage-tag { background:#123d3c; color:#d0e9e0; border-color:#367468; }
-.home-stadium .matchday-stats > div { background:rgba(4,24,28,.58); border-color:#337167; padding:12px 3px 10px; }
+.home-stadium .matchday-stats > button { background:rgba(4,24,28,.58); border-color:#337167; padding:12px 3px 10px; }
 .home-stadium .matchday-stats b, .home-stadium .matchday-foot b { color:#f3fcf7; }
 .home-stadium .matchday-stats span, .home-stadium .matchday-foot { color:#c0dbd2; }
 .pitch-art { position:absolute; right:-26px; top:-30px; width:230px; height:160px; border:1px solid rgba(175,244,214,.16); border-radius:5px; transform:rotate(-20deg); pointer-events:none; background:repeating-linear-gradient(90deg,transparent 0 27px,rgba(175,244,214,.035) 27px 54px); }
@@ -1093,3 +1093,9 @@ body::before { content: ''; position: fixed; inset: 0; z-index: -1; pointer-even
   .home-selection-table td:nth-child(4)::before { content:'Model '; color:var(--muted); font-size:11px; }
 }
 .matchday-head { flex-wrap:wrap; gap:8px; }
+
+/* Matchday counters are real, keyboard-accessible collection buttons. */
+.matchday-stats > .matchday-stat { appearance:none; cursor:pointer; font:inherit; color:inherit; min-height:64px; touch-action:manipulation; }
+.matchday-stat:hover { border-color:var(--brand-text); }
+.matchday-stat:focus-visible { outline:2px solid var(--brand-text); outline-offset:3px; }
+.matchday-stat:active { box-shadow:inset 0 0 0 2px var(--brand-text); }

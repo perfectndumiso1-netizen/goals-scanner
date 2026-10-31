@@ -1,3 +1,9 @@
+## What’s new — Mr 2 Odds 1.6.88
+
+- **Tap the Matchday Picture counters.** Fixtures opens today’s fixtures; Analysed opens all published analysed matches for today; Signals opens today’s high-probability selections; Live opens the in-play view matching its counter.
+- **No hidden old search.** Match collections start with a clear search, kick-off order and a visible Today / Analysed today filter. Empty collections stay empty.
+- **Same app and analysis.** No model, probability, live polling, cache, signing or package-identity changes. Install over your current app; do not uninstall first.
+
 ## What's new — Mr 2 Odds 1.6.87
 
 - **A fresh matchday Home.** Original football-pitch graphics, a richer matchday overview and colour-coded collection cards. The visuals are bundled and need no extra image downloads.
