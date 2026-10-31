@@ -323,7 +323,9 @@ def test_tampered_editorial_picture_is_blocked_before_page_access(cfg,tmp_path,m
     post['image']=str(tmp_path/'photo.jpg');Path(post['image']).write_bytes(b'original')
     post['image_sha256']=hashlib.sha256(b'original').hexdigest()
     state={'posts':[]};entry=policy.reserve(post,state,NOW)
-    entry['run_key']='local-1'
+    monkeypatch.setenv('GITHUB_RUN_ID','editorial-tamper-test')
+    monkeypatch.setenv('GITHUB_RUN_ATTEMPT','1')
+    entry['run_key']='editorial-tamper-test-1'
     storage.write(tmp_path/'checkpoint/state.json',state);storage.write(tmp_path/'plans.json',[post]);storage.write(tmp_path/'config.json',cfg)
     Path(post['image']).write_bytes(b'changed')
     with pytest.raises(ValueError,match='picture'):
