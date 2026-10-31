@@ -1,46 +1,36 @@
-"""Deterministic typography over the existing stadium asset; no generated art.
-
-Reference-inspired comparison layout, without copying its unverified statistics,
-crests, third-party ratings, or bottom-of-picture trend claims.
-"""
+"""Approved crest-led comparison layout; deterministic, no AI-generated artwork."""
 from pathlib import Path
 from .content import local
-ROOT=Path(__file__).resolve().parents[1]
+from football_artwork import background,text,GOLD,MUTED
+from club_crests import paste
 
 
 def render(spec,path):
-    from PIL import Image,ImageDraw,ImageFont,ImageOps
-    image=ImageOps.fit(Image.open(ROOT/'assets/reel/bg_stadium.jpg').convert('RGB'),(1080,1350))
-    shade=Image.new('RGBA',image.size,(3,10,14,155));image=Image.alpha_composite(image.convert('RGBA'),shade)
-    draw=ImageDraw.Draw(image);white='#eeeedd';gold='#d6d7a2';muted='#b5c4c6'
-    def font(size,bold=False):
-        return ImageFont.truetype(str(ROOT/'assets/fonts'/('LiberationSans-Bold.ttf' if bold else 'LiberationSans-Regular.ttf')),size)
-    def centered(value,y,size=30,bold=False,color=white,x=540,maxwidth=940):
-        text=str(value);f=font(size,bold)
-        while draw.textlength(text,font=f)>maxwidth and size>22:
-            size-=1;f=font(size,bold)
-        if draw.textlength(text,font=f)>maxwidth:raise ValueError('Comparison text too long; editorial review required')
-        draw.text((x,y),text,font=f,anchor='mt',fill=color)
-    # Branding deliberately restricted to the picture; no branded caption/tag.
-    centered('PLAYREPORT ZA',45,25,True,color=muted)
-    centered(spec['home'].upper(),105,48,True)
-    centered('VS',165,27,color=gold)
-    centered(spec['away'].upper(),208,48,True)
-    draw.line((75,285,1005,285),fill=gold,width=2)
-    centered('TEAM COMPARISON',305,28,True,color=gold)
-    centered(spec['league'],352,25)
-    centered(local(spec['kickoff']).strftime('%d %b %Y · %H:%M SAST'),391,26,color=muted)
-    centered(spec['period'],449,23,color=gold)
-    draw.rounded_rectangle((52,512,1028,1110),radius=12,fill=(5,17,21,225),outline=(115,145,140,200),width=2)
-    centered(spec['home'],543,25,True,x=250,maxwidth=340)
-    centered(spec['away'],543,25,True,x=830,maxwidth=340)
-    for idx,(label,left,right) in enumerate(spec['rows']):
-        y=625+idx*76
-        draw.line((80,y-18,1000,y-18),fill=(102,128,128,160),width=1)
-        centered(left,y,36,True,x=175,maxwidth=160)
-        centered(label,y+5,23,x=540,maxwidth=480)
-        centered(right,y,36,True,x=905,maxwidth=160)
-    centered('Different team samples · same league / season · no forecasts',1260,22,color=muted)
+    rows=spec['rows']
+    if not isinstance(rows,list) or not 1<=len(rows)<=10:
+        raise ValueError('Comparison supports at most ten readable verified statistic rows')
+    image,draw=background(1350)
+    text(draw,'PLAYREPORT ZA',540,82,27,True,fill=MUTED)
+    text(draw,'TEAM COMPARISON',540,139,51,True)
+    paste(image,spec['home'],spec.get('country'),(275,320),160)
+    paste(image,spec['away'],spec.get('country'),(805,320),160)
+    text(draw,'VS',540,307,35,True,fill=GOLD)
+    text(draw,spec['home'].upper(),275,425,37,True,width=420)
+    text(draw,spec['away'].upper(),805,425,37,True,width=420)
+    text(draw,spec['league'],540,480,25,True)
+    text(draw,local(spec['kickoff']).strftime('%d %b %Y · %H:%M SAST'),540,520,24,fill=MUTED)
+    draw.line((80,565,1000,565),fill=GOLD,width=2)
+    text(draw,spec['period'],540,582,23,True,fill=GOLD)
+    top=637;bottom=1218
+    draw.rounded_rectangle((64,top-16,1016,bottom),radius=18,fill=(6,20,29,230),outline=(75,99,101,255),width=1)
+    step=min(76,(bottom-top-10)//len(rows))
+    for index,(label,left,right) in enumerate(rows):
+        y=top+index*step+7
+        if index:draw.line((90,y-12,990,y-12),fill=(72,92,96,255),width=1)
+        text(draw,left,180,y,32,True,fill=GOLD,width=165)
+        text(draw,label,540,y+4,24,width=530)
+        text(draw,right,900,y,32,True,fill=GOLD,width=165)
+    text(draw,'Different team samples · same league / season · no forecasts',540,1255,22,fill=MUTED)
     path=Path(path);path.parent.mkdir(parents=True,exist_ok=True)
-    image.convert('RGB').save(path,quality=94)
+    image.convert('RGB').save(path,quality=95)
     return path

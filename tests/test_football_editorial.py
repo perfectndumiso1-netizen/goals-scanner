@@ -92,7 +92,7 @@ def test_workflow_schedule_is_ten_not_live_and_uses_same_checkpoint_mutex():
 
 def test_pre_match_comparison_crosschecks_last_five_and_captions_unbranded(cfg):
     api=Fake();post,reason=e.build(cfg,{},NOW,api)
-    assert post and len(post['graphic']['rows'])==6 and len(post['snapshot'][0]['home_sample']['matches'])==5
+    assert post and len(post['graphic']['rows'])==10 and len(post['snapshot'][0]['home_sample']['matches'])==5
     assert len([c for c in api.calls if c[0]=='catalog' and 'leagueId' in c[1]])==2
     assert len([c for c in api.calls if c[0]=='detail'])==3 # Upcoming fixture + newest result of each team.
     assert post['caption'].count('• ')==3 and 'Your pick:' in post['caption']

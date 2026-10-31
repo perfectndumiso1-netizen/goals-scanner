@@ -158,7 +158,9 @@ def sample(api,book,target,side,now):
         gf,ga=m['score'] if home else reversed(m['score'])
         verified.append({'id':m['id'],'date':m['kickoff'],'gf':gf,'ga':ga})
     return {'matches':verified,'scored':sum(m['gf'] for m in verified),'conceded':sum(m['ga'] for m in verified),
-            'wins':sum(m['gf']>m['ga'] for m in verified),'clean':sum(m['ga']==0 for m in verified)}
+            'wins':sum(m['gf']>m['ga'] for m in verified),'clean':sum(m['ga']==0 for m in verified),
+            'draws':sum(m['gf']==m['ga'] for m in verified),'losses':sum(m['gf']<m['ga'] for m in verified),
+            'unbeaten':sum(m['gf']>=m['ga'] for m in verified),'scored_in':sum(m['gf']>0 for m in verified)}
 
 
 def hashtags(league=None,teams=()):
@@ -175,7 +177,9 @@ def comparison(api,book,m,now):
     rows=[('GOALS SCORED',home['scored'],away['scored']),('GOALS CONCEDED',home['conceded'],away['conceded']),
           ('GOALS PER GAME',f"{home['scored']/5:.2f}",f"{away['scored']/5:.2f}"),
           ('CONCEDED PER GAME',f"{home['conceded']/5:.2f}",f"{away['conceded']/5:.2f}"),
-          ('CLEAN SHEETS',home['clean'],away['clean']),('WINS',home['wins'],away['wins'])]
+          ('CLEAN SHEETS',home['clean'],away['clean']),('WINS',home['wins'],away['wins']),
+          ('DRAWS',home['draws'],away['draws']),('LOSSES',home['losses'],away['losses']),
+          ('UNBEATEN MATCHES',home['unbeaten'],away['unbeaten']),('MATCHES SCORED IN',home['scored_in'],away['scored_in'])]
     # All three are bounded observed facts, not predictions or unsupported H2H claims.
     facts=[f"{m['home']}: {home['wins']} wins and {home['clean']} clean sheets in their last five league matches.",
            f"{m['away']}: {away['wins']} wins and {away['clean']} clean sheets in their last five league matches.",
@@ -184,7 +188,7 @@ def comparison(api,book,m,now):
     caption=f"{m['home']} vs {m['away']} | {LEAGUES[m['league']][0]}\nKickoff: {aware(m['kickoff']):%d %b %Y, %H:%M} SAST\n\n"+'\n'.join('• '+f for f in facts)
     caption+=f"\n\nSample: last five completed matches in the same league/season, all venues.\n{m['home']}: {dates(home)}.\n{m['away']}: {dates(away)}.\n\nYour pick: {m['home']}, draw or {m['away']}? Comment below.\n\n"+hashtags(m['league'],(m['home'],m['away']))
     spec={'kind':'team-comparison','home':m['home'],'away':m['away'],'league':LEAGUES[m['league']][0],
-          'kickoff':m['kickoff'],'rows':rows,'period':'LAST 5 LEAGUE MATCHES • ALL VENUES',
+          'country':LEAGUES[m['league']][1],'kickoff':m['kickoff'],'rows':rows,'period':'LAST 5 LEAGUE MATCHES • ALL VENUES',
           'checked_at':now.isoformat()}
     post=content.candidate('editorial',f"feature:{m['id']}",f"feature:{m['id']}",caption,graphic=spec,
                            fixture_ids=[m['id']],snapshot=[{'fixture':m,'home_sample':home,'away_sample':away}])

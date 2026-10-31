@@ -1,5 +1,7 @@
 # Reels-only update — owner decision, 30 October 2026
 
+> **Approved artwork update (31 October 2026):** portrait covers now include the exact filmed combined-odds total and registered club crests. See [approved football artwork](APPROVED_FOOTBALL_ARTWORK.md). Earlier matches-only/no-price descriptions below are historical; caption, upload, recovery and no-reupload protections remain.
+
 ## Pause other Facebook posts
 
 The owner has deferred text/community posts, stats cards, weekly features, live scores and roundups while Meta requests business verification. `config/facebook-feed.json` is now `enabled:false`, `dry_run:true`, `live.enabled:false`. Their workflows can still produce dry-run reports, but cannot publish. This gate is independent of the existing two Reels. There is no new API subscription and no extra Reel/manual delivery trigger.

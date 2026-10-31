@@ -1,4 +1,4 @@
-"""Matches-only Reel cover from the exact filmed picks, never markets/prices/model fields."""
+"""Approved portrait Reel cover: exact filmed matches and verified combined price."""
 from datetime import datetime
 from pathlib import Path
 import json
@@ -27,36 +27,56 @@ def match_rows(picks):
     return rows
 
 
+def cover_total(picks):
+    """Validate every real filmed price, then match the existing video calculation.
+
+    Missing/ambiguous prices never become a sample total or an invented price.
+    Do not apply new selection/model rules or alter the filmed pick set here.
+    """
+    import math
+    from video_card import combined_odds
+    picks=list(picks)
+    if not picks:raise ValueError('Cover requires filmed selections')
+    for pick in picks:
+        value=pick.get('odds')
+        if isinstance(value,bool) or not isinstance(value,(str,int,float)):
+            raise ValueError('Cover requires the exact filmed selection prices')
+        try:price=float(value)
+        except (ValueError,TypeError):raise ValueError('Cover requires valid filmed prices') from None
+        if not math.isfinite(price) or not 1<price<=1000:
+            raise ValueError('Cover price missing, nonfinite or outside safe bounds')
+    total=combined_odds(picks)
+    if not math.isfinite(total) or total>1e12:raise ValueError('Cover combined price outside safe bounds')
+    return f'{total:.2f}'
+
+
 def render_matches(picks,path,*,now=None):
-    from PIL import Image,ImageDraw,ImageFont
-    rows=match_rows(picks)
+    from football_artwork import background,text,GOLD,MUTED,GREEN
+    from club_crests import paste
+    picks=list(picks);rows=match_rows(picks);total=cover_total(picks)
     today=now or datetime.now(ZoneInfo('Africa/Johannesburg'))
     if today.tzinfo is not None:today=today.astimezone(ZoneInfo('Africa/Johannesburg'))
-    image=Image.new('RGB',(1080,1920),'#091726');draw=ImageDraw.Draw(image)
-    def font(size,bold=False):return ImageFont.truetype(str(ROOT/'assets/fonts'/('LiberationSans-Bold.ttf' if bold else 'LiberationSans-Regular.ttf')),size)
-    def wrap(text,size,width=860):
-        lines=[];line=''
-        for word in text.split():
-            if draw.textlength(word,font=font(size,True))>width:raise ValueError('Team name cannot fit readable cover')
-            joined=(line+' '+word).strip()
-            if draw.textlength(joined,font=font(size,True))>width:lines.append(line);line=word
-            else:line=joined
-        if line:lines.append(line)
-        return lines
-    draw.rounded_rectangle((35,75,1045,1845),radius=35,outline='#20d4b4',width=4)
-    draw.text((85,155),'MATCHES IN THIS VIDEO',font=font(53,True),fill='#ffffff')
-    draw.text((85,235),today.strftime('%d %B %Y'),font=font(34),fill='#20d4b4')
-    top=350;available=1270;row_height=min(205,available//len(rows))
-    for i,row in enumerate(rows):
-        lines=wrap(f"{row['home']} vs {row['away']}",39)
-        if len(lines)*49+38>row_height:raise ValueError('Match names need editorial review to fit cover')
-        y=top+i*row_height
-        draw.rounded_rectangle((70,y,1010,y+row_height-16),radius=18,fill='#18334e')
-        text_top=y+(row_height-16-len(lines)*49)//2
-        for line in lines:
-            draw.text((105,text_top),line,font=font(39,True),fill='#ffffff');text_top+=49
+    image,draw=background(1920)
+    text(draw,'PLAYREPORT ZA',540,83,29,True,fill=MUTED)
+    text(draw,'FOOTBALL PICKS',540,145,66,True)
+    text(draw,today.strftime('%d %B %Y'),540,234,28,fill=GOLD)
+    draw.rounded_rectangle((76,300,1004,598),radius=32,fill=(8,25,34,230),outline=GOLD,width=2)
+    text(draw,total,540,326,170,True,fill=GOLD)
+    text(draw,'Odds combined',540,515,51,True)
+    text(draw,'MATCHES IN THIS VIDEO',540,652,26,True,fill=GREEN)
+    # Five-match approved layout; up to eight still fit without inventing/omitting picks.
+    step=min(174,930//len(rows));height=step-18;size=min(94,height-28)
+    for index,(row,pick) in enumerate(zip(rows,picks)):
+        y=722+index*step
+        draw.rounded_rectangle((76,y,1004,y+height),radius=19,fill=(9,25,34,225),outline=(71,94,99,255),width=1)
+        paste(image,row['home'],pick.get('country'),(162,y+height/2),size)
+        paste(image,row['away'],pick.get('country'),(918,y+height/2),size)
+        text(draw,row['home'],365,y+height/2-17,30,True,width=280)
+        text(draw,'vs',540,y+height/2-14,25,fill=MUTED)
+        text(draw,row['away'],715,y+height/2-17,30,True,width=280)
+    text(draw,'No outcome is guaranteed.',540,1780,25,fill=MUTED)
     path=Path(path);path.parent.mkdir(parents=True,exist_ok=True)
-    image.save(path,quality=93)
+    image.convert('RGB').save(path,quality=95)
     return path
 
 

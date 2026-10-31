@@ -1,5 +1,7 @@
 # Facebook Reels delivery — PlayReport ZA
 
+> **Approved artwork update (31 October 2026):** portrait covers now include the exact filmed combined-odds total and registered club crests. See [approved football artwork](APPROVED_FOOTBALL_ARTWORK.md). Earlier matches-only/no-price descriptions below are historical; caption, upload, recovery and no-reupload protections remain.
+
 Facebook receives **native 9:16 Reels only**, never the 16:9 Telegram/YouTube video and never an ordinary `/videos` post. Telegram keeps its existing videos, captions, dimensions and schedule. YouTube and Drive delivery remain unchanged.
 
 ## Configuration and rendering

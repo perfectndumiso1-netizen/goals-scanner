@@ -29,7 +29,7 @@ The six featured slots are **one hour apart in the schedule**. GitHub scheduled 
 
 ## Pictures and captions
 
-The owner-supplied comparison image is a **layout reference only**, not a source of its example statistics or crests. `comparison_graphic.py` renders deterministic typography using the existing stadium asset and bundled fonts: 1080×1350, dark background, teams, competition/date/time, side-by-side numeric table. No image-generation service, invented player image, arbitrary crest download or third-party logo reuse.
+The owner-supplied comparison image is a **layout reference only**, not a source of its example statistics or crests. `comparison_graphic.py` renders deterministic typography using the existing stadium asset and bundled fonts: 1080×1350, dark background, teams, competition/date/time, side-by-side numeric table. No image-generation service, invented player image or arbitrary crest download. The subsequently approved local, identity-qualified crest registry is documented in [approved artwork](APPROVED_FOOTBALL_ARTWORK.md).
 
 **PLAYREPORT ZA branding is allowed on pictures only.** Captions and hashtags contain no personal brand. Every post has relevant league/football tags; featured/story captions also include sanitised team tags. No `#PlayReportZA` or other branded hashtag.
 
@@ -45,7 +45,7 @@ The initial card rows are derived directly from those results:
 
 - Goals scored and conceded.
 - Goals scored/conceded per game (total ÷ five, two decimal places).
-- Clean sheets and wins.
+- Clean sheets, wins, draws, losses, unbeaten matches and matches scored in (ten rows total).
 
 No unverified SofaScore ratings, big chances, possession, expected goals, shots, player rankings, injuries, odds or probabilities are used. This uses already documented/previously account-verified `/matches` and `/matches/{id}` routes rather than claiming new Basic-plan statistics access.
 
@@ -89,3 +89,8 @@ Provider terms remain factual-only; do not repurpose this data for odds/predicti
 ## Presentation correction after first published card
 
 The owner requested removing provider/source attribution and assessment/check timestamps from both pictures and captions. These labels are now omitted from comparison graphics and all scheduled-editorial captions, including fixtures, results and incident stories. Actual match dates, kickoff times and sample-period/date-range labels remain to avoid misrepresenting the data. Internal verification metadata, evidence, cross-checks, quotas, publication hashes and history are unchanged. This changes future content only; it does not edit, delete or repost the already-published Orlando Pirates–Kaizer Chiefs card.
+
+
+## Approved crest-led layout and broader rows
+
+The owner subsequently approved the video-thumbnail/stat-card previews and requested broader statistics. [Approved artwork operations](APPROVED_FOOTBALL_ARTWORK.md) documents the ten-row same-sample statistics, offline club crest registry, exact filmed combined-odds cover and validation. Earlier no-crest/initial-six-row descriptions are superseded; verification, internal evidence, publication guards and the schedule remain unchanged.
