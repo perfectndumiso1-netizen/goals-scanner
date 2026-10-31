@@ -1,0 +1,24 @@
+name: Facebook scheduled football (10 factual slots)
+on:
+  schedule:
+    # SAST = UTC+2: 07:30, 08:30, 19:30.
+    - cron: "30 5,6,17 * * *"
+    # Six featured matches, one hour apart: 10–15 SAST; finals at 23:00.
+    - cron: "0 8-13,21 * * *"
+  workflow_dispatch:
+    inputs:
+      publish:
+        type: boolean
+        default: false
+permissions:
+  contents: read
+  actions: read
+jobs:
+  content:
+    uses: ./.github/workflows/facebook-feed-run.yml
+    with:
+      kind: editorial
+      publish: ${{ github.event_name == 'schedule' || inputs.publish }}
+      preview: false
+      bootstrap: false
+    secrets: inherit

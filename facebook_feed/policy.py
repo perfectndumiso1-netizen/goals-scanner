@@ -37,6 +37,15 @@ def allowed(post, state, now, config):
         return False,'topic recently covered'
     if any(p.get('caption_hash')==post['caption_hash'] for p in counted) and not (post['kind']=='live' and config['live'].get('publish_every_poll')):
         return False,'caption repeated'
+    if post['kind']=='editorial':
+        if any(p.get('status') in ('reserved','unknown') for p in counted):
+            return False,'unresolved publication; inspect/reconcile before creating another'
+        if any(p.get('slot_key')==post.get('slot_key') for p in counted):
+            return False,'daily editorial slot already attempted'
+        today_editorial=[p for p in counted if p.get('kind')=='editorial' and local(p['at']).date()==now.date()]
+        if len(today_editorial)>=config['editorial']['max_posts_per_day']:return False,'editorial daily cap'
+        if counted and now-max(local(p['at']) for p in counted)<timedelta(minutes=45):return False,'editorial cooldown'
+        return True,'eligible scheduled editorial slot'
     today=[p for p in counted if local(p['at']).date()==now.date() and p.get('operation')!='edit']
     live=post['kind'] in ('live','roundup')
     if post['kind']=='community' and any(p['kind']=='community' for p in today):
@@ -68,7 +77,7 @@ def allowed(post, state, now, config):
 
 
 def reserve(post, state, now):
-    entry={k:v for k,v in post.items() if k in ('kind','key','topic','mode','caption_hash','fixture_ids','operation','target_id','snapshot','image_sha256','event_ids')}
+    entry={k:v for k,v in post.items() if k in ('kind','key','topic','mode','caption_hash','fixture_ids','operation','target_id','snapshot','image_sha256','event_ids','slot_key')}
     entry.update(at=now.isoformat(),status='reserved')
     state.setdefault('posts',[]).append(entry)
     return entry

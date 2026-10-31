@@ -148,7 +148,7 @@ def test_confirmed_independent_allocations_have_separate_preserved_budgets():
     cfg=cli.config(ROOT/'config/facebook-feed.json')
     assert cfg['event_monitor']['failover_permitted'] and cfg['event_monitor']['permission_reference']
     assert {slot['quota_group'] for slot in cfg['event_monitor']['key_slots'].values()}=={'primary','backup-1','backup-2'}
-    assert cfg['event_monitor']['publish_enabled'] and cfg['event_monitor']['daily_request_budget']==100
+    assert not cfg['event_monitor']['publish_enabled'] and cfg['event_monitor']['daily_request_budget']==100
     assert cfg['event_monitor']['daily_request_reserve']==0
     assert cfg['live']['graphic_style']=='stadium' and cfg['live']['crests_enabled']
 

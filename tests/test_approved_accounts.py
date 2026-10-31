@@ -13,6 +13,10 @@ ROOT=Path(__file__).resolve().parents[1]
 @pytest.fixture
 def cfg():
     cfg=cli.config(ROOT/'config/facebook-feed.json')
+    # Historical live replay, independently of the paused production config.
+    cfg['live']['enabled']=True
+    cfg['event_monitor'].update(enabled=True,publish_enabled=True)
+    cfg['authorized_kinds']=['live','results']
     cfg['score_source']='api-football'
     for name in ('API_FOOTBALL_KEY_1','API_FOOTBALL_KEY_2'):cfg['event_monitor']['key_slots'][name]['authorised']=True
     return cfg

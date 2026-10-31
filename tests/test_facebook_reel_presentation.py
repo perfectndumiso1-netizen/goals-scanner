@@ -70,7 +70,7 @@ def test_missing_cover_never_calls_meta(tmp_path):
 
 def test_only_requested_feeds_authorized_and_music_remains_locked():
     config=json.loads((ROOT/'config/facebook-feed.json').read_text())
-    assert set(config['authorized_kinds'])=={'results','live'}
+    assert set(config['authorized_kinds'])=={'editorial'}
     assert not config['app_scores']['rights_confirmed'] and not config['app_scores']['coverage_verified']
     assert not config['live']['edit_existing']
     baseline=json.loads((ROOT/'tests/fixtures/facebook-feed-reel-invariants.json').read_text())

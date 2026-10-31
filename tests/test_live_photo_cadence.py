@@ -15,6 +15,10 @@ ROOT=Path(__file__).resolve().parents[1]
 @pytest.fixture
 def cfg():
     cfg=cli.config(ROOT/'config/facebook-feed.json')
+    # Historical live replay, independently of the paused production config.
+    cfg['live']['enabled']=True
+    cfg['event_monitor'].update(enabled=True,publish_enabled=True)
+    cfg['authorized_kinds']=['live','results']
     cfg['score_source']='api-football'
     cfg['event_monitor']['mode']='legacy'  # Retired periodic adapter contract only.
     return cfg
@@ -129,7 +133,7 @@ def test_photo_publisher_handoff_uses_existing_upload_lane(tmp_path,cfg):
 def test_independent_event_schedule_uses_existing_engine():
     workflow=yaml.safe_load((ROOT/'.github/workflows/facebook-live.yml').read_text())
     on=workflow.get('on',workflow.get(True))
-    assert on['schedule'][0]['cron']=='*/5 * * * *'
+    assert 'schedule' not in on  # Owner paused live polling.
     assert 'workflow_run' not in on  # Independent event monitor, not scan-triggered.
     job=workflow['jobs']['content']
     assert job['uses']=='./.github/workflows/facebook-feed-run.yml'

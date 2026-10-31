@@ -46,7 +46,7 @@
     "statistics_max_matches_per_update": 2
   },
   "live": {
-    "enabled": true,
+    "enabled": false,
     "max_posts_per_day": 90,
     "max_matches": 30,
     "edit_existing": false,
@@ -136,8 +136,7 @@
   },
   "editorial_competitions": [],
   "authorized_kinds": [
-    "results",
-    "live"
+    "editorial"
   ],
   "results_time": "08:00",
   "score_source": "highlightly",
@@ -148,8 +147,8 @@
     "poll_interval_minutes": 5
   },
   "event_monitor": {
-    "enabled": true,
-    "publish_enabled": true,
+    "enabled": false,
+    "publish_enabled": false,
     "daily_request_budget": 100,
     "max_source_age_seconds": 180,
     "credential_revision": "3",
@@ -184,7 +183,7 @@
     "poll_interval_minutes": 20,
     "max_pages_per_poll": 10,
     "max_details_per_poll": 2,
-    "scope": "Selected factual live scores/events only: up to five matches per SAST day from PSL, LaLiga, EPL, Bundesliga, Ligue 1 and Serie A. No worldwide coverage, predictions, odds, betting or video reuse. Full match-list and one detail access verified in owner-triggered diagnostic 41164360718 on 2026-10-31; publishing remains subject to 08:00\u201324:00 SAST, quota, freshness, baseline, meaningful-event and reservation safeguards.",
+    "scope": "Live publishing paused by owner. Scheduled factual fixtures/results and six hourly pre-match comparison slots from PSL, LaLiga, EPL, Bundesliga, Ligue 1 and Serie A use verified match data. No live updates, predictions, odds, betting or video reuse. Full match-list and one detail access verified in owner-triggered diagnostic 41164360718 on 2026-10-31; publishing remains subject to 08:00\u201324:00 SAST, quota, freshness, baseline, meaningful-event and reservation safeguards.",
     "verification_reference": "Owner-triggered run 41164360718 at 2026-10-31T05:26:13+02:00: verified_read_only, complete_day, 868 rows/9 pages, match_detail_verified=true, ready_for_activation=true; 0 Facebook requests.",
     "monitor_mode": "selected",
     "watchlist": {
@@ -199,6 +198,28 @@
         "ligue1",
         "seriea"
       ]
+    }
+  },
+  "editorial": {
+    "enabled": true,
+    "max_posts_per_day": 10,
+    "comparison_mode": "prematch",
+    "sample_matches": 5,
+    "source_check": "repeat_catalog_latest_detail",
+    "native_poll_enabled": false,
+    "caption_branding": false,
+    "picture_branding": true,
+    "schedule_sast": {
+      "07:30": "fixtures",
+      "08:30": "results",
+      "10:00": "psl",
+      "11:00": "epl",
+      "12:00": "laliga",
+      "13:00": "seriea",
+      "14:00": "bundesliga",
+      "15:00": "ligue1",
+      "19:30": "story",
+      "23:00": "evening"
     }
   }
 }

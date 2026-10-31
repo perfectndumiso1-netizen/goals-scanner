@@ -19,6 +19,10 @@ ROOT = Path(__file__).resolve().parents[1]
 @pytest.fixture
 def cfg():
     cfg=cli.config(ROOT / 'config/facebook-feed.json')
+    # Historical live replay, independently of the paused production config.
+    cfg['live']['enabled']=True
+    cfg['event_monitor'].update(enabled=True,publish_enabled=True)
+    cfg['authorized_kinds']=['live','results']
     cfg['score_source']='api-football'
     cfg['event_monitor']['mode']='legacy'  # Legacy adapter regression fixture.
     cfg['live'].update(max_posts_per_day=3,publish_every_poll=False,image_required=False)

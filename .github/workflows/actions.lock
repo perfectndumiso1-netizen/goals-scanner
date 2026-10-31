@@ -27,6 +27,8 @@ workflows:
         []
     '.github/workflows/facebook-weekly.yml':
         []
+    '.github/workflows/facebook-editorial.yml':
+        []
     '.github/workflows/facebook-live.yml':
         []
     '.github/workflows/facebook-roundup.yml':

@@ -1,5 +1,7 @@
 # Highlightly: verified factual Facebook live feed
 
+> **Superseded publishing scope — live feed paused:** the owner approved scheduled football editorial instead, including six hourly pre-match comparisons. See [current editorial operations](FACEBOOK_FOOTBALL_EDITORIAL.md). Source verification, quota and unresolved-send history are retained; the earlier live/selected-mode text below is historical, not an instruction to re-enable it.
+
 ## Current state
 
 The owner confirmed that the API-Sports accounts are suspended, requested Highlightly for the Facebook score feed, and said `HIGHLIGHTLY_API_KEY` was added to GitHub Actions Secrets. All three API-Sports slots are now `authorised=false`. Secrets and existing quota/post/unknown-send history are neither deleted nor reset. They are not fallback candidates for Highlightly.

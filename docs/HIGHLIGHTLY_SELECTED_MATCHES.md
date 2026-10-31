@@ -1,5 +1,7 @@
 # Highlightly selected-match operations
 
+> **Superseded publishing scope — live feed paused:** the owner approved scheduled football editorial instead, including six hourly pre-match comparisons. See [current editorial operations](FACEBOOK_FOOTBALL_EDITORIAL.md). Source verification, quota and unresolved-send history are retained; the earlier live/selected-mode text below is historical, not an instruction to re-enable it.
+
 ## Approved scope
 
 On 31 October 2026 the owner chose selected coverage from:
