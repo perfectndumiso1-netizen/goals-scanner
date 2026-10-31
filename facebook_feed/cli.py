@@ -93,13 +93,13 @@ def config(path):
         for k,lo,hi in (('poll_interval_minutes',20,60),('max_pages_per_poll',1,10),('max_details_per_poll',0,5)):
             if type(h.get(k)) is not int or not lo<=h[k]<=hi:raise ValueError('Unsafe Highlightly polling bounds')
     if 'editorial' in data:
-        from .editorial import SLOTS
+        from .editorial import schedule
         e=data['editorial']
-        if (type(e.get('enabled')) is not bool or e.get('max_posts_per_day')!=10 or
+        if (type(e.get('enabled')) is not bool or e.get('max_posts_per_day')!=10 or e.get('package_mode') and e.get('match_posts_per_day')!=9 or
             e.get('comparison_mode')!='prematch' or e.get('sample_matches')!=5 or
             e.get('source_check')!='repeat_catalog_latest_detail' or e.get('native_poll_enabled') is not False or
             e.get('caption_branding') is not False or e.get('picture_branding') is not True or
-            e.get('schedule_sast')!=dict(SLOTS)):
+            e.get('schedule_sast')!=dict(schedule(data)) or type(e.get('package_mode',False)) is not bool):
             raise ValueError('Editorial settings differ from approved schedule/safety scope')
     return data
 
@@ -123,7 +123,7 @@ def is_due(kind,now,cfg):
     if kind not in cfg.get('authorized_kinds',KINDS):return False
     if kind=='editorial':
         from .editorial import due
-        return cfg.get('editorial',{}).get('enabled',False) and due(now) is not None
+        return cfg.get('editorial',{}).get('enabled',False) and due(now,cfg) is not None
     if kind=='live':return cfg['live']['enabled'] and in_window(now,cfg) and (cfg['event_monitor']['enabled'] if uses_events(cfg) else True)
     if kind=='card' and now.weekday() not in cfg['card_days']:return False
     if kind=='weekly' and now.weekday()!=cfg['weekly_day']:return False
@@ -229,7 +229,11 @@ def reconcile(args,cfg,now,work):
     if len(entries)!=1:raise ValueError('Expected exactly one unresolved reservation')
     entry=entries[0]
     if args.post_id:
-        PageFeed().verify_hash(args.post_id,entry['caption_hash'])
+        publisher=PageFeed()
+        if entry.get('image_sha256s'):
+            publisher.verify_package_hash(args.post_id,entry['caption_hash'],entry.get('media_ids'))
+        else:
+            publisher.verify_hash(args.post_id,entry['caption_hash'])
         entry.update(status='published',post_id=args.post_id)
     else:entry.update(status='cancelled',resolution='Operator confirmed Page inspection and absence')
     match_events.publication_state(state,entry,'published' if args.post_id else 'pending',now)
@@ -241,7 +245,7 @@ def reconcile(args,cfg,now,work):
 
 def main(argv=None):
     parser=argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('phase',choices=('prepare','send','preview','reconcile'))
+    parser.add_argument('phase',choices=('prepare','stage','send','preview','reconcile'))
     parser.add_argument('--kind',choices=KINDS+('all',),default='community')
     parser.add_argument('--config',default='config/facebook-feed.json')
     parser.add_argument('--source',default='tmp/feed-source/data/app')
@@ -250,6 +254,7 @@ def main(argv=None):
     parser.add_argument('--bootstrap',action='store_true')
     parser.add_argument('--preview',action='store_true')
     parser.add_argument('--checkpoint',action='store_true',help='Workflow confirms durable reservation artifact was saved')
+    parser.add_argument('--media-checkpoint',action='store_true',help='Workflow durably saved both unpublished media IDs')
     parser.add_argument('--watchdog-checkpoint',action='store_true',help='Workflow saved the editorial admission artifact before preparation')
     parser.add_argument('--reservation-key')
     parser.add_argument('--post-id')
@@ -267,6 +272,14 @@ def main(argv=None):
     event_mode=uses_events(cfg) and args.kind in ('live','all')
     if event_mode:
         publish=publish and cfg['event_monitor']['enabled'] and cfg['event_monitor']['publish_enabled'] and os.getenv('GITHUB_REF_NAME','local')=='main'
+    if args.phase=='stage':
+        if not publish or not args.checkpoint or args.kind!='editorial' or 'editorial' not in cfg.get('authorized_kinds',[]) or not cfg['editorial'].get('package_mode'):
+            raise ValueError('Package staging gates/checkpoint absent')
+        from .photo_package import stage
+        ready=stage(work,now,os.getenv('GITHUB_RUN_ID','local')+'-'+os.getenv('GITHUB_RUN_ATTEMPT','1'),PageFeed)
+        output('should_finalize','true' if ready else 'false')
+        saved=content.load(statepath)
+        return 1 if any(p.get('status')=='unknown' or p.get('error') for p in saved['posts'] if p.get('run_key')==os.getenv('GITHUB_RUN_ID','local')+'-'+os.getenv('GITHUB_RUN_ATTEMPT','1')) else 0
     if args.phase=='send':
         if not publish or not args.checkpoint:
             raise ValueError('Publish gates/checkpoint confirmation absent; nothing sent')
@@ -293,8 +306,15 @@ def main(argv=None):
                     for m in post.get('snapshot',[]))
             if post['kind'] not in cfg.get('authorized_kinds',KINDS) or score_content and (not cfg['live']['enabled'] or not scores_approved(cfg) or source_changed or scope_changed):
                 entry['status']='cancelled';entry['error']='Content/source authorisation changed before sending';match_events.publication_state(state,entry,'pending',now);storage.write(statepath,state);continue
-            if hashlib.sha256(post['caption'].encode()).hexdigest()!=entry['caption_hash'] or any(entry.get(k)!=post.get(k) for k in ('kind','topic','fixture_ids','operation','target_id','snapshot','image_sha256','event_ids','slot_key')):
+            if hashlib.sha256(post['caption'].encode()).hexdigest()!=entry['caption_hash'] or any(entry.get(k)!=post.get(k) for k in ('kind','topic','fixture_ids','operation','target_id','snapshot','image_sha256','image_sha256s','event_ids','slot_key')):
                 raise ValueError('Prepared content does not match its durable reservation')
+            if entry.get('image_sha256s') and not post.get('images'):
+                raise ValueError('Reserved two-picture package cannot fall back to one picture')
+            if post.get('images'):
+                from .photo_package import validate
+                validate(post,entry,run_key)
+                if not args.media_checkpoint or entry.get('media_phase')!='staged' or not isinstance(entry.get('media_ids'),list) or len(entry['media_ids'])!=2:
+                    raise ValueError('Durable two-photo media checkpoint absent; no feed mutation')
             if datetime.now(content.SAST)>=content.local(post['expires_at']) or post['kind'] in ('live','roundup') and not in_window(datetime.now(content.SAST),cfg):
                 entry['status']='cancelled';entry['delivery_failure']='expired_before_mutation';entry['error']='Prepared content expired before sending';match_events.publication_state(state,entry,'pending',now);storage.write(statepath,state);continue
             if post['kind']=='live' and cfg['live'].get('image_required') or post['kind']=='editorial' and (entry.get('image_sha256') or post.get('graphic')):
@@ -308,9 +328,12 @@ def main(argv=None):
                 if datetime.now(content.SAST)>=content.local(post['expires_at']) or post['kind'] in ('live','roundup') and not in_window(datetime.now(content.SAST),cfg):
                     entry['status']='cancelled';entry['delivery_failure']='expired_before_mutation';entry['error']='Content expired during credential verification; no mutation sent';match_events.publication_state(state,entry,'pending',now);continue
                 mutation_started=True
-                identity=publisher.send(post)
+                identity=publisher.send_package(post,entry['media_ids']) if post.get('images') else publisher.send(post)
                 entry['post_id']=identity;storage.write(statepath,state)
-                publisher.verify(identity,post['caption'])
+                if post.get('images'):
+                    publisher.verify_package_hash(identity,entry['caption_hash'],entry['media_ids'])
+                else:
+                    publisher.verify(identity,post['caption'])
                 entry['status']='published'
                 match_events.publication_state(state,entry,'published',datetime.now(content.SAST))
                 print(f'::notice::Facebook {post["kind"]} confirmed: https://www.facebook.com/{identity}')
@@ -333,10 +356,11 @@ def main(argv=None):
     state=None
     if args.watchdog_checkpoint:
         from .watchdog import slot_at
+        from .editorial import schedule
         run_key=os.getenv('GITHUB_RUN_ID','')+'-'+os.getenv('GITHUB_RUN_ATTEMPT','1')
         admission=content.load(work/'watchdog-admission.json',{})
         state=content.load(statepath,{})
-        current=slot_at(now)
+        current=slot_at(now,schedule(cfg))
         row=state.get('editorial_delivery',{}).get('slots',{}).get(current[0] if current else '',{})
         if (args.phase!='prepare' or args.kind!='editorial' or not publish or args.bootstrap or
             state.get('schema')!=1 or state.get('namespace')!=prefix or
@@ -389,9 +413,18 @@ def main(argv=None):
                 if post['graphic'].get('style')=='stadium' and cfg['live'].get('crests_enabled'):
                     from .crest_cache import prepare as prepare_crests
                     prepare_crests(post['graphic'],work/'crests')
-                post['image']=str(render(post['graphic'],work/f'{kind}.jpg'))
+                if post.get('graphics'):
+                    if kind!='editorial' or len(post['graphics'])!=2:raise ValueError('Exactly two editorial graphics required')
+                    post['images']=[str(render(spec,work/f'{kind}-{n+1}.jpg')) for n,spec in enumerate(post['graphics'])]
+                    post['image_sha256s']=[hashlib.sha256(Path(p).read_bytes()).hexdigest() for p in post['images']]
+                    post['image']=post['images'][0]
+                else:
+                    post['image']=str(render(post['graphic'],work/f'{kind}.jpg'))
                 if kind in ('live','editorial'):post['image_sha256']=hashlib.sha256(Path(post['image']).read_bytes()).hexdigest()
             except ValueError as error:
+                if kind=='editorial' and cfg.get('editorial',{}).get('package_mode'):
+                    for mid in post.get('fixture_ids',[]):
+                        state.setdefault('football_editorial',{}).setdefault('package_unavailable',{})[str(mid)]='graphic_layout_unavailable'
                 report.append({'kind':kind,'status':'skipped','reason':str(error)});continue
         (work/f'{kind}.txt').write_text(post['caption'],encoding='utf-8')
         entry=policy.reserve(post,state if args.phase!='preview' else {'posts':[]},now)
@@ -414,6 +447,7 @@ def main(argv=None):
         record(state,now,report)
     storage.write(manifest,plans);storage.write(work/'report.json',report);storage.write(statepath,state)
     output('should_publish','true' if publish and plans else 'false')
+    output('needs_media_staging','true' if publish and len(plans)==1 and plans[0].get('images') else 'false')
     print('::notice::Facebook feed '+('LIVE PLAN' if publish else 'DRY RUN — no Facebook requests')+': '+json.dumps(report,separators=(',',':')))
     if os.getenv('GITHUB_STEP_SUMMARY'):
         with open(os.environ['GITHUB_STEP_SUMMARY'],'a') as target:

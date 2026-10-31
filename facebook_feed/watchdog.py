@@ -31,20 +31,27 @@ SAFE_SKIPS = {
 TRANSIENT = {'Highlightly network/response validation failed; details omitted'}
 
 
-def slot_at(now):
-    now = content.local(now)
-    slot = due(now)
-    if slot is None:
-        return None
-    clock = dict((s, c) for c, s in SLOTS)[slot]
-    start = now.replace(hour=int(clock[:2]), minute=int(clock[3:]), second=0, microsecond=0)
-    return f'editorial:{start.date()}:{slot}', start
+def slot_at(now, slots=None):
+    now=content.local(now)
+    for clock,slot in reversed(slots or SLOTS):
+        start=now.replace(hour=int(clock[:2]),minute=int(clock[3:]),second=0,microsecond=0)
+        if timedelta(0)<=now-start<timedelta(hours=1):return f'editorial:{start.date()}:{slot}',start
+    return None
 
 
-def book(state, now):
-    journal = state.setdefault('editorial_delivery', {'version': 1, 'since': (slot_at(now) or ('', now))[1].isoformat(), 'slots': {}})
+def current_slot(state,now):
+    return slot_at(now,state.get('editorial_delivery',{}).get('schedule'))
+
+
+def book(state, now, slots=None):
+    journal = state.setdefault('editorial_delivery', {'version': 1, 'since': (slot_at(now,slots) or ('', now))[1].isoformat(), 'slots': {}})
     if journal.get('version') != 1 or not isinstance(journal.get('slots'), dict):
         raise storage.StateError('Watchdog journal invalid; no reset or publishing allowed')
+    if slots is not None and journal.get('schedule') != [list(p) for p in slots]:
+        # Migrate monitoring metadata only; NEVER reset posts, ambiguous sends,
+        # quota, retries or publication evidence when a timetable changes.
+        journal['schedule']=[list(p) for p in slots]
+        journal['since']=(slot_at(now,slots) or ('',now))[1].isoformat()
     # Only monitoring summaries expire. Publication history and unknowns never reset.
     cutoff = now - timedelta(days=7)
     journal['slots'] = {k: v for k, v in journal['slots'].items() if content.local(v['start']) >= cutoff}
@@ -53,8 +60,13 @@ def book(state, now):
 
 def sync(state, now):
     journal = book(state, now)
+    # Positively reconciled old-timetable reservations must stop alerting even
+    # after schedule migration (publication history itself is never reset).
+    for key,row in journal['slots'].items():
+        if any(p.get('slot_key')==key and p.get('kind')=='editorial' and p.get('status')=='published' for p in state['posts']):
+            row.update(status='delivered',diagnosis='facebook_verified')
     for day in (now - timedelta(days=1), now):
-        for clock, name in SLOTS:
+        for clock, name in journal.get('schedule',SLOTS):
             start = day.replace(hour=int(clock[:2]), minute=int(clock[3:]), second=0, microsecond=0)
             if not content.local(journal['since']) <= start <= now:
                 continue
@@ -100,7 +112,10 @@ def reconcile_known(state, now, factory=PageFeed):
             identity = entry.get('post_id') or publisher.find_reserved(entry)
             if not identity:
                 continue
-            publisher.verify_hash(identity, entry['caption_hash'])
+            if entry.get('image_sha256s'):
+                publisher.verify_package_hash(identity,entry['caption_hash'],entry.get('media_ids'))
+            else:
+                publisher.verify_hash(identity, entry['caption_hash'])
             entry.update(status='published', post_id=identity, reconciled_at=now.isoformat())
             entry.pop('error', None)
         except PublishError:
@@ -109,7 +124,7 @@ def reconcile_known(state, now, factory=PageFeed):
 
 def assess(state, now, run_key, *, max_pages=10, daily_budget=100):
     journal = sync(state, now)
-    current = slot_at(now)
+    current = current_slot(state,now)
     if current is None:
         return False, 'outside_slot'
     key, start = current
@@ -178,7 +193,7 @@ def release_quota_hold(state, row):
 
 
 def record(state, now, report):
-    current = slot_at(now)
+    current = current_slot(state,now)
     if not current:
         return
     row = book(state, now)['slots'].get(current[0])
@@ -215,7 +230,7 @@ def audit(state, now, pipeline_ok=True):
         if entries and all(p.get('status') in ('cancelled', 'rejected') for p in entries) and row['status'] == 'reserved':
             # Only explicit local preflight/expiry cancellations can be rebuilt.
             last = entries[-1]
-            if last.get('delivery_failure') in ('preflight_temporary', 'expired_before_mutation'):
+            if last.get('delivery_failure') in ('preflight_temporary', 'expired_before_mutation', 'unpublished_staging_incomplete'):
                 row.update(status='waiting', diagnosis=last['delivery_failure'])
             else:
                 row.update(status='needs_attention', diagnosis='facebook_preflight_blocked')
@@ -225,7 +240,7 @@ def audit(state, now, pipeline_ok=True):
             row.update(status='needs_attention', diagnosis='bounded_retries_exhausted')
     incidents = [{'slot': k, 'diagnosis': v['diagnosis'], 'attempts': v['attempts']}
                  for k, v in journal['slots'].items() if v['status'] == 'needs_attention']
-    current = slot_at(now)
+    current = current_slot(state,now)
     active = journal['slots'].get(current[0], {}) if current else {}
     retry_expected = active.get('status') in ('waiting', 'verifying') and active.get('attempts', 0) < MAX_ATTEMPTS
     if not pipeline_ok and not retry_expected:
@@ -317,6 +332,7 @@ def notify(report, state=None, opener=None, *, allow_github=True):
 
 def main(argv=None):
     from .cli import config, output, scores_approved
+    from .editorial import schedule
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('phase', choices=('assess', 'audit', 'alert'))
     parser.add_argument('--work', default='tmp/facebook-feed')
@@ -356,6 +372,7 @@ def main(argv=None):
             if state is None:
                 raise storage.StateError('No durable ledger; watchdog never bootstraps')
             output('restored', 'true')
+            book(state,now,schedule(cfg))
             enabled = cfg['enabled'] and not cfg['dry_run'] and cfg.get('editorial', {}).get('enabled') and 'editorial' in cfg.get('authorized_kinds', []) and scores_approved(cfg) and os.getenv('FACEBOOK_FEED_PUBLISH', '').lower() == 'true'
             if enabled:
                 reconcile_known(state, now)
@@ -364,7 +381,7 @@ def main(argv=None):
                     try:
                         PageFeed()  # Credential identity GET only, never creation.
                     except PublishError as error:
-                        current = slot_at(now)
+                        current = current_slot(state,now)
                         row = book(state, now)['slots'][current[0]]
                         release_quota_hold(state, row)  # Positive proof: no provider request made.
                         row.update(status='waiting' if error.retryable else 'needs_attention',

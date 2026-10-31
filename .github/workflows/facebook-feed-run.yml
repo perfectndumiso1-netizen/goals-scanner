@@ -151,19 +151,38 @@ jobs:
           path: tmp/facebook-feed/checkpoint/state.json
           retention-days: 30
           if-no-files-found: error
-      - name: Publish or edit only after reservation checkpoint succeeded
-        id: send
-        if: steps.prepare.outputs.should_publish == 'true' && steps.reserve.conclusion == 'success'
+      - name: Stage two unpublished package photos after reservation
+        id: stage_media
+        if: steps.prepare.outputs.needs_media_staging == 'true' && steps.reserve.conclusion == 'success'
         env:
           FACEBOOK_PAGE_ACCESS_TOKEN: ${{ secrets.FACEBOOK_PAGE_ACCESS_TOKEN }}
           FACEBOOK_PAGE_ID: ${{ secrets.FACEBOOK_PAGE_ID }}
-        run: python -m facebook_feed.cli send --kind "$CONTENT_KIND" --publish --checkpoint
+        run: python -m facebook_feed.cli stage --kind editorial --publish --checkpoint
+      - name: Save both media IDs BEFORE creating the single feed post
+        id: media_checkpoint
+        if: steps.stage_media.outputs.should_finalize == 'true'
+        uses: actions/upload-artifact@v4.6.2
+        with:
+          name: ${{ steps.prepare.outputs.prefix }}${{ github.run_id }}-${{ github.run_attempt }}-${{ inputs.invocation || 'main' }}-media-staged
+          path: tmp/facebook-feed/checkpoint/state.json
+          retention-days: 30
+          if-no-files-found: error
+      - name: Publish or edit only after reservation checkpoint succeeded
+        id: send
+        if: steps.prepare.outputs.should_publish == 'true' && steps.reserve.conclusion == 'success' && (steps.prepare.outputs.needs_media_staging != 'true' || steps.media_checkpoint.conclusion == 'success')
+        env:
+          FACEBOOK_PAGE_ACCESS_TOKEN: ${{ secrets.FACEBOOK_PAGE_ACCESS_TOKEN }}
+          FACEBOOK_PAGE_ID: ${{ secrets.FACEBOOK_PAGE_ID }}
+        run: |
+          args=()
+          [[ "${{ steps.media_checkpoint.conclusion }}" != "success" ]] || args+=(--media-checkpoint)
+          python -m facebook_feed.cli send --kind "$CONTENT_KIND" --publish --checkpoint "${args[@]}"
       - name: Audit real delivery and alert on intervention-required failures
         id: health
         if: ${{ always() && !inputs.diagnostic && inputs.kind == 'editorial' && inputs.publish && github.ref_name == 'main' }}
         env:
           WATCHDOG_REQUEST_PUBLISH: 'true'
-          WATCHDOG_PIPELINE_OK: ${{ steps.assess.conclusion == 'success' && steps.admission.conclusion != 'failure' && steps.admission.conclusion != 'cancelled' && steps.prepare.conclusion != 'failure' && steps.prepare.conclusion != 'cancelled' && steps.reserve.conclusion != 'failure' && steps.reserve.conclusion != 'cancelled' && steps.send.conclusion != 'failure' && steps.send.conclusion != 'cancelled' }}
+          WATCHDOG_PIPELINE_OK: ${{ steps.assess.conclusion == 'success' && steps.admission.conclusion != 'failure' && steps.admission.conclusion != 'cancelled' && steps.prepare.conclusion != 'failure' && steps.prepare.conclusion != 'cancelled' && steps.reserve.conclusion != 'failure' && steps.reserve.conclusion != 'cancelled' && steps.stage_media.conclusion != 'failure' && steps.media_checkpoint.conclusion != 'failure' && steps.send.conclusion != 'failure' && steps.send.conclusion != 'cancelled' }}
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
         run: python -m facebook_feed.watchdog audit

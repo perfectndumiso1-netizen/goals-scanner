@@ -268,6 +268,13 @@ def env_main(monkeypatch):
     class Clock(datetime):
         @classmethod
         def now(cls,tz=None):return NOW
+    original_config=cli.config
+    def legacy_config(path):
+        data=original_config(path)
+        from facebook_feed.editorial import SLOTS
+        data['editorial'].update(package_mode=False,max_posts_per_day=10,schedule_sast=dict(SLOTS))
+        return data
+    monkeypatch.setattr(cli,'config',legacy_config)
     monkeypatch.setattr(w,'datetime',Clock);monkeypatch.setattr(cli,'datetime',Clock)
     monkeypatch.setattr(w,'PageFeed',lambda:SimpleNamespace())
     for k,v in {'GITHUB_REF_NAME':'main','GITHUB_REPOSITORY':'owner/repo','GITHUB_RUN_ID':'123','GITHUB_RUN_ATTEMPT':'1','WATCHDOG_REQUEST_PUBLISH':'true','FACEBOOK_FEED_PUBLISH':'true','GH_READ_TOKEN':'synthetic'}.items():monkeypatch.setenv(k,v)

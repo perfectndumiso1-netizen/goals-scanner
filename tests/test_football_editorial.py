@@ -17,7 +17,11 @@ ROOT=Path(__file__).resolve().parents[1]
 NOW=OLD_NOW.replace(hour=10,minute=0)
 
 @pytest.fixture
-def cfg():return cli.config(ROOT/'config/facebook-feed.json')
+def cfg():
+    # Preserve coverage of the previous factual bulletin implementation.
+    data=cli.config(ROOT/'config/facebook-feed.json')
+    data['editorial'].update(package_mode=False,max_posts_per_day=10,schedule_sast=dict(e.SLOTS))
+    return data
 
 
 def raw(mid=1,league='psl',when=None,home=10,away=20,score=None,status='Not started'):
@@ -83,8 +87,7 @@ def test_live_paused_no_provider_access_and_editorial_730_is_not_live_window(cfg
 def test_workflow_schedule_is_ten_not_live_and_uses_same_checkpoint_mutex():
     load=lambda p:yaml.safe_load((ROOT/p).read_text())
     wf=load('.github/workflows/facebook-editorial.yml');on=wf.get('on',wf.get(True))
-    assert [x['cron'] for x in on['schedule']]==['30 5,6,17 * * *','0 8-13,21 * * *',
-        '20 6,7,18 * * *','50 8-13,21 * * *']
+    assert [x['cron'] for x in on['schedule']]==['30 5 * * *','50 5 * * *','0 6-14 * * *','50 6-14 * * *']
     assert wf['jobs']['content']['with']=={'kind':'editorial','publish':"${{ github.event_name == 'schedule' || inputs.publish }}",'preview':False,'bootstrap':False}
     live=load('.github/workflows/facebook-live.yml');assert 'schedule' not in live.get('on',live.get(True))
     assert 'inputs.diagnostic' in live['jobs']['content']['if']
@@ -411,9 +414,10 @@ def test_all_backup_triggers_map_to_existing_slots_not_twenty_posts():
         minute,hours,*_=item['cron'].split()
         for hour in expand(hours):
             at=NOW.astimezone(timezone.utc).replace(hour=hour,minute=int(minute),second=0)
-            checks.append(e.due(at))
-    assert len(checks)==20 and set(checks)=={slot for _,slot in e.SLOTS}
-    assert all(checks.count(slot)==2 for _,slot in e.SLOTS)
+            from facebook_feed.match_packages import due,SLOTS
+            checks.append(due(at))
+    assert len(checks)==20 and set(checks)=={slot for _,slot in SLOTS}
+    assert all(checks.count(slot)==2 for _,slot in SLOTS)
 
 
 @pytest.mark.parametrize('status',['reserved','published','unknown'])

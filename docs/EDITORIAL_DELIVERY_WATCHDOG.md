@@ -1,3 +1,5 @@
+> **Timetable update:** [Nine match packages](NINE_MATCH_PACKAGES.md) now replaces the six league-specific feature slots and old results/story slots with nine two-picture match targets at 08:00–16:00 SAST. The 07:30 combined-fixtures bulletin remains. Package publication adds durable unpublished-media staging and verifies both attachments; earlier single-image descriptions are historical.
+
 # Editorial delivery watchdog
 
 ## What is automated
