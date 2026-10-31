@@ -33,7 +33,7 @@ The owner-supplied comparison image is a **layout reference only**, not a source
 
 **PLAYREPORT ZA branding is allowed on pictures only.** Captions and hashtags contain no personal brand. Every post has relevant league/football tags; featured/story captions also include sanitised team tags. No `#PlayReportZA` or other branded hashtag.
 
-Comparison pictures contain **only stats, labels, period and source/check time**—no trend paragraphs or engagement question. Captions carry **up to three verified facts/trends**, an explicit sample scope/date range, source attribution and a neutral comment question. Native Facebook polls are **not enabled/supported by the existing publisher**; the caption uses “Your pick: home, draw or away? Comment below.” This is engagement, not a prediction, odds or betting recommendation.
+Comparison pictures contain **only stats, labels, match date/kickoff and sample period**—no trend paragraphs or engagement question. Captions carry **up to three verified facts/trends**, an explicit sample scope/date range, a neutral comment question (no public source/assessment footer). Native Facebook polls are **not enabled/supported by the existing publisher**; the caption uses “Your pick: home, draw or away? Comment below.” This is engagement, not a prediction, odds or betting recommendation.
 
 ## Verified pre-match statistics, not unsupported premium fields
 
@@ -84,3 +84,8 @@ Local validation: **53 new editorial tests**; full repository **1,164 passed, 1 
 No authenticated provider request, workflow dispatch, Facebook mutation, actual selected fixture, verified post or independently sourced statistical accuracy was observed during implementation. Offline tests do not establish account quota remaining, actual aliases/coverage or ten publishable stories every day.
 
 Provider terms remain factual-only; do not repurpose this data for odds/predictions or betting-support use. The existing source-rights approval is owner-attested, not an independently audited licence or permission to repost videos/logos.
+
+
+## Presentation correction after first published card
+
+The owner requested removing provider/source attribution and assessment/check timestamps from both pictures and captions. These labels are now omitted from comparison graphics and all scheduled-editorial captions, including fixtures, results and incident stories. Actual match dates, kickoff times and sample-period/date-range labels remain to avoid misrepresenting the data. Internal verification metadata, evidence, cross-checks, quotas, publication hashes and history are unchanged. This changes future content only; it does not edit, delete or repost the already-published Orlando Pirates–Kaizer Chiefs card.
