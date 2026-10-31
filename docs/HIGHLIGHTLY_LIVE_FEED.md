@@ -1,10 +1,10 @@
-# Highlightly: staged factual Facebook live feed
+# Highlightly: verified factual Facebook live feed
 
 ## Current state
 
 The owner confirmed that the API-Sports accounts are suspended, requested Highlightly for the Facebook score feed, and said `HIGHLIGHTLY_API_KEY` was added to GitHub Actions Secrets. All three API-Sports slots are now `authorised=false`. Secrets and existing quota/post/unknown-send history are neither deleted nor reset. They are not fallback candidates for Highlightly.
 
-`score_source=highlightly` selects the new adapter. **`highlightly.verification_only=true` and `account_coverage_verified=false` deliberately block normal live polling/publication pending observed real-provider verification.** Adding a secret or passing offline tests does not prove subscription coverage or create a Facebook post. No credentials are retrieved locally or printed.
+`score_source=highlightly` selects the adapter. Following the observed full diagnostic below, **`highlightly.verification_only=false` and `account_coverage_verified=true` now enable the verified factual source**, subject to the existing publication/master-variable, window, quota, freshness, baseline/meaningful-event, reservation and unknown-send guards. Adding a secret or passing offline tests alone never established this verification. No Facebook post is claimed by activation. No credentials are retrieved locally or printed.
 
 Only the factual live-score/event feed changes. Android, predictions/odds, results, Reels, music, Telegram, other provider clients and their accounts are not migrated. The legacy `provider` section remains for its existing adapter, not as evidence that Highlightly access has been verified.
 
@@ -71,3 +71,22 @@ Window-change validation: **1,021 passed, 1 skipped, 8 subtests passed** (full s
 The previous run 41129451774 verified only page one; it did not establish complete pagination or match-detail access. The owner subsequently requested triggering a Facebook post. Rather than bypass the unchanged activation gates or dispatch a normal run known to be blocked, the diagnostic now checks complete pagination plus one validated detail. On a 284-row day that means three list reads and one detail read, subject to actual remaining quota and current match availability. This is not an observed new run or a post; the existing first-page result remains the only real verification until the owner starts the updated diagnostic. The 08:00–24:00 SAST live window, production namespace, all unknown-send records, and disabled suspended accounts remain unchanged. A passing offline test or `ready_for_activation` diagnostic does not automatically flip config or publish.
 
 Full-diagnostic update validation: **1,028 passed, 1 skipped, 8 subtests passed** (full suite), **75 passed** (focused Highlightly/diagnostic/window tests). New cases verify all 284 synthetic rows plus one detail, incomplete-page/identity/event-schema/network/quota failures, no false readiness for empty days, unchanged baselines/unknown sends, and no automatic activation. No new real-provider run or Facebook post is asserted by these tests.
+
+
+## Verified activation — 31 October 2026
+
+The owner requested Facebook publication, then started the updated full diagnostic. Observed [run 41164360718](https://github.com/perfectndumiso1-netizen/goals-scanner/actions/runs/41164360718), job 124428598336, at **05:26:13 SAST** returned:
+
+- `outcome=verified_read_only`, `reason=verified_full_match_list_and_detail`
+- `coverage=complete_day`, 868 rows across 9 pages, 61 usable observations
+- `match_detail_verified=true`, `ready_for_activation=true`
+- allocation 100, accounted requests 10, remaining 90
+- **Facebook requests 0**
+
+This is now real complete-list/detail verification, superseding the earlier first-page-only result. The owner had already requested enabling and triggering publication after successful verification. Only the two source activation switches are changed; `verification_reference` records the safe run evidence. No quota/history reset, provider-account re-enabling, baseline bootstrap, schedule/interval change or duplicate-send bypass occurs.
+
+For a new owner-triggered normal run on `main`, use **diagnostic=false, publish=true, preview=false, bootstrap=false**. Only within **08:00–24:00 SAST** can it fetch and prepare live observations. A first live poll establishes a baseline, without announcing historical goals. Subsequent fresh meaningful changes may create a reserved/verified post, subject to all existing master, Graph and policy gates. Config activation, workflow success and API verification are not a Facebook post. Require an acknowledged and verified Graph ID before claiming publication. Read-only diagnostics can still be requested without posting, independently of the coverage window.
+
+The observed 868-row day costs **9 list requests per complete sweep**, before up to 2 detail calls. With 90 remaining at diagnostic time, at most eight such 11-call sweeps fit if totals and other usage stay unchanged. Thus the configured 20-minute minimum does not guarantee updates throughout the full 16-hour window: quota exhaustion may stop reads earlier. The 100/day limit is unchanged; no extra keys or paid plan are introduced. The quota counter rolls at midnight UTC, not on activation, credential replacement or workflow start.
+
+Activation validation: **1,033 passed, 1 skipped, 8 subtests passed** (full suite), **162 passed** (focused activation/Highlightly/diagnostic/window/account/event tests). Production-file tests verify the two activated source gates, the existing time window/request bounds, continued exclusion of all suspended accounts, and baseline-before-change behavior. Historical staging tests explicitly select staging rather than asserting it is still production. Send-failure regression tests now use a fixed in-window clock so midnight/window protections are not inadvertently bypassed or wall-clock dependent. This validation is not evidence of a new Facebook run or post.

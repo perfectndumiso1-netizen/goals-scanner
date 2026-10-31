@@ -130,4 +130,4 @@ def test_current_production_excludes_all_owner_confirmed_suspended_accounts():
     cfg=cli.config(ROOT/"config/facebook-feed.json")
     assert cfg["score_source"]=="highlightly"
     assert all(not slot["authorised"] for slot in cfg["event_monitor"]["key_slots"].values())
-    assert cfg["highlightly"]["verification_only"] and not cli.scores_approved(cfg)
+    assert not cfg["highlightly"]["verification_only"] and cli.scores_approved(cfg)

@@ -265,8 +265,14 @@ def test_daily_quota_classifier(errors,remaining,expected):assert daily_quota(er
 
 def prepare_send(cfg,tmp_path,monkeypatch):
     monkeypatch.setenv('GITHUB_RUN_ID','local');monkeypatch.setenv('GITHUB_RUN_ATTEMPT','1')
-    now=datetime.now(content.SAST);state={'posts':[]}
-    # Inject real-time synthetic snapshots directly; no external publication endpoint.
+    now=datetime.now(content.SAST).replace(hour=12,minute=0,second=0,microsecond=0)
+    class InWindowClock(datetime):
+        @classmethod
+        def now(cls,tz=None):return now
+    monkeypatch.setattr(cli,'datetime',InWindowClock)
+    state={'posts':[]}
+    # Fixed in-window synthetic time: these send-failure tests must not depend
+    # on the wall clock. Separate boundary tests exercise midnight/window guards.
     m=raw();m['fixture']['date']=(now-timedelta(minutes=65)).isoformat()
     observation(state,[m],now)
     m['goals']['home']=1;m['fixture']['status']['elapsed']=55
