@@ -1,0 +1,35 @@
+{
+  "version": 1,
+  "entries": [
+    {
+      "player": "Evidence Makgopa",
+      "team": "Orlando Pirates",
+      "country": "South Africa",
+      "file": "evidence-makgopa.png",
+      "sha256": "f5982f035b9ca4217292654a66098860f7b25088b7587d5ce34d255ddfa9c251",
+      "source_page": "https://www.orlandopiratesfc.com/team/forwards/evidence-makgopa/",
+      "source_image": "https://www.orlandopiratesfc.com/wp-content/uploads/2026/07/opfc-26-27-home-kit-headshot-evidence-makgopa-L1390340-brandon-barnard-photography.png",
+      "source_sha256": "6947fd01e7240635c7cb396e679317bd990faef04ddd8d69ced199d41816d5a2",
+      "reviewed_on": "2026-10-31",
+      "valid_through": "2026-11-30",
+      "club_kit_verified": true,
+      "owner_requested_use": true,
+      "rights_status": "Not established; owner requested use of these public club photographs. No licence claimed."
+    },
+    {
+      "player": "Wandile Duba",
+      "team": "Kaizer Chiefs",
+      "country": "South Africa",
+      "file": "wandile-duba.png",
+      "sha256": "dcaa327321d20cefdf0c9755e921be3612f1a996429546cd79136c2c120ec54f",
+      "source_page": "https://kaizerchiefs.com/player/wandile-duba",
+      "source_image": "https://kcpub.azureedge.net/storage/images/players/Wandile%20Duba.jpg",
+      "source_sha256": "cb341f8dbe5e8b54cae800690cc5bc6cd4bd331fd6fb4948535e32cda66d5700",
+      "reviewed_on": "2026-10-31",
+      "valid_through": "2026-11-30",
+      "club_kit_verified": true,
+      "owner_requested_use": true,
+      "rights_status": "Not established; owner requested use of these public club photographs. No licence claimed."
+    }
+  ]
+}

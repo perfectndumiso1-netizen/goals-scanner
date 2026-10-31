@@ -779,7 +779,13 @@ def render_pick_overview(pick: dict, i: int, n: int, bg: Path, home_b: Path, awa
     wide = cw >= ch
     im = _cover(bg, 0.62, size=(cw, ch))
     d = ImageDraw.Draw(im)
-    _stage_header(d, cw, ch, "the pick", i, n, competition_line(pick), wide=wide)
+    from football_derbies import label as derby_label
+    from player_photos import read as player_photo, paste as paste_player
+    derby = derby_label(pick.get('home'), pick.get('away'), pick.get('country'))
+    comp = competition_line(pick)
+    if derby:
+        comp = f"{derby}  ·  {comp}" if comp else derby
+    _stage_header(d, cw, ch, "the pick", i, n, comp, wide=wide)
 
     # ---- top left: the two clubs, their form and the kick-off
     bsize = 132 if wide else 150
@@ -789,9 +795,17 @@ def render_pick_overview(pick: dict, i: int, n: int, bg: Path, home_b: Path, awa
     total = bsize * 2 + gap
     x0 = left_x0 + (left_w - total) // 2
     y0 = 196 if wide else 250
-    hb, ab = _circle_badge(home_b, bsize), _circle_badge(away_b, bsize)
-    im.paste(hb, (x0, y0), hb)
-    im.paste(ab, (x0 + bsize + gap, y0), ab)
+    for side, badge_path, bx in (('home', home_b, x0), ('away', away_b, x0 + bsize + gap)):
+        portrait = player_photo(pick.get(side), pick.get('country'), on=pick.get('kickoff') or None)
+        if portrait:
+            # Only the existing club-art area: no chart, selection, form, price,
+            # kickoff or timing changes. These are club visuals, not a claimed XI.
+            paste_player(im, portrait, (bx - 20, y0 - 20, bx + bsize + 20, y0 + bsize))
+            badge = _circle_badge(badge_path, bsize // 3)
+            im.paste(badge, (bx + bsize - badge.width, y0 + bsize - badge.height), badge)
+        else:
+            badge = _circle_badge(badge_path, bsize)
+            im.paste(badge, (bx, y0), badge)
     d = ImageDraw.Draw(im)
     vf = _font(28 if wide else 32, True)
     d.text((x0 + bsize + (gap - _tw(d, "VS", vf)) // 2, y0 + bsize // 2 - 16), "VS", fill=WHITE, font=vf)

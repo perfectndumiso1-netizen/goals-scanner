@@ -169,7 +169,7 @@ def test_graph_http_failure_redacts_reflected_credential(monkeypatch):
 
 
 def test_reel_schedule_music_and_explicit_cover_implementation_match_pinned_invariants():
-    # Schedule/music retain audit hashes; renderer/publisher pins include the explicitly requested cover and Mr 2 Odds display branding changes.
+    # Schedule/music retain audit hashes; renderer pin also includes owner-requested club-kit portraits in the pick overview only.
     baseline=json.loads((ROOT/'tests/fixtures/facebook-feed-reel-invariants.json').read_text())
     for name,digest in baseline.items():assert hashlib.sha256((ROOT/name).read_bytes()).hexdigest()==digest,name
 
