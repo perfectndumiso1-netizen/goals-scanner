@@ -57,7 +57,8 @@ def render_stadium(spec,path):
     d.polygon([(1080,330),(985,560),(985,1030),(1080,850)],fill='#074150')
     d.line([(0,440),(68,610),(68,1020)],fill='#137583',width=3)
     d.line([(1080,440),(1012,610),(1012,1020)],fill='#137583',width=3)
-    text('PLAYREPORT ZA',540,100,31,muted)
+    from football_artwork import brand
+    brand(im,d,y=82,size=29)
     d.line((340,143,740,143),fill=green,width=3)
     competition,size=wrapped(m.get('competition','').upper(),900,42,30,2)
     for i,row in enumerate(competition):text(row,540,225+i*52,size)

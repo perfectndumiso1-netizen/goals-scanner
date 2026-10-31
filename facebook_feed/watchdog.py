@@ -21,6 +21,7 @@ MAX_ATTEMPTS = 3
 BACKOFF = (10, 20, 40)
 SAFE_SKIPS = {
     'no distinct verified upcoming fixture for this slot',
+    'No safely upcoming 1X2 selections on Bet Advisor; no filler',
     'no distinct completed match with verified incidents',
     'no verified fixtures or new confirmed finals; no filler',
     'Five recent completed league matches unavailable; no card',
@@ -28,7 +29,8 @@ SAFE_SKIPS = {
     'Extra-time/shootout sample needs editorial scope review',
     'Featured match is not safely upcoming',
 }
-TRANSIENT = {'Highlightly network/response validation failed; details omitted'}
+TRANSIENT = {'Highlightly network/response validation failed; details omitted',
+             'Bet Advisor publication unavailable or stale; no predictions'}
 
 
 def slot_at(now, slots=None):
@@ -97,7 +99,7 @@ def reconcile_known(state, now, factory=PageFeed):
     publisher = None
     checked = 0
     for entry in state['posts']:
-        if entry.get('kind') != 'editorial' or entry.get('status') not in ('unknown', 'reserved'):
+        if entry.get('kind') not in ('editorial','results') or entry.get('status') not in ('unknown', 'reserved'):
             continue
         check = entry.setdefault('delivery_check', {'attempts': 0})
         if check['attempts'] >= MAX_ATTEMPTS or check.get('next_at') and now < content.local(check['next_at']):
@@ -142,6 +144,13 @@ def assess(state, now, run_key, *, max_pages=10, daily_budget=100):
     if row['attempts'] >= MAX_ATTEMPTS:
         row.update(status='needs_attention', diagnosis='bounded_retries_exhausted')
         return False, row['diagnosis']
+    if key.endswith(':predictions'):
+        # This slot only reads the published Advisor JSON, never Highlightly.
+        row['attempts']+=1
+        row.update(status='preparing',diagnosis='admitted',run_key=run_key,
+                   quota_hold={'amount':0,'source':'published-bet-advisor','released':False},
+                   next_at=(now+timedelta(minutes=BACKOFF[row['attempts']-1])).isoformat())
+        return True,'admitted'
     budget = state.get('highlightly_api', {})
     # Transport is still the authority for UTC rollover and the hard 100 cap.
     # Do not reinterpret yesterday's count as today's exhaustion.
@@ -185,6 +194,8 @@ def release_quota_hold(state, row):
     hold = row.get('quota_hold', {})
     budget = state.get('highlightly_api', {})
     amount = hold.get('amount')
+    if type(amount) is int and amount==0 and hold.get('source')=='published-bet-advisor' and hold.get('released') is False:
+        hold['released']=True;return
     if (hold.get('released') is not False or type(amount) is not int or not 1 <= amount <= 33 or
         hold.get('utc_date') != budget.get('utc_date') or budget.get('requests', 0) < amount):
         raise storage.StateError('Invalid watchdog quota hold; no provider request allowed')
@@ -331,7 +342,7 @@ def notify(report, state=None, opener=None, *, allow_github=True):
 
 
 def main(argv=None):
-    from .cli import config, output, scores_approved
+    from .cli import config, output, scores_approved, editorial_source_approved
     from .editorial import schedule
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('phase', choices=('assess', 'audit', 'alert'))
@@ -373,7 +384,7 @@ def main(argv=None):
                 raise storage.StateError('No durable ledger; watchdog never bootstraps')
             output('restored', 'true')
             book(state,now,schedule(cfg))
-            enabled = cfg['enabled'] and not cfg['dry_run'] and cfg.get('editorial', {}).get('enabled') and 'editorial' in cfg.get('authorized_kinds', []) and scores_approved(cfg) and os.getenv('FACEBOOK_FEED_PUBLISH', '').lower() == 'true'
+            enabled = cfg['enabled'] and not cfg['dry_run'] and cfg.get('editorial', {}).get('enabled') and 'editorial' in cfg.get('authorized_kinds', []) and editorial_source_approved(cfg,now) and os.getenv('FACEBOOK_FEED_PUBLISH', '').lower() == 'true'
             if enabled:
                 reconcile_known(state, now)
                 allowed, reason = assess(state, now, run_key, max_pages=cfg['highlightly']['max_pages_per_poll'], daily_budget=cfg['highlightly']['daily_request_budget'])
@@ -399,7 +410,7 @@ def main(argv=None):
             report = {'checked_at': now.isoformat(), 'incidents': [{'slot': 'pipeline', 'diagnosis': 'durable_state_or_admission_unavailable', 'attempts': 0}], 'counts': {}}
         else:
             report = audit(state, now, os.getenv('WATCHDOG_PIPELINE_OK') == 'true')
-            if os.getenv('FACEBOOK_FEED_PUBLISH', '').lower() != 'true' or not cfg['enabled'] or cfg['dry_run'] or not scores_approved(cfg) or not cfg.get('editorial', {}).get('enabled') or 'editorial' not in cfg.get('authorized_kinds', []):
+            if os.getenv('FACEBOOK_FEED_PUBLISH', '').lower() != 'true' or not cfg['enabled'] or cfg['dry_run'] or not editorial_source_approved(cfg,now) or not cfg.get('editorial', {}).get('enabled') or 'editorial' not in cfg.get('authorized_kinds', []):
                 report['incidents'].append({'slot': 'configuration', 'diagnosis': 'publication_gates_disabled', 'attempts': 0})
         result = notify(report, state, allow_github=False)
         report['notification'] = result

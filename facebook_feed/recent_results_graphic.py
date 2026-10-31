@@ -21,7 +21,8 @@ def render(spec,path):
             previous=stamp
         samples.append(rows)
     image,draw=background(1350)
-    text(draw,'PLAYREPORT ZA',540,82,27,True,fill=MUTED)
+    from football_artwork import brand
+    brand(image,draw)
     text(draw,'RECENT LEAGUE RESULTS',540,137,45,True)
     text(draw,spec['period'],540,199,24,True,fill=GOLD)
     for index,(side,rows) in enumerate(zip(('home','away'),samples)):

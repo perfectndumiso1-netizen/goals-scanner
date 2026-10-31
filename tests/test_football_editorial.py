@@ -76,7 +76,7 @@ def test_all_ten_exact_sast_slots(clock,slot):
 
 def test_live_paused_no_provider_access_and_editorial_730_is_not_live_window(cfg,monkeypatch):
     assert not cfg['live']['enabled'] and not cfg['event_monitor']['enabled'] and not cfg['event_monitor']['publish_enabled']
-    assert cfg['authorized_kinds']==['editorial']
+    assert cfg['authorized_kinds']==['editorial','results']
     for hour in (0,8,12,23):assert not cli.is_due('live',NOW.replace(hour=hour),cfg)
     monkeypatch.setattr(cli,'PageFeed',lambda:pytest.fail('No Page access'))
     assert cli.build('live',ROOT,NOW,cfg,{},preview=True)[0] is None
@@ -387,7 +387,7 @@ def test_public_editorial_has_no_source_or_assessment_labels(cfg,tmp_path,monkey
     visible=' '.join(captured)
     for forbidden in ('Source:', 'Highlightly', 'Checked', 'Assessed', 'cross-check'):
         assert forbidden.casefold() not in visible.casefold()
-    assert 'PLAYREPORT ZA' in visible and 'LAST 5 LEAGUE MATCHES' in visible
+    assert 'MR 2 ODDS' in visible and 'LAST 5 LEAGUE MATCHES' in visible
     assert NOW.date().strftime('%d %b %Y') in visible  # Actual kickoff date remains.
 
 

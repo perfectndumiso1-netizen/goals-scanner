@@ -35,7 +35,7 @@ def test_picture_uses_observed_counts_and_discloses_sample_not_forecast(tmp_path
     assert Image.open(post['image']).size==(1080,1350)
     assert 'Goals scored: 10 | 4' in drawn and 'Goals conceded: 3 | 9' in drawn
     assert 'sample windows differ' in post['caption']
-    assert all(word not in ' '.join(drawn) for word in ('PlayReport','MR 2 ODDS','probability','Over 1.5'))
+    assert all(word not in ' '.join(drawn) for word in ('PlayReport','probability','Over 1.5'))
 
 
 @pytest.fixture
@@ -101,7 +101,7 @@ def test_one_off_workflow_cannot_start_from_push_or_unpause_general_feed():
     send=next(i for i,s in enumerate(steps) if 'facebook_one_match_test.py send' in s.get('run',''))
     assert reserve<send and "steps.reserve.conclusion == 'success'" in steps[send]['if']
     config=json.loads((root/'config/facebook-feed.json').read_text())
-    assert set(config['authorized_kinds'])=={'editorial'}
+    assert set(config['authorized_kinds'])=={'editorial','results'}
     assert not config['app_scores']['rights_confirmed'] and not config['app_scores']['coverage_verified']
     assert not config['live']['edit_existing']
 

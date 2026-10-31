@@ -1,7 +1,8 @@
 name: Facebook morning video results
 on:
   schedule:
-    - cron: "0 6 * * *"
+    - cron: "0 4 * * *"
+    - cron: "20 4 * * *"
   workflow_dispatch:
     inputs:
       publish:

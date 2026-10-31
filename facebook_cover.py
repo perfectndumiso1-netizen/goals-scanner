@@ -57,7 +57,8 @@ def render_matches(picks,path,*,now=None):
     today=now or datetime.now(ZoneInfo('Africa/Johannesburg'))
     if today.tzinfo is not None:today=today.astimezone(ZoneInfo('Africa/Johannesburg'))
     image,draw=background(1920)
-    text(draw,'PLAYREPORT ZA',540,83,29,True,fill=MUTED)
+    from football_artwork import brand
+    brand(image,draw,y=83,size=29)
     text(draw,'FOOTBALL PICKS',540,145,66,True)
     text(draw,today.strftime('%d %B %Y'),540,234,28,fill=GOLD)
     draw.rounded_rectangle((76,300,1004,598),radius=32,fill=(8,25,34,230),outline=GOLD,width=2)

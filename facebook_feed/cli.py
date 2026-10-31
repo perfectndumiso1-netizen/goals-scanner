@@ -96,12 +96,18 @@ def config(path):
         from .editorial import schedule
         e=data['editorial']
         if (type(e.get('enabled')) is not bool or e.get('max_posts_per_day')!=10 or e.get('package_mode') and e.get('match_posts_per_day')!=9 or
-            e.get('comparison_mode')!='prematch' or e.get('sample_matches')!=5 or
+            e.get('morning_bulletin','fixtures') not in ('fixtures','advisor_1x2') or e.get('comparison_mode')!='prematch' or e.get('sample_matches')!=5 or
             e.get('source_check')!='repeat_catalog_latest_detail' or e.get('native_poll_enabled') is not False or
             e.get('caption_branding') is not False or e.get('picture_branding') is not True or
             e.get('schedule_sast')!=dict(schedule(data)) or type(e.get('package_mode',False)) is not bool):
             raise ValueError('Editorial settings differ from approved schedule/safety scope')
     return data
+
+
+def editorial_source_approved(cfg,now):
+    from .editorial import due
+    return (cfg.get('editorial',{}).get('morning_bulletin')=='advisor_1x2'
+            if due(now,cfg)=='predictions' else scores_approved(cfg))
 
 
 def source_freshness(cfg):
@@ -125,6 +131,9 @@ def is_due(kind,now,cfg):
         from .editorial import due
         return cfg.get('editorial',{}).get('enabled',False) and due(now,cfg) is not None
     if kind=='live':return cfg['live']['enabled'] and in_window(now,cfg) and (cfg['event_monitor']['enabled'] if uses_events(cfg) else True)
+    if kind=='results':
+        target=now.replace(hour=6,minute=0,second=0,microsecond=0)
+        return timedelta(0)<=now-target<timedelta(minutes=45)
     if kind=='card' and now.weekday() not in cfg['card_days']:return False
     if kind=='weekly' and now.weekday()!=cfg['weekly_day']:return False
     key={'community':'community_time','weekly':'weekly_time','card':'card_time','roundup':'roundup_time','results':'results_time'}[kind]
@@ -139,7 +148,10 @@ def build(kind,root,now,cfg,state,preview=False):
             return None,f'not due: editorial check at {content.local(now):%Y-%m-%d %H:%M:%S} SAST; no enabled slot in its 60-minute window'
         return None,'not due'
     if kind=='editorial':
-        from .editorial import build as editorial_build
+        from .editorial import build as editorial_build,due
+        if due(now,cfg)=='predictions':
+            from .advisor_predictions import build as advisor_build
+            return advisor_build(root,now,cfg,state)
         return editorial_build(cfg,state,now)
     if kind=='live' and uses_events(cfg):
         if not in_window(now,cfg):return None,'outside 08:00–24:00 SAST score coverage'
@@ -268,7 +280,8 @@ def main(argv=None):
     requested=args.publish and os.getenv('FACEBOOK_FEED_PUBLISH','').lower()=='true'
     source_blocked=(args.phase=='prepare' and args.kind in ('live','roundup') and not args.preview and not scores_approved(cfg))
     publish=requested and cfg['enabled'] and not cfg['dry_run'] and args.phase!='preview' and not source_blocked
-    if args.kind=='editorial':publish=publish and scores_approved(cfg) and os.getenv('GITHUB_REF_NAME','local')=='main'
+    if args.kind=='editorial':publish=publish and (args.phase=='send' or editorial_source_approved(cfg,now)) and os.getenv('GITHUB_REF_NAME','local')=='main'
+    if args.kind=='results':publish=publish and os.getenv('GITHUB_REF_NAME','local')=='main'
     event_mode=uses_events(cfg) and args.kind in ('live','all')
     if event_mode:
         publish=publish and cfg['event_monitor']['enabled'] and cfg['event_monitor']['publish_enabled'] and os.getenv('GITHUB_REF_NAME','local')=='main'
@@ -293,7 +306,10 @@ def main(argv=None):
             if len(entries)!=1 or entries[0]['status']!='reserved':
                 raise ValueError('Reservation ownership mismatch; no retry')
             entry=entries[0]
-            if post['kind']=='editorial' and (cfg.get('score_source')!='highlightly' or not cfg.get('editorial',{}).get('enabled') or not scores_approved(cfg) or os.getenv('GITHUB_REF_NAME','local')!='main'):
+            from .advisor_predictions import is_post as advisor_post
+            advisor=advisor_post(post)
+            source_approved=(cfg.get('editorial',{}).get('morning_bulletin')=='advisor_1x2') if advisor else (cfg.get('score_source')=='highlightly' and scores_approved(cfg))
+            if post['kind']=='editorial' and (not source_approved or not cfg.get('editorial',{}).get('enabled') or os.getenv('GITHUB_REF_NAME','local')!='main'):
                 raise ValueError('Editorial publication gates changed; nothing sent')
             score_content=post['kind'] in ('live','roundup')
             source_changed=score_content and any(m.get('source')!=cfg.get('score_source','api-football') for m in post.get('snapshot',[]))
@@ -338,7 +354,7 @@ def main(argv=None):
                 match_events.publication_state(state,entry,'published',datetime.now(content.SAST))
                 print(f'::notice::Facebook {post["kind"]} confirmed: https://www.facebook.com/{identity}')
             except PublishError as error:
-                if post['kind']=='editorial' and not mutation_started:
+                if post['kind'] in ('editorial','results') and not mutation_started:
                     # Credential identity GET failed before any creation request.
                     # This positive local evidence alone permits a fresh prepare.
                     entry['status']='cancelled'

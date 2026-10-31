@@ -73,7 +73,7 @@ def test_cover_is_approved_portrait_with_exact_names_total_and_real_badges(tmp_p
     path=cover.render_matches(picks,tmp_path/'cover.jpg',now=datetime(2026,10,31))
     assert Image.open(path).size==(1080,1920) and picks==before
     visible=' '.join(texts)
-    assert '2.55' in texts and 'Odds combined' in texts and 'PLAYREPORT ZA' in texts
+    assert '2.55' in texts and 'Odds combined' in texts and 'MR 2 ODDS' in texts
     assert all(v in visible for p in picks for v in (p['home'],p['away']))
     assert not any(v in visible for v in ('SECRET MARKET','0.99','1.50','1.70','Source:','Checked','PREVIEW'))
 

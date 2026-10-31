@@ -4,7 +4,7 @@ on:
     # Different minutes from posting triggers; same GitHub scheduler, not independent uptime.
     - cron: "13,33,53 * * * *"
   workflow_run:
-    workflows: ["Facebook scheduled football (10 factual slots)"]
+    workflows: ["Facebook scheduled posts (nine matches + 1X2)", "Facebook morning video results"]
     types: [completed]
     branches: [main]
   workflow_dispatch:

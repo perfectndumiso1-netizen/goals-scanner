@@ -48,6 +48,15 @@ def allowed(post, state, now, config):
             return False,'editorial nine-match cap'
         if counted and now-max(local(p['at']) for p in counted)<timedelta(minutes=45):return False,'editorial cooldown'
         return True,'eligible scheduled editorial slot'
+    if post['kind']=='results':
+        # One explicit morning recap, separated from the 07:30 prediction slot.
+        # It replaces the old pooled results post, not one post per accumulator.
+        if any(p.get('status') in ('reserved','unknown') for p in counted):
+            return False,'unresolved publication; inspect/reconcile before creating another'
+        if any(p.get('kind')=='results' and local(p['at']).date()==now.date() for p in counted):
+            return False,'daily video results cap'
+        if counted and now-max(local(p['at']) for p in counted)<timedelta(minutes=45):return False,'results cooldown'
+        return True,'eligible morning video results'
     today=[p for p in counted if local(p['at']).date()==now.date() and p.get('operation')!='edit']
     live=post['kind'] in ('live','roundup')
     if post['kind']=='community' and any(p['kind']=='community' for p in today):

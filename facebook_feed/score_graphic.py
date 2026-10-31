@@ -35,8 +35,8 @@ def render_score(spec,path):
         return lines+[line]
     d.rounded_rectangle((35,35,1045,1315),32,outline='#285266',width=2)
     d.rectangle((75,70,81,131),fill=green)
-    header=spec.get('header','Live Matches SAST')
-    d.text((105,77),header,font=font(38 if spec.get('header') else 48,True),fill=white)
+    from football_artwork import brand
+    brand(im,d,y=82,size=29)
     center(f"{local(spec['checked_at']):%d %b %Y  |  %H:%M} SAST",151,27,muted)
     league=f"{m.get('country','')} | {m.get('competition','')}"
     league_lines=wrap(league,900,30)

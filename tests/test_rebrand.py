@@ -86,7 +86,7 @@ def test_rebrand_does_not_insert_brand_into_exact_facebook_caption_or_cover():
     assert 'Mr 2 Odds' not in reel_caption()
     assert match_rows([{'home':'Alpha','away':'Beta','brand':'Mr 2 Odds','odds':1.8,'sel':'O15'}])==[{'home':'Alpha','away':'Beta'}]
     cfg=json.loads((ROOT/'config/facebook-feed.json').read_text())
-    assert set(cfg['authorized_kinds'])=={'editorial'}
+    assert set(cfg['authorized_kinds'])=={'editorial','results'}
     assert not cfg['app_scores']['rights_confirmed'] and not cfg['app_scores']['coverage_verified']
 
 

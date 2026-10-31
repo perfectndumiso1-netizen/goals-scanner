@@ -87,6 +87,15 @@ jobs:
             data/app/days/
             data/advisor_ledger.json
             data/app/telegram_state.json
+      - name: Read published Bet Advisor for the morning predictions (never provider data)
+        if: inputs.kind == 'editorial'
+        uses: actions/checkout@v4.4.0
+        with:
+          ref: data
+          path: tmp/feed-source
+          sparse-checkout-cone-mode: false
+          sparse-checkout: |
+            data/app/latest.json
       - name: Set up Python
         uses: actions/setup-python@v5.6.0
         with:

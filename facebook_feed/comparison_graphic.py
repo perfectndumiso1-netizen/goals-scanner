@@ -10,7 +10,8 @@ def render(spec,path):
     if not isinstance(rows,list) or not 1<=len(rows)<=10:
         raise ValueError('Comparison supports at most ten readable verified statistic rows')
     image,draw=background(1350)
-    text(draw,'PLAYREPORT ZA',540,82,27,True,fill=MUTED)
+    from football_artwork import brand
+    brand(image,draw)
     from player_photos import read as player_photo, paste as paste_player
     from football_derbies import label as derby_label
     derby=derby_label(spec['home'],spec['away'],spec.get('country'))
