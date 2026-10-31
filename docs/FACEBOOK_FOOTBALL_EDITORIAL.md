@@ -17,7 +17,7 @@ Replace the Highlightly live feed with ten **scheduled editorial opportunities**
 | 19:30 | Distinct, explicitly dated goal/incident story from yesterday's results |
 | 23:00 | Newly confirmed evening finals |
 
-The six featured slots are **one hour apart in the schedule**. GitHub scheduled jobs are not an exact-time delivery service; delays are possible. Each slot expires after 45 minutes; no overnight/missed-slot catch-up or backlog flood. Existing scanner, prediction, Android, Reel, Telegram, music and unrelated workflow schedules are untouched. The earlier standalone feed `results` kind is replaced by the new 08:30 bulletin, avoiding a duplicate 08:00 results post.
+The six featured slots are **one hour apart in the schedule**. GitHub scheduled jobs are not an exact-time delivery service; delays are possible. Each slot now has a **60-minute admission window** (exclusive end), plus a backup check at **slot +50 minutes**. These are two opportunities for the **same daily slot**, not twenty posts. The backup is away from the busy :00/:30 trigger queues and can respect the unchanged 45-minute minimum spacing after a late preceding publication. Once a slot is reserved/published/unknown, the backup returns before provider preparation; no second fixture or blind resend. Expired slots are never backfilled, including across midnight. Existing scanner, prediction, Android, Reel, Telegram, music and unrelated workflow schedules are untouched. The earlier standalone feed `results` kind is replaced by the new 08:30 bulletin, avoiding a duplicate 08:00 results post.
 
 ## Live pause and state safety
 
@@ -94,3 +94,29 @@ The owner requested removing provider/source attribution and assessment/check ti
 ## Approved crest-led layout and broader rows
 
 The owner subsequently approved the video-thumbnail/stat-card previews and requested broader statistics. [Approved artwork operations](APPROVED_FOOTBALL_ARTWORK.md) documents the ten-row same-sample statistics, offline club crest registry, exact filmed combined-odds cover and validation. Earlier no-crest/initial-six-row descriptions are superseded; verification, internal evidence, publication guards and the schedule remain unchanged.
+
+## Delayed-run diagnosis — 31 October 2026
+
+Observed automatic editorial run: https://github.com/perfectndumiso1-netizen/goals-scanner/actions/runs/41194979702
+
+- Workflow is active. Job `124519244469` prepared at **10:59:50 UTC / 12:59:50 SAST**.
+- Its check annotation says `Facebook feed LIVE PLAN: [{"kind":"editorial","status":"skipped","reason":"not due"}]`.
+- The former 45-minute window had already closed the 12:00 LaLiga opportunity.
+  Both reservation and publish steps were skipped: **not a Facebook rejection and
+  not a player-image rendering failure**. Green meant clean execution, not delivery.
+- The 60-minute window directly covers this observed case. The ten +50-minute
+  backup triggers add bounded opportunities without opening new daily slots.
+- Out-of-slot reports now include the SAST check time and admission-window reason.
+- The separate old morning-video-results run `41197664563` was intentionally
+  blocked because that legacy kind is not authorised. Do not re-enable it to
+  create duplicate results; the approved 08:30 editorial bulletin replaces it.
+
+This is evidence for the observed missed run, not proof that every missing
+trigger has the same cause. Only one automatic editorial run was returned at
+inspection time; GitHub can delay or drop cron events, and backup cron events
+have the same external dependency. No repository-permission workaround,
+external scheduler, provider call, ledger reset, workflow dispatch or Facebook
+mutation was performed during diagnosis. Keep the 100-request shared allowance,
+45-minute feed spacing, ten-distinct-slot cap, source verification, current
+kickoff/expiry and unknown-state checks. Actual publication still requires a
+Graph acknowledgement plus read-back; code/tests/merge alone do not prove it.

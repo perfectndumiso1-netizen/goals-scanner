@@ -134,7 +134,10 @@ def is_due(kind,now,cfg):
 
 
 def build(kind,root,now,cfg,state,preview=False):
-    if not preview and not is_due(kind,now,cfg):return None,'not due'
+    if not preview and not is_due(kind,now,cfg):
+        if kind=='editorial':
+            return None,f'not due: editorial check at {content.local(now):%Y-%m-%d %H:%M:%S} SAST; no enabled slot in its 60-minute window'
+        return None,'not due'
     if kind=='editorial':
         from .editorial import build as editorial_build
         return editorial_build(cfg,state,now)

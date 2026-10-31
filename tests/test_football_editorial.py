@@ -64,7 +64,9 @@ class Fake:
 def test_all_ten_exact_sast_slots(clock,slot):
     at=NOW.replace(hour=int(clock[:2]),minute=int(clock[3:]))
     assert e.due(at)==slot and e.due(at+timedelta(minutes=44))==slot
-    assert e.due(at+timedelta(minutes=45)) is None
+    assert e.due(at+timedelta(minutes=59,seconds=59))==slot
+    # Exact expiry may be the next slot, but never the expired one.
+    assert e.due(at+timedelta(minutes=60))!=slot
     assert e.due(at.astimezone(timezone.utc))==slot
 
 
@@ -81,7 +83,8 @@ def test_live_paused_no_provider_access_and_editorial_730_is_not_live_window(cfg
 def test_workflow_schedule_is_ten_not_live_and_uses_same_checkpoint_mutex():
     load=lambda p:yaml.safe_load((ROOT/p).read_text())
     wf=load('.github/workflows/facebook-editorial.yml');on=wf.get('on',wf.get(True))
-    assert [x['cron'] for x in on['schedule']]==['30 5,6,17 * * *','0 8-13,21 * * *']
+    assert [x['cron'] for x in on['schedule']]==['30 5,6,17 * * *','0 8-13,21 * * *',
+        '20 6,7,18 * * *','50 8-13,21 * * *']
     assert wf['jobs']['content']['with']=={'kind':'editorial','publish':"${{ github.event_name == 'schedule' || inputs.publish }}",'preview':False,'bootstrap':False}
     live=load('.github/workflows/facebook-live.yml');assert 'schedule' not in live.get('on',live.get(True))
     assert 'inputs.diagnostic' in live['jobs']['content']['if']
@@ -383,3 +386,72 @@ def test_public_editorial_has_no_source_or_assessment_labels(cfg,tmp_path,monkey
         assert forbidden.casefold() not in visible.casefold()
     assert 'PLAYREPORT ZA' in visible and 'LAST 5 LEAGUE MATCHES' in visible
     assert NOW.date().strftime('%d %b %Y') in visible  # Actual kickoff date remains.
+
+
+def test_observed_delayed_run_125950_sast_is_not_lost(cfg):
+    # Run 41194979702 prepared at 10:59:50 UTC and previously skipped 'not due'.
+    at=NOW.replace(hour=12,minute=59,second=50)
+    assert e.due(at.astimezone(timezone.utc))=='laliga'
+    api=Fake(at,today=[raw(league='laliga')])
+    post,reason=e.build(cfg,{},at,api)
+    assert post,reason
+    assert post['slot_key']==f'editorial:{at.date()}:laliga'
+    assert post['snapshot'][0]['fixture']['league']=='laliga'
+
+
+def test_all_backup_triggers_map_to_existing_slots_not_twenty_posts():
+    wf=yaml.safe_load((ROOT/'.github/workflows/facebook-editorial.yml').read_text())
+    on=wf.get('on',wf.get(True));checks=[]
+    def expand(value):
+        for part in value.split(','):
+            if '-' in part:
+                a,b=map(int,part.split('-'));yield from range(a,b+1)
+            else:yield int(part)
+    for item in on['schedule']:
+        minute,hours,*_=item['cron'].split()
+        for hour in expand(hours):
+            at=NOW.astimezone(timezone.utc).replace(hour=hour,minute=int(minute),second=0)
+            checks.append(e.due(at))
+    assert len(checks)==20 and set(checks)=={slot for _,slot in e.SLOTS}
+    assert all(checks.count(slot)==2 for _,slot in e.SLOTS)
+
+
+@pytest.mark.parametrize('status',['reserved','published','unknown'])
+def test_backup_never_reprepares_already_attempted_slot_or_spends_api(cfg,status):
+    state={};first,reason=e.build(cfg,state,NOW,Fake())
+    assert first,reason
+    entry=policy.reserve(first,state,NOW);entry['status']=status
+    backup=NOW+timedelta(minutes=50);api=Fake(backup)
+    assert e.build(cfg,state,backup,api)[0] is None
+    assert api.calls==[]
+
+
+def test_backup_respects_unresolved_other_slot_before_api(cfg):
+    api=Fake(NOW+timedelta(minutes=50))
+    state={'posts':[{'status':'unknown','slot_key':'different-slot'}]}
+    assert e.build(cfg,state,api.now,api)[0] is None
+    assert api.calls==[]
+
+
+def test_next_slot_backup_preserves_45_min_spacing_after_late_publication(cfg):
+    first_at=NOW.replace(hour=12,minute=59,second=50);state={}
+    # Real day catalogs contain all leagues; preserve both fixtures in the cache.
+    first,_=e.build(cfg,state,first_at,Fake(first_at,today=[raw(league='laliga'),raw(22,league='seriea')]))
+    policy.reserve(first,state,first_at)['status']='published'
+    primary=NOW.replace(hour=13,minute=0)
+    post,_=e.build(cfg,deepcopy(state),primary,Fake(primary,today=[raw(22,league='seriea')]))
+    assert post and not policy.allowed(post,state,primary,cfg)[0]
+    backup=NOW.replace(hour=13,minute=50)
+    post,reason=e.build(cfg,state,backup,Fake(backup,today=[raw(22,league='seriea')]))
+    assert post,reason
+    assert policy.allowed(post,state,backup,cfg)[0]
+    assert post['slot_key']==f'editorial:{backup.date()}:seriea'
+
+
+def test_expired_slots_do_not_backfill_overnight_or_in_the_afternoon_gap(cfg,monkeypatch):
+    monkeypatch.setattr(e,'Source',lambda *a:pytest.fail('No provider outside active slots'))
+    for hour,minute in [(0,10),(7,29),(9,30),(16,0),(18,15),(20,30)]:
+        at=NOW.replace(hour=hour,minute=minute)
+        assert e.due(at) is None
+        post,reason=cli.build('editorial',ROOT,at,cfg,{})
+        assert post is None and 'SAST' in reason and '60-minute' in reason

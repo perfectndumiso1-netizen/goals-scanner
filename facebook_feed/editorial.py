@@ -22,7 +22,9 @@ def due(now):
     now=content.local(now)
     for clock,slot in SLOTS:
         target=now.replace(hour=int(clock[:2]),minute=int(clock[3:]),second=0,microsecond=0)
-        if timedelta(0)<=now-target<timedelta(minutes=45):return slot
+        # GitHub cron can arrive almost an hour late. Admit the current slot
+        # until the next hour, never revive previous slots or a prior day's work.
+        if timedelta(0)<=now-target<timedelta(minutes=60):return slot
     return None
 
 
