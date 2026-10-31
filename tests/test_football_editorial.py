@@ -98,7 +98,8 @@ def test_pre_match_comparison_crosschecks_last_five_and_captions_unbranded(cfg):
     assert post['caption'].count('• ')==3 and 'Your pick:' in post['caption']
     assert '#PSL' in post['caption'] and '#ExampleClub10' in post['caption']
     assert 'PLAYREPORT' not in post['caption'].upper() and 'MR 2 ODDS' not in post['caption'].upper()
-    assert 'same provider' in post['caption'] and 'last five' in post['caption']
+    assert 'Highlightly' not in post['caption'] and 'last five' in post['caption']
+    assert post['graphic']['checked_at']==NOW.isoformat()  # Retained internally, not rendered.
     assert all('RATING' not in r[0] and 'BIG CHANCES' not in r[0] for r in post['graphic']['rows'])
     assert post['graphic']['rows'][0][1:]==(10,10) and post['graphic']['rows'][4][1:]==(5,5)
 
@@ -354,3 +355,31 @@ def test_source_change_and_editorial_disable_make_no_requests(cfg):
     assert e.build(cfg,{},NOW,NoAPI())[0] is None
     cfg['score_source']='highlightly';cfg['editorial']['enabled']=False
     assert e.build(cfg,{},NOW,NoAPI())[0] is None
+
+
+
+def test_public_editorial_has_no_source_or_assessment_labels(cfg,tmp_path,monkeypatch):
+    from PIL import ImageDraw
+    captured=[]
+    original=ImageDraw.ImageDraw.text
+    def capture(self,xy,text,*args,**kwargs):
+        captured.append(str(text))
+        return original(self,xy,text,*args,**kwargs)
+    monkeypatch.setattr(ImageDraw.ImageDraw,'text',capture)
+    for hour,minute in ((7,30),(8,30),(10,0),(19,30),(23,0)):
+        at=NOW.replace(hour=hour,minute=minute);api=Fake(at)
+        if hour==19:api.details[88]['events']=[{'type':'Goal','time':'44','team':{'id':10}}]
+        if hour==23:api.today=[raw(33,when=at-timedelta(hours=3),score='2 - 1',status='Finished')]
+        post,_=e.build(cfg,{},at,api)
+        assert post
+        for forbidden in ('Source:', 'Highlightly', 'checked', 'assessed', 'cross-check'):
+            assert forbidden.casefold() not in post['caption'].casefold()
+        assert '#' in post['caption']
+        if post.get('graphic'):
+            graphics.render(post['graphic'],tmp_path/'card.jpg')
+            assert post['caption'].count('• ')==3 and 'Your pick:' in post['caption']
+    visible=' '.join(captured)
+    for forbidden in ('Source:', 'Highlightly', 'Checked', 'Assessed', 'cross-check'):
+        assert forbidden.casefold() not in visible.casefold()
+    assert 'PLAYREPORT ZA' in visible and 'LAST 5 LEAGUE MATCHES' in visible
+    assert NOW.date().strftime('%d %b %Y') in visible  # Actual kickoff date remains.

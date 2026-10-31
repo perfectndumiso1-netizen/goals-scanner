@@ -182,7 +182,7 @@ def comparison(api,book,m,now):
            f"Goals scored/conceded over those samples: {m['home']} {home['scored']}/{home['conceded']}; {m['away']} {away['scored']}/{away['conceded']}."]
     dates=lambda s: f"{min(r['date'] for r in s['matches'])[:10]} to {max(r['date'] for r in s['matches'])[:10]}"
     caption=f"{m['home']} vs {m['away']} | {LEAGUES[m['league']][0]}\nKickoff: {aware(m['kickoff']):%d %b %Y, %H:%M} SAST\n\n"+'\n'.join('• '+f for f in facts)
-    caption+=f"\n\nSample: last five completed matches in the same league/season, all venues.\n{m['home']}: {dates(home)}.\n{m['away']}: {dates(away)}.\nSource: Highlightly; repeat catalogs/latest details checked {now:%d %b, %H:%M} SAST (same provider).\n\nYour pick: {m['home']}, draw or {m['away']}? Comment below.\n\n"+hashtags(m['league'],(m['home'],m['away']))
+    caption+=f"\n\nSample: last five completed matches in the same league/season, all venues.\n{m['home']}: {dates(home)}.\n{m['away']}: {dates(away)}.\n\nYour pick: {m['home']}, draw or {m['away']}? Comment below.\n\n"+hashtags(m['league'],(m['home'],m['away']))
     spec={'kind':'team-comparison','home':m['home'],'away':m['away'],'league':LEAGUES[m['league']][0],
           'kickoff':m['kickoff'],'rows':rows,'period':'LAST 5 LEAGUE MATCHES • ALL VENUES',
           'checked_at':now.isoformat()}
@@ -236,7 +236,7 @@ def build(cfg,state,now,api=None):
                     value=f"{m['score'][0]}–{m['score'][1]} ({m['status']})" if final else f"{aware(m['kickoff']):%H:%M} SAST · {m['status']}"
                     lines.append(f"{m['home']} vs {m['away']} — {value}")
                 if not subset:lines.append('No confirmed finals in this bulletin.' if final else 'No fixtures listed in the verified schedule.')
-            lines+=['',f"Source: Highlightly · checked {now:%d %b %Y, %H:%M} SAST",'',hashtags() if final else hashtags().replace('#FootballResults','#FootballFixtures')]
+            lines+=['',hashtags() if final else hashtags().replace('#FootballResults','#FootballFixtures')]
             caption='\n'.join(lines)
             if len(caption)>12000:return None,'bulletin too long; editorial review required'
             post=content.candidate('editorial',slotkey,f"{'results' if final else 'fixtures'}:{day}:{slot}",caption,fixture_ids=[m['id'] for m in rows],snapshot=rows)
@@ -281,5 +281,5 @@ def story(api,book,state,now):
         facts.append(f"{clock}': {name} — {'red card' if kind=='Red Card' else 'goal'}.")
     if not facts:return None
     caption=f"{m['home']} {m['score'][0]}–{m['score'][1]} {m['away']} | {m['status']}\n{LEAGUES[m['league']][0]} · {aware(m['kickoff']):%d %b %Y}\n\n"+'\n'.join('• '+f for f in facts)
-    caption+=f"\n\nSelected verified incidents, not a complete commentary. Source: Highlightly; checked {now:%H:%M} SAST.\nWhich moment stood out?\n\n"+hashtags(m['league'],(m['home'],m['away']))
+    caption+=f"\n\nSelected verified incidents, not a complete commentary.\nWhich moment stood out?\n\n"+hashtags(m['league'],(m['home'],m['away']))
     return content.candidate('editorial',f"story:{m['id']}",f"story:{m['id']}",caption,fixture_ids=[m['id']],snapshot=[m])

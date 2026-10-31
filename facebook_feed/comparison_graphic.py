@@ -40,8 +40,6 @@ def render(spec,path):
         centered(left,y,36,True,x=175,maxwidth=160)
         centered(label,y+5,23,x=540,maxwidth=480)
         centered(right,y,36,True,x=905,maxwidth=160)
-    centered('Source: Highlightly · list/detail cross-checked',1170,23,color=muted)
-    centered('Checked '+local(spec['checked_at']).strftime('%d %b %Y, %H:%M SAST'),1210,22,color=muted)
     centered('Different team samples · same league / season · no forecasts',1260,22,color=muted)
     path=Path(path);path.parent.mkdir(parents=True,exist_ok=True)
     image.convert('RGB').save(path,quality=94)
