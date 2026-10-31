@@ -48,7 +48,7 @@ jobs:
     timeout-minutes: 30
     env:
       APP_VERSION_CODE: ${{ github.run_number }}
-      APP_VERSION_NAME: "1.6.87"
+      APP_VERSION_NAME: "1.6.88"
       APP_REPO: ${{ github.repository }}
     steps:
       - uses: actions/checkout@v4.4.0
@@ -155,7 +155,7 @@ jobs:
             adb install "$RUNNER_TEMP/previous.apk"
             adb install -r "$RUNNER_TEMP/Mr2Odds.apk"
             adb shell am start -W -n com.playreport.app/.MainActivity
-            adb shell dumpsys package com.playreport.app | grep 'versionName=1.6.87'
+            adb shell dumpsys package com.playreport.app | grep 'versionName=1.6.88'
 
       - name: Unit tests (host allowlist, update digest)
         run: |

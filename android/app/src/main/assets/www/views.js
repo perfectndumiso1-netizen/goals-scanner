@@ -475,14 +475,38 @@
   }
 
   // ------------------------------------------------------------------ HOME
+  // The drill-down and its Home count must use the same local-day definition.
+  function matchdayFixtures(fixtures, analysedOnly) {
+    const today = ymd(tzNow());
+    return fixtures.filter((f) => f.date === today && (!analysedOnly || f.data_ok));
+  }
+  function matchdayStats(fixtures, signals, liveN) {
+    const stat = (key, n, label, description) => `<button type="button" class="matchday-stat" data-matchday="${key}" aria-label="${esc(description)}"><b>${n}</b><span>${label}</span></button>`;
+    return `<div class="hero-nums matchday-stats">${stat('fixtures', fixtures.length, 'Fixtures', 'View today’s fixtures')}${stat('analysed', fixtures.filter((f) => f.data_ok).length, 'Analysed', 'View all analysed matches today')}${stat('signals', signals.length, 'Signals', 'View today’s high-probability signals')}${stat('live', liveN, 'Live', 'View matches in play')}</div>`;
+  }
+  function openMatchday(key) {
+    if (key === 'fixtures' || key === 'analysed') {
+      state.search = ''; // An older search must not silently hide this collection.
+      state.matchFilter = key === 'analysed' ? 'analysed' : 'today';
+      state.sort = 'ko'; state.matchesView = 'time';
+      PR.setTab('matches');
+    } else if (key === 'signals') {
+      state.betsView = 'safest'; state.betGroup = 'all'; state.safestAll = false;
+      PR.setTab('bets');
+    } else if (key === 'live') {
+      // Match the counter: worldwide when loaded, tracked in-play until then.
+      state.liveView = Array.isArray(state.liveAll) ? 'all' : 'tracked';
+      PR.setTab('live');
+    }
+  }
   PR.views.home = function () {
     const d = state.data, m = d.meta, sf = d.safe || { bets: [] }; const parts = [];
-    const todayFixtures = d.fixtures.filter((f) => f.date === ymd(tzNow()));
+    const todayFixtures = matchdayFixtures(d.fixtures, false);
     const collections = homeCollections(d);
     const inPlay = live.inPlay(); const cov = m.coverage || {};
     const safe = safeList('all').filter(sameDay);   // only matches played on this day — never future fixtures
     const dayLabel = String(dayName(m.generated || '')).replace(/^Today · /, '');
-    const liveN = (state.liveAll || []).length || inPlay.length;
+    const liveN = Array.isArray(state.liveAll) ? state.liveAll.length : inPlay.length;
     const genDt = parseLocal(m.generated || '');
     const ageMin = genDt ? Math.max(0, Math.round((tzNow() - genDt) / 60000)) : null;
     const hAlerts = Array.isArray(m.health_alerts) ? m.health_alerts : [];
@@ -493,7 +517,7 @@
     parts.push(`<section class="card hero matchday-hero home-stadium">
       <div class="pitch-art" aria-hidden="true"><i></i><span></span></div>
       <div class="matchday-heading"><div><div class="eyebrow">THE MATCHDAY PICTURE</div><div class="matchday-intro">One game. Every angle.</div></div><span class="coverage-tag">${cov.competitions || '–'} competitions</span></div>
-      <div class="hero-nums matchday-stats"><div><b>${todayFixtures.length}</b><span>Fixtures</span></div><div><b>${todayFixtures.filter((f) => f.data_ok).length}</b><span>Analysed</span></div><div><b>${safe.length}</b><span>Signals</span></div><div><b>${liveN}</b><span>Live</span></div></div>
+      ${matchdayStats(todayFixtures, safe, liveN)}
       <div class="matchday-foot"><span>Next update <b>${esc(koTime(m.next_run || ''))}</b></span><span class="coverage-line">${cov.priced || 0} priced${m.odds_asof ? ` · prices from ${esc(koTime(m.odds_asof))} (book refresh blocked)` : ' by Sportybet'}</span></div>
       ${inPlay.length ? `<div class="live-strip" data-tab-go="live"><span class="status-dot live"></span><div class="grow"><b>${inPlay.length} tracked in play</b> · ${inPlay.slice(0, 2).map((f) => { const s = live.for(f); return `${esc(f.home)} ${s.hg}–${s.ag} ${esc(f.away)}`; }).join(' · ')}${inPlay.length > 2 ? ' …' : ''}</div>${icon('next', 'sm')}</div>` : ''}</section>`);
     if (state.homeTab !== 'eighty') parts.push(strongMarketsCard(d));
@@ -515,6 +539,7 @@
     const wn = $('#wn-close'); if (wn) wn.onclick = () => { settings.seenVersion = PR.APP_VERSION; PR.saveSettings(); PR.render(); };
   };
   function wireCommon() {
+    $$('[data-matchday]').forEach((b) => { b.onclick = (e) => { e.stopPropagation(); openMatchday(b.dataset.matchday); }; });
     $$('[data-bets]').forEach((b) => { b.onclick = (e) => { e.stopPropagation(); state.betsView = b.dataset.bets; PR.setTab('bets'); }; });
     $$('[data-tab-go]').forEach((b) => { b.onclick = (e) => { e.stopPropagation(); if (b.dataset.mfGo) state.matchFilter = b.dataset.mfGo; PR.setTab(b.dataset.tabGo); }; });
     $$('[data-page-go]').forEach((b) => { b.onclick = (e) => { e.stopPropagation(); PR.push({ type: b.dataset.pageGo }); }; });
@@ -765,7 +790,8 @@
   PR.views.matches = function () {
     const d = state.data; const q = (state.search || '').trim().toLowerCase(); const key = state.sort || 'ko'; const filt = state.matchFilter || 'all'; const mode = state.matchesView || 'time';
     let lst = d.fixtures.filter((f) => !q || `${f.home} ${f.away} ${f.competition} ${f.country}`.toLowerCase().includes(q));
-    if (filt === 'priced') lst = lst.filter((f) => f.priced);
+    if (filt === 'today' || filt === 'analysed') lst = matchdayFixtures(lst, filt === 'analysed');
+    else if (filt === 'priced') lst = lst.filter((f) => f.priced);
     else if (filt === 'safe') lst = lst.filter((f) => f.safe);
     else if (filt === 'major') lst = lst.filter((f) => f.major);
     else if (filt === 'ok') lst = lst.filter((f) => f.data_ok);
@@ -774,7 +800,7 @@
     const best = (f) => (f.top ? f.top[1] : 0);
     const parts = [`<div class="card compact"><div class="searchbar"><div class="field">${icon('search')}<input id="fx-search" placeholder="Search team, league or country" value="${esc(state.search || '')}">${q ? `<button class="link" id="fx-clear">${icon('x')}</button>` : ''}</div></div>
       <div style="margin-top:8px">${segmented([['time', `${icon('clock')} By time`], ['comp', `${icon('trend')} By country & competition`]], mode, 'mmode')}</div>
-      <div class="chips small-chips" style="margin-top:6px">${[['all', `All ${d.fixtures.length}`], ['live', '🔴 Live'], ['fav', '★ Favourites'], ['major', '🏆 Major'], ['priced', 'Priced'], ['safe', '📈 High probability'], ['ok', 'Enough data']].map(([k, l]) => `<button class="chip tapchip ${filt === k ? 'on' : ''}" data-mf="${k}">${l}</button>`).join('')}
+      <div class="chips small-chips" style="margin-top:6px">${[['all', `All ${d.fixtures.length}`], ['today', 'Today'], ['analysed', 'Analysed today'], ['live', '🔴 Live'], ['fav', '★ Favourites'], ['major', '🏆 Major'], ['priced', 'Priced'], ['safe', '📈 High probability'], ['ok', 'Enough data']].map(([k, l]) => `<button class="chip tapchip ${filt === k ? 'on' : ''}" data-mf="${k}">${l}</button>`).join('')}
       ${mode === 'time' ? select('fx-sort', [['ko', 'Kick-off'], ['safe', 'Best bet first'], ['O25', 'Over 2.5'], ['O15', 'Over 1.5'], ['BTTS', 'BTTS'], ['H', 'Home win']], key) : ''}</div></div>`];
     if (q) globalSearchParts(parts, q, d);
     if (!q && (filt === 'all' || filt === 'live')) {
@@ -784,7 +810,7 @@
       if (gone == null && !state.days[today + '_loading']) { state.days[today + '_loading'] = true; PR.loadDay(today).then(() => PR.render()).catch(() => {}); }
       if (gone) parts.push(`<div class="card compact list-item tap" data-day-results="${today}"><div class="row"><span>🏁</span><div class="grow small"><b>${gone} match${gone === 1 ? '' : 'es'} finished earlier today</b><div class="tiny muted">Final scores, statistics, goals and how the bets settled</div></div>${icon('next')}</div></div>`);
     }
-    if (!lst.length) parts.push(`<div class="card empty">${filt === 'fav' ? 'No favourite matches yet — open a match and tap ☆ in its header.' : `No matches found${q ? ` for “${esc(q)}”` : ''}.`}</div>`);
+    if (!lst.length) parts.push(`<div class="card empty">${filt === 'fav' ? 'No favourite matches yet — open a match and tap ☆ in its header.' : filt === 'analysed' && !q ? 'No analysed matches for today yet.' : filt === 'today' && !q ? 'No fixtures for today yet.' : `No matches found${q ? ` for “${esc(q)}”` : ''}.`}</div>`);
     else if (mode === 'time') {
       lst = lst.slice().sort((a, b) => key === 'ko' ? a.kickoff.localeCompare(b.kickoff) || a.competition.localeCompare(b.competition) : key === 'safe' ? best(b) - best(a) : key === 'H' ? (b.x12[0] || 0) - (a.x12[0] || 0) : (b.p[key] || 0) - (a.p[key] || 0));
       const max = state.expanded.matches ? lst.length : 250; let lastDay = null, lastHour = null;
