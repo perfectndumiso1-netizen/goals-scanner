@@ -18,7 +18,17 @@ TAGS={'psl':'#PSL #SouthAfricanFootball','epl':'#PremierLeague','laliga':'#LaLig
 FINAL={'Finished','Finished after extra time','Finished after penalties'}
 
 
-def due(now):
+def schedule(cfg=None):
+    if cfg and cfg.get('editorial',{}).get('package_mode'):
+        from .match_packages import SLOTS as packages
+        return packages
+    return SLOTS
+
+
+def due(now,cfg=None):
+    if cfg and cfg.get('editorial',{}).get('package_mode'):
+        from .match_packages import due as package_due
+        return package_due(now)
     now=content.local(now)
     for clock,slot in SLOTS:
         target=now.replace(hour=int(clock[:2]),minute=int(clock[3:]),second=0,microsecond=0)
@@ -158,7 +168,8 @@ def sample(api,book,target,side,now):
         home=m['home_id']==tid
         if m['home' if home else 'away']!=name:raise ProviderError('Historical team name/identity conflict')
         gf,ga=m['score'] if home else reversed(m['score'])
-        verified.append({'id':m['id'],'date':m['kickoff'],'gf':gf,'ga':ga})
+        verified.append({'id':m['id'],'date':m['kickoff'],'gf':gf,'ga':ga,
+                         'opponent':m['away' if home else 'home'],'venue':'H' if home else 'A'})
     return {'matches':verified,'scored':sum(m['gf'] for m in verified),'conceded':sum(m['ga'] for m in verified),
             'wins':sum(m['gf']>m['ga'] for m in verified),'clean':sum(m['ga']==0 for m in verified),
             'draws':sum(m['gf']==m['ga'] for m in verified),'losses':sum(m['gf']<m['ga'] for m in verified),
@@ -199,6 +210,9 @@ def comparison(api,book,m,now):
 
 
 def build(cfg,state,now,api=None):
+    if cfg.get('editorial',{}).get('package_mode'):
+        from .match_packages import build as package_build
+        return package_build(cfg,state,now,api)
     settings=cfg.get('editorial',{})
     slot=due(now)
     if not settings.get('enabled') or not slot:return None,'editorial disabled or outside scheduled slot'

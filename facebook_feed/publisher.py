@@ -75,6 +75,8 @@ class PageFeed:
         return data
 
     def send(self,post):
+        if post.get('images'):
+            raise PublishError('Two-picture posts require durable media staging; single-photo fallback blocked')
         if post.get('operation')=='edit':
             target=post['target_id']
             if not target.startswith(self.page+'_'):
@@ -100,6 +102,56 @@ class PageFeed:
         if not re.fullmatch(re.escape(self.page)+r'_\d+',identity):
             raise PublishError('No verifiable Page post ID returned; publication outcome unknown')
         return identity
+
+    def stage_package(self,images,checkpoint):
+        """Upload exactly two UNPUBLISHED photos. Never creates a feed post here."""
+        if not isinstance(images,list) or len(images)!=2 or len(set(map(str,images)))!=2:
+            raise PublishError('A match package needs two distinct pictures')
+        paths=[Path(p) for p in images]
+        if any(not p.is_file() or not 0<p.stat().st_size<=8*1024*1024 for p in paths):
+            raise PublishError('Package picture missing or exceeds size cap')
+        ids=[]
+        for index,path in enumerate(paths):
+            boundary='MatchPackage'+uuid.uuid4().hex
+            body=(f'--{boundary}\r\nContent-Disposition: form-data; name="published"\r\n\r\nfalse\r\n'
+                  f'--{boundary}\r\nContent-Disposition: form-data; name="source"; filename="match-{index+1}.jpg"\r\nContent-Type: image/jpeg\r\n\r\n').encode()
+            body+=path.read_bytes()+f'\r\n--{boundary}--\r\n'.encode()
+            result=self.call('POST',self.page+'/photos',body=body,content_type=f'multipart/form-data; boundary={boundary}')
+            identity=str(result.get('id',''))
+            if not re.fullmatch(r'[1-9]\d*',identity) or identity in ids:
+                raise PublishError('Photo staging acknowledgement invalid; no feed post created')
+            ids.append(identity);checkpoint(list(ids))
+        return ids
+
+    def send_package(self,post,media_ids):
+        if not isinstance(media_ids,list) or len(media_ids)!=2 or len(set(media_ids))!=2 or any(not isinstance(i,str) or not re.fullmatch(r'[1-9]\d*',i) for i in media_ids):
+            raise PublishError('Two durably checkpointed photo IDs required')
+        result=self.call('POST',self.page+'/feed',{'message':post['caption'],'published':'true',
+            'attached_media':json.dumps([{'media_fbid':i} for i in media_ids])})
+        identity=str(result.get('id',''))
+        if not re.fullmatch(re.escape(self.page)+r'_\d+',identity):
+            raise PublishError('Package feed acknowledgement missing; outcome unknown, no resend')
+        return identity
+
+    def verify_package_hash(self,identity,caption_hash,media_ids):
+        if not re.fullmatch(re.escape(self.page)+r'_\d+',identity) or not isinstance(media_ids,list) or len(media_ids)!=2 or len(set(media_ids))!=2:
+            raise PublishError('Package identity/media evidence unavailable; no resend')
+        data=self.call('GET',identity,{'fields':'id,message,is_published,attachments{target,subattachments{target}}'})
+        if (str(data.get('id'))!=identity or data.get('is_published') is not True or
+            hashlib.sha256(str(data.get('message','')).encode()).hexdigest()!=caption_hash):
+            raise PublishError('Package caption/publication not verified')
+        found=[]
+        try:
+            if data['attachments'].get('paging',{}).get('next'):raise PublishError('Partial package attachments; keep reservation')
+            for attachment in data['attachments']['data']:
+                if attachment.get('subattachments',{}).get('paging',{}).get('next'):raise PublishError('Partial package photos; keep reservation')
+                children=attachment['subattachments']['data'] if 'subattachments' in attachment else [attachment]
+                found.extend(str(child['target']['id']) for child in children)
+        except (KeyError,TypeError,AttributeError):
+            raise PublishError('Package attachments unavailable; keep reservation') from None
+        if found!=media_ids:
+            raise PublishError('Both package photos/order not verified; keep reservation')
+        return True
 
     def verify(self,identity,caption):
         if not identity.startswith(self.page+'_'):

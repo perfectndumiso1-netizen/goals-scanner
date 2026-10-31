@@ -183,7 +183,7 @@
     "poll_interval_minutes": 20,
     "max_pages_per_poll": 10,
     "max_details_per_poll": 2,
-    "scope": "Live publishing paused by owner. Scheduled factual fixtures/results and six hourly pre-match comparison slots from PSL, LaLiga, EPL, Bundesliga, Ligue 1 and Serie A use verified match data. No live updates, predictions, odds, betting or video reuse. Full match-list and one detail access verified in owner-triggered diagnostic 41164360718 on 2026-10-31; publishing remains subject to 08:00\u201324:00 SAST, quota, freshness, baseline, meaningful-event and reservation safeguards.",
+    "scope": "Live publishing remains paused. Nine distinct pre-match editorial packages at 08:00\u201316:00 SAST, from the six approved leagues, each with comparison and last-five-results cards from the same verified samples. Shared 100/day allocation, factual checks, cooldowns and durable publication safeguards remain. No betting support or video reuse.",
     "verification_reference": "Owner-triggered run 41164360718 at 2026-10-31T05:26:13+02:00: verified_read_only, complete_day, 868 rows/9 pages, match_detail_verified=true, ready_for_activation=true; 0 Facebook requests.",
     "monitor_mode": "selected",
     "watchlist": {
@@ -211,15 +211,17 @@
     "picture_branding": true,
     "schedule_sast": {
       "07:30": "fixtures",
-      "08:30": "results",
-      "10:00": "psl",
-      "11:00": "epl",
-      "12:00": "laliga",
-      "13:00": "seriea",
-      "14:00": "bundesliga",
-      "15:00": "ligue1",
-      "19:30": "story",
-      "23:00": "evening"
-    }
+      "08:00": "match01",
+      "09:00": "match02",
+      "10:00": "match03",
+      "11:00": "match04",
+      "12:00": "match05",
+      "13:00": "match06",
+      "14:00": "match07",
+      "15:00": "match08",
+      "16:00": "match09"
+    },
+    "package_mode": true,
+    "match_posts_per_day": 9
   }
 }

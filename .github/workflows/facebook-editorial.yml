@@ -1,15 +1,13 @@
 name: Facebook scheduled football (10 factual slots)
 on:
   schedule:
-    # SAST = UTC+2: 07:30, 08:30, 19:30.
-    - cron: "30 5,6,17 * * *"
-    # Six featured matches, one hour apart: 10–15 SAST; finals at 23:00.
-    - cron: "0 8-13,21 * * *"
-    # Backup checks at slot +50 minutes, away from the busy :00/:30 queues.
-    # Same daily slot/ledger: never a second post after a successful attempt.
-    # +50 also permits the unchanged 45-minute spacing after a late prior slot.
-    - cron: "20 6,7,18 * * *"
-    - cron: "50 8-13,21 * * *"
+    # Keep the owner-requested combined fixtures bulletin, not six separate posts.
+    - cron: "30 5 * * *"
+    - cron: "50 5 * * *"
+    # Nine hourly two-picture match posts, 08:00–16:00 SAST (UTC+2).
+    - cron: "0 6-14 * * *"
+    # One +50-minute backup per SAME slot, not nine additional posts.
+    - cron: "50 6-14 * * *"
   workflow_dispatch:
     inputs:
       publish:

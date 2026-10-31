@@ -5,6 +5,9 @@ ROOT=Path(__file__).resolve().parents[1]
 
 
 def render(spec,path):
+    if spec.get('kind')=='recent-results':
+        from .recent_results_graphic import render as render_results
+        return render_results(spec,path)
     if spec.get('kind')=='team-comparison':
         from .comparison_graphic import render as render_comparison
         return render_comparison(spec,path)
