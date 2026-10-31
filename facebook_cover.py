@@ -63,17 +63,42 @@ def render_matches(picks,path,*,now=None):
     draw.rounded_rectangle((76,300,1004,598),radius=32,fill=(8,25,34,230),outline=GOLD,width=2)
     text(draw,total,540,326,170,True,fill=GOLD)
     text(draw,'Odds combined',540,515,51,True)
-    text(draw,'MATCHES IN THIS VIDEO',540,652,26,True,fill=GREEN)
-    # Five-match approved layout; up to eight still fit without inventing/omitting picks.
-    step=min(174,930//len(rows));height=step-18;size=min(94,height-28)
+    from player_photos import read as player_photo, paste as paste_player
+    from football_derbies import label as derby_label
+    featured=None
+    # One actual filmed matchup only, never ten competing portraits. For six to
+    # eight matches retain the spacious crest-only cover rather than shrink text.
+    if len(rows)<=5:
+        for row,pick in zip(rows,picks):
+            home=player_photo(row['home'],pick.get('country'),on=pick.get('kickoff') or today)
+            away=player_photo(row['away'],pick.get('country'),on=pick.get('kickoff') or today)
+            if home and away:
+                featured=(row,pick,home,away);break
+    start,room=722,930
+    if featured:
+        row,pick,home,away=featured
+        name=derby_label(row['home'],row['away'],pick.get('country')) or 'FEATURED MATCH'
+        text(draw,name.upper(),540,622,29,True,fill=GREEN)
+        paste_player(image,home,(145,675,405,945))
+        paste_player(image,away,(675,675,935,945))
+        text(draw,'VS',540,785,35,True,fill=GOLD)
+        text(draw,home[1],275,953,24,True,width=380)
+        text(draw,away[1],805,953,24,True,width=380)
+        start,room=1060,610
+    text(draw,'MATCHES IN THIS VIDEO',540,start-60,26,True,fill=GREEN)
+    # Up to eight still fit without inventing/omitting any filmed selections.
+    step=min(174,room//len(rows));height=step-18;size=min(94,height-28)
     for index,(row,pick) in enumerate(zip(rows,picks)):
-        y=722+index*step
+        y=start+index*step
         draw.rounded_rectangle((76,y,1004,y+height),radius=19,fill=(9,25,34,225),outline=(71,94,99,255),width=1)
         paste(image,row['home'],pick.get('country'),(162,y+height/2),size)
         paste(image,row['away'],pick.get('country'),(918,y+height/2),size)
-        text(draw,row['home'],365,y+height/2-17,30,True,width=280)
-        text(draw,'vs',540,y+height/2-14,25,fill=MUTED)
-        text(draw,row['away'],715,y+height/2-17,30,True,width=280)
+        derby=derby_label(row['home'],row['away'],pick.get('country'))
+        offset=12 if derby else 0
+        text(draw,row['home'],365,y+height/2-17-offset,30,True,width=280)
+        text(draw,'vs',540,y+height/2-14-offset,25,fill=MUTED)
+        text(draw,row['away'],715,y+height/2-17-offset,30,True,width=280)
+        if derby:text(draw,derby.upper(),540,y+height/2+19,22,True,fill=GREEN,width=500)
     text(draw,'No outcome is guaranteed.',540,1780,25,fill=MUTED)
     path=Path(path);path.parent.mkdir(parents=True,exist_ok=True)
     image.convert('RGB').save(path,quality=95)
