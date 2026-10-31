@@ -21,3 +21,16 @@ def text(draw,value,x,y,size=30,bold=False,fill=WHITE,width=950):
     while draw.textlength(value,font=f)>width and size>22:size-=1;f=font(size)
     if draw.textlength(value,font=f)>width:raise ValueError('Football artwork text too long; editorial review required')
     draw.text((x,y),value,font=f,fill=fill,anchor='mt')
+
+
+def brand(image,draw,y=82,size=27):
+    """Owner-selected existing logo, isolated from every match/statistic text box."""
+    from PIL import Image
+    logo=Image.open(ROOT/'assets/reel/logo.png').convert('RGBA')
+    bounds=logo.getchannel('A').getbbox()
+    if not bounds:raise ValueError('Mr 2 Odds logo is empty')
+    logo=logo.crop(bounds);logo.thumbnail((72,72),Image.Resampling.LANCZOS)
+    position=(380,y-20)
+    if image.mode=='RGBA':image.alpha_composite(logo,position)
+    else:image.paste(logo,position,logo)
+    text(draw,'MR 2 ODDS',585,y,size,True,fill=MUTED,width=300)

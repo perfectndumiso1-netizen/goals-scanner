@@ -2693,10 +2693,14 @@ def _telegram_state(now: datetime) -> tuple[Path, dict]:
     except (OSError, ValueError):
         st = {}
     hist = _seed_briefing_history(st.get("briefing_history"), now)
+    cut=(now.date()-timedelta(days=7)).isoformat()
+    editions={k:v for k,v in (st.get('briefing_editions') or {}).items() if k>=cut}
+
     if st.get("day") != today:
-        st = {"day": today, "sent": [], "briefing_history": hist}
+        st = {"day": today, "sent": [], "briefing_history": hist,"briefing_editions":editions}
     else:
         st["briefing_history"] = hist
+        st["briefing_editions"] = editions
     return path, st
 
 
@@ -2797,15 +2801,26 @@ def maybe_send_daily_reel(sl_pub: dict, now: datetime) -> None:
     except Exception as exc:  # noqa: BLE001 - a build failure must never take the scan down
         log.warning("Daily reel skipped: %s", exc)
         return
+    try:
+        # The renderer may drop a candidate. Persist what it actually filmed,
+        # never the pre-render pool and never infer edition boundaries tomorrow.
+        filmed=json.loads((work/'build_meta.json').read_text(encoding='utf-8'))['picks']
+        def line(p):return tuple(p.get(k) for k in ('home','away','sel','kickoff','country','odds'))
+        if not isinstance(filmed,list) or not 5<=len(filmed)<=8 or len({line(p) for p in filmed})!=len(filmed) or any(line(p) not in {line(x) for x in prim_enriched} for p in filmed):
+            raise ValueError('Filmed manifest mismatch')
+    except (OSError,KeyError,ValueError,TypeError):
+        log.error('Video delivery skipped: exact filmed manifest missing or changed; keep render for inspection.')
+        return
     if facebook_mod.requested():
         # Render from the same card, with a portrait layout — never crop or upload the landscape cut.
         out_9x16.unlink(missing_ok=True)
         try:
-            meta_file = work / "build_meta.json"
-            filmed = json.loads(meta_file.read_text(encoding="utf-8")).get("picks") or prim_enriched
             reel_mod.build(filmed, out_9x16, assets=assets, work=work / "facebook-9x16",
                            fixtures=fixtures, yesterday_results=None, recap=False, aspect="9:16",
                            fx_dir=APP_FILE.parent / "fx", leagues_dir=APP_FILE.parent / "leagues")
+            portrait_filmed=json.loads((work/'facebook-9x16/build_meta.json').read_text(encoding='utf-8'))['picks']
+            if [line(p) for p in portrait_filmed]!=[line(p) for p in filmed]:
+                raise ValueError('Portrait differs from recorded video accumulator')
         except Exception:
             # The Telegram sender below retains the source if the portrait render is missing.
             out_9x16.unlink(missing_ok=True)
@@ -2815,7 +2830,7 @@ def maybe_send_daily_reel(sl_pub: dict, now: datetime) -> None:
     posted, handed_off = None, None
     if yt_mod is not None:
         try:
-            posted = yt_mod.publish_shortlist(out_16x9, day=today, picks=prim_enriched, slot=slot,
+            posted = yt_mod.publish_shortlist(out_16x9, day=today, picks=filmed, slot=slot,
                                               recap="")
             if posted:
                 log.info("YouTube: shortlist live as %s (%s)", posted.get("id"), posted.get("privacy"))
@@ -2854,7 +2869,12 @@ def maybe_send_daily_reel(sl_pub: dict, now: datetime) -> None:
     if ok_16x9 or posted or handed_off or facebook_mod.published_id(out_9x16):
         st["briefing"] = today
         st["briefing_slots"] = {**slots, today: already + [slot]}
-        st["briefing_history"] = record_briefing_picks(hist, today, prim_enriched)
+        st["briefing_history"] = record_briefing_picks(hist, today, filmed)
+        try:
+            import video_accumulators
+            st['briefing_editions']=video_accumulators.record(st.get('briefing_editions'),today,slot,filmed,now.isoformat())
+        except ValueError:
+            log.error('Delivered video edition manifest incomplete; never guess its accumulator.')
         try:
             path.parent.mkdir(parents=True, exist_ok=True)
             path.write_text(json.dumps(st, ensure_ascii=False), encoding="utf-8")

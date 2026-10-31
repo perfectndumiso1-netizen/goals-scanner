@@ -7,8 +7,6 @@ from __future__ import annotations
 import json
 from datetime import datetime
 from pathlib import Path
-import pandas as pd
-import safe
 
 
 def selections(payload):
@@ -35,6 +33,8 @@ def selections(payload):
 
 
 def update(book, picks, results, now):
+    import pandas as pd
+    import safe
     df = pd.DataFrame(book, columns=safe.SAFE_BET_COLS)
     existing = set(zip(df.match_date, df.country, df.home, df.away, df.sel))
     new = []
@@ -98,11 +98,18 @@ def load(path):
 
 def video_results(book, history):
     """Recap the exact filmed lines/prices, not whatever later replaced them on the board."""
-    index = {(p.get('match_date'), p['home'], p['away'], p['sel']): p for p in book}
-    out = []
+    index={}
+    for p in book:
+        key=(p.get('match_date'),p.get('home'),p.get('away'),p.get('sel'))
+        index.setdefault(key,[]).append(p)
+    out=[]
     for p in history:
-        day = str(p.get('kickoff') or '')[:10]
-        r = index.get((day, p.get('home'), p.get('away'), p.get('sel')))
-        if r and r.get('status') in ('hit', 'miss', 'void'):
-            out.append({**p, 'result': r['status'], 'score': r.get('score')})
+        day=str(p.get('kickoff') or '')[:10]
+        candidates=[r for r in index.get((day,p.get('home'),p.get('away'),p.get('sel')),[])
+                    if not p.get('country') or r.get('country')==p['country']]
+        # Conflicting/ambiguous ledger records are not permission to pick a win.
+        if len(candidates)!=1:continue
+        r=candidates[0]
+        if r.get('status') in ('hit','miss','void'):
+            out.append({**p,'result':r['status'],'score':r.get('score')})
     return out

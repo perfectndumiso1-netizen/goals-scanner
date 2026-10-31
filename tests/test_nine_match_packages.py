@@ -39,12 +39,12 @@ def test_legacy_bulletins_no_longer_overlap_nine_match_posts(cfg,hour,minute):
 
 def test_config_and_workflow_only_nine_primary_plus_same_slot_backups(cfg):
     assert cfg['editorial']['max_posts_per_day']==10 and cfg['editorial']['match_posts_per_day']==9 and cfg['editorial']['package_mode'] is True
-    assert cfg['editorial']['schedule_sast']==dict(packages.SLOTS)
+    assert cfg['editorial']['schedule_sast']==dict(packages.schedule(cfg))
     wf=yaml.safe_load((ROOT/'.github/workflows/facebook-editorial.yml').read_text())
     on=wf.get('on',wf.get(True))
     assert on['schedule']==[{'cron':'30 5 * * *'},{'cron':'50 5 * * *'},{'cron':'0 6-14 * * *'},{'cron':'50 6-14 * * *'}]
     assert wf['jobs']['content']['with']['bootstrap'] is False
-    assert cfg['authorized_kinds']==['editorial'] and cfg['highlightly']['daily_request_budget']==100
+    assert cfg['authorized_kinds']==['editorial','results'] and cfg['highlightly']['daily_request_budget']==100
 
 
 def test_comparison_and_results_use_identical_verified_sample_with_no_extra_api(cfg):
@@ -305,7 +305,8 @@ def test_workflow_durable_media_upload_precedes_feed_creation():
     assert '--media-checkpoint' in send['run']
 
 
-def test_combined_730_fixtures_are_preserved_and_first_match_respects_spacing(cfg):
+def test_legacy_combined_730_fixtures_require_explicit_selection_and_spacing(cfg):
+    cfg['editorial']['morning_bulletin']='fixtures'
     at=NOW.replace(hour=7,minute=30);api=Fake(at);s={}
     post,reason=e.build(cfg,s,at,api);assert post,reason
     assert not post.get('graphics') and post['topic'].startswith('fixtures:')

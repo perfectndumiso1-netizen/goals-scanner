@@ -20,15 +20,15 @@ FINAL={'Finished','Finished after extra time','Finished after penalties'}
 
 def schedule(cfg=None):
     if cfg and cfg.get('editorial',{}).get('package_mode'):
-        from .match_packages import SLOTS as packages
-        return packages
+        from .match_packages import schedule as packages
+        return packages(cfg)
     return SLOTS
 
 
 def due(now,cfg=None):
     if cfg and cfg.get('editorial',{}).get('package_mode'):
         from .match_packages import due as package_due
-        return package_due(now)
+        return package_due(now,cfg)
     now=content.local(now)
     for clock,slot in SLOTS:
         target=now.replace(hour=int(clock[:2]),minute=int(clock[3:]),second=0,microsecond=0)

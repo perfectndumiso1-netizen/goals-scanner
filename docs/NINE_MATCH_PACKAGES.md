@@ -1,3 +1,5 @@
+> **Latest owner update:** [Morning Advisor and separate video accumulators](MORNING_ADVISOR_AND_VIDEO_RESULTS.md) supersedes the 07:30 fixtures bulletin with published Bet Advisor 1X2 picks, adds one 06:00 video recap with independent accumulator sections, and uses the selected **Mr 2 Odds** logo on future pictures. The nine two-picture match targets remain. Older timetable/branding descriptions below are historical.
+
 # Nine match packages per day
 
 Supersedes the six league-specific feature slots and old 08:30/results,

@@ -136,9 +136,10 @@
   },
   "editorial_competitions": [],
   "authorized_kinds": [
-    "editorial"
+    "editorial",
+    "results"
   ],
-  "results_time": "08:00",
+  "results_time": "06:00",
   "score_source": "highlightly",
   "app_scores": {
     "rights_confirmed": false,
@@ -210,7 +211,7 @@
     "caption_branding": false,
     "picture_branding": true,
     "schedule_sast": {
-      "07:30": "fixtures",
+      "07:30": "predictions",
       "08:00": "match01",
       "09:00": "match02",
       "10:00": "match03",
@@ -222,6 +223,7 @@
       "16:00": "match09"
     },
     "package_mode": true,
-    "match_posts_per_day": 9
+    "match_posts_per_day": 9,
+    "morning_bulletin": "advisor_1x2"
   }
 }

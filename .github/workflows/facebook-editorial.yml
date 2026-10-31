@@ -1,7 +1,7 @@
-name: Facebook scheduled football (10 factual slots)
+name: Facebook scheduled posts (nine matches + 1X2)
 on:
   schedule:
-    # Keep the owner-requested combined fixtures bulletin, not six separate posts.
+    # Owner replaced the combined fixtures bulletin with published Advisor 1X2 predictions.
     - cron: "30 5 * * *"
     - cron: "50 5 * * *"
     # Nine hourly two-picture match posts, 08:00–16:00 SAST (UTC+2).

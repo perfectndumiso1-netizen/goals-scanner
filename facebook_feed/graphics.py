@@ -38,7 +38,8 @@ def render(spec,path):
         return y
     draw.rounded_rectangle((30,30,1050,1320),radius=28,fill='#12243b',outline='#24dbb8',width=3)
     draw.rectangle((70,73,82,126),fill='#24dbb8')
-    draw.text((104,78),spec.get('header','MR 2 ODDS ZA'),font=font(38,True),fill='#ffffff')
+    from football_artwork import brand
+    brand(image,draw,y=82,size=29)
     y=text_block(spec['title'],72,175,size=35,bold=True,fill='#24dbb8')+20
     y=text_block(spec['subtitle'],72,y,size=33,bold=True)+10
     y=text_block(spec['context'],72,y,size=25,fill='#c3d1e2')+30

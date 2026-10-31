@@ -309,42 +309,50 @@ def morning_results(root, now, config):
     except (KeyError, TypeError, ValueError):
         return None
     day = (now.date()-timedelta(days=1)).isoformat()
-    history = (load(root/'telegram_state.json', {}) or {}).get('briefing_history', {}).get(day, [])
-    unique = {}
-    for p in history:
-        if not isinstance(p, dict) or str(p.get('kickoff', ''))[:10] != day:
-            continue
-        if not all(isinstance(p.get(k), str) and p[k].strip() for k in ('home','away','sel')):
-            continue
-        key = (p['home'], p['away'], p['sel'], p['kickoff'])
-        unique.setdefault(key, p)
-    if not unique or len(unique)>24:
-        return None
-    filmed = list(unique.values())
-    settled = advisor_tracking.video_results(load(root.parent/'advisor_ledger.json', []), filmed)
-    resolved = {(p['home'],p['away'],p['sel'],p['kickoff']):p for p in settled}
-    won = sum(p['result']=='hit' for p in settled)
-    lost = sum(p['result']=='miss' for p in settled)
-    void = sum(p['result']=='void' for p in settled)
-    lines = ['MR 2 ODDS — YESTERDAY’S VIDEO RESULTS', day,
-             f'Latest app publication: {generated:%d %b %H:%M} SAST',
-             f'{won} won · {lost} lost · {void} void · {len(filmed)-len(settled)} not yet settled',
-             f'All {len(filmed)} filmed selections across the day’s editions; no winning-only selection.', '']
-    for key, p in unique.items():
-        r = resolved.get(key)
-        label = p.get('label') or p['sel']
-        status = {'hit':'WON','miss':'LOST','void':'VOID'}.get((r or {}).get('result'), 'NOT YET SETTLED')
-        score = ''
-        if r and r.get('score') not in (None, '', '-'):
-            value=str(r['score'])
-            score=f" · FT goals {value}" if re.fullmatch(r"\d+\s*[-–:]\s*\d+",value) else f" · recorded {value}"
-        price = ''
-        try:
-            odds = float(p['odds'])
-            if 1 < odds < 1000:price=f' @ {odds:.2f}'
-        except (KeyError, TypeError, ValueError):pass
-        lines += [f"{p['home']} v {p['away']}", f'{label}{price} · {status}{score}', '']
-    lines += ['Original filmed selections and prices; verified settlement from the app ledger.',
-              'Unsettled picks are excluded from win/loss totals. Past results do not guarantee future outcomes.']
-    return candidate('results', f'video-results:{day}', f'video-results:{day}', '\n'.join(lines),
-                     result_date=day, fixture_ids=[])
+    import video_accumulators
+    state=load(root/'telegram_state.json',{}) or {}
+    try:editions,unassigned=video_accumulators.groups(state,day)
+    except ValueError:return None
+    if not editions and not unassigned:return None
+    if sum(len(picks) for _,picks in editions)+len(unassigned)>48:return None
+    ledger=load(root.parent/'advisor_ledger.json',[])
+    lines=['YESTERDAY’S VIDEO ACCUMULATOR RESULTS',day,'']
+    snapshot=[]
+    def legs(picks):
+        settled=advisor_tracking.video_results(ledger,picks)
+        lookup={(p['home'],p['away'],p['sel'],p['kickoff'],p.get('country')):p for p in settled}
+        return [lookup.get((p['home'],p['away'],p['sel'],p['kickoff'],p.get('country')),dict(p,result='pending')) for p in picks]
+    def describe(picks):
+        for p in picks:
+            status={'hit':'WON','miss':'LOST','void':'VOID'}.get(p.get('result'),'PENDING')
+            price=''
+            try:price=f" @ {video_accumulators.price(p.get('odds')):.2f}"
+            except ValueError:pass
+            score=''
+            value=str(p.get('score') or '')
+            if re.fullmatch(r"\d+\s*[-–:]\s*\d+",value):score=f' · FT goals {value}'
+            lines.extend([f"{p['home']} v {p['away']}",f"{p.get('label') or p['sel']}{price} · {status}{score}",''])
+    for slot,picks in editions:
+        resolved=legs(picks);result=video_accumulators.settle(resolved)
+        lines.append(f"{slot.upper()} VIDEO — SEPARATE ACCUMULATOR: {result['status']}")
+        if result['original_odds'] is not None:lines.append(f"Original combined odds: {result['original_odds']:.2f}")
+        if result['status']=='WON' and any(p.get('result')=='void' for p in resolved) and result['settled_odds'] is not None:
+            lines.append(f"Void-adjusted combined odds: {result['settled_odds']:.2f}")
+        if result['return_units'] is not None:
+            lines.append(f"Per 1-unit stake: return {result['return_units']:.2f} · profit {result['profit_units']:+.2f} units")
+        else:lines.append('Return not final / original prices unavailable; no invented payout.')
+        describe(resolved);snapshot.append({'edition':slot,'picks':resolved})
+    if unassigned:
+        # Prior versions merged editions. Never call that daily pool ONE acca or
+        # split it into guessed blocks of five/six, even if the result looks good.
+        lines+=['OLDER VIDEO GROUPING UNAVAILABLE',
+                'These original recorded legs lack per-video boundaries. No accumulator result or combined odds is calculated for this pooled list.','']
+        resolved=legs(unassigned);describe(resolved)
+        snapshot.append({'edition':'unassigned_legacy','picks':resolved})
+    lines+=['Each labelled video is settled independently. Void legs count at 1.00.',
+            'Pending legs are not wins. No daily mega-accumulator or winning-only selection.',
+            '18+ · Past results do not guarantee future outcomes.']
+    caption='\n'.join(lines)
+    if len(caption)>12000:return None
+    return candidate('results',f'video-results:{day}',f'video-results:{day}',caption,
+                     result_date=day,fixture_ids=[],snapshot=snapshot)

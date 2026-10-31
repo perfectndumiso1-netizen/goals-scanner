@@ -7,9 +7,14 @@ MATCH_SLOTS = tuple((f'{hour:02d}:00', f'match{hour-7:02d}') for hour in range(8
 SLOTS = (('07:30','fixtures'),) + MATCH_SLOTS
 
 
-def due(now):
+def schedule(cfg=None):
+    morning='predictions' if (cfg or {}).get('editorial',{}).get('morning_bulletin')=='advisor_1x2' else 'fixtures'
+    return (('07:30',morning),)+MATCH_SLOTS
+
+
+def due(now,cfg=None):
     now=content.local(now)
-    for clock,slot in reversed(SLOTS):
+    for clock,slot in reversed(schedule(cfg)):
         start=now.replace(hour=int(clock[:2]),minute=int(clock[3:]),second=0,microsecond=0)
         if timedelta(0)<=now-start<timedelta(hours=1):return slot
     return None
@@ -26,7 +31,9 @@ def recent_spec(post):
 
 
 def build(cfg,state,now,api=None):
-    now=content.local(now);slot=due(now)
+    now=content.local(now);slot=due(now,cfg)
+    if slot=='predictions':
+        return None,'Advisor predictions require the published Advisor source; no Highlightly fallback'
     if slot=='fixtures':
         legacy=dict(cfg,editorial=dict(cfg['editorial'],package_mode=False))
         return e.build(legacy,state,now,api)

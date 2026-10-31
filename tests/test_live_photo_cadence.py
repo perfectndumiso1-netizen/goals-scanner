@@ -101,7 +101,13 @@ def test_repeated_publication_history_fits_existing_restore_bound(cfg):
 
 
 def test_image_digest_is_reserved_and_tampering_stops_before_page_request(tmp_path,monkeypatch,cfg):
-    now=datetime.now(content.SAST)
+    # Fixed replay time: at local midnight 'now - 1h' is yesterday and must
+    # correctly be rejected, which is unrelated to the image tampering contract.
+    now=NOW
+    class Clock(datetime):
+        @classmethod
+        def now(cls,tz=None):return now
+    monkeypatch.setattr(cli,'datetime',Clock)
     p=policy.score_post([dict(match(),kickoff=(now-timedelta(hours=1)).isoformat())],{'posts':[]},now,cfg)
     p['expires_at']=(now+timedelta(minutes=3)).isoformat()
     image=tmp_path/'score.jpg';image.write_bytes(b'original')

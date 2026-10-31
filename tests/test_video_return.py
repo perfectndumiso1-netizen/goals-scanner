@@ -60,9 +60,9 @@ def test_exact_three_windows_and_timezone():
 def test_morning_results_include_losses_void_and_unsettled_and_original_prices(tmp_path,cfg):
     post=content.morning_results(result_source(tmp_path),NOW,cfg)
     assert post['key']=='video-results:2026-10-29'
-    assert '1 won · 1 lost · 1 void · 1 not yet settled' in post['caption']
-    assert 'All 4 filmed selections' in post['caption']
-    assert all(text in post['caption'] for text in ('WON','LOST','VOID','NOT YET SETTLED','@ 1.20'))
+    assert 'OLDER VIDEO GROUPING UNAVAILABLE' in post['caption']
+    assert 'No accumulator result or combined odds is calculated' in post['caption']
+    assert all(text in post['caption'] for text in ('WON','LOST','VOID','PENDING','@ 1.20'))
     assert '@ 9.00' not in post['caption']
     assert 'FT goals 2-1' in post['caption']
     state={'posts':[]};policy.reserve(post,state,NOW)
