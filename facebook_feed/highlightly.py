@@ -174,6 +174,11 @@ def diagnose(cfg,state,now,api=None):
         rows=api.matches();stamp=api.at
         phase='match_schema'
         parsed=[observation(row,now) for row in rows]
+        if cfg['highlightly'].get('monitor_mode','all')=='selected':
+            from .highlightly_watchlist import metadata,choose,summary
+            candidates=[m for row in rows if (m:=metadata(row,now)) is not None]
+            roster=choose(candidates,{},now,cfg['highlightly']['watchlist']['max_matches'])
+            report['selection_preview']=summary({'day':now.date().isoformat(),'selected':roster,'eligible_count':len(candidates),'status':'read_only_preview_not_committed'})
         usable=[m for m in parsed if m is not None]
         report.update(total_rows=len(rows),list_rows=len(rows),pages_read=max(1,(len(rows)+99)//100),
                       usable_observations=len(usable),coverage='complete_day')
@@ -197,6 +202,9 @@ def diagnose(cfg,state,now,api=None):
 
 
 def poll(cfg,state,now,api=None):
+    if cfg['highlightly'].get('monitor_mode','all')=='selected':
+        from .highlightly_watchlist import poll as selected_poll
+        return selected_poll(cfg,state,now,api)
     from .live_window import in_window
     if not in_window(now,cfg):return False,'outside 08:00–24:00 SAST score coverage'
     if cfg['highlightly']['verification_only']:

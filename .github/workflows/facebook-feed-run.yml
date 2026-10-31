@@ -149,5 +149,6 @@ jobs:
             tmp/facebook-feed/*.txt
             tmp/facebook-feed/report.json
             tmp/facebook-feed/api-diagnostic.json
+            tmp/facebook-feed/live-watchlist.json
           retention-days: 7
           if-no-files-found: ignore

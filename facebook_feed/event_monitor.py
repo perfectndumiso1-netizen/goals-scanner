@@ -132,6 +132,9 @@ def build(cfg,state,now,api=None):
     available=[]
     for e in book['events'].values():
         if e['status']!='pending':continue
+        if cfg.get('score_source')=='highlightly' and cfg['highlightly'].get('monitor_mode','all')=='selected':
+            target=state.get('highlightly_watchlist',{}).get('selected',{}).get(e['fixture_id'])
+            if not target or not target.get('baseline_at') or local(e['detected_at'])<=local(target['baseline_at']):continue
         m=book['matches'].get(e['fixture_id'])
         if m and m['snapshot'].get('source')!=cfg.get('score_source','api-football'):continue
         if not m or not timedelta(seconds=-30)<=now-local(m['observed_at'])<=timedelta(seconds=cfg['event_monitor']['max_source_age_seconds']):continue
@@ -146,6 +149,8 @@ def build(cfg,state,now,api=None):
     event_ids=[e['id'] for e in selected]
     key='live-events:'+digest(sorted(event_ids))
     text=caption(matches,selected,at)
+    if cfg.get('score_source')=='highlightly' and cfg['highlightly'].get('monitor_mode','all')=='selected':
+        text=text.replace('LIVE MATCH UPDATES','SELECTED MATCH UPDATES',1)
     if len(text)>60000:raise ProviderError('Consolidated event text exceeds safe size; inspect pending batch')
     post=candidate('live',key,key,text,event_ids=event_ids,snapshot=matches,
                    expires_at=(local(at)+timedelta(seconds=cfg['event_monitor']['max_source_age_seconds'])).isoformat())

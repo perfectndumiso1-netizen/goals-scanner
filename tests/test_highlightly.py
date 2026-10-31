@@ -17,7 +17,7 @@ ROOT=Path(__file__).resolve().parents[1]
 def cfg():
     cfg=cli.config(ROOT/'config/facebook-feed.json')
     # Explicit staging regression fixture; current production activation is tested separately.
-    cfg['highlightly'].update(verification_only=True,account_coverage_verified=False)
+    cfg['highlightly'].update(verification_only=True,account_coverage_verified=False,monitor_mode='all')
     return cfg
 
 
@@ -371,6 +371,7 @@ def test_activated_config_still_requires_all_source_approval_gates(field,value):
 
 def test_activated_production_still_baselines_before_any_new_meaningful_event(monkeypatch):
     current=cli.config(ROOT/'config/facebook-feed.json')
+    current['highlightly']['monitor_mode']='all'  # Legacy full-list replay; selected production mode has separate tests.
     state={'posts':[],'event_api':{'groups':{'primary':{'requests':17}}}}
     old=deepcopy(state['event_api'])
     client,opener=api(current,monkeypatch,state=state)

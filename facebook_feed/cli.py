@@ -78,6 +78,15 @@ def config(path):
         if event['failover_permitted'] and not event['permission_reference'].strip():raise ValueError('Documented provider failover permission required')
     if data.get('score_source')=='highlightly':
         h=data.get('highlightly',{})
+        if h.get('monitor_mode','all') not in ('all','selected'):raise ValueError('Unsupported Highlightly monitoring scope')
+        if h.get('monitor_mode')=='selected':
+            from .highlightly_watchlist import LEAGUES
+            w=h.get('watchlist',{})
+            if not isinstance(w,dict):raise ValueError('Watchlist settings must be an object')
+            if w.get('leagues')!=list(LEAGUES):raise ValueError('Selected league/country scope differs from owner approval')
+            for key,lo,hi in (('max_matches',1,5),('catalog_refresh_hours',8,24),('max_catalog_attempts_per_day',1,2)):
+                if type(w.get(key)) is not int or not lo<=w[key]<=hi:raise ValueError('Unsafe selected-watchlist bounds')
+            if h.get('max_details_per_poll',0)<1:raise ValueError('Selected matches require bounded detail reads')
         if not uses_events(data):raise ValueError('Highlightly is for factual live events only')
         if any(type(h.get(k)) is not bool for k in ('verification_only','rights_confirmed','account_coverage_verified')):raise ValueError('Highlightly approval switches must be booleans')
         if type(h.get('daily_request_budget')) is not int or not 1<=h['daily_request_budget']<=100:raise ValueError('Unsafe Highlightly budget')
@@ -253,7 +262,14 @@ def main(argv=None):
             entry=entries[0]
             score_content=post['kind'] in ('live','roundup')
             source_changed=score_content and any(m.get('source')!=cfg.get('score_source','api-football') for m in post.get('snapshot',[]))
-            if post['kind'] not in cfg.get('authorized_kinds',KINDS) or score_content and (not cfg['live']['enabled'] or not scores_approved(cfg) or source_changed):
+            scope_changed=False
+            if score_content and cfg.get('score_source')=='highlightly' and cfg['highlightly'].get('monitor_mode')=='selected':
+                from .highlightly_watchlist import league_key
+                roster=state.get('highlightly_watchlist',{})
+                scope_changed=roster.get('day')!=now.date().isoformat() or not post.get('snapshot') or any(
+                    m.get('id') not in roster.get('selected',{}) or league_key(m.get('competition'),m.get('country'))!=roster['selected'][m['id']]['league']
+                    for m in post.get('snapshot',[]))
+            if post['kind'] not in cfg.get('authorized_kinds',KINDS) or score_content and (not cfg['live']['enabled'] or not scores_approved(cfg) or source_changed or scope_changed):
                 entry['status']='cancelled';entry['error']='Content/source authorisation changed before sending';match_events.publication_state(state,entry,'pending',now);storage.write(statepath,state);continue
             if hashlib.sha256(post['caption'].encode()).hexdigest()!=entry['caption_hash'] or any(entry.get(k)!=post.get(k) for k in ('kind','topic','fixture_ids','operation','target_id','snapshot','image_sha256','event_ids')):
                 raise ValueError('Prepared content does not match its durable reservation')
@@ -344,6 +360,14 @@ def main(argv=None):
             match_events.publication_state(state,entry,'reserved' if publish else 'simulated',now)
         if not publish:entry['status']='simulated'
         plans.append(post);report.append({'kind':kind,'status':'reserved' if publish else 'dry_run','key':post['key']})
+    if cfg.get('score_source')=='highlightly' and cfg['highlightly'].get('monitor_mode')=='selected':
+        from .highlightly_watchlist import summary as watchlist_summary
+        watchlist=watchlist_summary(state.get('highlightly_watchlist',{}))
+        storage.write(work/'live-watchlist.json',watchlist)
+        print('::notice::SELECTED LIVE WATCHLIST: '+json.dumps(watchlist,separators=(',',':')).replace('%','%25'))
+        if os.getenv('GITHUB_STEP_SUMMARY'):
+            with open(os.environ['GITHUB_STEP_SUMMARY'],'a',encoding='utf-8') as target:
+                target.write('## Selected live watchlist\n\nUp to five matches; not worldwide coverage. No scores inferred from cached schedules.\n\n```json\n'+json.dumps(watchlist,indent=2)+'\n```\n')
     storage.write(manifest,plans);storage.write(work/'report.json',report);storage.write(statepath,state)
     output('should_publish','true' if publish and plans else 'false')
     print('::notice::Facebook feed '+('LIVE PLAN' if publish else 'DRY RUN — no Facebook requests')+': '+json.dumps(report,separators=(',',':')))
