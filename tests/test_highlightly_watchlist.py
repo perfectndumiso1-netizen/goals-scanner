@@ -13,7 +13,12 @@ from test_highlightly import Response,envelope,row
 ROOT=Path(__file__).resolve().parents[1]
 
 @pytest.fixture
-def cfg():return cli.config(ROOT/'config/facebook-feed.json')
+def cfg():
+    value=cli.config(ROOT/'config/facebook-feed.json')
+    value['live']['enabled']=True
+    value['event_monitor'].update(enabled=True,publish_enabled=True)
+    value['authorized_kinds']=['live','results']
+    return value
 
 
 def game(mid=1,league='psl',at=None,status='Second half',score='1 - 0',clock=65):

@@ -101,7 +101,7 @@ def test_one_off_workflow_cannot_start_from_push_or_unpause_general_feed():
     send=next(i for i,s in enumerate(steps) if 'facebook_one_match_test.py send' in s.get('run',''))
     assert reserve<send and "steps.reserve.conclusion == 'success'" in steps[send]['if']
     config=json.loads((root/'config/facebook-feed.json').read_text())
-    assert set(config['authorized_kinds'])=={'results','live'}
+    assert set(config['authorized_kinds'])=={'editorial'}
     assert not config['app_scores']['rights_confirmed'] and not config['app_scores']['coverage_verified']
     assert not config['live']['edit_existing']
 

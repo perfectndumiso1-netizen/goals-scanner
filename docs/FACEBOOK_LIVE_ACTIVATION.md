@@ -1,5 +1,7 @@
 > **Superseded for live monitoring:** see [LIVE_EVENT_MONITOR.md](LIVE_EVENT_MONITOR.md) for five-minute/24-hour, meaningful-event-only monitoring and its dry-run activation gate. The historical periodic/daytime/app-only live settings below are not the active event-mode policy.
 
+> **Superseded publishing scope — live feed paused:** the owner approved scheduled football editorial instead, including six hourly pre-match comparisons. See [current editorial operations](FACEBOOK_FOOTBALL_EDITORIAL.md). Source verification, quota and unresolved-send history are retained; the earlier live/selected-mode text below is historical, not an instruction to re-enable it.
+
 > **Current Highlightly scope (31 October 2026):** automatic selected coverage, up to five matches/day from PSL, LaLiga, EPL, Bundesliga, Ligue 1 and Serie A; not worldwide coverage. See [selected-match operations](HIGHLIGHTLY_SELECTED_MATCHES.md) and [source verification](HIGHLIGHTLY_LIVE_FEED.md). The 08:00–24:00 SAST window and existing quota/publication guards remain. Historical API-Sports instructions below do not authorise suspended accounts or a fallback.
 
 # Facebook live-score activation — 30 October 2026

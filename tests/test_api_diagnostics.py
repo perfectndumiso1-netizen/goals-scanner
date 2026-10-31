@@ -104,7 +104,7 @@ def test_workflow_diagnostic_is_explicit_and_cannot_prepare_a_post():
     caller=yaml.safe_load((ROOT/'.github/workflows/facebook-live.yml').read_text())
     trigger=caller.get('on',caller.get(True))
     assert trigger['workflow_dispatch']['inputs']['diagnostic']['default'] is False
-    assert trigger['schedule'][0]['cron']=='*/5 * * * *'
+    assert 'schedule' not in trigger  # Live polling paused; diagnostics remain manual.
     assert 'inputs.diagnostic' in caller['jobs']['content']['with']['diagnostic']
     engine=yaml.safe_load((ROOT/'.github/workflows/facebook-feed-run.yml').read_text())
     steps=engine['jobs']['feed']['steps'];diagnostic=next(s for s in steps if s.get('id')=='diagnostic')

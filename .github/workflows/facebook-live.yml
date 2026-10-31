@@ -1,7 +1,5 @@
 name: Facebook meaningful live events (08:00–24:00 SAST)
 on:
-  schedule:
-    - cron: "*/5 * * * *"
   workflow_dispatch:
     inputs:
       diagnostic:
@@ -22,6 +20,7 @@ permissions:
   actions: read
 jobs:
   content:
+    if: ${{ inputs.diagnostic }}
     uses: ./.github/workflows/facebook-feed-run.yml
     with:
       kind: live

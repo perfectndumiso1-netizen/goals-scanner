@@ -14,7 +14,7 @@ from .app_scores import AppScores
 from .live_window import in_window, eligible_kickoff, app_candidates, match_app_coverage, outstanding_candidates
 from .publisher import PageFeed,PublishError
 
-KINDS=('community','card','weekly','live','roundup','results','preflight')
+KINDS=('community','card','weekly','live','roundup','results','preflight','editorial')
 
 
 def uses_events(cfg):
@@ -92,6 +92,15 @@ def config(path):
         if type(h.get('daily_request_budget')) is not int or not 1<=h['daily_request_budget']<=100:raise ValueError('Unsafe Highlightly budget')
         for k,lo,hi in (('poll_interval_minutes',20,60),('max_pages_per_poll',1,10),('max_details_per_poll',0,5)):
             if type(h.get(k)) is not int or not lo<=h[k]<=hi:raise ValueError('Unsafe Highlightly polling bounds')
+    if 'editorial' in data:
+        from .editorial import SLOTS
+        e=data['editorial']
+        if (type(e.get('enabled')) is not bool or e.get('max_posts_per_day')!=10 or
+            e.get('comparison_mode')!='prematch' or e.get('sample_matches')!=5 or
+            e.get('source_check')!='repeat_catalog_latest_detail' or e.get('native_poll_enabled') is not False or
+            e.get('caption_branding') is not False or e.get('picture_branding') is not True or
+            e.get('schedule_sast')!=dict(SLOTS)):
+            raise ValueError('Editorial settings differ from approved schedule/safety scope')
     return data
 
 
@@ -112,6 +121,9 @@ def scores_approved(cfg):
 def is_due(kind,now,cfg):
     if kind=='preflight':return False
     if kind not in cfg.get('authorized_kinds',KINDS):return False
+    if kind=='editorial':
+        from .editorial import due
+        return cfg.get('editorial',{}).get('enabled',False) and due(now) is not None
     if kind=='live':return cfg['live']['enabled'] and in_window(now,cfg) and (cfg['event_monitor']['enabled'] if uses_events(cfg) else True)
     if kind=='card' and now.weekday() not in cfg['card_days']:return False
     if kind=='weekly' and now.weekday()!=cfg['weekly_day']:return False
@@ -123,6 +135,9 @@ def is_due(kind,now,cfg):
 
 def build(kind,root,now,cfg,state,preview=False):
     if not preview and not is_due(kind,now,cfg):return None,'not due'
+    if kind=='editorial':
+        from .editorial import build as editorial_build
+        return editorial_build(cfg,state,now)
     if kind=='live' and uses_events(cfg):
         if not in_window(now,cfg):return None,'outside 08:00–24:00 SAST score coverage'
         if not cfg['event_monitor']['enabled'] or not cfg['live']['enabled']:return None,'event monitoring disabled'
@@ -244,6 +259,7 @@ def main(argv=None):
     requested=args.publish and os.getenv('FACEBOOK_FEED_PUBLISH','').lower()=='true'
     source_blocked=(args.phase=='prepare' and args.kind in ('live','roundup') and not args.preview and not scores_approved(cfg))
     publish=requested and cfg['enabled'] and not cfg['dry_run'] and args.phase!='preview' and not source_blocked
+    if args.kind=='editorial':publish=publish and scores_approved(cfg) and os.getenv('GITHUB_REF_NAME','local')=='main'
     event_mode=uses_events(cfg) and args.kind in ('live','all')
     if event_mode:
         publish=publish and cfg['event_monitor']['enabled'] and cfg['event_monitor']['publish_enabled'] and os.getenv('GITHUB_REF_NAME','local')=='main'
@@ -260,6 +276,8 @@ def main(argv=None):
             if len(entries)!=1 or entries[0]['status']!='reserved':
                 raise ValueError('Reservation ownership mismatch; no retry')
             entry=entries[0]
+            if post['kind']=='editorial' and (cfg.get('score_source')!='highlightly' or not cfg.get('editorial',{}).get('enabled') or not scores_approved(cfg) or os.getenv('GITHUB_REF_NAME','local')!='main'):
+                raise ValueError('Editorial publication gates changed; nothing sent')
             score_content=post['kind'] in ('live','roundup')
             source_changed=score_content and any(m.get('source')!=cfg.get('score_source','api-football') for m in post.get('snapshot',[]))
             scope_changed=False
@@ -271,11 +289,11 @@ def main(argv=None):
                     for m in post.get('snapshot',[]))
             if post['kind'] not in cfg.get('authorized_kinds',KINDS) or score_content and (not cfg['live']['enabled'] or not scores_approved(cfg) or source_changed or scope_changed):
                 entry['status']='cancelled';entry['error']='Content/source authorisation changed before sending';match_events.publication_state(state,entry,'pending',now);storage.write(statepath,state);continue
-            if hashlib.sha256(post['caption'].encode()).hexdigest()!=entry['caption_hash'] or any(entry.get(k)!=post.get(k) for k in ('kind','topic','fixture_ids','operation','target_id','snapshot','image_sha256','event_ids')):
+            if hashlib.sha256(post['caption'].encode()).hexdigest()!=entry['caption_hash'] or any(entry.get(k)!=post.get(k) for k in ('kind','topic','fixture_ids','operation','target_id','snapshot','image_sha256','event_ids','slot_key')):
                 raise ValueError('Prepared content does not match its durable reservation')
             if datetime.now(content.SAST)>=content.local(post['expires_at']) or post['kind'] in ('live','roundup') and not in_window(datetime.now(content.SAST),cfg):
                 entry['status']='cancelled';entry['error']='Prepared content expired before sending';match_events.publication_state(state,entry,'pending',now);storage.write(statepath,state);continue
-            if post['kind']=='live' and cfg['live'].get('image_required'):
+            if post['kind']=='live' and cfg['live'].get('image_required') or post['kind']=='editorial' and (entry.get('image_sha256') or post.get('graphic')):
                 image=Path(post.get('image') or '')
                 if not image.is_file() or not post.get('image_sha256') or hashlib.sha256(image.read_bytes()).hexdigest()!=entry.get('image_sha256'):
                     raise ValueError('Live-score picture missing or changed; nothing sent')
@@ -349,7 +367,7 @@ def main(argv=None):
                     from .crest_cache import prepare as prepare_crests
                     prepare_crests(post['graphic'],work/'crests')
                 post['image']=str(render(post['graphic'],work/f'{kind}.jpg'))
-                if kind=='live':post['image_sha256']=hashlib.sha256(Path(post['image']).read_bytes()).hexdigest()
+                if kind in ('live','editorial'):post['image_sha256']=hashlib.sha256(Path(post['image']).read_bytes()).hexdigest()
             except ValueError as error:
                 report.append({'kind':kind,'status':'skipped','reason':str(error)});continue
         (work/f'{kind}.txt').write_text(post['caption'],encoding='utf-8')
@@ -360,7 +378,7 @@ def main(argv=None):
             match_events.publication_state(state,entry,'reserved' if publish else 'simulated',now)
         if not publish:entry['status']='simulated'
         plans.append(post);report.append({'kind':kind,'status':'reserved' if publish else 'dry_run','key':post['key']})
-    if cfg.get('score_source')=='highlightly' and cfg['highlightly'].get('monitor_mode')=='selected':
+    if args.kind in ('live','all') and cfg.get('score_source')=='highlightly' and cfg['highlightly'].get('monitor_mode')=='selected':
         from .highlightly_watchlist import summary as watchlist_summary
         watchlist=watchlist_summary(state.get('highlightly_watchlist',{}))
         storage.write(work/'live-watchlist.json',watchlist)

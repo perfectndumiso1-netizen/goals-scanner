@@ -31,7 +31,7 @@ on:
         type: boolean
       kind:
         type: choice
-        options: [community, card, weekly, live, roundup, results, preflight]
+        options: [community, card, weekly, live, roundup, results, preflight, editorial]
         default: community
       publish:
         description: Request publishing (config + repository variable must also allow it)
@@ -68,7 +68,7 @@ jobs:
       - name: Check out feed code
         uses: actions/checkout@v4.4.0
       - name: Read scanner publication without modifying its state
-        if: inputs.kind != 'live'
+        if: inputs.kind != 'live' && inputs.kind != 'editorial'
         uses: actions/checkout@v4.4.0
         with:
           ref: data
@@ -85,7 +85,7 @@ jobs:
         with:
           python-version: "3.12"
       - name: Install existing locked graphics dependency only when needed
-        if: ${{ !inputs.diagnostic && (inputs.kind == 'card' || inputs.kind == 'weekly' || inputs.kind == 'live') }}
+        if: ${{ !inputs.diagnostic && (inputs.kind == 'card' || inputs.kind == 'weekly' || inputs.kind == 'live' || inputs.kind == 'editorial') }}
         run: |
           pip install --require-hashes --only-binary=:all: --no-deps -q -r requirements-feed.txt
       - name: Read-only API/key diagnostic (no Facebook credentials or requests)

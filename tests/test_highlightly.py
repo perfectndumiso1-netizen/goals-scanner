@@ -16,6 +16,10 @@ ROOT=Path(__file__).resolve().parents[1]
 @pytest.fixture
 def cfg():
     cfg=cli.config(ROOT/'config/facebook-feed.json')
+    # Historical live replay, independently of the paused production config.
+    cfg['live']['enabled']=True
+    cfg['event_monitor'].update(enabled=True,publish_enabled=True)
+    cfg['authorized_kinds']=['live','results']
     # Explicit staging regression fixture; current production activation is tested separately.
     cfg['highlightly'].update(verification_only=True,account_coverage_verified=False,monitor_mode='all')
     return cfg
@@ -358,7 +362,7 @@ def test_verified_production_config_is_activated_with_all_existing_limits():
     assert all(not s['authorised'] for s in current['event_monitor']['key_slots'].values())
     assert current['event_monitor']['credential_revision']=='3'
     assert not cli.is_due('live',NOW.replace(hour=7,minute=59),current)
-    assert cli.is_due('live',NOW.replace(hour=8,minute=0),current)
+    assert not cli.is_due('live',NOW.replace(hour=8,minute=0),current)  # Owner paused live coverage.
     assert not cli.is_due('live',NOW.replace(hour=0,minute=0),current)
 
 

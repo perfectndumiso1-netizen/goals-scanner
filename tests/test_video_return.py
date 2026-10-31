@@ -77,7 +77,7 @@ def test_missing_or_stale_history_does_not_fallback_to_current_shortlist(tmp_pat
 
 
 def test_only_requested_feeds_are_authorized_and_live_approvals_remain_false(cfg):
-    assert cli.is_due('results',NOW,cfg)
+    assert not cli.is_due('results',NOW,cfg)  # Replaced by the 08:30 editorial bulletin.
     for kind in ('community','card','weekly','roundup'):assert not cli.is_due(kind,NOW,cfg)
     assert not cli.scores_approved(cfg)
     cfg['provider']['rights_confirmed']=cfg['provider']['account_coverage_verified']=True

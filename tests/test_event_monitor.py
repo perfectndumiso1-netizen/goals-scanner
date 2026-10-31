@@ -19,6 +19,10 @@ NOW=datetime(2026,10,30,20,0,tzinfo=content.SAST)
 @pytest.fixture
 def cfg():
     cfg=cli.config(ROOT/'config/facebook-feed.json')
+    # Historical live replay, independently of the paused production config.
+    cfg['live']['enabled']=True
+    cfg['event_monitor'].update(enabled=True,publish_enabled=True)
+    cfg['authorized_kinds']=['live','results']
     cfg['score_source']='api-football'
     # Exhaustive three-slot replay fixture, not the current production selection.
     # Production exclusion of the suspended slot is covered separately.
