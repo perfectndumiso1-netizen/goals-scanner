@@ -24,17 +24,19 @@ def test_caption_is_exact_title_local_date_and_relevant_tags_only():
     assert all(x not in ' '.join(HASHTAGS).lower() for x in ('surebet','guaranteed','viral','fyp'))
 
 
-def test_cover_whitelists_names_only_not_markets_prices_or_probabilities(tmp_path,monkeypatch):
+def test_cover_shows_film_total_but_not_individual_markets_prices_or_probabilities(tmp_path,monkeypatch):
     from PIL import Image,ImageDraw
     rows=match_rows(picks(8));assert len(rows)==8 and set(rows[0])=={'home','away'}
     drawn=[];original=ImageDraw.ImageDraw.text
     def capture(self,xy,text,*a,**kw):drawn.append(str(text));return original(self,xy,text,*a,**kw)
     monkeypatch.setattr(ImageDraw.ImageDraw,'text',capture)
-    file=render_matches(picks(8),tmp_path/'cover.jpg',now=datetime(2026,10,30))
+    filmed=[dict(p,odds=1.16) for p in picks(8)]
+    file=render_matches(filmed,tmp_path/'cover.jpg',now=datetime(2026,10,30))
     assert Image.open(file).size==(1080,1920)
     text=' '.join(drawn)
     for row in rows:assert row['home'] in text and row['away'] in text
-    assert all(x not in text for x in ('POISON','0.99','odds','Over','BTTS','PlayReport','Source:'))
+    assert all(x not in text for x in ('POISON','0.99','Over','BTTS','Source:','1.16'))
+    assert 'Odds combined' in text and '3.28' in text
 
 
 @pytest.mark.parametrize('items',[[],picks(9),[{'home':'','away':'A'}],picks(1)*2])

@@ -1,0 +1,1392 @@
+{
+  "version": 1,
+  "note": "Public club identity artwork, no affiliation implied. Trademarks remain with their clubs. Source mirrors are not independent proof of publication rights. Owner remains responsible for permitted visual use. No provider IDs are interchangeable.",
+  "entries": [
+    {
+      "country": "England",
+      "name": "AFC Bournemouth",
+      "aliases": [
+        "AFC Bournemouth",
+        "Bournemouth"
+      ],
+      "file": "england-afcbournemouth.png",
+      "sha256": "ca2a0f48330ea2ae5b299c071fe84839ba96416f2a9621ee809f7e8cfd4c188d",
+      "source": "https://api.github.com/repos/luukhopman/football-logos/git/blobs/14810679717c6be956912126c4ab8bd6341971c4"
+    },
+    {
+      "country": "England",
+      "name": "Arsenal FC",
+      "aliases": [
+        "Arsenal",
+        "Arsenal FC"
+      ],
+      "file": "england-arsenalfc.png",
+      "sha256": "3e40ed93f31610d340f2bba0360fdc2dfc73c4aac0f19094872315a2dabf0e25",
+      "source": "https://api.github.com/repos/luukhopman/football-logos/git/blobs/24f24c15aa0e0094cbb54fab4c7fc82407b6a0ff"
+    },
+    {
+      "country": "England",
+      "name": "Aston Villa",
+      "aliases": [
+        "Aston Villa"
+      ],
+      "file": "england-astonvilla.png",
+      "sha256": "b49b4972966576acf27fac9732b5262d6682b24b131f632877cf361ffa4abff7",
+      "source": "https://api.github.com/repos/luukhopman/football-logos/git/blobs/f1081b911ae6592533eeb92f0f1cddd661b8e03b"
+    },
+    {
+      "country": "England",
+      "name": "Brentford FC",
+      "aliases": [
+        "Brentford",
+        "Brentford FC"
+      ],
+      "file": "england-brentfordfc.png",
+      "sha256": "ac38b74f7baf14d23539ef76d91531793b6e58bcee3a03069fa7d67429db9101",
+      "source": "https://api.github.com/repos/luukhopman/football-logos/git/blobs/637597914e0f2dde5f3b93f930e990930c76700c"
+    },
+    {
+      "country": "England",
+      "name": "Brighton & Hove Albion",
+      "aliases": [
+        "Brighton",
+        "Brighton & Hove Albion"
+      ],
+      "file": "england-brightonhovealbion.png",
+      "sha256": "67b89359c0ae23322e3b743276d08852d4457bbf4b9be461b6213b07142720e8",
+      "source": "https://api.github.com/repos/luukhopman/football-logos/git/blobs/da0c49418ff7d70e68fb26e40b4ea5538aeded3b"
+    },
+    {
+      "country": "England",
+      "name": "Chelsea FC",
+      "aliases": [
+        "Chelsea",
+        "Chelsea FC"
+      ],
+      "file": "england-chelseafc.png",
+      "sha256": "3bc9c025dc009d4c40ba1a24d50278f3717a9109b0b00589e4a1aad2b768d9e5",
+      "source": "https://api.github.com/repos/luukhopman/football-logos/git/blobs/d02c01d8217fe02343489fc29d36ef555def4ace"
+    },
+    {
+      "country": "England",
+      "name": "Coventry City",
+      "aliases": [
+        "Coventry City"
+      ],
+      "file": "england-coventrycity.png",
+      "sha256": "22f74a8ca224f196e4554f7eec7c759f595e2fe5b79bd1c01a7aa78d3a073418",
+      "source": "https://api.github.com/repos/luukhopman/football-logos/git/blobs/085eb2bc2b8ba0b53beb30c3a8d68d88dfb8a8e5"
+    },
+    {
+      "country": "England",
+      "name": "Crystal Palace",
+      "aliases": [
+        "Crystal Palace"
+      ],
+      "file": "england-crystalpalace.png",
+      "sha256": "6cfd8a11b0e3771d5fbb9fd45d043125229ece4e206c59dc05242bc57c6c813c",
+      "source": "https://api.github.com/repos/luukhopman/football-logos/git/blobs/2653b2a05078e9d0c21a26a449e0ff469e67f5b1"
+    },
+    {
+      "country": "England",
+      "name": "Everton FC",
+      "aliases": [
+        "Everton",
+        "Everton FC"
+      ],
+      "file": "england-evertonfc.png",
+      "sha256": "60de5f394b7b4b656adc0baeb8817e18ba11780d6ab141bb55a58463a416ca04",
+      "source": "https://api.github.com/repos/luukhopman/football-logos/git/blobs/96518ec7b0ab58ccabc056f2e80e7a4a92a76027"
+    },
+    {
+      "country": "England",
+      "name": "Fulham FC",
+      "aliases": [
+        "Fulham",
+        "Fulham FC"
+      ],
+      "file": "england-fulhamfc.png",
+      "sha256": "6e8dcbd1b74d745b054b3b621dd485ab0fe7e2ea7511be47cdbae4262ba0b9f5",
+      "source": "https://api.github.com/repos/luukhopman/football-logos/git/blobs/700ca4f84c96d479a7cd577e0015174638a0ace3"
+    },
+    {
+      "country": "England",
+      "name": "Hull City",
+      "aliases": [
+        "Hull City"
+      ],
+      "file": "england-hullcity.png",
+      "sha256": "666c0532b9a2b39f4f61e9fc4116159807e7eec5982c5b245ad74b37ab49795d",
+      "source": "https://api.github.com/repos/luukhopman/football-logos/git/blobs/102cc3343443e5d0648e746a93d8b8ef63e43790"
+    },
+    {
+      "country": "England",
+      "name": "Ipswich Town",
+      "aliases": [
+        "Ipswich Town"
+      ],
+      "file": "england-ipswichtown.png",
+      "sha256": "d8aaebdbb7154758ced696ee0b0f169458f89b5afd00428f066e9bce6cc38b99",
+      "source": "https://api.github.com/repos/luukhopman/football-logos/git/blobs/3c82fdcb8bef0d9b7168542bf5880e91963eaf20"
+    },
+    {
+      "country": "England",
+      "name": "Leeds United",
+      "aliases": [
+        "Leeds United"
+      ],
+      "file": "england-leedsunited.png",
+      "sha256": "e31e05daae8fa0279c0f29633f9fac6267954cce6ee4dab465e9c6cd0081dc35",
+      "source": "https://api.github.com/repos/luukhopman/football-logos/git/blobs/01b01a101f2eced1234ab17b8402ecc3b2708cd4"
+    },
+    {
+      "country": "England",
+      "name": "Liverpool FC",
+      "aliases": [
+        "Liverpool",
+        "Liverpool FC"
+      ],
+      "file": "england-liverpoolfc.png",
+      "sha256": "f1492652580f39eef56f8690465481ea268e7e34c66ceae93cd210d0d3e9886e",
+      "source": "https://api.github.com/repos/luukhopman/football-logos/git/blobs/654691d267680a6683fe58c55619de0684185404"
+    },
+    {
+      "country": "England",
+      "name": "Manchester City",
+      "aliases": [
+        "Manchester City"
+      ],
+      "file": "england-manchestercity.png",
+      "sha256": "a0b780f840ca85e21c9fb886ee86de658963604d9e13acb212eed632cc66c912",
+      "source": "https://api.github.com/repos/luukhopman/football-logos/git/blobs/b55d4568ad21f2c3bd09805a666b3252eda0595a"
+    },
+    {
+      "country": "England",
+      "name": "Manchester United",
+      "aliases": [
+        "Manchester United"
+      ],
+      "file": "england-manchesterunited.png",
+      "sha256": "b67c56d6e5116c24a3581ff389f00c695aebdbd267db4b539a7c6bba45dea4a0",
+      "source": "https://api.github.com/repos/luukhopman/football-logos/git/blobs/4e2a112b088c67916aaf973d4eb1a6dfbdb38b88"
+    },
+    {
+      "country": "England",
+      "name": "Newcastle United",
+      "aliases": [
+        "Newcastle United"
+      ],
+      "file": "england-newcastleunited.png",
+      "sha256": "0d80fa649e55240e06ab7801d96ad38ecd918771dd8b46688924993600d2a712",
+      "source": "https://api.github.com/repos/luukhopman/football-logos/git/blobs/aaf463cb8a15982bb5a1e0c598a69545b94b6b9d"
+    },
+    {
+      "country": "England",
+      "name": "Nottingham Forest",
+      "aliases": [
+        "Nottingham Forest"
+      ],
+      "file": "england-nottinghamforest.png",
+      "sha256": "6d6ed17925ea1c6785cc37c66c833deeb6e4d4cb748328cb83dcff197e41c62f",
+      "source": "https://api.github.com/repos/luukhopman/football-logos/git/blobs/a42f47452d42200a0bdea083f09e486155e274fe"
+    },
+    {
+      "country": "England",
+      "name": "Sunderland AFC",
+      "aliases": [
+        "Sunderland",
+        "Sunderland AFC"
+      ],
+      "file": "england-sunderlandafc.png",
+      "sha256": "bfb3a631e92ab2e926ff0b001023d59996e0a22cb46bf203277391651b5d6c29",
+      "source": "https://api.github.com/repos/luukhopman/football-logos/git/blobs/af221f2cd30474564b0b4c9690e397fc1aaf03e9"
+    },
+    {
+      "country": "England",
+      "name": "Tottenham Hotspur",
+      "aliases": [
+        "Tottenham",
+        "Tottenham Hotspur"
+      ],
+      "file": "england-tottenhamhotspur.png",
+      "sha256": "b4bd8e9ad9e0ab962f20d6129f3d9e44c7fbcc2375879126a4efa5fabb183cf8",
+      "source": "https://api.github.com/repos/luukhopman/football-logos/git/blobs/319fef3bdd51435c92dd8a3c35ce8014b88cd1ae"
+    },
+    {
+      "country": "France",
+      "name": "AJ Auxerre",
+      "aliases": [
+        "AJ Auxerre"
+      ],
+      "file": "france-ajauxerre.png",
+      "sha256": "b7c37c69821f2b2f07d19ae3a6df309b40a1f7d437afff95d4933aa531d82103",
+      "source": "https://api.github.com/repos/luukhopman/football-logos/git/blobs/2feebe80cf78d7ee47682471c9ccc754865302ff"
+    },
+    {
+      "country": "France",
+      "name": "AS Monaco",
+      "aliases": [
+        "AS Monaco"
+      ],
+      "file": "france-asmonaco.png",
+      "sha256": "7a356fda250aaaf2bd481309fc971b8167a54138162669bef10ac422fc0216f8",
+      "source": "https://api.github.com/repos/luukhopman/football-logos/git/blobs/710f2c985001b3cd2b0e6048fe756e69c4fd391c"
+    },
+    {
+      "country": "France",
+      "name": "Angers SCO",
+      "aliases": [
+        "Angers",
+        "Angers SCO"
+      ],
+      "file": "france-angerssco.png",
+      "sha256": "72f814e93463d18d6b21ba2e1f253c9323c1d20ecf75e8f4b29ce063c54329f9",
+      "source": "https://api.github.com/repos/luukhopman/football-logos/git/blobs/f99ba73cbf3f5151d6637ff9095b7ed24078cb19"
+    },
+    {
+      "country": "France",
+      "name": "ESTAC Troyes",
+      "aliases": [
+        "ESTAC Troyes",
+        "Troyes"
+      ],
+      "file": "france-estactroyes.png",
+      "sha256": "395e0a5edb067d65bc1fae71c538d0bb950ea047c105bf889817260d2c4912e5",
+      "source": "https://api.github.com/repos/luukhopman/football-logos/git/blobs/a531b3ededb1c4437f2e2b95d337975bcc5cd1ea"
+    },
+    {
+      "country": "France",
+      "name": "FC Lorient",
+      "aliases": [
+        "FC Lorient",
+        "Lorient"
+      ],
+      "file": "france-fclorient.png",
+      "sha256": "a0e7a5e1fe2157aa40d64dd31ca3e3b45db0e3d3537f02c86ba3cb4181053208",
+      "source": "https://api.github.com/repos/luukhopman/football-logos/git/blobs/aa56ddc5d138b2322d88f87fb0a1e10eb0b8779e"
+    },
+    {
+      "country": "France",
+      "name": "FC Toulouse",
+      "aliases": [
+        "FC Toulouse",
+        "Toulouse"
+      ],
+      "file": "france-fctoulouse.png",
+      "sha256": "b20539a2da50a889d6856ed2ce4640f42db7be742d9c509865dc2cab16a3b3a8",
+      "source": "https://api.github.com/repos/luukhopman/football-logos/git/blobs/f6ea1dcf309724d70d56a4a78e77633f56365862"
+    },
+    {
+      "country": "France",
+      "name": "LOSC Lille",
+      "aliases": [
+        "LOSC Lille",
+        "Lille"
+      ],
+      "file": "france-losclille.png",
+      "sha256": "31521b6e94dfb1980351902503990b8fac0a4d58802ba79bb430222fc1d928eb",
+      "source": "https://api.github.com/repos/luukhopman/football-logos/git/blobs/318a01561441fae398ba9c90775fe05a60903a1f"
+    },
+    {
+      "country": "France",
+      "name": "Le Havre AC",
+      "aliases": [
+        "Le Havre",
+        "Le Havre AC"
+      ],
+      "file": "france-lehavreac.png",
+      "sha256": "40cf0989ef8c731e71dac46a083be1c7272355dc2dfb5c54e848a28f11198a1f",
+      "source": "https://api.github.com/repos/luukhopman/football-logos/git/blobs/ed84cadf001e8916c6bd097ed17701a4c45122e8"
+    },
+    {
+      "country": "France",
+      "name": "Le Mans FC",
+      "aliases": [
+        "Le Mans",
+        "Le Mans FC"
+      ],
+      "file": "france-lemansfc.png",
+      "sha256": "269d2a00228a851e0a1908a1b7c129d7d85fc284c5a631e0511070df589d1740",
+      "source": "https://api.github.com/repos/luukhopman/football-logos/git/blobs/ebf224d1666b00a3e4ccf339cff3ce42edb514de"
+    },
+    {
+      "country": "France",
+      "name": "OGC Nice",
+      "aliases": [
+        "OGC Nice"
+      ],
+      "file": "france-ogcnice.png",
+      "sha256": "aac962b87291e74c74c205954e37e65e3de42a26d26622536e0824f70641d207",
+      "source": "https://api.github.com/repos/luukhopman/football-logos/git/blobs/e9d7cff9366b8fdc9b29fd00edc1d098050296c3"
+    },
+    {
+      "country": "France",
+      "name": "Olympique Lyon",
+      "aliases": [
+        "Lyon",
+        "Olympique Lyon",
+        "Olympique Lyonnais"
+      ],
+      "file": "france-olympiquelyon.png",
+      "sha256": "51a4c444754a182169da7267ac3882a157d783acffb63eb0cf618ce34da9920d",
+      "source": "https://api.github.com/repos/luukhopman/football-logos/git/blobs/7390f0bd833cb2a7072cae62a1fe2f59276682a6"
+    },
+    {
+      "country": "France",
+      "name": "Olympique Marseille",
+      "aliases": [
+        "Marseille",
+        "Olympique Marseille",
+        "Olympique de Marseille"
+      ],
+      "file": "france-olympiquemarseille.png",
+      "sha256": "6de55bd90e1f02390d026c8dbcded10873f3a73fa883cd842d809717e514f670",
+      "source": "https://api.github.com/repos/luukhopman/football-logos/git/blobs/499c1c14e743ccda34191faa42c536b5f89228fb"
+    },
+    {
+      "country": "France",
+      "name": "Paris FC",
+      "aliases": [
+        "Paris",
+        "Paris FC"
+      ],
+      "file": "france-parisfc.png",
+      "sha256": "4c23bbabcb2a6a29e9942b7f012b3e61d3111d131df76456c25776433127dd81",
+      "source": "https://api.github.com/repos/luukhopman/football-logos/git/blobs/9989259f9bd5b69d16700d016dc2f32ceb35bf5b"
+    },
+    {
+      "country": "France",
+      "name": "Paris Saint-Germain",
+      "aliases": [
+        "Paris Saint-Germain"
+      ],
+      "file": "france-parissaintgermain.png",
+      "sha256": "1d8e66aba26109a74d5ecf682c8e184378633c7ba97de4bc5b083d18c119c639",
+      "source": "https://api.github.com/repos/luukhopman/football-logos/git/blobs/823a6035ccfc9a6f120d6fa8c91e0b86a68c0793"
+    },
+    {
+      "country": "France",
+      "name": "RC Lens",
+      "aliases": [
+        "RC Lens"
+      ],
+      "file": "france-rclens.png",
+      "sha256": "cf2c105207d479a984b927c31aa83a7bc030e53b521b900fe5c41843f1382a6b",
+      "source": "https://api.github.com/repos/luukhopman/football-logos/git/blobs/eea54b4f024c3c3cf0baee558823579e6f7df612"
+    },
+    {
+      "country": "France",
+      "name": "RC Strasbourg Alsace",
+      "aliases": [
+        "RC Strasbourg Alsace",
+        "Strasbourg"
+      ],
+      "file": "france-rcstrasbourgalsace.png",
+      "sha256": "12aafb39bb1a912cb7767b544014264ab9b5ca4f97a4bc9537e751adec973c9d",
+      "source": "https://api.github.com/repos/luukhopman/football-logos/git/blobs/e4e96a58efb8329dc2d80867e05cb6ebc9295f17"
+    },
+    {
+      "country": "France",
+      "name": "Stade Brestois 29",
+      "aliases": [
+        "Brest",
+        "Stade Brestois 29"
+      ],
+      "file": "france-stadebrestois29.png",
+      "sha256": "0b17e0fc9bebe650d5c678f2dc47b043aa3ac1e1821d410a069e65c8552e0031",
+      "source": "https://api.github.com/repos/luukhopman/football-logos/git/blobs/2a699842d47dde1e9073fcff17b1be16165ba9dc"
+    },
+    {
+      "country": "France",
+      "name": "Stade Rennais FC",
+      "aliases": [
+        "Rennes",
+        "Stade Rennais",
+        "Stade Rennais FC"
+      ],
+      "file": "france-staderennaisfc.png",
+      "sha256": "9ff390ec3dc39b4b3ac8a3b38ddc53bb3b0afe148af3568adbc451c363a30204",
+      "source": "https://api.github.com/repos/luukhopman/football-logos/git/blobs/8d8f6dc72967d38b80ae257380e0cf13fd270028"
+    },
+    {
+      "country": "Germany",
+      "name": "1.FC Köln",
+      "aliases": [
+        "1.FC Köln",
+        "Cologne",
+        "FC Koln",
+        "Koln"
+      ],
+      "file": "germany-1fckoln.png",
+      "sha256": "6e91dece05734de2ee6c890b606daa99df66daf21be53de49a9745662cf0cc03",
+      "source": "https://api.github.com/repos/luukhopman/football-logos/git/blobs/f945bc1a23480dd7292ca572173231d378541855"
+    },
+    {
+      "country": "Germany",
+      "name": "1.FC Union Berlin",
+      "aliases": [
+        "1.FC Union Berlin",
+        "Union Berlin"
+      ],
+      "file": "germany-1fcunionberlin.png",
+      "sha256": "12cd8836ec91c205d61c337a65b09bb08654c24778ee003205ed49e5b0e44a0f",
+      "source": "https://api.github.com/repos/luukhopman/football-logos/git/blobs/d3936bf1d8d13aca786c2164c6e61b34cfb1e3a1"
+    },
+    {
+      "country": "Germany",
+      "name": "1.FSV Mainz 05",
+      "aliases": [
+        "1.FSV Mainz 05",
+        "Mainz",
+        "Mainz 05"
+      ],
+      "file": "germany-1fsvmainz05.png",
+      "sha256": "78c2fe9f6ecef6762208bd84df06c9333d6d9b68d5b4230c7a5ff94530824063",
+      "source": "https://api.github.com/repos/luukhopman/football-logos/git/blobs/a556faf3c101728ed9c84f0be9b1856fbb80b9ed"
+    },
+    {
+      "country": "Germany",
+      "name": "Bayer 04 Leverkusen",
+      "aliases": [
+        "Bayer 04 Leverkusen",
+        "Bayer Leverkusen",
+        "Leverkusen"
+      ],
+      "file": "germany-bayer04leverkusen.png",
+      "sha256": "0275eb8746b162ca9726ba7c5cb8762411ec57b4a53d2a5a74eb3237676e8780",
+      "source": "https://api.github.com/repos/luukhopman/football-logos/git/blobs/22cef703c4bb657a60d874d4b62f0a6b35ce3e93"
+    },
+    {
+      "country": "Germany",
+      "name": "Bayern Munich",
+      "aliases": [
+        "Bayern Munich",
+        "Bayern München",
+        "FC Bayern München"
+      ],
+      "file": "germany-bayernmunich.png",
+      "sha256": "e95fbb62142cc4b5ec04cc6af3131a201476b6f6c1761e99ccf72fbe48ce9b33",
+      "source": "https://api.github.com/repos/luukhopman/football-logos/git/blobs/499ce6f97c63f974b5b439eb977377e127f71a34"
+    },
+    {
+      "country": "Germany",
+      "name": "Borussia Dortmund",
+      "aliases": [
+        "Borussia Dortmund"
+      ],
+      "file": "germany-borussiadortmund.png",
+      "sha256": "fb0d4db1a72d5c16d76aed6c683521d28090040a080a28fdab04ea68705848b5",
+      "source": "https://api.github.com/repos/luukhopman/football-logos/git/blobs/2dc4b0289782930c6b81b40309e81039928225fc"
+    },
+    {
+      "country": "Germany",
+      "name": "Borussia Mönchengladbach",
+      "aliases": [
+        "Borussia Monchengladbach",
+        "Borussia Mönchengladbach",
+        "Monchengladbach"
+      ],
+      "file": "germany-borussiamonchengladbach.png",
+      "sha256": "891b7258b0909e55107eff2968497477b6f72e3c2829c06bb41d65ad6dbdd69c",
+      "source": "https://api.github.com/repos/luukhopman/football-logos/git/blobs/288e9b7ac204e28518e388634297f21fc53dcf00"
+    },
+    {
+      "country": "Germany",
+      "name": "Eintracht Frankfurt",
+      "aliases": [
+        "Eintracht Frankfurt"
+      ],
+      "file": "germany-eintrachtfrankfurt.png",
+      "sha256": "82330f77106bc091bbe2a4ad4ef0316440ec69a7d1fa366a0b5b31671ebcd3aa",
+      "source": "https://api.github.com/repos/luukhopman/football-logos/git/blobs/6818579c2b9af420c5078682b778426016f880b1"
+    },
+    {
+      "country": "Germany",
+      "name": "FC Augsburg",
+      "aliases": [
+        "Augsburg",
+        "FC Augsburg"
+      ],
+      "file": "germany-fcaugsburg.png",
+      "sha256": "0ee99ad428fb9f989bea80cf99f4151ef8082e65db9dc394cee4ec78480b09de",
+      "source": "https://api.github.com/repos/luukhopman/football-logos/git/blobs/36b56e0cecd48142d28862d884a3006a03f403ae"
+    },
+    {
+      "country": "Germany",
+      "name": "FC Schalke 04",
+      "aliases": [
+        "FC Schalke 04",
+        "Schalke 04"
+      ],
+      "file": "germany-fcschalke04.png",
+      "sha256": "d8521758fa95c0a3a94d1f3aec37e243e41d1d5a6f518085727344a3f5354b10",
+      "source": "https://api.github.com/repos/luukhopman/football-logos/git/blobs/de20ad7334c3f2acb1371fde8a50e24b94365b80"
+    },
+    {
+      "country": "Germany",
+      "name": "Hamburger SV",
+      "aliases": [
+        "Hamburger SV"
+      ],
+      "file": "germany-hamburgersv.png",
+      "sha256": "e34eac1e02139bc348aaf7d89cb4dfd2794a06bd41993524ca124d30ea1d369e",
+      "source": "https://api.github.com/repos/luukhopman/football-logos/git/blobs/1f6063acd89667fd816a23a3fe2cd6008d630186"
+    },
+    {
+      "country": "Germany",
+      "name": "RB Leipzig",
+      "aliases": [
+        "RB Leipzig"
+      ],
+      "file": "germany-rbleipzig.png",
+      "sha256": "f884fd72024837f4466b19b31869ba953fdff9443ffe1fa3c31c61e4e4a9cd21",
+      "source": "https://api.github.com/repos/luukhopman/football-logos/git/blobs/06a031c8920a0f0dcd3df6b2e95629fa8b99ced9"
+    },
+    {
+      "country": "Germany",
+      "name": "SC Freiburg",
+      "aliases": [
+        "SC Freiburg"
+      ],
+      "file": "germany-scfreiburg.png",
+      "sha256": "20025f93d46296ca09b66290d010ebf3d91c197147c97484fcdeb4d434e806a5",
+      "source": "https://api.github.com/repos/luukhopman/football-logos/git/blobs/426f9fb8812522675b06025adb48857e3b94e090"
+    },
+    {
+      "country": "Germany",
+      "name": "SC Paderborn 07",
+      "aliases": [
+        "Paderborn",
+        "SC Paderborn 07"
+      ],
+      "file": "germany-scpaderborn07.png",
+      "sha256": "8516df90dff74e0882e122c7a585ac4535501572fef1c1790511b7f6058b5942",
+      "source": "https://api.github.com/repos/luukhopman/football-logos/git/blobs/c0209f09a60e9dbadfcf9a5787439b207d74cceb"
+    },
+    {
+      "country": "Germany",
+      "name": "SV 07 Elversberg",
+      "aliases": [
+        "Elversberg",
+        "SV 07 Elversberg"
+      ],
+      "file": "germany-sv07elversberg.png",
+      "sha256": "105c668e568d200faa4a844a3a17736811f50cb470204ff44a7cf179d73dab31",
+      "source": "https://api.github.com/repos/luukhopman/football-logos/git/blobs/6f398372139851d542f18a8363d2e28fd6ca5c3a"
+    },
+    {
+      "country": "Germany",
+      "name": "SV Werder Bremen",
+      "aliases": [
+        "SV Werder Bremen",
+        "Werder Bremen"
+      ],
+      "file": "germany-svwerderbremen.png",
+      "sha256": "c6a8d5e07412c931a9df0c02a68ca53a45b4dbc4e20305ca603cb089962a108d",
+      "source": "https://api.github.com/repos/luukhopman/football-logos/git/blobs/5bcd74dddcff71fbe8cd7de60baae2b926e35ba1"
+    },
+    {
+      "country": "Germany",
+      "name": "TSG 1899 Hoffenheim",
+      "aliases": [
+        "Hoffenheim",
+        "TSG 1899 Hoffenheim"
+      ],
+      "file": "germany-tsg1899hoffenheim.png",
+      "sha256": "3c5a0daaf400466c01f520400c153a801c0eaa1565a5bf54292da27ea6fab387",
+      "source": "https://api.github.com/repos/luukhopman/football-logos/git/blobs/dc5fe98029eededad6268a654625eff99a8a364d"
+    },
+    {
+      "country": "Germany",
+      "name": "VfB Stuttgart",
+      "aliases": [
+        "VfB Stuttgart"
+      ],
+      "file": "germany-vfbstuttgart.png",
+      "sha256": "aff0743efbb4a35874fd82f70f9c15858aace2a25923d69717beda4eedba560c",
+      "source": "https://api.github.com/repos/luukhopman/football-logos/git/blobs/c42c4eccbc2c63925567801ce896ef659e143881"
+    },
+    {
+      "country": "Italy",
+      "name": "AC Milan",
+      "aliases": [
+        "AC Milan",
+        "Milan"
+      ],
+      "file": "italy-acmilan.png",
+      "sha256": "798a0545458a08ac78bc5571b4a1f3e1b04dbcbd6e0dc5ec7bcd96ea0a4c044e",
+      "source": "https://api.github.com/repos/luukhopman/football-logos/git/blobs/e6209230efa5637278c47ba989f57c60e7fc0b66"
+    },
+    {
+      "country": "Italy",
+      "name": "AC Monza",
+      "aliases": [
+        "AC Monza"
+      ],
+      "file": "italy-acmonza.png",
+      "sha256": "168fc538e96326be19289bca1c1c1ad26b392d09dc7ad979d1a7eb1c407c5b71",
+      "source": "https://api.github.com/repos/luukhopman/football-logos/git/blobs/ab048b64648968d458825891ea031120c914342c"
+    },
+    {
+      "country": "Italy",
+      "name": "ACF Fiorentina",
+      "aliases": [
+        "ACF Fiorentina",
+        "Fiorentina"
+      ],
+      "file": "italy-acffiorentina.png",
+      "sha256": "a90528e8d0aca5f52b5be84f57e5a9887c5559b26576f32d2f8cebeebd8b067d",
+      "source": "https://api.github.com/repos/luukhopman/football-logos/git/blobs/563b3b9aebac8570f21d5c760c8fe40071583e8e"
+    },
+    {
+      "country": "Italy",
+      "name": "AS Roma",
+      "aliases": [
+        "AS Roma",
+        "Roma"
+      ],
+      "file": "italy-asroma.png",
+      "sha256": "ad9a33e1d2589ed2eb812bd9512a51a35469345b20c6a70a7dc7f3b2024a48bb",
+      "source": "https://api.github.com/repos/luukhopman/football-logos/git/blobs/29eb52986c5a31579b6b73ba16ebb6f3d3597554"
+    },
+    {
+      "country": "Italy",
+      "name": "Atalanta BC",
+      "aliases": [
+        "Atalanta",
+        "Atalanta BC"
+      ],
+      "file": "italy-atalantabc.png",
+      "sha256": "2b9ce3dd153b847038416a93b5a33dc192d72983d2904d7566f964a4eab5e0c4",
+      "source": "https://api.github.com/repos/luukhopman/football-logos/git/blobs/82ff5039e80c07462e3aa571f72c2c6326ced52d"
+    },
+    {
+      "country": "Italy",
+      "name": "Bologna FC 1909",
+      "aliases": [
+        "Bologna",
+        "Bologna FC 1909"
+      ],
+      "file": "italy-bolognafc1909.png",
+      "sha256": "334731337b28fd21ee8098f1de7a9a30e1628cbcb76eb5586a1a17ce244bc99a",
+      "source": "https://api.github.com/repos/luukhopman/football-logos/git/blobs/4d365db8c83e28692456e4f0af6f315455e7644b"
+    },
+    {
+      "country": "Italy",
+      "name": "Cagliari Calcio",
+      "aliases": [
+        "Cagliari",
+        "Cagliari Calcio"
+      ],
+      "file": "italy-cagliaricalcio.png",
+      "sha256": "0af5a61e1bc582670a2942d05e21589a360f2afb78c2ebdc092e7fd85ff3897e",
+      "source": "https://api.github.com/repos/luukhopman/football-logos/git/blobs/fe3af34527dc2a2ddf37a592a7a7da71565f90ae"
+    },
+    {
+      "country": "Italy",
+      "name": "Como 1907",
+      "aliases": [
+        "Como",
+        "Como 1907"
+      ],
+      "file": "italy-como1907.png",
+      "sha256": "4f25783961e35f5f36cd0cf2e82b41daed8301557c008caa5e0122e32d414d5e",
+      "source": "https://api.github.com/repos/luukhopman/football-logos/git/blobs/e2e17a77263e709c88215a02a170b31ac10457bc"
+    },
+    {
+      "country": "Italy",
+      "name": "Frosinone Calcio",
+      "aliases": [
+        "Frosinone Calcio"
+      ],
+      "file": "italy-frosinonecalcio.png",
+      "sha256": "cefb81dca42311936d840cc23d72f289b2e2e23bb71d1688fdc56c9f848b7477",
+      "source": "https://api.github.com/repos/luukhopman/football-logos/git/blobs/9927deb1f5b13614a08085a9506f8cb4f0106912"
+    },
+    {
+      "country": "Italy",
+      "name": "Genoa CFC",
+      "aliases": [
+        "Genoa",
+        "Genoa CFC"
+      ],
+      "file": "italy-genoacfc.png",
+      "sha256": "4c5ca97eaccb984fdd023852e695636cc920f74e7f364c76f305c5e01a5b81fa",
+      "source": "https://api.github.com/repos/luukhopman/football-logos/git/blobs/07ced06487a192fec58ab3a58a3494b0feaf64d7"
+    },
+    {
+      "country": "Italy",
+      "name": "Inter Milan",
+      "aliases": [
+        "FC Internazionale Milano",
+        "Inter",
+        "Inter Milan",
+        "Internazionale",
+        "Internazionale Milano"
+      ],
+      "file": "italy-intermilan.png",
+      "sha256": "3db036f151e5dcba917fff734d2ca8ad22497b839ccfc57a11b2ae692170adcf",
+      "source": "https://api.github.com/repos/luukhopman/football-logos/git/blobs/3749aa06618e3946683484d069a9ef9a87e52341"
+    },
+    {
+      "country": "Italy",
+      "name": "Juventus FC",
+      "aliases": [
+        "Juventus",
+        "Juventus FC"
+      ],
+      "file": "italy-juventusfc.png",
+      "sha256": "5d7f545dd7028e9ef99c27337635081f6149390acf9e8b0663a3e0231ee98b06",
+      "source": "https://api.github.com/repos/luukhopman/football-logos/git/blobs/89d23971e016e5ffc61c6bf86d0b2c1bce887b4a"
+    },
+    {
+      "country": "Italy",
+      "name": "Parma Calcio 1913",
+      "aliases": [
+        "Parma",
+        "Parma Calcio 1913"
+      ],
+      "file": "italy-parmacalcio1913.png",
+      "sha256": "fd5aab9f98c4cdb2ca906555bdd57aa4451234c5cd69331901a46bcc993deee8",
+      "source": "https://api.github.com/repos/luukhopman/football-logos/git/blobs/f8b4278bda6cb4d4f09dbc9d989a6f3c7e84196a"
+    },
+    {
+      "country": "Italy",
+      "name": "SS Lazio",
+      "aliases": [
+        "Lazio",
+        "SS Lazio"
+      ],
+      "file": "italy-sslazio.png",
+      "sha256": "7c3dbfff4dfd3de1cf19fd44e4a4d4d91750c9965db75a68748efbaec318d8e0",
+      "source": "https://api.github.com/repos/luukhopman/football-logos/git/blobs/8692b46c3e61cad208042f55199336d7a4a5c5e2"
+    },
+    {
+      "country": "Italy",
+      "name": "SSC Napoli",
+      "aliases": [
+        "Napoli",
+        "SSC Napoli"
+      ],
+      "file": "italy-sscnapoli.png",
+      "sha256": "18bde0e7f9f1ba44173432e8e7b63f170e086db6fbe8a060da4d2ce0619fcf17",
+      "source": "https://api.github.com/repos/luukhopman/football-logos/git/blobs/31c5cd81086c54d5150b4b767e7d2761dfa4d7c8"
+    },
+    {
+      "country": "Italy",
+      "name": "Torino FC",
+      "aliases": [
+        "Torino",
+        "Torino FC"
+      ],
+      "file": "italy-torinofc.png",
+      "sha256": "5be3976d94e380140af466b721cd15d81d1f8a44d067dfe5798201f3182f5ce8",
+      "source": "https://api.github.com/repos/luukhopman/football-logos/git/blobs/b45412aae91d51741984ea6bcb04bc254649b1ea"
+    },
+    {
+      "country": "Italy",
+      "name": "US Lecce",
+      "aliases": [
+        "Lecce",
+        "US Lecce"
+      ],
+      "file": "italy-uslecce.png",
+      "sha256": "069a387b194ddb57d90af7abbafb2c3004faf5f1d12e093981b71963b788b46e",
+      "source": "https://api.github.com/repos/luukhopman/football-logos/git/blobs/c80a4578262c3e419540ca4fb37cc77d5d150a84"
+    },
+    {
+      "country": "Italy",
+      "name": "US Sassuolo",
+      "aliases": [
+        "Sassuolo",
+        "US Sassuolo"
+      ],
+      "file": "italy-ussassuolo.png",
+      "sha256": "499fb73704b743760be7fd4c4380d2ac06f8e8581ec980740fd8faf785f12110",
+      "source": "https://api.github.com/repos/luukhopman/football-logos/git/blobs/1df7050fdf1372cdd702d75d4e23a876800662e2"
+    },
+    {
+      "country": "Italy",
+      "name": "Udinese Calcio",
+      "aliases": [
+        "Udinese",
+        "Udinese Calcio"
+      ],
+      "file": "italy-udinesecalcio.png",
+      "sha256": "25c65f25f12ba46ce0c6d06d650e61f12e710e31a5d274e621030e464f82ba2e",
+      "source": "https://api.github.com/repos/luukhopman/football-logos/git/blobs/56d2ff97960d742c09508e4fafa8e1ed260d0f51"
+    },
+    {
+      "country": "Italy",
+      "name": "Venezia FC",
+      "aliases": [
+        "Venezia",
+        "Venezia FC"
+      ],
+      "file": "italy-veneziafc.png",
+      "sha256": "1fdb2296b6ddf0017df23163c8ab1de8c99dc3f3a3e328939275861721d12dcb",
+      "source": "https://api.github.com/repos/luukhopman/football-logos/git/blobs/3d4a450766a897d0efc7eb5c7f6dbe35bc20338a"
+    },
+    {
+      "country": "Spain",
+      "name": "Athletic Bilbao",
+      "aliases": [
+        "Athletic Bilbao",
+        "Athletic Club"
+      ],
+      "file": "spain-athleticbilbao.png",
+      "sha256": "3bbb96b386fb1963f7fb596f7dbd5d2fb880f058d48e4bcdc2a4df7ea61c7e30",
+      "source": "https://api.github.com/repos/luukhopman/football-logos/git/blobs/624b9ea0c3115b4c2326726934401a4cf05f5de0"
+    },
+    {
+      "country": "Spain",
+      "name": "Atlético de Madrid",
+      "aliases": [
+        "Atletico",
+        "Atletico Madrid",
+        "Atlético de Madrid"
+      ],
+      "file": "spain-atleticodemadrid.png",
+      "sha256": "94ea9ef3334e0ad1ef26339708efdefabaedeae363ac08b7be314956114fa557",
+      "source": "https://api.github.com/repos/luukhopman/football-logos/git/blobs/7398c88ac9e34f7bb7df9207802bffe07db5d560"
+    },
+    {
+      "country": "Spain",
+      "name": "CA Osasuna",
+      "aliases": [
+        "CA Osasuna",
+        "Osasuna"
+      ],
+      "file": "spain-caosasuna.png",
+      "sha256": "c5d6dab99f7c02c2a7f5dcd83c9b1846a1cfcba41e515096d5f871ba50144646",
+      "source": "https://api.github.com/repos/luukhopman/football-logos/git/blobs/ab981326964f8b753c78dd48d1b9d1a1ec48104d"
+    },
+    {
+      "country": "Spain",
+      "name": "Celta de Vigo",
+      "aliases": [
+        "Celta Vigo",
+        "Celta de Vigo"
+      ],
+      "file": "spain-celtadevigo.png",
+      "sha256": "ccfbd7f687ba931fc0e2236dd1b24eb60471c2d4508a5e62e1bb82aa85fb3d6c",
+      "source": "https://api.github.com/repos/luukhopman/football-logos/git/blobs/323bf79463695cde7b996fa4dd3cefa6c0ba1dd0"
+    },
+    {
+      "country": "Spain",
+      "name": "Deportivo A Coruña",
+      "aliases": [
+        "Deportivo A Coruña",
+        "Deportivo La Coruna"
+      ],
+      "file": "spain-deportivoacoruna.png",
+      "sha256": "8c3fb7dd2f323959e4331b300962995bc4824f8b32c054131835a45ae239983b",
+      "source": "https://api.github.com/repos/luukhopman/football-logos/git/blobs/16c57d3baaa40bbc48d7604e32a8729b35e3b3b8"
+    },
+    {
+      "country": "Spain",
+      "name": "Deportivo Alavés",
+      "aliases": [
+        "Alaves",
+        "Deportivo Alavés"
+      ],
+      "file": "spain-deportivoalaves.png",
+      "sha256": "b9239e811eeaaa35ec476be1c46cf8df137316d91248d3e9739d2816158801d3",
+      "source": "https://api.github.com/repos/luukhopman/football-logos/git/blobs/e1464ddf254e17f7747a31bef6f744486c1169fa"
+    },
+    {
+      "country": "Spain",
+      "name": "Elche CF",
+      "aliases": [
+        "Elche",
+        "Elche CF"
+      ],
+      "file": "spain-elchecf.png",
+      "sha256": "af98d0e2264db3dad6dc5d465de6314b74e02b343a8185c111d4a3587c32c94c",
+      "source": "https://api.github.com/repos/luukhopman/football-logos/git/blobs/739cdce299d3fc7b329b0111d1fe0fddae704a1b"
+    },
+    {
+      "country": "Spain",
+      "name": "FC Barcelona",
+      "aliases": [
+        "Barcelona",
+        "FC Barcelona"
+      ],
+      "file": "spain-fcbarcelona.png",
+      "sha256": "47d159ece3f78c234a8735ab837685148933208b930b481a360bd3fa7b71125e",
+      "source": "https://api.github.com/repos/luukhopman/football-logos/git/blobs/bfaffd03668480678408bc5021e592de8f2b8d4e"
+    },
+    {
+      "country": "Spain",
+      "name": "Getafe CF",
+      "aliases": [
+        "Getafe",
+        "Getafe CF"
+      ],
+      "file": "spain-getafecf.png",
+      "sha256": "27213454364d0dc012ef338acacbc7231b3d371b231621cecf58728e3e1e56f9",
+      "source": "https://api.github.com/repos/luukhopman/football-logos/git/blobs/3140071b8720fab7a36115f9ce63229d938db751"
+    },
+    {
+      "country": "Spain",
+      "name": "Levante UD",
+      "aliases": [
+        "Levante UD"
+      ],
+      "file": "spain-levanteud.png",
+      "sha256": "6849b75ed8e96f6c18f15b00d417f3d0ded1ad4c07d3b62d310774adb84c5bee",
+      "source": "https://api.github.com/repos/luukhopman/football-logos/git/blobs/5a79a4981eca1b864ed07e50a4fd8e52b900abb3"
+    },
+    {
+      "country": "Spain",
+      "name": "Málaga CF",
+      "aliases": [
+        "Málaga",
+        "Málaga CF"
+      ],
+      "file": "spain-malagacf.png",
+      "sha256": "855d5cf2de11420920a2eaefcb4e0522169b7cee8417e0d4b8049bcb8149e21e",
+      "source": "https://api.github.com/repos/luukhopman/football-logos/git/blobs/4cfbf6eca31f9af03656ab939ec455afa07e9433"
+    },
+    {
+      "country": "Spain",
+      "name": "RCD Espanyol Barcelona",
+      "aliases": [
+        "Espanyol",
+        "RCD Espanyol Barcelona"
+      ],
+      "file": "spain-rcdespanyolbarcelona.png",
+      "sha256": "25782894d01a0bd6d391f7fc8e116433af5d20594988343653242464026aa48a",
+      "source": "https://api.github.com/repos/luukhopman/football-logos/git/blobs/a012d08c45880195db1c0a4f67f695a36767aa30"
+    },
+    {
+      "country": "Spain",
+      "name": "Racing Santander",
+      "aliases": [
+        "Racing Santander"
+      ],
+      "file": "spain-racingsantander.png",
+      "sha256": "01735aa75066fc65592db584e4d83da75e221229fdd1bfebc34275f59ebd9a7e",
+      "source": "https://api.github.com/repos/luukhopman/football-logos/git/blobs/998ead86932993257da4fc7ca2f4b60fb55ed39e"
+    },
+    {
+      "country": "Spain",
+      "name": "Rayo Vallecano",
+      "aliases": [
+        "Rayo Vallecano"
+      ],
+      "file": "spain-rayovallecano.png",
+      "sha256": "066957743dd51988f4f938ec92ccd1b0791d99080d79efb8761bb4b866e2ddd0",
+      "source": "https://api.github.com/repos/luukhopman/football-logos/git/blobs/86f27a83668e0f7f00c8cc53f6d0bb66b6e17ad8"
+    },
+    {
+      "country": "Spain",
+      "name": "Real Betis Balompié",
+      "aliases": [
+        "Real Betis",
+        "Real Betis Balompié"
+      ],
+      "file": "spain-realbetisbalompie.png",
+      "sha256": "a47a0e807118ce7185915a2337c97db7d3f14c48bd2cba1c8751c1be4474da88",
+      "source": "https://api.github.com/repos/luukhopman/football-logos/git/blobs/8e3808a0788aa8f7ae7915265544774c9317518d"
+    },
+    {
+      "country": "Spain",
+      "name": "Real Madrid",
+      "aliases": [
+        "Real Madrid"
+      ],
+      "file": "spain-realmadrid.png",
+      "sha256": "deb51e06fa67681cc003d77cebbd1d074c756f3e0ac2fc9bd4baf4d1cfcbe630",
+      "source": "https://api.github.com/repos/luukhopman/football-logos/git/blobs/e713ce0470f9673294c374596889a659b2624dcf"
+    },
+    {
+      "country": "Spain",
+      "name": "Real Sociedad",
+      "aliases": [
+        "Real Sociedad"
+      ],
+      "file": "spain-realsociedad.png",
+      "sha256": "95e514061c67788d8c0b5800a056f14f06b864645ac332d3f14ee0a20cb9948d",
+      "source": "https://api.github.com/repos/luukhopman/football-logos/git/blobs/b1d8bcdf54803231b466a3b698549eecd55270d2"
+    },
+    {
+      "country": "Spain",
+      "name": "Sevilla FC",
+      "aliases": [
+        "Sevilla",
+        "Sevilla FC"
+      ],
+      "file": "spain-sevillafc.png",
+      "sha256": "be81b2bc43f69a0b690a7a2f2c5cbaf30b57cdbc662dd5a2bfbcad33db4b97f1",
+      "source": "https://api.github.com/repos/luukhopman/football-logos/git/blobs/a7d6232baa28c7e439287352286162b858ef3cdb"
+    },
+    {
+      "country": "Spain",
+      "name": "Valencia CF",
+      "aliases": [
+        "Valencia",
+        "Valencia CF"
+      ],
+      "file": "spain-valenciacf.png",
+      "sha256": "f2cf956029bb46bf513ea8d41059edff861582bf36a14ee58716dc9c5c42b38c",
+      "source": "https://api.github.com/repos/luukhopman/football-logos/git/blobs/0ff1356ce991a5f3c5a8f044d6118377ceb9d95f"
+    },
+    {
+      "country": "Spain",
+      "name": "Villarreal CF",
+      "aliases": [
+        "Villarreal",
+        "Villarreal CF"
+      ],
+      "file": "spain-villarrealcf.png",
+      "sha256": "103ac437ac8347348b53ed38629d08f397665288dfd89c2fa8141f6d8869d882",
+      "source": "https://api.github.com/repos/luukhopman/football-logos/git/blobs/f750f3e8ceb5613d439ece556ad6a0edf7a187d0"
+    },
+    {
+      "country": "England",
+      "name": "Burnley FC",
+      "aliases": [
+        "Burnley",
+        "Burnley FC"
+      ],
+      "file": "england-burnleyfc.png",
+      "sha256": "e7ab54bcff2fbcb5910e7f0d157f5ba01e98167872b4f6e30c5c4f3c197e0bf5",
+      "source": "https://api.github.com/repos/luukhopman/football-logos/git/blobs/8700e48fb2d1e767ed54bd25d6d9543bff342caf"
+    },
+    {
+      "country": "England",
+      "name": "West Ham United",
+      "aliases": [
+        "West Ham United"
+      ],
+      "file": "england-westhamunited.png",
+      "sha256": "b1030321270d69870cdcbb41b4ea4a0a7cce85461ec4767c51bfc46d25680b65",
+      "source": "https://api.github.com/repos/luukhopman/football-logos/git/blobs/2df856881a70de81c9aca21bb9a6cfc23fa6e24c"
+    },
+    {
+      "country": "England",
+      "name": "Wolverhampton Wanderers",
+      "aliases": [
+        "Wolverhampton",
+        "Wolverhampton Wanderers",
+        "Wolves"
+      ],
+      "file": "england-wolverhamptonwanderers.png",
+      "sha256": "b3a247b04e78df32e6e6a77b15cb0d27a844532c08b3f5d10d246fccf7fc1811",
+      "source": "https://api.github.com/repos/luukhopman/football-logos/git/blobs/2c2181fb887576c4b99b201e00d16d8f740fbd0b"
+    },
+    {
+      "country": "France",
+      "name": "FC Metz",
+      "aliases": [
+        "FC Metz",
+        "Metz"
+      ],
+      "file": "france-fcmetz.png",
+      "sha256": "5437c83384f87ffbdb5b93b1e9a90301bc2cbe797edc7452162e2f31c28577f5",
+      "source": "https://api.github.com/repos/luukhopman/football-logos/git/blobs/b5adeb9cf2f14c4f42b6c27bc470eb319552c8fb"
+    },
+    {
+      "country": "France",
+      "name": "FC Nantes",
+      "aliases": [
+        "FC Nantes",
+        "Nantes"
+      ],
+      "file": "france-fcnantes.png",
+      "sha256": "863251d1b097e09202369c531f854196b7a995a1cca18d89171028cda90cae5d",
+      "source": "https://api.github.com/repos/luukhopman/football-logos/git/blobs/32c1f5095238ef8a0036ca584ba374214b855694"
+    },
+    {
+      "country": "Germany",
+      "name": "1.FC Heidenheim 1846",
+      "aliases": [
+        "1.FC Heidenheim 1846"
+      ],
+      "file": "germany-1fcheidenheim1846.png",
+      "sha256": "4190caa791169f727fdc95562f422999652bf21b2153d1271392e3aac480a225",
+      "source": "https://api.github.com/repos/luukhopman/football-logos/git/blobs/e51abbb1539fed73a88a21e863a9319e8bcb026e"
+    },
+    {
+      "country": "Germany",
+      "name": "FC St. Pauli",
+      "aliases": [
+        "FC St. Pauli",
+        "St. Pauli"
+      ],
+      "file": "germany-fcstpauli.png",
+      "sha256": "ec38b670697dba4739f59a068468ee119b4790129aeda008e69eadfecf77c7f9",
+      "source": "https://api.github.com/repos/luukhopman/football-logos/git/blobs/b437fdec26d2dfe1ab0ff4791e7218d462cfaaa3"
+    },
+    {
+      "country": "Germany",
+      "name": "VfL Wolfsburg",
+      "aliases": [
+        "VfL Wolfsburg"
+      ],
+      "file": "germany-vflwolfsburg.png",
+      "sha256": "05709b2c8f9bd8cb893fdba53e58f91c46e9a8ca966b081e8b088de9859f3547",
+      "source": "https://api.github.com/repos/luukhopman/football-logos/git/blobs/0a90309ceb648272e6571b564f11d080d457e47a"
+    },
+    {
+      "country": "Italy",
+      "name": "Hellas Verona",
+      "aliases": [
+        "Hellas Verona"
+      ],
+      "file": "italy-hellasverona.png",
+      "sha256": "686b66e0cac0662c4ad9a3e06e88c8cc2720ffffcdfd7e80372a2337ecec82d3",
+      "source": "https://api.github.com/repos/luukhopman/football-logos/git/blobs/aad525c8559ee889d4fbb3aa4f324a476b01e5a6"
+    },
+    {
+      "country": "Italy",
+      "name": "Pisa Sporting Club",
+      "aliases": [
+        "Pisa Sporting Club"
+      ],
+      "file": "italy-pisasportingclub.png",
+      "sha256": "b6dddfd2287ddecf7894577b45bfcf332929598bc025d72ddfe3c0fea30b897c",
+      "source": "https://api.github.com/repos/luukhopman/football-logos/git/blobs/bd84322dfddea6a74d6b30e41fcee4d863226bc2"
+    },
+    {
+      "country": "Italy",
+      "name": "US Cremonese",
+      "aliases": [
+        "US Cremonese"
+      ],
+      "file": "italy-uscremonese.png",
+      "sha256": "fd90dcc217bc5fd0c7606c29651dcaf41cbc0d7c99bdc49e76aa3d591d4e0b2d",
+      "source": "https://api.github.com/repos/luukhopman/football-logos/git/blobs/706e59bf2d94aae7ddfe722f84b3f786235e51be"
+    },
+    {
+      "country": "Spain",
+      "name": "Girona FC",
+      "aliases": [
+        "Girona",
+        "Girona FC"
+      ],
+      "file": "spain-gironafc.png",
+      "sha256": "468cdeb313aedc5d7a2ad2451171a146f49c5381a2f6c3061397d0d47dc84a4b",
+      "source": "https://api.github.com/repos/luukhopman/football-logos/git/blobs/76254aa6345a32689524e4dfec8e7bf0fd261080"
+    },
+    {
+      "country": "Spain",
+      "name": "RCD Mallorca",
+      "aliases": [
+        "RCD Mallorca"
+      ],
+      "file": "spain-rcdmallorca.png",
+      "sha256": "7194ac9fcd906cfb46a4899a7b728d4868932fd788626f41e7e92b1ee3593644",
+      "source": "https://api.github.com/repos/luukhopman/football-logos/git/blobs/91e3e79a8ac73c61169b0c3241a0c8ad05e77796"
+    },
+    {
+      "country": "Spain",
+      "name": "Real Oviedo",
+      "aliases": [
+        "Real Oviedo"
+      ],
+      "file": "spain-realoviedo.png",
+      "sha256": "a7ff56542448196ef62e774619081f316101219f5a585cb5c305b4280a5ffdb2",
+      "source": "https://api.github.com/repos/luukhopman/football-logos/git/blobs/b14b35aae0782e59c62ae206ca0191a6887b37b9"
+    },
+    {
+      "country": "South Africa",
+      "name": "AmaZulu FC",
+      "aliases": [
+        "AmaZulu",
+        "AmaZulu FC"
+      ],
+      "file": "south-africa-amazulufc.png",
+      "sha256": "9a78bd2b87d1be418e5d7335a56f8718e7c46374ec9bbd5ad2e8266d79e289fa",
+      "source": "https://api.github.com/repos/JoseArroyave/football-logos/git/blobs/b00984bfcb092ed10803b71f6e4d286544f65e94"
+    },
+    {
+      "country": "South Africa",
+      "name": "Chippa United",
+      "aliases": [
+        "Chippa United"
+      ],
+      "file": "south-africa-chippaunited.png",
+      "sha256": "4a327f08b5aa6796a0075eb859b67afaf21b60c2b1f59b997f4a342cefd563b6",
+      "source": "https://api.github.com/repos/JoseArroyave/football-logos/git/blobs/2c125c039f83b36aa41d4a407966dafdcbf59e0b"
+    },
+    {
+      "country": "South Africa",
+      "name": "Durban City FC",
+      "aliases": [
+        "Durban City",
+        "Durban City FC"
+      ],
+      "file": "south-africa-durbancityfc.png",
+      "sha256": "d4712167f7deb5f08e48673d6636f7c32bfc93fe0e7ed06d1acac8932068f40a",
+      "source": "https://api.github.com/repos/JoseArroyave/football-logos/git/blobs/dcea71a32c6a075dda6404fe46b05a6b4c3a326d"
+    },
+    {
+      "country": "South Africa",
+      "name": "Golden Arrows",
+      "aliases": [
+        "Golden Arrows"
+      ],
+      "file": "south-africa-goldenarrows.png",
+      "sha256": "7c2ddce50b17dc398a0c11351473709c2c2da80f8f7afa9e6158645c04927b7d",
+      "source": "https://api.github.com/repos/JoseArroyave/football-logos/git/blobs/912d855ff8d49f88082ed7a56837b14ba63178a4"
+    },
+    {
+      "country": "South Africa",
+      "name": "Kaizer Chiefs",
+      "aliases": [
+        "Kaizer Chiefs"
+      ],
+      "file": "south-africa-kaizerchiefs.png",
+      "sha256": "72a3569397f19ee2223052a3bd7182c1247d006c867cd5efce0c288d52ede7e3",
+      "source": "https://api.github.com/repos/JoseArroyave/football-logos/git/blobs/2019126b17bfb16c2e4b4ec3f7e9e226c33d8769"
+    },
+    {
+      "country": "South Africa",
+      "name": "Kruger United",
+      "aliases": [
+        "Kruger United"
+      ],
+      "file": "south-africa-krugerunited.png",
+      "sha256": "2ac9df84e84baa654140a2b1f9760800dac6d9ecc932ee620e0236c9faceaa60",
+      "source": "https://api.github.com/repos/JoseArroyave/football-logos/git/blobs/d2f5320b04284a3df5d09fc3b8d07ac73920ffe4"
+    },
+    {
+      "country": "South Africa",
+      "name": "Lerumo Lions",
+      "aliases": [
+        "Lerumo Lions"
+      ],
+      "file": "south-africa-lerumolions.png",
+      "sha256": "bd5d378734a1f1bf2ecf729adc8a88cd12b2214fcce75cc3c4e9005138857df3",
+      "source": "https://api.github.com/repos/JoseArroyave/football-logos/git/blobs/16e7833539dbe00de96101aba0e23cc2b10ab982"
+    },
+    {
+      "country": "South Africa",
+      "name": "Magesi FC",
+      "aliases": [
+        "Magesi",
+        "Magesi FC"
+      ],
+      "file": "south-africa-magesifc.png",
+      "sha256": "1391ec62bfc8a60b165567a7ea51157fda8f6bab31c75462488467c9eb053dd2",
+      "source": "https://api.github.com/repos/JoseArroyave/football-logos/git/blobs/a3fc2d9fae64d2d84f6350e27d87fa4f3ed2dc49"
+    },
+    {
+      "country": "South Africa",
+      "name": "Mamelodi Sundowns",
+      "aliases": [
+        "Mamelodi Sundowns"
+      ],
+      "file": "south-africa-mamelodisundowns.png",
+      "sha256": "ff3c31a1743c63006d730b179aa682948b932566b3c337ec037cb466200e6813",
+      "source": "https://api.github.com/repos/JoseArroyave/football-logos/git/blobs/faca160e09964ffc8807a2435d8453800bab1f53"
+    },
+    {
+      "country": "South Africa",
+      "name": "Marumo Gallants",
+      "aliases": [
+        "Marumo Gallants"
+      ],
+      "file": "south-africa-marumogallants.png",
+      "sha256": "e7bc55827ea4b79b6222e4703aaf2051f17683cbf09ea5ef1e9992163ae1d02f",
+      "source": "https://api.github.com/repos/JoseArroyave/football-logos/git/blobs/9b7e14eb105261e26e71bc3e0ad1631f79c97647"
+    },
+    {
+      "country": "South Africa",
+      "name": "Milford FC",
+      "aliases": [
+        "Milford",
+        "Milford FC"
+      ],
+      "file": "south-africa-milfordfc.png",
+      "sha256": "149cec0e47b2e487f8bb70bcad1efd7981c3e55cd144ae7268bf36d4eb24f45a",
+      "source": "https://api.github.com/repos/JoseArroyave/football-logos/git/blobs/ac9e6625475552c5dc58d6ac0d81508b06242081"
+    },
+    {
+      "country": "South Africa",
+      "name": "Orbit College FC",
+      "aliases": [
+        "Orbit College",
+        "Orbit College FC"
+      ],
+      "file": "south-africa-orbitcollegefc.png",
+      "sha256": "2693a8f7bb7d1d8dd8cb389162074f7f6e577af607b1ff371f071da059a2abfe",
+      "source": "https://api.github.com/repos/JoseArroyave/football-logos/git/blobs/6b7e4bd65cbfbee26d0f32f988066e03a004148f"
+    },
+    {
+      "country": "South Africa",
+      "name": "Orlando Pirates",
+      "aliases": [
+        "Orlando Pirates"
+      ],
+      "file": "south-africa-orlandopirates.png",
+      "sha256": "83b06339b55f00d00e0b90a43efad1f15f15a32fb639ca30ac064eb98c5562d4",
+      "source": "https://api.github.com/repos/JoseArroyave/football-logos/git/blobs/1e2a5eb6e7eb6fabd50d2ce0315fd0208aa3a8eb"
+    },
+    {
+      "country": "South Africa",
+      "name": "Polokwane City",
+      "aliases": [
+        "Polokwane City"
+      ],
+      "file": "south-africa-polokwanecity.png",
+      "sha256": "71f54465b164f4b1a7259dca8cf64239cd9ec7744756ebba49204598502f57d7",
+      "source": "https://api.github.com/repos/JoseArroyave/football-logos/git/blobs/18767bf4cbecf3a40722473356054bad4bcca248"
+    },
+    {
+      "country": "South Africa",
+      "name": "Richards Bay FC",
+      "aliases": [
+        "Richards Bay",
+        "Richards Bay FC"
+      ],
+      "file": "south-africa-richardsbayfc.png",
+      "sha256": "d99fcae323ca0374cd873bf5d403e2e6614e58e2cf8ede75f24027229137f8da",
+      "source": "https://api.github.com/repos/JoseArroyave/football-logos/git/blobs/fae622318e50002c0734b5a39139083501fc76c3"
+    },
+    {
+      "country": "South Africa",
+      "name": "Sekhukhune United",
+      "aliases": [
+        "Sekhukhune United"
+      ],
+      "file": "south-africa-sekhukhuneunited.png",
+      "sha256": "78344747dbe34d00a8e644f522f4a0b43374b7015757a5b0031bcfb7b5160f7d",
+      "source": "https://api.github.com/repos/JoseArroyave/football-logos/git/blobs/c8b8bc8abc2ad56e4a314eeab90f0542572c985d"
+    },
+    {
+      "country": "South Africa",
+      "name": "Siwelele FC",
+      "aliases": [
+        "Siwelele",
+        "Siwelele FC"
+      ],
+      "file": "south-africa-siwelelefc.png",
+      "sha256": "f03fc3fd39ad502b66b419e823c831074770f20b6bc6db6e30ee48d1140612b3",
+      "source": "https://api.github.com/repos/JoseArroyave/football-logos/git/blobs/3b9a8e9fdb6d1973fb4f733e191fbee378f9b592"
+    },
+    {
+      "country": "South Africa",
+      "name": "Stellenbosch FC",
+      "aliases": [
+        "Stellenbosch",
+        "Stellenbosch FC"
+      ],
+      "file": "south-africa-stellenboschfc.png",
+      "sha256": "ac5ae950a3bab9aef7099feba99d9c15a068774e7245246a207555b6b9a0aa5d",
+      "source": "https://api.github.com/repos/JoseArroyave/football-logos/git/blobs/f79fcc19c46ce800ae3e4fd81066a371a1d60f08"
+    },
+    {
+      "country": "South Africa",
+      "name": "TS Galaxy",
+      "aliases": [
+        "TS Galaxy"
+      ],
+      "file": "south-africa-tsgalaxy.png",
+      "sha256": "3f11c77878427bcc20be9de429220a1adf2b1ea959448a811f079334e5a848b0",
+      "source": "https://api.github.com/repos/JoseArroyave/football-logos/git/blobs/0bde057c19246ad04ee6f99f2ae9f16473cd6741"
+    }
+  ]
+}
