@@ -52,7 +52,18 @@ def team_record(api, book, rows, target, side, now):
 def extra_evidence(api, book, target, now):
     # Only two complete league seasons; no undocumented H2H/odds endpoints.
     current = history(api, book, target, target['season'])
-    previous = history(api, book, target, target['season']-1)
+    seasons = [target['season']]
+    # Reuse current-season evidence when it already fills all four cards. Never
+    # spend scarce quota (or require older-season access) merely to pad H2H.
+    eligible = completed(current, target, now, 365)
+    venue_complete = all(sum(m[side+'_id']==target[side+'_id'] for m in eligible)>=5
+                         for side in ('home','away'))
+    has_meeting = any({m['home_id'],m['away_id']}=={target['home_id'],target['away_id']}
+                      for m in completed(current,target,now,730))
+    previous = []
+    if not venue_complete or not has_meeting:
+        previous = history(api, book, target, target['season']-1)
+        seasons.append(target['season']-1)
     rows = current + previous
     if len({m['id'] for m in rows}) != len(rows):
         raise ProviderError('Duplicate match across seasons; no four-picture package')
@@ -79,7 +90,7 @@ def extra_evidence(api, book, target, now):
                 raise ProviderError('Head-to-head team identity conflict')
         h2h.append({'id': m['id'], 'date': m['kickoff'], 'home': m['home'], 'away': m['away'],
                     'home_id': m['home_id'], 'away_id': m['away_id'], 'score': m['score']})
-    return {'venue_form': venue, 'h2h': h2h, 'seasons': [target['season'], target['season']-1]}
+    return {'venue_form': venue, 'h2h': h2h, 'seasons': seasons}
 
 
 def form(rows):
@@ -161,7 +172,8 @@ def caption(m, home, away, extra=None):
     trend = f"Two or more goals were scored in {goals[0]} of {m['home']}'s last five league games and {goals[1]} of {m['away']}'s."
     if extra:
         meetings = extra['h2h']; latest = meetings[0]
+        period = 'the last two league seasons' if len(extra['seasons'])==2 else 'the current league season'
         trend += (f" Their latest league meeting finished {latest['home']} {latest['score'][0]}–{latest['score'][1]} {latest['away']} "
-                  f"on {e.aware(latest['date']):%d %b %Y}; the H2H picture shows {len(meetings)} recent meeting{'s' if len(meetings)!=1 else ''} from the last two league seasons.")
+                  f"on {e.aware(latest['date']):%d %b %Y}; the H2H picture shows {len(meetings)} recent meeting{'s' if len(meetings)!=1 else ''} from {period}.")
     return head + '\n\n' + '\n\n'.join('• '+part for part in (summary, edge, trend)) + \
         '\n\nWhich market looks strongest to you in this match?\n\n' + e.hashtags(m['league'], (m['home'], m['away']))

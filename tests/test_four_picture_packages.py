@@ -185,3 +185,20 @@ def test_four_picture_reservation_cannot_be_downgraded_to_two(cfg,tmp_path,monke
     (tmp_path/'plans.json').write_text(json.dumps([post]))
     monkeypatch.setattr(cli,'PageFeed',lambda:pytest.fail('No Page contact'))
     with pytest.raises(ValueError):cli.main(['stage',*common,'--checkpoint'])
+
+
+def test_complete_current_season_does_not_require_older_season_access(cfg):
+    api=Fake()
+    meeting=raw(1900,'psl',NOW-timedelta(days=45),10,20,'2 - 1','Finished')
+    api.hist['psl'].append(meeting);api.details[1900]=deepcopy(meeting)
+    original=api.catalog
+    def catalog(params):
+        if params.get('season')==2025:pytest.fail('No older-season request when current records suffice')
+        return original(params)
+    api.catalog=catalog
+    post,reason=e.build(cfg,{},NOW,api);assert post,reason
+    assert len(post['graphics'])==4
+    assert post['snapshot'][0]['seasons']==[2026]
+    assert 'the current league season' in post['caption']
+    assert 'the last two league seasons' not in post['caption']
+    assert all(params.get('season')!=2025 for kind,params in api.calls if kind=='catalog')

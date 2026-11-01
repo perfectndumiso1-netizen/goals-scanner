@@ -32,10 +32,10 @@ of nine sufficiently documented matches or of successful Facebook delivery.
   not a claim that every world fixture has been researched or that a bookmaker
   favourite is known. Unassessed candidates are not assigned an invented score.
 - Current-season last-five all-venue comparison still requires five games within
-  180 days. The extra cards read the current and immediately previous league
-  season only: up to five direct meetings within 730 days; exactly five games
+  180 days. The extra cards reuse the current season; only if venue form or
+  H2H is insufficient do they also read the immediately previous league season: up to five direct meetings within 730 days; exactly five games
   per required venue within 365 days. One verified recent meeting is sufficient;
-  it is labelled as one meeting, never padded to five. Both seasons and date
+  it is labelled as one meeting, never padded to five. The actual season(s) read and date
   horizons appear on the extra cards; individual result dates remain visible.
 - Every history is read twice through the existing complete, paginated `/matches`
   catalog. Completed records are compared canonically; unrelated live-score
