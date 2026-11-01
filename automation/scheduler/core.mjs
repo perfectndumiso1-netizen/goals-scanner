@@ -38,10 +38,12 @@ export function inspectRuns(payload, now, interval) {
 }
 
 async function github(workflow, suffix, token, fetcher, body) {
-  // No user-controlled URL, redirects, exception text, response body or token in logs.
+  // Workers supports only follow/manual, not redirect:error. Never follow a
+  // redirect with credentials; callers reject every non-exact success status.
+  // No user-controlled URL, exception text, response body or token in logs.
   const response = await fetcher(BASE + workflow + suffix, {
     method: body ? 'POST' : 'GET',
-    redirect: 'error',
+    redirect: 'manual',
     signal: AbortSignal.timeout(8_000),
     headers: {
       Authorization: `Bearer ${token}`,
@@ -63,39 +65,89 @@ function der(tag, bytes) {
 
 const base64url = bytes => btoa(String.fromCharCode(...bytes)).replaceAll('+', '-').replaceAll('/', '_').replace(/=+$/, '');
 
-export async function installationToken(env, fetcher, now) {
-  if (![env.GITHUB_APP_ID, env.GITHUB_INSTALLATION_ID].every(id => /^[1-9][0-9]*$/.test(id))) {
-    throw new Error('invalid_app_configuration');
+// Only errors created here carry diagnostic metadata. Never serialize an
+// upstream exception, cause, response body, JWT, ID, URL or secret value.
+const AUTH_FAILURES = new WeakMap();
+function authFailure(stage, reason, status) {
+  const error = new Error('Timer authentication failed');
+  AUTH_FAILURES.set(error, {
+    auth_stage: stage, auth_reason: reason,
+    ...(Number.isInteger(status) && status >= 100 && status <= 599 ? { http_status: status } : {}),
+  });
+  return error;
+}
+
+export async function installationToken(env, fetcher, now, cryptography = globalThis.crypto) {
+  if (!/^[1-9][0-9]*$/.test(env.GITHUB_APP_ID)) {
+    throw authFailure('configuration', 'app_id_not_positive_integer');
+  }
+  if (!/^[1-9][0-9]*$/.test(env.GITHUB_INSTALLATION_ID)) {
+    throw authFailure('configuration', 'installation_id_not_positive_integer');
   }
   const pem = env.GITHUB_APP_PRIVATE_KEY;
   if (typeof pem !== 'string' || !/^-----BEGIN (RSA )?PRIVATE KEY-----/.test(pem.trim())) {
-    throw new Error('invalid_app_configuration');
+    throw authFailure('pem_decode', 'private_key_header_invalid');
   }
-  let bytes = Uint8Array.from(atob(pem.replace(/-----[^-]+-----/g, '').replace(/\s/g, '')), c => c.charCodeAt(0));
-  if (pem.includes('BEGIN RSA PRIVATE KEY')) {
-    // GitHub downloads PKCS#1; Web Crypto imports PKCS#8. Wrap the original
-    // bytes locally, without a conversion service or writing a key to disk.
-    const rsaAlgorithm = [0x30, 0x0d, 0x06, 0x09, 0x2a, 0x86, 0x48, 0x86, 0xf7, 0x0d, 0x01, 0x01, 0x01, 0x05, 0x00];
-    bytes = der(0x30, new Uint8Array([0x02, 0x01, 0x00, ...rsaAlgorithm, ...der(0x04, bytes)]));
+  let bytes;
+  try {
+    bytes = Uint8Array.from(atob(pem.replace(/-----[^-]+-----/g, '').replace(/\s/g, '')), c => c.charCodeAt(0));
+    if (pem.includes('BEGIN RSA PRIVATE KEY')) {
+      // GitHub downloads PKCS#1; Web Crypto imports PKCS#8. Wrap the original
+      // bytes locally, without a conversion service or writing a key to disk.
+      const rsaAlgorithm = [0x30, 0x0d, 0x06, 0x09, 0x2a, 0x86, 0x48, 0x86, 0xf7, 0x0d, 0x01, 0x01, 0x01, 0x05, 0x00];
+      bytes = der(0x30, new Uint8Array([0x02, 0x01, 0x00, ...rsaAlgorithm, ...der(0x04, bytes)]));
+    }
+  } catch {
+    throw authFailure('pem_decode', 'private_key_base64_invalid');
   }
-  const key = await crypto.subtle.importKey('pkcs8', bytes,
-    { name: 'RSASSA-PKCS1-v1_5', hash: 'SHA-256' }, false, ['sign']);
-  const encode = data => base64url(new TextEncoder().encode(JSON.stringify(data)));
-  const seconds = Math.floor(now / 1000);
-  const unsigned = encode({ alg: 'RS256', typ: 'JWT' }) + '.' +
-    encode({ iat: seconds - 60, exp: seconds + 8 * 60, iss: env.GITHUB_APP_ID });
-  const signature = await crypto.subtle.sign('RSASSA-PKCS1-v1_5', key, new TextEncoder().encode(unsigned));
-  const response = await fetcher(`https://api.github.com/app/installations/${env.GITHUB_INSTALLATION_ID}/access_tokens`, {
-    method: 'POST', redirect: 'error', signal: AbortSignal.timeout(8_000),
-    headers: { Authorization: `Bearer ${unsigned}.${base64url(new Uint8Array(signature))}`,
-      Accept: 'application/vnd.github+json', 'X-GitHub-Api-Version': '2022-11-28',
-      'User-Agent': 'goals-scanner-independent-timer', 'Content-Type': 'application/json' },
-    body: JSON.stringify({ repositories: ['goals-scanner'], permissions: { actions: 'write' } }),
-  });
-  if (response.status !== 201) throw new Error('app_authentication_failed');
-  const body = await response.json();
-  if (typeof body.token !== 'string' || !body.token || body.permissions?.actions !== 'write' ||
-      !(Date.parse(body.expires_at) > now + MINUTE)) throw new Error('invalid_installation_token');
+  let key;
+  try {
+    key = await cryptography.subtle.importKey('pkcs8', bytes,
+      { name: 'RSASSA-PKCS1-v1_5', hash: 'SHA-256' }, false, ['sign']);
+  } catch {
+    throw authFailure('key_import', 'private_key_import_failed');
+  }
+  let jwt;
+  try {
+    const encode = data => base64url(new TextEncoder().encode(JSON.stringify(data)));
+    const seconds = Math.floor(now / 1000);
+    const unsigned = encode({ alg: 'RS256', typ: 'JWT' }) + '.' +
+      encode({ iat: seconds - 60, exp: seconds + 8 * 60, iss: env.GITHUB_APP_ID });
+    const signature = await cryptography.subtle.sign('RSASSA-PKCS1-v1_5', key, new TextEncoder().encode(unsigned));
+    jwt = `${unsigned}.${base64url(new Uint8Array(signature))}`;
+  } catch {
+    throw authFailure('jwt_sign', 'jwt_signing_failed');
+  }
+  let response;
+  try {
+    response = await fetcher(`https://api.github.com/app/installations/${env.GITHUB_INSTALLATION_ID}/access_tokens`, {
+      method: 'POST', redirect: 'manual', signal: AbortSignal.timeout(8_000),
+      headers: { Authorization: `Bearer ${jwt}`,
+        Accept: 'application/vnd.github+json', 'X-GitHub-Api-Version': '2022-11-28',
+        'User-Agent': 'goals-scanner-independent-timer', 'Content-Type': 'application/json' },
+      body: JSON.stringify({ repositories: ['goals-scanner'], permissions: { actions: 'write' } }),
+    });
+  } catch {
+    throw authFailure('installation_token_request', 'network_or_timeout');
+  }
+  if (response.status !== 201) {
+    throw authFailure('installation_token_http', 'github_rejected_token_request', response.status);
+  }
+  let body;
+  try { body = await response.json(); }
+  catch { throw authFailure('installation_token_response', 'response_not_json', 201); }
+  if (!body || typeof body !== 'object' || Array.isArray(body)) {
+    throw authFailure('installation_token_response', 'response_schema_invalid', 201);
+  }
+  if (typeof body.token !== 'string' || !body.token) {
+    throw authFailure('installation_token_response', 'token_missing', 201);
+  }
+  if (body.permissions?.actions !== 'write') {
+    throw authFailure('installation_token_response', 'actions_write_not_granted', 201);
+  }
+  if (!(Date.parse(body.expires_at) > now + MINUTE)) {
+    throw authFailure('installation_token_response', 'token_expiry_invalid', 201);
+  }
   return body.token; // Short-lived; never persisted in Durable Object storage or logs.
 }
 
@@ -122,8 +174,9 @@ export async function tick({ storage, env, now = Date.now(), scheduledTime = now
       try {
         let token;
         try { token = await authenticate(env, fetcher, now); }
-        catch {
-          emit('timer', 'app_authentication_failed_no_dispatch');
+        catch (error) {
+          report.outcomes.push({ workflow: 'timer', result: 'app_authentication_failed_no_dispatch',
+            ...(AUTH_FAILURES.get(error) || { auth_stage: 'unknown', auth_reason: 'unexpected_error' }) });
           log(JSON.stringify(report));
           return report;
         }

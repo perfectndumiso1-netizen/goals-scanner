@@ -41,3 +41,6 @@ jobs:
       - uses: actions/checkout@v4.4.0
       - name: Test independent timer (offline, no publishing credentials)
         run: node --test automation/scheduler/worker.test.mjs
+      - name: Verify bundled timer in Workers runtime (mock HTTP only)
+        working-directory: automation/scheduler
+        run: npm exec --yes --package=node@22.22.3 --call 'npm ci --ignore-scripts && npm run check'

@@ -99,6 +99,68 @@ Do not delete/reset Durable Object state to troubleshoot delivery uncertainty.
 To revoke the identity, suspend/uninstall the dedicated GitHub App; rotating its
 private key requires updating the Cloudflare secret and re-verifying wake-ups.
 
+## Authentication diagnostics and the November 1 runtime correction
+
+The original Worker passed Node tests and disabled-runtime smoke checks but used
+`redirect: 'error'` for GitHub fetches. An enabled local **workerd** reproduction
+showed that Workers rejects this option **before any HTTP request**: Workers
+supports `follow` and `manual`, not `error`. The broad authentication catch hid
+this programming error behind `app_authentication_failed_no_dispatch`. This is
+not evidence that the owner's PEM or GitHub identity was wrong.
+
+Both GitHub request paths now use `redirect: 'manual'`. Exact expected status
+checks still reject redirects: token issuance requires 201, run inspection 200,
+and dispatch 204. Credentials are never forwarded to a redirected location. No
+permissions, credential validation, workflow inputs or delivery guards are relaxed.
+The mock-enabled workerd smoke tests exercise both PKCS#1 and PKCS#8 import and
+signing, fake GitHub denial/redirect responses, and a successful fake token followed
+by recent-run suppression. All HTTP is intercepted in-process; no live dispatch.
+
+Authentication failures retain their original `result` and add safe fields:
+
+```json
+{
+  "workflow": "timer",
+  "result": "app_authentication_failed_no_dispatch",
+  "auth_stage": "installation_token_http",
+  "auth_reason": "github_rejected_token_request",
+  "http_status": 401
+}
+```
+
+`http_status` appears only when a real HTTP response has been received. It is not
+fabricated for key-import, signing or network failures. Diagnostic stage/reason
+strings come exclusively from internal constants, not exception properties or
+response messages. Unrecognized errors report `unknown / unexpected_error`.
+No IDs, key fingerprints, PEM bytes, JWTs, tokens, headers, URLs, response bodies,
+exception messages or causes are included in these reports or stored in the DO.
+
+| `auth_stage` | Meaning / narrow next check |
+|---|---|
+| `configuration` | `auth_reason` identifies App ID vs installation ID format; use the numeric App ID (not Client ID), and the installation URL's numeric ID. Values remain private. |
+| `pem_decode` | Header or base64 parsing failed; check complete original PEM privately. Whitespace/blank lines alone are accepted. |
+| `key_import` | Web Crypto could not import the decoded RSA key; does not establish a GitHub permission error. |
+| `jwt_sign` | Local signing failed before contacting GitHub. |
+| `installation_token_request` | Request threw before a response was obtained; no HTTP status is known. Could be a network/runtime error, not necessarily the key. |
+| `installation_token_http` | GitHub returned the shown status. 401: examine App/key matching and JWT clock; 403: inspect approved installation/policy/rate limits, don't broaden permissions blindly; 404: inspect installation/App matching/access; 422: inspect selected repository and requested grant. A status alone doesn't establish one root cause. |
+| `installation_token_response` | A 201 response failed JSON/schema/token/grant/expiry validation; reason identifies which. No token is logged or used. |
+| `unknown` | Unclassified internal failure; do not guess or rotate credentials repeatedly. |
+
+After this correction is merged, Cloudflare Git integration must finish a new
+production deployment. Confirm its deployed commit/version, the four runtime
+secret names and the DO binding **without revealing values**. Do not recreate
+bindings or reset the existing DO. If Git integration did not rebuild, deploy the
+new `main` revision through the existing Cloudflare project. A successful build
+alone is not a verified dispatch.
+
+Then ask the Cloudflare agent to inspect the **next automatic** Scheduler report
+and provide only `result`, `auth_stage`, `auth_reason`, and `http_status` if present.
+If it reaches run inspection or dispatch, the former authentication blocker has
+been passed; actual GitHub runs and publication receipts still need verification.
+Never rotate a key merely because the broad result says authentication failed.
+A key disclosed in chat must nevertheless be revoked in GitHub: replacing the
+Cloudflare secret does not revoke an old GitHub App private key.
+
 ## Exact cadence and scope
 
 The external clock ticks every five minutes, but it doesn't dispatch every target
@@ -147,4 +209,5 @@ PKCS#1 and PKCS#8 signing. The local smoke test also loads the actual bundle and
 in workerd, asserts the disabled state and public 404, and forbids outbound
 network requests. No real credentials, provider requests, live publishing
 or Cloudflare deployment are part of local tests. GitHub's existing Python-tests
-workflow also runs the dependency-free timer tests on pull requests.
+workflow also runs the dependency-free timer tests and the bundled workerd smoke
+checks on pull requests. The runtime step selects Node 22 explicitly.
