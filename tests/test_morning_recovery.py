@@ -191,7 +191,7 @@ def test_recovery_workflow_uses_same_bounded_facebook_lane_and_saves_queue_first
     assert 'FACEBOOK_AUTOMATION: "1"' in text
     assert 'actions: read' in text
     assert 'group: goals-scan' in text and 'cancel-in-progress: false' in text
-    assert 'inputs.edition' in text and "== 'schedule' && 'auto'" in text
+    assert "needs.route.outputs.mode" in text and "else 'health'" in text
     assert text.index('facebook_recovery_queue.py recover') < text.index('python recover_morning.py')
     assert text.index('id: recovery') < text.index('facebook_recovery_queue.py register') < text.index('git -C state add -A')
     assert 'if: always() && steps.recovery.outputs.artifact-id' in text

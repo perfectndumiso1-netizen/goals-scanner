@@ -170,3 +170,32 @@ def test_missing_saved_receipt_in_recovery_never_starts_new_upload(monkeypatch,t
     monkeypatch.setattr(fb,'publish',lambda *a:pytest.fail('Missing receipt must not create new Reel'))
     queue.recover(state)
     assert queue.load(state)['items'][0]['status']=='pending'
+
+
+def test_saved_recovery_confirms_only_its_explicit_edition_without_telegram_resend(monkeypatch,tmp_path):
+    import video_delivery_health as health
+    from datetime import datetime
+    monkeypatch.chdir(tmp_path)
+    day=datetime.now(health.SAST).date().isoformat()
+    tracker=tmp_path/'app'/'video_delivery.json'
+    path=video(tmp_path)
+    fb._save(path,dict(kind=fb.KIND,page_id=PAGE,video_id='987',sha256=fb._digest(path)),'finishing')
+    with health.edition_context(tracker,day,'noon'):
+        health.observe('telegram','confirmed','456')
+        delivery.stage(path,'caption',fb)
+    directory=tmp_path/'recovery';archive=tmp_path/'artifact.zip'
+    with zipfile.ZipFile(archive,'w') as target:
+        for file in directory.iterdir():target.write(file,file.name)
+    state=tmp_path/'state.json';queue.register(state,directory,'123')
+    monkeypatch.setenv('GITHUB_REPOSITORY','owner/repo');monkeypatch.setenv('GH_READ_TOKEN','synthetic')
+    monkeypatch.setattr(queue,'github_download',lambda repo,resource,dest,token:dest.write_bytes(archive.read_bytes()))
+    def publish(video,caption):
+        assert fb._read_receipt(video)['video_id']=='987'
+        return fb.UploadResult('uploaded','987')
+    monkeypatch.setattr(fb,'publish',publish)
+    queue.recover(state)
+    row=health.load(tracker)['days'][day]['noon']
+    assert row['lanes']['telegram']['receipt_id']=='456'
+    assert row['lanes']['facebook']['receipt_id']=='987'
+    assert row['lanes']['facebook']['status']=='confirmed'
+    assert set(health.load(tracker)['days'][day])=={'noon'}

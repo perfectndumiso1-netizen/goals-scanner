@@ -120,6 +120,7 @@ jobs:
           PY
 
       - name: Restore state (data branch)
+        id: restore
         run: |
           set -e
           if git clone -q --depth 1 --branch data --single-branch "$STATE_URL" state 2>/dev/null; then
@@ -159,6 +160,7 @@ jobs:
         run: python scripts/facebook_recovery_queue.py register --state state/data/facebook_delivery_queue.json --artifact-id '${{ steps.recovery.outputs.artifact-id }}'
 
       - name: Publish state
+        if: always() && steps.restore.outcome == 'success'
         run: |
           set -e
           cd state

@@ -31,9 +31,9 @@ function harness(options = {}) {
 for (const [clock, workflows] of [
   ['03:59', ['recover-morning.yml', 'scan.yml']], ['04:00', ['recover-morning.yml', 'scan.yml', 'facebook-roundup.yml']],
   ['04:44', ['recover-morning.yml', 'scan.yml', 'facebook-roundup.yml']], ['04:45', ['recover-morning.yml', 'scan.yml']],
-  ['05:29', ['scan.yml']], ['05:30', ['scan.yml', 'facebook-watchdog.yml']],
+  ['05:29', ['recover-morning.yml', 'scan.yml']], ['05:30', ['recover-morning.yml', 'scan.yml', 'facebook-watchdog.yml']],
   ['14:59', ['recover-morning.yml', 'scan.yml', 'facebook-watchdog.yml']], ['15:00', ['recover-morning.yml', 'scan.yml']],
-  ['23:59', ['scan.yml']],
+  ['23:59', ['recover-morning.yml', 'scan.yml']],
 ]) test(`UTC/SAST boundaries at ${clock}`, () => {
   assert.deepEqual(targetsAt(at(clock)).map(t => t.workflow), workflows);
 });
@@ -72,14 +72,14 @@ test('fixed repository/main and safe inputs; acceptance is never called publicat
   const report = await h.go();
   assert.ok(report.outcomes.every(o => o.result === 'dispatch_accepted_not_delivery'));
   const posts = h.calls.filter(c => c.method === 'POST');
-  assert.equal(posts.length, 2);
+  assert.equal(posts.length, 3);
   for (const call of h.calls) {
     assert.ok(call.url.startsWith(`https://api.github.com/repos/${REPOSITORY}/actions/workflows/`));
     assert.equal(call.redirect, 'manual');
     assert.equal(call.headers.Authorization, `Bearer ${dummyCredential}`);
   }
-  assert.deepEqual(JSON.parse(posts[0].body), { ref: 'main', inputs: { send_reel: false } });
-  assert.deepEqual(JSON.parse(posts[1].body), { ref: 'main', inputs: { publish: true } });
+  assert.deepEqual(JSON.parse(posts[1].body), { ref: 'main', inputs: { send_reel: false } });
+  assert.deepEqual(JSON.parse(posts[2].body), { ref: 'main', inputs: { publish: true } });
   assert.ok(!h.logs.join('').includes(dummyCredential));
 });
 
@@ -152,7 +152,7 @@ test('a failed target does not prevent independent targets being checked', async
     return init.method === 'GET' ? Response.json({ workflow_runs: [] }) : new Response(null, { status: 204 });
   } });
   assert.deepEqual((await h.go()).outcomes.map(o => o.result),
-    ['request_failed_no_immediate_retry', 'dispatch_accepted_not_delivery']);
+    ['dispatch_accepted_not_delivery', 'request_failed_no_immediate_retry', 'dispatch_accepted_not_delivery']);
 });
 
 test('public HTTP requests cannot trigger workflows', async () => {
@@ -351,7 +351,11 @@ for (const [clock, due] of [['02:59',false],['03:00',true],['05:19',true],['05:2
   ['13:59',false],['14:00',true],['15:19',true],['15:20',false]]) {
   test(`video-only window at UTC ${clock}: ${due}`, () => {
     const targets = targetsAt(at(clock));
-    assert.equal(targets.some(t => t.workflow === 'recover-morning.yml'), due);
+    assert.equal(targets.some(t => t.workflow === 'recover-morning.yml' && t.inputs.edition === 'auto'), due);
+    if (!due) {
+      assert.deepEqual(targets[0].inputs, { edition: 'health' });
+      assert.equal(targets[0].interval, 15 * minute);
+    }
     if (due) {
       assert.equal(targets[0].workflow, 'recover-morning.yml');
       assert.deepEqual(targets[0].inputs, { edition: 'auto' });

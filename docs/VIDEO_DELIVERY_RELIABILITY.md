@@ -1,3 +1,5 @@
+> **Monitoring update:** [Automatic delivery tracking and alerts](VIDEO_DELIVERY_MONITORING.md) adds channel-specific evidence, health-only wake-ups and durable Telegram incident notifications. The “no missed-edition alerts” limitation below describes PR68 before that update.
+
 # Three video editions with independent channel delivery — November 1 repair
 
 ## What the evidence actually showed

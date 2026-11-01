@@ -63,6 +63,10 @@ def recover(path):
                 raise ValueError('Saved session missing/invalid; new upload forbidden')
             result=fb.publish(video,item['caption'])
             receipt=fb._read_receipt(video)
+            if result.status=='uploaded' and item.get('edition') in ('morning','noon','evening') and item.get('edition_date')==item['date']:
+                import video_delivery_health as video_health
+                video_health.record_lane(path.parent/'app'/'video_delivery.json', item['date'], item['edition'],
+                                         'facebook', 'confirmed', result.video_id)
             if result.status=='uploaded' and receipt.get('cover_status')!='unconfirmed':
                 item.update(status='confirmed',video_id=result.video_id)
                 print('::notice::Facebook saved delivery confirmed; no Telegram resend or new video render.')
