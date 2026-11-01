@@ -50,6 +50,8 @@ def _stage(path,caption,fb):
     manifest=dict(file=target.name,sha256=digest,caption=caption,
                   date=datetime.now(ZoneInfo('Africa/Johannesburg')).date().isoformat(),
                   receipt_required=fb._receipt(path).exists(),video_id=fb._read_receipt(path).get('video_id'))
+    import video_delivery_health as video_health
+    manifest.update(video_health.identity())
     target.with_suffix('.delivery.json').write_text(json.dumps(manifest))
 
 

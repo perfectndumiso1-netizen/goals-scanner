@@ -12,9 +12,11 @@ export function targetsAt(now) {
   const targets = [];
   // Queue video work before a heavyweight scan. Both use the existing goals-scan
   // mutex and edition markers; auto is never a forced catch-up outside a window.
-  if ([[180, 320], [540, 620], [840, 920]].some(([start, end]) => minute >= start && minute < end)) {
-    targets.push({ workflow: 'recover-morning.yml', interval: 10 * MINUTE, inputs: { edition: 'auto' } });
-  }
+  const videoDue = [[180, 320], [540, 620], [840, 920]].some(([start, end]) => minute >= start && minute < end);
+  // Out-of-window health-only runs detect a completely missed edition. They
+  // cannot render, upload, force catch-up or change media delivery reservations.
+  targets.push({ workflow: 'recover-morning.yml', interval: (videoDue ? 10 : 15) * MINUTE,
+    inputs: { edition: videoDue ? 'auto' : 'health' } });
   targets.push({ workflow: 'scan.yml', interval: 25 * MINUTE, inputs: { send_reel: false } });
   // SAST = UTC+2. The publisher, not this timer, enforces each actual content slot.
   if (minute >= 330 && minute < 900) {

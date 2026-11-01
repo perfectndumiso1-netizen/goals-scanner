@@ -2572,20 +2572,30 @@ def send_telegram_video(
     path = Path(path) if path else None
     if path is None or not path.exists():
         return False
+    import video_delivery_health as video_health
     facebook = facebook_mod.UploadResult("disabled")
     # A landscape Telegram send must never be routed to Facebook as an ordinary video.
     reel_path = Path(facebook_path) if facebook_path is not None else (
         path if width and height and abs(width / height - 9 / 16) <= 0.001 else None)
     if facebook_mod.requested() and reel_path is not None:
+        video_health.observe('facebook', 'attempting')
         if not reel_path.is_file():
             facebook = facebook_mod.retain_failure(path, "9:16 Reel render is missing; no 16:9 Facebook fallback")
         else:
             reel_caption = facebook_reel_caption(caption)
             facebook = facebook_mod.publish(reel_path, reel_caption)
+        video_health.observe('facebook', 'confirmed' if facebook.status == 'uploaded' else 'unconfirmed',
+                             facebook.video_id if facebook.status == 'uploaded' else None)
+    else:
+        video_health.observe('facebook', 'not_configured' if not facebook_mod.requested() else 'unconfirmed')
     token, chat = os.getenv("TELEGRAM_BOT_TOKEN"), os.getenv("TELEGRAM_CHAT_ID")
     if not token or not chat:
+        video_health.observe('telegram', 'not_configured')
         return False
     ok = False
+    telegram_ack = False
+    telegram_id = None
+    video_health.observe('telegram', 'attempting')
     payload = {"chat_id": chat, "caption": (caption or "")[:1024], "supports_streaming": "true"}
     if width and height:
         payload["width"] = str(int(width))
@@ -2599,12 +2609,20 @@ def send_telegram_video(
                 timeout=120,
             )
         if r.status_code != 200:
-            log.warning("Telegram video error %s: %s", r.status_code, r.text[:200])
+            log.warning("Telegram video error %s; response details omitted", r.status_code)
         else:
             log.info("Telegram: video sent (%s, %d KB)", path.name, path.stat().st_size // 1024)
             ok = True
+            try:
+                acknowledgement = r.json()
+                identity = (acknowledgement.get('result') or {}).get('message_id')
+                telegram_ack = acknowledgement.get('ok') is True and type(identity) is int and identity > 0
+                telegram_id = str(identity) if telegram_ack else None
+            except (ValueError, AttributeError, TypeError):
+                pass  # An HTTP status alone is not explicit sendVideo acknowledgement.
     except (requests.RequestException, OSError) as exc:
-        log.warning("Telegram video failed: %s", exc)
+        log.warning("Telegram video failed; credential-bearing exception details omitted")
+    video_health.observe('telegram', 'confirmed' if telegram_ack else 'unconfirmed', telegram_id)
     if delete_after and ok and facebook.status != "failed":
         try:
             path.unlink()
@@ -2859,13 +2877,15 @@ def maybe_send_daily_reel(sl_pub: dict, now: datetime) -> None:
                         pass
         except Exception as exc:  # noqa: BLE001 - Drive must never take the scan or the Telegram send down
             log.warning("Drive handoff skipped: %s", exc)
-    ok_16x9 = send_telegram_video(
-        out_16x9,
-        f"🎬 Mr 2 Odds 16:9 widescreen shortlist — {now:%a %d %b}. Today: {len(prim_enriched)} selection(s).",
-        facebook_path=out_9x16 if facebook_mod.requested() else None,
-        width=1920,
-        height=1080,
-    )
+    import video_delivery_health as video_health
+    with video_health.edition_context(APP_FILE.parent / 'video_delivery.json', today, slot):
+        ok_16x9 = send_telegram_video(
+            out_16x9,
+            f"🎬 Mr 2 Odds 16:9 widescreen shortlist — {now:%a %d %b}. Today: {len(prim_enriched)} selection(s).",
+            facebook_path=out_9x16 if facebook_mod.requested() else None,
+            width=1920,
+            height=1080,
+        )
     if ok_16x9 or posted or handed_off or facebook_mod.published_id(out_9x16):
         st["briefing"] = today
         st["briefing_slots"] = {**slots, today: already + [slot]}

@@ -3,6 +3,7 @@ name: Advisor videos (three editions + recovery)
 on:
   # Backup wake-ups; Cloudflare supplies the independent clock.
   schedule:
+    - cron: "10,30,50 * * * *" # Health checks also run after video windows close.
     - cron: "0,20,40 3,4,9,14 * * *"
     - cron: "0,15 5,10,15 * * *"
   workflow_dispatch:
@@ -10,7 +11,7 @@ on:
       edition:
         description: Auto stays inside the existing window; named editions explicitly recover that edition
         type: choice
-        options: [morning, auto, noon, evening]
+        options: [morning, auto, noon, evening, health]
         default: morning
   push:
     branches: [arena/9c75716e-goals-scanner]
@@ -26,8 +27,29 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  recover:
+  route:
     if: github.ref_name == 'main' || github.event_name == 'push'
+    runs-on: ubuntu-latest
+    outputs:
+      mode: ${{ steps.route.outputs.mode }}
+    steps:
+      - uses: actions/checkout@v4.4.0
+      - id: route
+        env:
+          REQUESTED_EDITION: ${{ inputs.edition }}
+          EVENT_NAME: ${{ github.event_name }}
+        run: |
+          python - <<'PYTHON'
+          import os
+          from datetime import datetime
+          from video_schedule import slot, SAST
+          mode = ('auto' if slot(datetime.now(SAST)) else 'health') if os.environ['EVENT_NAME'] == 'schedule' else (os.environ['REQUESTED_EDITION'] or 'morning')
+          with open(os.environ['GITHUB_OUTPUT'], 'a') as target:
+              target.write('mode=' + mode + '\n')
+          PYTHON
+  recover:
+    needs: route
+    if: needs.route.outputs.mode != 'health'
     runs-on: ubuntu-latest
     timeout-minutes: 45
     env:
@@ -57,6 +79,7 @@ jobs:
       - name: Check out the tested publisher
         uses: actions/checkout@v4.4.0
       - name: Restore current published Advisor and delivery state
+        id: restore
         uses: actions/checkout@v4.4.0
         with:
           ref: data
@@ -81,7 +104,7 @@ jobs:
         id: delivery
         env:
           EVENT_NAME: ${{ github.event_name }}
-          VIDEO_EDITION: ${{ github.event_name == 'schedule' && 'auto' || inputs.edition || 'morning' }}
+          VIDEO_EDITION: ${{ needs.route.outputs.mode }}
         run: |
           args=(--edition "$VIDEO_EDITION")
           if [[ "$EVENT_NAME" == "push" ]]; then
@@ -105,8 +128,12 @@ jobs:
       - name: Register durable Facebook-only recovery
         if: always() && steps.recovery.outputs.artifact-id != ''
         run: python scripts/facebook_recovery_queue.py register --state state/data/facebook_delivery_queue.json --artifact-id '${{ steps.recovery.outputs.artifact-id }}'
+      - name: Plan video failure alerts without sending yet
+        if: always() && steps.restore.outcome == 'success'
+        run: python -m video_delivery_health plan
       - name: Preserve updated delivery markers even on a later upload failure
-        if: always() && (steps.delivery.outcome == 'success' || steps.delivery.outcome == 'failure')
+        id: checkpoint
+        if: always() && steps.restore.outcome == 'success'
         run: |
           set -euo pipefail
           git -C state config user.name playreport-bot
@@ -117,5 +144,58 @@ jobs:
           git -C state add -A
           if ! git -C state diff --cached --quiet; then
             git -C state commit -m "Record Advisor video delivery ($GITHUB_RUN_ID)"
+            git -C state push origin HEAD:data
+          fi
+      - name: Send reserved Telegram alerts only after durable checkpoint
+        if: always() && steps.checkpoint.outcome == 'success'
+        run: python -m video_delivery_health notify
+      - name: Save alert acknowledgements even on notification failure
+        if: always() && steps.checkpoint.outcome == 'success'
+        run: |
+          set -euo pipefail
+          git -C state add data/app/video_delivery.json
+          if ! git -C state diff --cached --quiet; then
+            git -C state commit -m "Record video alert acknowledgements ($GITHUB_RUN_ID)"
+            git -C state push origin HEAD:data
+          fi
+
+  health:
+    needs: route
+    if: needs.route.outputs.mode == 'health'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+      TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+    steps:
+      - uses: actions/checkout@v4.4.0
+      - uses: actions/checkout@v4.4.0
+        with:
+          ref: data
+          path: state
+          sparse-checkout-cone-mode: false
+          sparse-checkout: data/app/video_delivery.json
+      - name: Reserve missed or unconfirmed edition alerts
+        run: python -m video_delivery_health plan
+      - name: Checkpoint reservations BEFORE sending alerts
+        run: |
+          set -euo pipefail
+          git -C state config user.name playreport-bot
+          git -C state config user.email playreport-bot@users.noreply.github.com
+          git -C state add data/app/video_delivery.json
+          if ! git -C state diff --cached --quiet; then
+            git -C state commit -m "Reserve video delivery alerts ($GITHUB_RUN_ID)"
+            git -C state push origin HEAD:data
+          fi
+      - name: Notify Telegram (never uploads media)
+        id: notify
+        run: python -m video_delivery_health notify
+      - name: Persist alert receipts even after a timeout
+        if: always() && (steps.notify.outcome == 'success' || steps.notify.outcome == 'failure')
+        run: |
+          set -euo pipefail
+          git -C state add data/app/video_delivery.json
+          if ! git -C state diff --cached --quiet; then
+            git -C state commit -m "Record video delivery alert receipts ($GITHUB_RUN_ID)"
             git -C state push origin HEAD:data
           fi

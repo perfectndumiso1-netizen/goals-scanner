@@ -1,3 +1,5 @@
+> **Latest monitoring:** [Video delivery monitoring](VIDEO_DELIVERY_MONITORING.md) adds `edition=health` outside video windows, plus automatic Telegram incident alerts. No routine manual Cloudflare confirmation is required.
+
 # Independent scheduling — Cloudflare timer
 
 **Status: code prepared; NOT deployed or activated by this repository change.**
@@ -168,6 +170,7 @@ every five minutes. It checks real GitHub runs and its own durable reservations:
 
 | Target | Eligible SAST time | Minimum age since latest run / external attempt |
 |---|---|---|
+| `recover-morning.yml` (`edition=health`) | Outside video windows; status/alerts only | 15 minutes, and no active run |
 | `recover-morning.yml` (`edition=auto`) | 05:00–07:19, 11:00–12:19, 16:00–17:19 | 10 minutes, and no active run |
 | `scan.yml` | All day | 25 minutes, and no active run |
 | `facebook-roundup.yml` | 06:00–06:44 | 10 minutes, and no active run |

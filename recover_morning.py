@@ -98,6 +98,11 @@ def run(now=None, edition="morning", clock=None):
     output = Path(os.getenv("VIDEO_RECOVERY_REPORT", "tmp/morning-recovery/result.json"))
     def finish(code, status, message):
         report.update(status=status, message=message)
+        import video_delivery_health as video_health
+        try:
+            video_health.record_outcome(scanner.APP_FILE.parent / 'video_delivery.json', today, edition, status, now)
+        except Exception:
+            print('::error::Video outcome tracking unavailable; existing evidence preserved, no reset.')
         output.parent.mkdir(parents=True, exist_ok=True)
         output.write_text(json.dumps(report, ensure_ascii=False, indent=2), encoding="utf-8")
         annotation = "error" if code else "notice"
