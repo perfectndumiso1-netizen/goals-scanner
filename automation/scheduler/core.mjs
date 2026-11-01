@@ -164,4 +164,3 @@ export async function tick({ storage, env, now = Date.now(), scheduledTime = now
   log(JSON.stringify(report));
   return report;
 }
-

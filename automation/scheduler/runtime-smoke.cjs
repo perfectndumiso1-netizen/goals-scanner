@@ -9,6 +9,7 @@ const compatibilityDate = JSON.parse(config).compatibility_date;
 (async () => {
   const mf = new Miniflare(convertV4MiniflareOptions({
     modules: true,
+    modulesRoot: path.resolve(__dirname, '../..'),
     scriptPath: path.resolve(__dirname, '../../tmp/scheduler-bundle/worker.js'),
     compatibilityDate,
     durableObjects: { SCHEDULER: { className: 'Scheduler', useSQLite: true } },
