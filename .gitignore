@@ -33,3 +33,8 @@ tmp/
 
 # Local Facebook delivery receipts (no generated publication artifacts in Git)
 *.facebook-upload.json
+
+# Independent timer local state and private bindings
+.wrangler/
+.dev.vars
+.dev.vars.*
