@@ -104,9 +104,9 @@ class PageFeed:
         return identity
 
     def stage_package(self,images,checkpoint):
-        """Upload exactly two UNPUBLISHED photos. Never creates a feed post here."""
-        if not isinstance(images,list) or len(images)!=2 or len(set(map(str,images)))!=2:
-            raise PublishError('A match package needs two distinct pictures')
+        """Upload four UNPUBLISHED photos (or an unchanged legacy pair). Never creates a feed post here."""
+        if not isinstance(images,list) or len(images) not in (2,4) or len(set(map(str,images)))!=len(images):
+            raise PublishError('A match package needs four distinct pictures (or a legacy pair)')
         paths=[Path(p) for p in images]
         if any(not p.is_file() or not 0<p.stat().st_size<=8*1024*1024 for p in paths):
             raise PublishError('Package picture missing or exceeds size cap')
@@ -124,8 +124,10 @@ class PageFeed:
         return ids
 
     def send_package(self,post,media_ids):
-        if not isinstance(media_ids,list) or len(media_ids)!=2 or len(set(media_ids))!=2 or any(not isinstance(i,str) or not re.fullmatch(r'[1-9]\d*',i) for i in media_ids):
-            raise PublishError('Two durably checkpointed photo IDs required')
+        if not isinstance(media_ids,list) or len(media_ids) not in (2,4) or len(set(media_ids))!=len(media_ids) or any(not isinstance(i,str) or not re.fullmatch(r'[1-9]\d*',i) for i in media_ids):
+            raise PublishError('All durably checkpointed photo IDs required')
+        if isinstance(post.get('images'),list) and len(media_ids)!=len(post['images']):
+            raise PublishError('Package media count differs from reserved pictures')
         result=self.call('POST',self.page+'/feed',{'message':post['caption'],'published':'true',
             'attached_media':json.dumps([{'media_fbid':i} for i in media_ids])})
         identity=str(result.get('id',''))
@@ -134,7 +136,7 @@ class PageFeed:
         return identity
 
     def verify_package_hash(self,identity,caption_hash,media_ids):
-        if not re.fullmatch(re.escape(self.page)+r'_\d+',identity) or not isinstance(media_ids,list) or len(media_ids)!=2 or len(set(media_ids))!=2:
+        if not re.fullmatch(re.escape(self.page)+r'_\d+',identity) or not isinstance(media_ids,list) or len(media_ids) not in (2,4) or len(set(media_ids))!=len(media_ids) or any(not isinstance(i,str) or not re.fullmatch(r'[1-9]\d*',i) for i in media_ids):
             raise PublishError('Package identity/media evidence unavailable; no resend')
         data=self.call('GET',identity,{'fields':'id,message,is_published,attachments{target,subattachments{target}}'})
         if (str(data.get('id'))!=identity or data.get('is_published') is not True or
@@ -150,7 +152,7 @@ class PageFeed:
         except (KeyError,TypeError,AttributeError):
             raise PublishError('Package attachments unavailable; keep reservation') from None
         if found!=media_ids:
-            raise PublishError('Both package photos/order not verified; keep reservation')
+            raise PublishError('All package photos/order not verified; keep reservation')
         return True
 
     def verify(self,identity,caption):

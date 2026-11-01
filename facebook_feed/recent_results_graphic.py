@@ -6,6 +6,7 @@ from .content import local
 
 
 def render(spec,path):
+    venue_form=spec.get('kind')=='venue-form'
     samples=[]
     for side in ('home','away'):
         rows=spec[side+'_results']
@@ -19,16 +20,18 @@ def render(spec,path):
             stamp=local(row['date'])
             if stamp>=local(spec['kickoff']) or previous and stamp>previous:raise ValueError('Recent results must be completed and newest first')
             previous=stamp
+        if venue_form and any(r['venue']!=('H' if side=='home' else 'A') for r in rows):raise ValueError('Venue form mixes home and away records')
+        if spec.get('checked_at') and any(local(r['date'])>=local(spec['checked_at']) for r in rows):raise ValueError('Future venue form rejected')
         samples.append(rows)
     image,draw=background(1350)
     from football_artwork import brand
     brand(image,draw)
-    text(draw,'RECENT LEAGUE RESULTS',540,137,45,True)
+    text(draw,'HOME & AWAY FORM' if venue_form else 'RECENT LEAGUE RESULTS',540,137,45,True)
     text(draw,spec['period'],540,199,24,True,fill=GOLD)
     for index,(side,rows) in enumerate(zip(('home','away'),samples)):
         base=242+index*476
         paste(image,spec[side],spec.get('country'),(115,base+31),68)
-        text(draw,spec[side].upper(),575,base+10,35,True,width=810)
+        text(draw,spec[side].upper()+(' · HOME' if side=='home' else ' · AWAY') if venue_form else spec[side].upper(),575,base+10,35,True,width=810)
         draw.rounded_rectangle((64,base+79,1016,base+434),radius=18,fill=(6,20,29,245),outline=(75,99,101,255))
         text(draw,'DATE',160,base+94,21,True,fill=MUTED,width=175)
         text(draw,'H/A',285,base+94,21,True,fill=MUTED,width=50)
@@ -46,6 +49,6 @@ def render(spec,path):
             text(draw,outcome,952,y+2,26,True,fill=GREEN if outcome=='W' else GOLD if outcome=='D' else '#f0a6a6',width=80)
     text(draw,spec['league'],540,1195,25,True)
     text(draw,'Newest first · H home / A away · team score first',540,1243,23,fill=MUTED)
-    text(draw,'Same five-match samples as the comparison picture',540,1272,22,fill=MUTED)
+    text(draw,('League seasons '+ ' / '.join(map(str,spec['seasons']))+' · last 365 days') if venue_form else 'Same last five league games as the comparison picture',540,1272,22,fill=MUTED)
     path=Path(path);path.parent.mkdir(parents=True,exist_ok=True);image.convert('RGB').save(path,quality=95)
     return path

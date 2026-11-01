@@ -13,9 +13,37 @@ from PIL import Image
 from facebook_feed import cli,editorial as e,match_packages as packages,policy,storage,watchdog as w,photo_package
 from facebook_feed.publisher import PageFeed,PublishError
 from facebook_feed.recent_results_graphic import render
-from test_football_editorial import NOW,Fake,raw
+from test_football_editorial import NOW,Fake as BaseFake,raw
 
 ROOT=Path(__file__).resolve().parents[1]
+
+
+class Fake(BaseFake):
+    """Synthetic two-season histories, including five venue games and a real H2H."""
+    def __init__(self,*a,**kw):
+        super().__init__(*a,**kw)
+        self.previous_hist={}
+        for league, records in self.hist.items():
+            previous=deepcopy(records)
+            for r in previous:
+                r['id']+=1000000;r['league']['season']=2025
+                r['date']=(e.aware(r['date'])-timedelta(days=190)).isoformat()
+            base=list(e.LEAGUES).index(league)*10000
+            for index in range(5):
+                records.append(raw(base+7000+index,league,NOW-timedelta(days=60+index*7),400+index,20,'1 - 0','Finished'))
+                r=raw(base+17000+index+1000000,league,NOW-timedelta(days=240+index*7),500+index,20,'0 - 1','Finished')
+                r['league']['season']=2025;previous.append(r)
+            r=raw(base+9000+1000000,league,NOW-timedelta(days=230),10,20,'3 - 1','Finished')
+            r['league']['season']=2025;previous.append(r)
+            self.previous_hist[league]=previous
+        self.details.update({r['id']:deepcopy(r) for r in sum(self.hist.values(),[])+sum(self.previous_hist.values(),[])})
+
+    def catalog(self,params):
+        if params.get('season')==2025:
+            self.calls.append(('catalog',params))
+            key=list(e.LEAGUES)[params['leagueId']-100]
+            return deepcopy(self.previous_hist[key])
+        return super().catalog(params)
 
 
 @pytest.fixture
@@ -50,8 +78,8 @@ def test_config_and_workflow_only_nine_primary_plus_same_slot_backups(cfg):
 def test_comparison_and_results_use_identical_verified_sample_with_no_extra_api(cfg):
     api=Fake();post,reason=e.build(cfg,{},NOW,api)
     assert post,reason
-    assert [g['kind'] for g in post['graphics']]==['team-comparison','recent-results']
-    assert len(api.calls)==6 and post['caption'].count('• ')==3
+    assert [g['kind'] for g in post['graphics']]==['team-comparison','recent-results','recent-h2h','venue-form']
+    assert len(api.calls)==10 and post['caption'].count('• ')==3
     recent=post['graphics'][1];evidence=post['snapshot'][0]
     for side in ('home','away'):
         assert recent[side+'_results']==evidence[side+'_sample']['matches']
@@ -93,8 +121,8 @@ def test_nine_distinct_matches_league_coverage_and_daily_cap_with_shared_cached_
         assert policy.allowed(post,s,now,cfg)[0]
         ids+=post['fixture_ids'];represented.add(post['snapshot'][0]['fixture']['league'])
         policy.reserve(post,s,now)['status']='published'
-    assert len(ids)==len(set(ids))==9 and represented==set(e.LEAGUES)
-    assert sum(c[0]=='catalog' and 'leagueId' in c[1] for c in api.calls)==12
+    assert len(ids)==len(set(ids))==9 and represented=={e.fixture(r)['league'] for r in matches}
+    assert sum(c[0]=='catalog' and 'leagueId' in c[1] for c in api.calls)==24
     # Same underlying history is reused for both pictures, never fetched twice.
     assert len(api.calls)<100
     extra_feature=dict(post,key='extra-match',topic='feature:extra',slot_key='extra',caption_hash=hashlib.sha256(b'new caption').hexdigest())
@@ -182,7 +210,7 @@ def test_prepare_binds_both_pictures_to_one_reservation(cfg,tmp_path,monkeypatch
     prepare(cfg,tmp_path,monkeypatch)
     post=json.loads((tmp_path/'plans.json').read_text())[0]
     s=json.loads((tmp_path/'checkpoint/state.json').read_text())
-    assert len(s['posts'])==1 and len(post['images'])==2
+    assert len(s['posts'])==1 and len(post['images'])==4
     assert s['posts'][0]['image_sha256s']==post['image_sha256s']
     assert [hashlib.sha256(Path(p).read_bytes()).hexdigest() for p in post['images']]==post['image_sha256s']
 
@@ -203,17 +231,17 @@ def test_two_unpublished_uploads_then_durable_media_gate_then_one_feed_creation(
     common=prepare(cfg,tmp_path,monkeypatch);calls=[]
     class Page:
         def stage_package(self,images,checkpoint):
-            calls.append('stage');checkpoint(['41']);checkpoint(['41','42']);return ['41','42']
+            calls.append('stage');checkpoint(['41']);checkpoint(['41','42','43','44']);return ['41','42','43','44']
         def send_package(self,post,ids):calls.append(('feed',ids));return '123_99'
         def verify_package_hash(self,identity,hash,ids):calls.append(('verify',ids));return True
     monkeypatch.setattr(cli,'PageFeed',Page)
     assert cli.main(['stage',*common,'--checkpoint'])==0
     s=json.loads((tmp_path/'checkpoint/state.json').read_text())
-    assert s['posts'][0]['media_phase']=='staged' and s['posts'][0]['media_ids']==['41','42']
+    assert s['posts'][0]['media_phase']=='staged' and s['posts'][0]['media_ids']==['41','42','43','44']
     with pytest.raises(ValueError):cli.main(['send',*common,'--checkpoint'])
     assert calls==['stage']
     assert cli.main(['send',*common,'--checkpoint','--media-checkpoint'])==0
-    assert calls==['stage',('feed',['41','42']),('verify',['41','42'])]
+    assert calls==['stage',('feed',['41','42','43','44']),('verify',['41','42','43','44'])]
     assert json.loads((tmp_path/'checkpoint/state.json').read_text())['posts'][0]['status']=='published'
     with pytest.raises(ValueError):cli.main(['send',*common,'--checkpoint','--media-checkpoint'])
     assert len(calls)==3
@@ -228,7 +256,7 @@ def test_partial_or_ambiguous_package_never_reuploads(cfg,tmp_path,monkeypatch,f
             if failure=='first_photo':raise PublishError('uncertain')
             checkpoint(['41']);calls.append('upload2')
             if failure=='second_photo':raise PublishError('uncertain')
-            checkpoint(['41','42']);return ['41','42']
+            checkpoint(['41','42','43','44']);return ['41','42','43','44']
         def send_package(self,post,ids):
             calls.append('feed')
             if failure=='feed':raise PublishError('uncertain')

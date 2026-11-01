@@ -7,7 +7,7 @@ from datetime import datetime, timedelta
 import re
 from . import content
 from .highlightly import Highlightly, pair
-from .highlightly_watchlist import LEAGUES, league_key
+from .editorial_leagues import LEAGUES, league_key
 from .provider import ProviderError
 
 SLOTS=(('07:30','fixtures'),('08:30','results'),('10:00','psl'),('11:00','epl'),
@@ -139,14 +139,8 @@ def checked_detail(api,book,m,now):
 def sample(api,book,target,side,now):
     if target['season'] is None:raise ProviderError('League season missing; no mixed-period comparison')
     key=f"{target['league_id']}:{target['season']}"
-    if key not in book['histories']:
-        passes=[]
-        for _ in range(2):
-            rows=[fixture(r) for r in api.catalog({'leagueId':target['league_id'],'season':target['season']})]
-            if any(m is None or (m['league_id'],m['season'],m['league'])!=(target['league_id'],target['season'],target['league']) for m in rows):
-                raise ProviderError('History league/season mismatch')
-            passes.append(rows)
-        book['histories'][key]={'passes':passes,'checked_at':api.at}
+    from .match_insights import history
+    history(api,book,target,target['season'])
     tid=target[side+'_id'];name=target[side]
     samples=[]
     for records in book['histories'][key]['passes']:
@@ -177,12 +171,12 @@ def sample(api,book,target,side,now):
 
 
 def hashtags(league=None,teams=()):
-    tags=[TAGS[league]] if league else [TAGS[k] for k in LEAGUES]
+    tags=[TAGS.get(league,'#'+re.sub(r'[^A-Za-z0-9]','',LEAGUES[league][0]))] if league else list(TAGS.values())
     tags+=['#'+re.sub(r'[^A-Za-z0-9]','',name) for name in teams]
     return ' '.join(tags+['#Football','#MatchStats' if teams else '#FootballResults'])
 
 
-def comparison(api,book,m,now):
+def comparison(api,book,m,now,with_context=False):
     if m['status']!='Not started' or aware(m['kickoff'])<=now+timedelta(minutes=10):
         raise ProviderError('Featured match is not safely upcoming')
     checked_detail(api,book,m,now)
@@ -193,18 +187,15 @@ def comparison(api,book,m,now):
           ('CLEAN SHEETS',home['clean'],away['clean']),('WINS',home['wins'],away['wins']),
           ('DRAWS',home['draws'],away['draws']),('LOSSES',home['losses'],away['losses']),
           ('UNBEATEN MATCHES',home['unbeaten'],away['unbeaten']),('MATCHES SCORED IN',home['scored_in'],away['scored_in'])]
-    # All three are bounded observed facts, not predictions or unsupported H2H claims.
-    facts=[f"{m['home']}: {home['wins']} wins and {home['clean']} clean sheets in their last five league matches.",
-           f"{m['away']}: {away['wins']} wins and {away['clean']} clean sheets in their last five league matches.",
-           f"Goals scored/conceded over those samples: {m['home']} {home['scored']}/{home['conceded']}; {m['away']} {away['scored']}/{away['conceded']}."]
-    dates=lambda s: f"{min(r['date'] for r in s['matches'])[:10]} to {max(r['date'] for r in s['matches'])[:10]}"
-    caption=f"{m['home']} vs {m['away']} | {LEAGUES[m['league']][0]}\nKickoff: {aware(m['kickoff']):%d %b %Y, %H:%M} SAST\n\n"+'\n'.join('• '+f for f in facts)
-    caption+=f"\n\nSample: last five completed matches in the same league/season, all venues.\n{m['home']}: {dates(home)}.\n{m['away']}: {dates(away)}.\n\nYour pick: {m['home']}, draw or {m['away']}? Comment below.\n\n"+hashtags(m['league'],(m['home'],m['away']))
+    from .match_insights import extra_evidence, caption as form_caption
+    extra=extra_evidence(api,book,m,now) if with_context else None
+    caption=form_caption(m,home,away,extra)
     spec={'kind':'team-comparison','home':m['home'],'away':m['away'],'league':LEAGUES[m['league']][0],
           'country':LEAGUES[m['league']][1],'kickoff':m['kickoff'],'rows':rows,'period':'LAST 5 LEAGUE MATCHES • ALL VENUES',
           'checked_at':now.isoformat()}
     post=content.candidate('editorial',f"feature:{m['id']}",f"feature:{m['id']}",caption,graphic=spec,
                            fixture_ids=[m['id']],snapshot=[{'fixture':m,'home_sample':home,'away_sample':away}])
+    if extra:post['snapshot'][0].update(extra)
     post['expires_at']=min(now+timedelta(minutes=5),aware(m['kickoff'])-timedelta(minutes=5)).isoformat()
     return post
 

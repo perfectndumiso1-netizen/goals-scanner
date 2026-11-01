@@ -28,6 +28,10 @@ SAFE_SKIPS = {
     'Recent final score missing; sample cannot be backfilled',
     'Extra-time/shootout sample needs editorial scope review',
     'Featured match is not safely upcoming',
+    'Five recent home/away results unavailable; no four-picture package',
+    'Recent head-to-head results unavailable; no four-picture package',
+    'Recent regulation-time result unavailable; no four-picture package',
+    'Head-to-head regulation-time score unavailable',
 }
 TRANSIENT = {'Highlightly network/response validation failed; details omitted',
              'Bet Advisor publication unavailable or stale; no predictions'}
@@ -176,7 +180,10 @@ def assess(state, now, run_key, *, max_pages=10, daily_budget=100):
     if available <= 0:
         row.update(status='skipped', diagnosis='shared_quota_exhausted')
         return False, row['diagnosis']
-    hold = min(3 * max_pages + 3, available)
+    # Four-card slots can read two repeated season catalogs plus the day,
+    # and at most six detail cross-checks. Keep crash debits conservative.
+    package = key.rsplit(':',1)[-1].startswith('match')
+    hold = min((5 * max_pages + 6) if package else (3 * max_pages + 3), available)
     budget['requests'] += hold
     row['quota_hold'] = {'utc_date': day, 'amount': hold, 'released': False}
     row['attempts'] += 1
