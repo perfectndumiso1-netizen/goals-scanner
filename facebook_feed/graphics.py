@@ -5,9 +5,12 @@ ROOT=Path(__file__).resolve().parents[1]
 
 
 def render(spec,path):
-    if spec.get('kind')=='recent-results':
+    if spec.get('kind') in ('recent-results','venue-form'):
         from .recent_results_graphic import render as render_results
         return render_results(spec,path)
+    if spec.get('kind')=='recent-h2h':
+        from .h2h_graphic import render as render_h2h
+        return render_h2h(spec,path)
     if spec.get('kind')=='team-comparison':
         from .comparison_graphic import render as render_comparison
         return render_comparison(spec,path)

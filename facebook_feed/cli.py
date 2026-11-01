@@ -325,12 +325,12 @@ def main(argv=None):
             if hashlib.sha256(post['caption'].encode()).hexdigest()!=entry['caption_hash'] or any(entry.get(k)!=post.get(k) for k in ('kind','topic','fixture_ids','operation','target_id','snapshot','image_sha256','image_sha256s','event_ids','slot_key')):
                 raise ValueError('Prepared content does not match its durable reservation')
             if entry.get('image_sha256s') and not post.get('images'):
-                raise ValueError('Reserved two-picture package cannot fall back to one picture')
+                raise ValueError('Reserved multi-picture package cannot fall back to one picture')
             if post.get('images'):
                 from .photo_package import validate
                 validate(post,entry,run_key)
-                if not args.media_checkpoint or entry.get('media_phase')!='staged' or not isinstance(entry.get('media_ids'),list) or len(entry['media_ids'])!=2:
-                    raise ValueError('Durable two-photo media checkpoint absent; no feed mutation')
+                if not args.media_checkpoint or entry.get('media_phase')!='staged' or not isinstance(entry.get('media_ids'),list) or len(entry['media_ids'])!=len(entry.get('image_sha256s',[])):
+                    raise ValueError('Complete durable photo media checkpoint absent; no feed mutation')
             if datetime.now(content.SAST)>=content.local(post['expires_at']) or post['kind'] in ('live','roundup') and not in_window(datetime.now(content.SAST),cfg):
                 entry['status']='cancelled';entry['delivery_failure']='expired_before_mutation';entry['error']='Prepared content expired before sending';match_events.publication_state(state,entry,'pending',now);storage.write(statepath,state);continue
             if post['kind']=='live' and cfg['live'].get('image_required') or post['kind']=='editorial' and (entry.get('image_sha256') or post.get('graphic')):
@@ -430,7 +430,7 @@ def main(argv=None):
                     from .crest_cache import prepare as prepare_crests
                     prepare_crests(post['graphic'],work/'crests')
                 if post.get('graphics'):
-                    if kind!='editorial' or len(post['graphics'])!=2:raise ValueError('Exactly two editorial graphics required')
+                    if kind!='editorial' or len(post['graphics'])!=4:raise ValueError('Exactly four editorial graphics required')
                     post['images']=[str(render(spec,work/f'{kind}-{n+1}.jpg')) for n,spec in enumerate(post['graphics'])]
                     post['image_sha256s']=[hashlib.sha256(Path(p).read_bytes()).hexdigest() for p in post['images']]
                     post['image']=post['images'][0]

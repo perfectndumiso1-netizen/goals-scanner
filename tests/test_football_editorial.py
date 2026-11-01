@@ -101,7 +101,7 @@ def test_pre_match_comparison_crosschecks_last_five_and_captions_unbranded(cfg):
     assert post and len(post['graphic']['rows'])==10 and len(post['snapshot'][0]['home_sample']['matches'])==5
     assert len([c for c in api.calls if c[0]=='catalog' and 'leagueId' in c[1]])==2
     assert len([c for c in api.calls if c[0]=='detail'])==3 # Upcoming fixture + newest result of each team.
-    assert post['caption'].count('• ')==3 and 'Your pick:' in post['caption']
+    assert post['caption'].count('• ')==3 and 'Which market looks strongest' in post['caption']
     assert '#PSL' in post['caption'] and '#ExampleClub10' in post['caption']
     assert 'PLAYREPORT' not in post['caption'].upper() and 'MR 2 ODDS' not in post['caption'].upper()
     assert 'Highlightly' not in post['caption'] and 'last five' in post['caption']
@@ -383,7 +383,7 @@ def test_public_editorial_has_no_source_or_assessment_labels(cfg,tmp_path,monkey
         assert '#' in post['caption']
         if post.get('graphic'):
             graphics.render(post['graphic'],tmp_path/'card.jpg')
-            assert post['caption'].count('• ')==3 and 'Your pick:' in post['caption']
+            assert post['caption'].count('• ')==3 and 'Which market looks strongest' in post['caption']
     visible=' '.join(captured)
     for forbidden in ('Source:', 'Highlightly', 'Checked', 'Assessed', 'cross-check'):
         assert forbidden.casefold() not in visible.casefold()

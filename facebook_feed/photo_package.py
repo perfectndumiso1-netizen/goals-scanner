@@ -1,4 +1,4 @@
-"""Validation/staging for one two-photo post. Never resumes uncertain uploads."""
+"""Validation/staging for one multi-photo post (four new; two legacy). Never resumes uncertain uploads."""
 import hashlib
 from datetime import datetime
 from pathlib import Path
@@ -14,8 +14,8 @@ def validate(post,entry,run_key):
     if post.get('kind')!='editorial' or hashlib.sha256(post['caption'].encode()).hexdigest()!=entry.get('caption_hash') or any(post.get(k)!=entry.get(k) for k in FIELDS):
         raise ValueError('Package differs from durable reservation')
     images,hashes=post.get('images'),entry.get('image_sha256s')
-    if not isinstance(images,list) or len(images)!=2 or len(set(images))!=2 or not isinstance(hashes,list) or len(hashes)!=2:
-        raise ValueError('Package needs exactly two reserved pictures')
+    if not isinstance(images,list) or len(images) not in (2,4) or len(set(images))!=len(images) or not isinstance(hashes,list) or len(hashes)!=len(images):
+        raise ValueError('Package needs all four reserved pictures (or an unchanged legacy pair)')
     if post.get('image')!=images[0] or entry.get('image_sha256')!=hashes[0]:
         raise ValueError('Package first-picture identity changed')
     for image,digest in zip(images,hashes):
@@ -46,7 +46,7 @@ def stage(work,now,run_key,factory=PageFeed):
             entry['media_ids']=ids;storage.write(statepath,state)
         mutated=True
         ids=publisher.stage_package(post['images'],checkpoint)
-        if not isinstance(ids,list) or len(ids)!=2:raise PublishError('Incomplete photo staging; keep reservation')
+        if not isinstance(ids,list) or len(ids)!=len(post['images']) or len(set(ids))!=len(ids):raise PublishError('Incomplete photo staging; keep reservation')
         entry.update(status='reserved',media_phase='staged',media_ids=ids)
         return True
     except PublishError as error:

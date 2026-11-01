@@ -42,7 +42,7 @@ def render(spec,path):
         text(draw,left,180,y,32,True,fill=GOLD,width=165)
         text(draw,label,540,y+4,24,width=530)
         text(draw,right,900,y,32,True,fill=GOLD,width=165)
-    text(draw,'Different team samples · same league / season · no forecasts',540,1255,22,fill=MUTED)
+    text(draw,'Last five league games per team · same season',540,1255,22,fill=MUTED)
     path=Path(path);path.parent.mkdir(parents=True,exist_ok=True)
     image.convert('RGB').save(path,quality=95)
     return path

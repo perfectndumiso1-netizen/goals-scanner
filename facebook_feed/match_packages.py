@@ -1,4 +1,4 @@
-"""Nine distinct pre-match packages, two factual cards from one verified sample."""
+"""Nine distinct pre-match packages, four factual cards from verified match histories."""
 from datetime import timedelta
 from . import content, editorial as e
 from .provider import ProviderError
@@ -55,21 +55,12 @@ def build(cfg,state,now,api=None):
                  and e.aware(m['kickoff'])>now+timedelta(minutes=10) and f"feature:{m['id']}" not in used
                  and str(m['id']) not in book.get('package_unavailable',{})]
         if not options:return None,'no distinct verified upcoming fixture for this slot'
-        # Earliest safe kickoff first; reserve the remaining places for leagues
-        # not represented today when otherwise they would all be crowded out.
-        counts={key:0 for key in e.LEAGUES}
-        for p in counted:
-            if p.get('kind')!='editorial' or not p.get('topic','').startswith('feature:'):continue
-            if content.local(p['at']).date()!=now.date():continue
-            for item in p.get('snapshot',[]):
-                league=item.get('fixture',{}).get('league')
-                if league in counts:counts[league]+=1
-        unrepresented={m['league'] for m in options if counts[m['league']]==0}
-        places_left=17-now.hour
-        pool=[m for m in options if m['league'] in unrepresented] if len(unrepresented)>=places_left else options
-        chosen=min(pool,key=lambda m:(m['kickoff'],counts[m['league']],m['id']))
+        # Prefer complete, repeat-verified context and a clear form contrast.
+        # Cold candidates tie on safe kickoff, NOT league prestige/coverage quotas.
+        from .match_insights import priority
+        chosen=min(options,key=lambda m:(tuple(-v for v in priority(m,book,now)),m['kickoff'],m['id']))
         try:
-            post=e.comparison(api,book,chosen,now)
+            post=e.comparison(api,book,chosen,now,with_context=True)
         except ProviderError as error:
             # Do not keep choosing the same factually unusable fixture in all
             # nine slots. Transport/cooldown/quota failures remain retryable on
@@ -78,8 +69,15 @@ def build(cfg,state,now,api=None):
             if not any(word in reason for word in ('network/response','request rejected','daily budget','cooldown')):
                 book.setdefault('package_unavailable',{})[str(chosen['id'])]='verified_sample_unavailable'
             raise
-        post['graphics']=[post['graphic'],recent_spec(post)]
+        evidence=post['snapshot'][0]
+        context=dict(home=chosen['home'],away=chosen['away'],home_id=chosen['home_id'],away_id=chosen['away_id'],
+                     country=e.LEAGUES[chosen['league']][1],league=e.LEAGUES[chosen['league']][0],
+                     kickoff=chosen['kickoff'],checked_at=now.isoformat(),seasons=evidence['seasons'])
+        post['graphics']=[post['graphic'],recent_spec(post),
+            dict(context,kind='recent-h2h',meetings=evidence['h2h']),
+            dict(context,kind='venue-form',period='LAST 5 HOME / LAST 5 AWAY · LEAGUE RESULTS',
+                 home_results=evidence['venue_form']['home'],away_results=evidence['venue_form']['away'])]
         post['slot_key']=slotkey
-        return post,'verified two-picture match package'
+        return post,'verified four-picture match package'
     except ProviderError as error:
         return None,str(error)

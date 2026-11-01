@@ -160,7 +160,7 @@ jobs:
           path: tmp/facebook-feed/checkpoint/state.json
           retention-days: 30
           if-no-files-found: error
-      - name: Stage two unpublished package photos after reservation
+      - name: Stage unpublished package photos after reservation
         id: stage_media
         if: steps.prepare.outputs.needs_media_staging == 'true' && steps.reserve.conclusion == 'success'
         env:
