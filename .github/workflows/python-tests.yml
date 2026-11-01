@@ -33,3 +33,11 @@ jobs:
 
       - name: Run all Python tests
         run: python -m pytest leagues/tests tests tennis/tests -q
+
+  timer:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - uses: actions/checkout@v4.4.0
+      - name: Test independent timer (offline, no publishing credentials)
+        run: node --test automation/scheduler/worker.test.mjs

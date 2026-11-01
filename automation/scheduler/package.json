@@ -1,0 +1,13 @@
+{
+  "name": "goals-scanner-independent-timer",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --test worker.test.mjs",
+    "deploy": "wrangler deploy",
+    "check": "wrangler deploy --dry-run --outdir ../../tmp/scheduler-bundle"
+  },
+  "devDependencies": {
+    "wrangler": "4.156.0"
+  }
+}

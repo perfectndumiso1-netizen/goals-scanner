@@ -2,24 +2,25 @@
 
 ## Scheduling fix
 
-Daily editions are due at 08:00 and 16:00 Africa/Johannesburg. GitHub scheduled
-runs are best-effort and can arrive hours late. The morning edition remains due
-from 08:00 until 15:59; the evening edition remains due from 16:00 until midnight.
-A subsequent scan retries a quality-gated or failed edition, but the existing
-`data/app/telegram_state.json` `briefing_slots` marker prevents reposting an
-edition that has already succeeded through any delivery lane. The scanner uses
-the current clock at delivery time, rather than the start time of a long scan.
-No previous-day edition is automatically backfilled or relabelled as today's.
+Current automatic windows are **05:00–07:19, 11:00–12:19 and
+16:00–17:19 Africa/Johannesburg**, defined in `video_schedule.py`. GitHub cron
+is best-effort; a wake-up outside a window does not automatically force a missed
+edition. The existing `briefing_slots` markers prevent repeats after a recorded
+successful lane. A Telegram success alone is not proof of Facebook publication.
+
+See [Independent scheduling](INDEPENDENT_SCHEDULER.md) for the Cloudflare timer.
+Repository code alone does not deploy or activate that external service.
 
 ## Immediate morning recovery
 
 `Recover morning Advisor video` runs the same verification, renderers, music,
-recap, selection rules and delivery functions as the normal scanner, without
+selection rules and delivery functions as the normal scanner, without
 re-running 60 days of fixture discovery. It reads the existing data branch and
 requires a same-day Advisor publication no more than six hours old. It does
 not clear delivery markers or lower the five-match/combined-odds/statistics/
-recent-H2H checks. It forces the **morning** edition, including yesterday's full
-filmed-selection recap, even if an operator explicitly requests it after 16:00.
+recent-H2H checks. It forces the **morning** edition only on explicit recovery, with no recap or
+narration. Yesterday's results are a separate morning Facebook post. Even an
+after-hours request must pass current source freshness and upcoming-match gates.
 
 - From GitHub Actions (after merge): run **Recover morning Advisor video**.
 - For the authorized 2026-10-29 recovery, the same session branch has a push
