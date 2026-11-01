@@ -129,3 +129,69 @@ def test_refresh_h2h_only_adds_real_past_meetings_for_exact_clubs(monkeypatch,tm
     assert updated['h2h_meta']['n']==2
     assert updated['p']==detail['p'] and updated['odds']==detail['odds']
     assert {row['source_event_id'] for row in updated['h2h']}=={'duplicate','two'}
+
+
+@pytest.mark.parametrize('hour,expected', [(5,'morning'),(11,'noon'),(16,'evening')])
+def test_automatic_editions_do_not_force_or_resend(monkeypatch,configured,hour,expected):
+    state,app,report=configured
+    app.write_text(json.dumps({'meta':{'generated':f'2026-10-29 {hour:02}:00'}}))
+    def deliver(payload,now):
+        assert recovery.os.environ['FORCE_DAILY_REEL']=='false'
+        assert recovery.os.environ['DAILY_REEL_EDITION']==expected
+        assert scanner._reel_slot(now)==expected
+        scanner.send_telegram_video('video','caption')
+        state['briefing_slots']={'2026-10-29':[expected]}
+    monkeypatch.setattr(scanner,'maybe_send_daily_reel',deliver)
+    now=datetime(2026,10,29,hour,5,tzinfo=recovery.SAST)
+    assert recovery.run(now,edition='auto')==0
+    assert json.loads(report.read_text())['edition']==expected
+    monkeypatch.setattr(scanner,'maybe_send_daily_reel',lambda *a:pytest.fail('duplicate edition'))
+    assert recovery.run(now,edition='auto')==0
+    assert json.loads(report.read_text())['status']=='already_delivered'
+
+
+def test_auto_after_window_does_not_inspect_source_or_publish(monkeypatch,configured):
+    _,app,report=configured;app.unlink()
+    monkeypatch.setattr(scanner,'maybe_send_daily_reel',lambda *a:pytest.fail('outside window'))
+    assert recovery.run(datetime(2026,10,29,18,tzinfo=recovery.SAST),edition='auto')==0
+    assert json.loads(report.read_text())['status']=='outside_window'
+
+
+def test_window_expiring_during_preparation_does_not_force_upload(monkeypatch,configured):
+    _,app,report=configured
+    app.write_text(json.dumps({'meta':{'generated':'2026-10-29 11:00'}}))
+    times=iter([datetime(2026,10,29,12,19,tzinfo=recovery.SAST),datetime(2026,10,29,12,20,tzinfo=recovery.SAST)])
+    monkeypatch.setattr(scanner,'maybe_send_daily_reel',lambda *a:pytest.fail('window expired'))
+    assert recovery.run(edition='auto',clock=lambda:next(times))==0
+    assert json.loads(report.read_text())['status']=='window_expired'
+    assert recovery.os.environ['FORCE_DAILY_REEL']=='false'
+
+
+def test_telegram_only_success_is_partial_when_facebook_requested(monkeypatch,configured):
+    state,_,report=configured
+    monkeypatch.setattr(scanner.facebook_mod,'requested',lambda:True)
+    def deliver(payload,now):
+        scanner.facebook_mod.publish('portrait','caption')
+        scanner.send_telegram_video('landscape','caption')
+        state['briefing_slots']={'2026-10-29':['morning']}
+    monkeypatch.setattr(scanner.facebook_mod,'publish',lambda *a:scanner.facebook_mod.UploadResult('failed'))
+    monkeypatch.setattr(scanner,'maybe_send_daily_reel',deliver)
+    assert recovery.run(datetime(2026,10,29,10,tzinfo=recovery.SAST))==1
+    data=json.loads(report.read_text())
+    assert data['status']=='partially_delivered' and data['unconfirmed_lanes']==['facebook']
+    assert data['deliveries']['telegram']['delivered']
+    assert state['briefing_slots']['2026-10-29']==['morning']
+    monkeypatch.setattr(scanner,'maybe_send_daily_reel',lambda *a:pytest.fail('Telegram must not replay'))
+    assert recovery.run(datetime(2026,10,29,10,tzinfo=recovery.SAST))==0
+
+
+def test_recovery_workflow_uses_same_bounded_facebook_lane_and_saves_queue_first():
+    from pathlib import Path
+    text=Path('.github/workflows/recover-morning.yml').read_text()
+    assert 'FACEBOOK_AUTOMATION: "1"' in text
+    assert 'actions: read' in text
+    assert 'group: goals-scan' in text and 'cancel-in-progress: false' in text
+    assert 'inputs.edition' in text and "== 'schedule' && 'auto'" in text
+    assert text.index('facebook_recovery_queue.py recover') < text.index('python recover_morning.py')
+    assert text.index('id: recovery') < text.index('facebook_recovery_queue.py register') < text.index('git -C state add -A')
+    assert 'if: always() && steps.recovery.outputs.artifact-id' in text

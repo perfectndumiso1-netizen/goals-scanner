@@ -29,10 +29,10 @@ function harness(options = {}) {
 }
 
 for (const [clock, workflows] of [
-  ['03:59', ['scan.yml']], ['04:00', ['scan.yml', 'facebook-roundup.yml']],
-  ['04:44', ['scan.yml', 'facebook-roundup.yml']], ['04:45', ['scan.yml']],
+  ['03:59', ['recover-morning.yml', 'scan.yml']], ['04:00', ['recover-morning.yml', 'scan.yml', 'facebook-roundup.yml']],
+  ['04:44', ['recover-morning.yml', 'scan.yml', 'facebook-roundup.yml']], ['04:45', ['recover-morning.yml', 'scan.yml']],
   ['05:29', ['scan.yml']], ['05:30', ['scan.yml', 'facebook-watchdog.yml']],
-  ['14:59', ['scan.yml', 'facebook-watchdog.yml']], ['15:00', ['scan.yml']],
+  ['14:59', ['recover-morning.yml', 'scan.yml', 'facebook-watchdog.yml']], ['15:00', ['recover-morning.yml', 'scan.yml']],
   ['23:59', ['scan.yml']],
 ]) test(`UTC/SAST boundaries at ${clock}`, () => {
   assert.deepEqual(targetsAt(at(clock)).map(t => t.workflow), workflows);
@@ -88,7 +88,8 @@ test('results use normal gates, never preview/bootstrap/forced recovery', async 
   await h.go({ now: at('04:00') });
   const body = JSON.parse(h.calls.find(c => c.method === 'POST' && c.url.includes('roundup')).body);
   assert.deepEqual(body, { ref: 'main', inputs: { publish: true, preview: false, bootstrap: false } });
-  assert.ok(h.calls.every(c => !c.url.includes('recover-morning')));
+  const video = h.calls.find(c => c.method === 'POST' && c.url.includes('recover-morning'));
+  assert.deepEqual(JSON.parse(video.body), { ref: 'main', inputs: { edition: 'auto' } });
 });
 
 for (const status of [301, 401, 403, 404, 429, 500]) {
@@ -343,3 +344,18 @@ test('whitespace and collapsed PEM line breaks are not themselves authentication
     assert.equal(token, dummyCredential);
   }
 });
+
+
+for (const [clock, due] of [['02:59',false],['03:00',true],['05:19',true],['05:20',false],
+  ['08:59',false],['09:00',true],['10:19',true],['10:20',false],
+  ['13:59',false],['14:00',true],['15:19',true],['15:20',false]]) {
+  test(`video-only window at UTC ${clock}: ${due}`, () => {
+    const targets = targetsAt(at(clock));
+    assert.equal(targets.some(t => t.workflow === 'recover-morning.yml'), due);
+    if (due) {
+      assert.equal(targets[0].workflow, 'recover-morning.yml');
+      assert.deepEqual(targets[0].inputs, { edition: 'auto' });
+      assert.equal(targets[0].interval, 10 * minute);
+    }
+  });
+}

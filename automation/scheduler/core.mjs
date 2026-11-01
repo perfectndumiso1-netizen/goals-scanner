@@ -9,7 +9,13 @@ export function targetsAt(now) {
   const date = new Date(now);
   if (!Number.isFinite(date.getTime())) throw new Error('invalid_clock');
   const minute = date.getUTCHours() * 60 + date.getUTCMinutes();
-  const targets = [{ workflow: 'scan.yml', interval: 25 * MINUTE, inputs: { send_reel: false } }];
+  const targets = [];
+  // Queue video work before a heavyweight scan. Both use the existing goals-scan
+  // mutex and edition markers; auto is never a forced catch-up outside a window.
+  if ([[180, 320], [540, 620], [840, 920]].some(([start, end]) => minute >= start && minute < end)) {
+    targets.push({ workflow: 'recover-morning.yml', interval: 10 * MINUTE, inputs: { edition: 'auto' } });
+  }
+  targets.push({ workflow: 'scan.yml', interval: 25 * MINUTE, inputs: { send_reel: false } });
   // SAST = UTC+2. The publisher, not this timer, enforces each actual content slot.
   if (minute >= 330 && minute < 900) {
     targets.push({ workflow: 'facebook-watchdog.yml', interval: 10 * MINUTE, inputs: { publish: true } });

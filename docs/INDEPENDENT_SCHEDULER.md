@@ -33,7 +33,7 @@ In GitHub's web settings (use **Desktop site** on your phone if needed):
 
 Actions write can dispatch other workflows in this one repository if the App key
 is stolen; GitHub does not offer per-workflow dispatch permissions. The Worker
-itself hard-codes only three workflow names and `main`. Its short-lived tokens
+itself hard-codes only four workflow names and `main`. Its short-lived tokens
 are explicitly scoped to this repository and Actions write, held only in memory.
 This separate owner-approved app does not change or bypass Arena's denied
 workflow-dispatch permission.
@@ -168,14 +168,19 @@ every five minutes. It checks real GitHub runs and its own durable reservations:
 
 | Target | Eligible SAST time | Minimum age since latest run / external attempt |
 |---|---|---|
+| `recover-morning.yml` (`edition=auto`) | 05:00–07:19, 11:00–12:19, 16:00–17:19 | 10 minutes, and no active run |
 | `scan.yml` | All day | 25 minutes, and no active run |
 | `facebook-roundup.yml` | 06:00–06:44 | 10 minutes, and no active run |
 | `facebook-watchdog.yml` | 07:30–16:59 | 10 minutes, and no active run |
 
 With a five-minute tick, the scan wakes approximately every 25–30 minutes when
 GitHub cron is absent. It also refreshes the app and resumes the existing bounded
-Facebook recovery queue, just as the normal scanner does. It never sets
-`send_reel=true`: automatic videos remain in their current **05:00–07:19,
+Facebook recovery queue, just as the normal scanner does. A video-only target is queued ahead of heavyweight scans inside these windows,
+using the existing `recover-morning.yml` workflow with `edition=auto`; the workflow
+now appears as **Advisor videos (three editions + recovery)**. It reads a same-day
+publication at most six hours old and uses the existing verifier/renderers. It
+never forces an expired slot. Both jobs share `goals-scan` and edition markers.
+The timer never sets `send_reel=true`: automatic videos remain in their current **05:00–07:19,
 11:00–12:19 and 16:00–17:19 SAST** windows. Stale ticks aren't replayed. A missed
 morning video outside its window still needs explicit guarded recovery.
 

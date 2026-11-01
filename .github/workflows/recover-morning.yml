@@ -1,13 +1,24 @@
-name: Recover morning Advisor video
+name: Advisor videos (three editions + recovery)
 
 on:
+  # Backup wake-ups; Cloudflare supplies the independent clock.
+  schedule:
+    - cron: "0,20,40 3,4,9,14 * * *"
+    - cron: "0,15 5,10,15 * * *"
   workflow_dispatch:
+    inputs:
+      edition:
+        description: Auto stays inside the existing window; named editions explicitly recover that edition
+        type: choice
+        options: [morning, auto, noon, evening]
+        default: morning
   push:
     branches: [arena/9c75716e-goals-scanner]
     paths: [config/morning-video-request.json]
 
 permissions:
   contents: write
+  actions: read
 
 # The scanner and recovery must not publish overlapping selections or overwrite state.
 concurrency:
@@ -16,6 +27,7 @@ concurrency:
 
 jobs:
   recover:
+    if: github.ref_name == 'main' || github.event_name == 'push'
     runs-on: ubuntu-latest
     timeout-minutes: 45
     env:
@@ -25,6 +37,7 @@ jobs:
       TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
       FACEBOOK_PAGE_ACCESS_TOKEN: ${{ secrets.FACEBOOK_PAGE_ACCESS_TOKEN }}
       FACEBOOK_PAGE_ID: ${{ secrets.FACEBOOK_PAGE_ID }}
+      FACEBOOK_AUTOMATION: "1"
       VIDEO_RECOVERY_DIR: ${{ github.workspace }}/tmp/video-recovery
       VIDEO_RECOVERY_REPORT: ${{ github.workspace }}/tmp/morning-recovery/result.json
       TMPDIR: ${{ github.workspace }}/tmp
@@ -59,31 +72,24 @@ jobs:
           sudo apt-get update -qq
           sudo apt-get install -y -qq ffmpeg
           pip install --require-hashes --only-binary=:all: --retries 10 --timeout 60 -q -r requirements.txt
-      - name: Verify, render and deliver the missing morning edition
+      - name: Resume saved Facebook-only sessions without Telegram resend
+        continue-on-error: true
+        env:
+          GH_READ_TOKEN: ${{ github.token }}
+        run: python scripts/facebook_recovery_queue.py recover --state state/data/facebook_delivery_queue.json
+      - name: Verify, render and deliver the due video edition
         id: delivery
         env:
           EVENT_NAME: ${{ github.event_name }}
+          VIDEO_EDITION: ${{ github.event_name == 'schedule' && 'auto' || inputs.edition || 'morning' }}
         run: |
-          args=()
+          args=(--edition "$VIDEO_EDITION")
           if [[ "$EVENT_NAME" == "push" ]]; then
             args+=(--request config/morning-video-request.json)
           fi
           python recover_morning.py "${args[@]}"
-      - name: Preserve updated delivery markers even on a later upload failure
-        if: always() && (steps.delivery.outcome == 'success' || steps.delivery.outcome == 'failure')
-        run: |
-          set -euo pipefail
-          git -C state config user.name playreport-bot
-          git -C state config user.email playreport-bot@users.noreply.github.com
-          if [[ -f "$VIDEO_RECOVERY_REPORT" ]]; then
-            cp "$VIDEO_RECOVERY_REPORT" state/data/app/morning_recovery.json
-          fi
-          git -C state add -A
-          if ! git -C state diff --cached --quiet; then
-            git -C state commit -m "Record recovered morning video ($GITHUB_RUN_ID)"
-            git -C state push origin HEAD:data
-          fi
       - name: Preserve delivery report and any unsent video
+        id: recovery
         if: always()
         uses: actions/upload-artifact@v4.6.2
         with:
@@ -96,3 +102,20 @@ jobs:
             tmp/playreport-reel/facebook-9x16/*.json
           if-no-files-found: ignore
           retention-days: 7
+      - name: Register durable Facebook-only recovery
+        if: always() && steps.recovery.outputs.artifact-id != ''
+        run: python scripts/facebook_recovery_queue.py register --state state/data/facebook_delivery_queue.json --artifact-id '${{ steps.recovery.outputs.artifact-id }}'
+      - name: Preserve updated delivery markers even on a later upload failure
+        if: always() && (steps.delivery.outcome == 'success' || steps.delivery.outcome == 'failure')
+        run: |
+          set -euo pipefail
+          git -C state config user.name playreport-bot
+          git -C state config user.email playreport-bot@users.noreply.github.com
+          if [[ -f "$VIDEO_RECOVERY_REPORT" ]]; then
+            cp "$VIDEO_RECOVERY_REPORT" state/data/app/morning_recovery.json
+          fi
+          git -C state add -A
+          if ! git -C state diff --cached --quiet; then
+            git -C state commit -m "Record Advisor video delivery ($GITHUB_RUN_ID)"
+            git -C state push origin HEAD:data
+          fi
