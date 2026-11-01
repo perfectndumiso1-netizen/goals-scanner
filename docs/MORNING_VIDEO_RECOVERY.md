@@ -1,3 +1,5 @@
+> **Current video wiring:** [November 1 delivery repair](VIDEO_DELIVERY_RELIABILITY.md) adds an in-window automatic mode for all three editions and durable Facebook-only recovery. The workflow is now displayed as **Advisor videos (three editions + recovery)**; its filename/URL remains `recover-morning.yml`.
+
 # Missed video editions and recovery
 
 ## Scheduling fix

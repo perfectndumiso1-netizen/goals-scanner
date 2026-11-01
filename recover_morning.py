@@ -1,4 +1,4 @@
-"""Recover a missed morning edition from today's already-published Advisor.
+"""Deliver an in-window edition or explicitly recover a named Advisor video.
 
 Runs the existing verifier/renderers/delivery lanes, without a 60-day rescan,
 changing published selections, deleting a sent-slot marker or weakening quality gates.
@@ -86,10 +86,15 @@ def refresh_h2h(pool, now):
     return outcome
 
 
-def run(now=None):
-    now = (now or datetime.now(SAST)).astimezone(SAST)
+def run(now=None, edition="morning", clock=None):
+    # Explicit editions are operator recovery; auto never forces a missed window.
+    clock = clock or ((lambda: now) if now is not None else (lambda: datetime.now(SAST)))
+    now = clock().astimezone(SAST)
+    automatic = edition == "auto"
+    if automatic:
+        edition = scanner._reel_slot(now)
     today = now.date().isoformat()
-    report = {"date": today, "edition": "morning", "status": "not_sent", "deliveries": {}}
+    report = {"date": today, "edition": edition, "status": "not_sent", "deliveries": {}}
     output = Path(os.getenv("VIDEO_RECOVERY_REPORT", "tmp/morning-recovery/result.json"))
     def finish(code, status, message):
         report.update(status=status, message=message)
@@ -100,11 +105,15 @@ def run(now=None):
         print(f"::{annotation}::{message}", flush=True)
         if os.getenv("GITHUB_STEP_SUMMARY"):
             with open(os.environ["GITHUB_STEP_SUMMARY"], "a", encoding="utf-8") as target:
-                target.write("## Morning video recovery\n\n" + message + "\n\n```json\n" + json.dumps(report, ensure_ascii=False, indent=2) + "\n```\n")
+                target.write("## Advisor video delivery\n\n" + message + "\n\n```json\n" + json.dumps(report, ensure_ascii=False, indent=2) + "\n```\n")
         return code
+    if edition is None and automatic:
+        return finish(0, "outside_window", "No automatic video edition is due; nothing forced or resent.")
+    if edition not in ("morning", "noon", "evening"):
+        return finish(1, "blocked", "Unknown video edition; no mutation attempted.")
     _, state = scanner._telegram_state(now)
-    if "morning" in (state.get("briefing_slots") or {}).get(today, []):
-        return finish(0, "already_delivered", "Morning edition is already recorded as delivered today. Nothing resent.")
+    if edition in (state.get("briefing_slots") or {}).get(today, []):
+        return finish(0, "already_delivered", "Edition already has a recorded delivery lane. No rerender or Telegram resend; Facebook-only recovery uses the saved queue, not this marker as proof of Facebook delivery.")
     try:
         payload = json.loads(scanner.APP_FILE.read_text(encoding="utf-8"))
         generated = datetime.fromisoformat(str((payload.get("meta") or {}).get("generated")))
@@ -121,12 +130,15 @@ def run(now=None):
             for p in (state.get("briefing_history") or {}).get(today, [])}
     picks, dropped = scanner.reel_mod.video_picks(pool, used=used, fx_dir=scanner.APP_FILE.parent / "fx", now=now)
     report.update(source_generated=generated.isoformat(), candidates=len(pool), verified_card=len(picks), dropped=dropped)
-    print(f"::notice::Morning recovery: {len(pool)} published candidates; {len(picks)} selections in the verified card; {len(dropped)} exclusions.", flush=True)
+    print(f"::notice::Video {edition}: {len(pool)} published candidates; {len(picks)} selections in the verified card; {len(dropped)} exclusions.", flush=True)
     if len(picks) < 5:
         return finish(1, "blocked", "Fewer than five verified Advisor matches fit the required combined-odds range. No padding, no video sent. Exclusion reasons are in the recovery report.")
     old_force, old_edition = os.environ.get("FORCE_DAILY_REEL"), os.environ.get("DAILY_REEL_EDITION")
-    os.environ["FORCE_DAILY_REEL"] = "true"
-    os.environ["DAILY_REEL_EDITION"] = "morning"
+    os.environ["FORCE_DAILY_REEL"] = "false" if automatic else "true"
+    os.environ["DAILY_REEL_EDITION"] = edition
+    expected = {"telegram": bool(os.getenv("TELEGRAM_BOT_TOKEN") and os.getenv("TELEGRAM_CHAT_ID")),
+                "facebook": scanner.facebook_mod.requested()}
+    report["expected_lanes"] = expected
     originals = {"telegram": scanner.send_telegram_video, "facebook": scanner.facebook_mod.publish}
     if scanner.yt_mod is not None:
         originals["youtube"] = scanner.yt_mod.publish_shortlist
@@ -135,12 +147,12 @@ def run(now=None):
     def telegram(*args, **kwargs):
         ok = originals["telegram"](*args, **kwargs)
         report["deliveries"]["telegram"] = {"delivered": bool(ok)}
-        print(f"::notice::Morning video Telegram delivery: {'confirmed' if ok else 'not confirmed'}.", flush=True)
+        print(f"::notice::Video {edition} Telegram delivery: {'confirmed' if ok else 'not confirmed'}.", flush=True)
         return ok
     def facebook(*args, **kwargs):
         result = originals["facebook"](*args, **kwargs)
         report["deliveries"]["facebook"] = {"status": result.status, "reel_id": result.video_id}
-        print(f"::notice::Morning Facebook Reel: {result.status}; ID {result.video_id or 'none'}.", flush=True)
+        print(f"::notice::Video {edition} Facebook Reel: {result.status}; ID {result.video_id or 'none'}.", flush=True)
         return result
     def youtube(*args, **kwargs):
         result = originals["youtube"](*args, **kwargs)
@@ -157,7 +169,10 @@ def run(now=None):
     if "drive" in originals:
         scanner.drive_mod.handoff = drive
     try:
-        scanner.maybe_send_daily_reel({}, now)
+        delivery_now = clock().astimezone(SAST)
+        if automatic and (delivery_now.date() != now.date() or scanner._reel_slot(delivery_now) != edition):
+            return finish(0, "window_expired", "Automatic video window expired during preparation; no forced catch-up or upload.")
+        scanner.maybe_send_daily_reel({}, delivery_now)
     finally:
         scanner.send_telegram_video = originals["telegram"]
         scanner.facebook_mod.publish = originals["facebook"]
@@ -171,21 +186,28 @@ def run(now=None):
             else:
                 os.environ[key] = value
     _, after = scanner._telegram_state(now)
-    if "morning" not in (after.get("briefing_slots") or {}).get(today, []):
-        return finish(1, "not_delivered", "No successful morning delivery was recorded. See renderer logs and recovery artifacts; not claiming success.")
-    return finish(0, "delivered", "Morning edition delivered through at least one configured lane. Per-lane confirmations are recorded in this report; a Drive handoff alone is not a confirmed YouTube publication.")
+    if edition not in (after.get("briefing_slots") or {}).get(today, []):
+        return finish(1, "not_delivered", "No successful edition delivery was recorded. See renderer logs and recovery artifacts; not claiming success.")
+    missing = [lane for lane, enabled in expected.items() if enabled and not (
+        report["deliveries"].get(lane, {}).get("status") == "uploaded" if lane == "facebook"
+        else report["deliveries"].get(lane, {}).get("delivered"))]
+    if missing:
+        report["unconfirmed_lanes"] = missing
+        return finish(1, "partially_delivered", "Video delivery is PARTIAL: a configured channel is unconfirmed. Keep delivered-lane markers; use saved Facebook-only recovery, never rerender or resend Telegram.")
+    return finish(0, "delivered", "Edition delivered through at least one configured lane. Per-lane confirmations are recorded in this report; a Drive handoff alone is not a confirmed YouTube publication.")
 
 
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--request", help="Dated push-trigger request file")
+    parser.add_argument("--edition", choices=["auto", "morning", "noon", "evening"], default="morning")
     args = parser.parse_args(argv)
     if args.request:
         request = json.loads(Path(args.request).read_text(encoding="utf-8"))
         if request.get("date") != datetime.now(SAST).date().isoformat() or request.get("edition") != "morning":
             print("::notice::Recovery request is not for today's morning edition; nothing sent.")
             return 0
-    return run()
+    return run(edition=args.edition)
 
 
 if __name__ == "__main__":
