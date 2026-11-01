@@ -139,10 +139,12 @@ email/SMS/Telegram alert service if both systems stop executing.
 cd automation/scheduler
 npm ci
 npm test
-npm run check    # Wrangler bundle/config dry run only; does not deploy
+npm run check    # Bundle/config dry run + local workerd smoke test; does not deploy
 ```
 
 Tests use mocked HTTP/storage plus generated in-memory RSA keys for both GitHub
-PKCS#1 and PKCS#8 signing. No real credentials, provider requests, live publishing
+PKCS#1 and PKCS#8 signing. The local smoke test also loads the actual bundle and SQLite Durable Object
+in workerd, asserts the disabled state and public 404, and forbids outbound
+network requests. No real credentials, provider requests, live publishing
 or Cloudflare deployment are part of local tests. GitHub's existing Python-tests
 workflow also runs the dependency-free timer tests on pull requests.

@@ -2,7 +2,8 @@ import test from 'node:test';
 import { webcrypto } from 'node:crypto';
 globalThis.crypto ??= webcrypto;
 import assert from 'node:assert/strict';
-import worker, { targetsAt, inspectRuns, tick, Scheduler, REPOSITORY, installationToken } from './worker.mjs';
+import worker, { Scheduler } from './worker.mjs';
+import { targetsAt, inspectRuns, tick, REPOSITORY, installationToken } from './core.mjs';
 
 const minute = 60_000;
 const at = clock => Date.parse(`2026-11-01T${clock}:00Z`);
