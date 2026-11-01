@@ -75,7 +75,7 @@ test('fixed repository/main and safe inputs; acceptance is never called publicat
   assert.equal(posts.length, 2);
   for (const call of h.calls) {
     assert.ok(call.url.startsWith(`https://api.github.com/repos/${REPOSITORY}/actions/workflows/`));
-    assert.equal(call.redirect, 'error');
+    assert.equal(call.redirect, 'manual');
     assert.equal(call.headers.Authorization, `Bearer ${dummyCredential}`);
   }
   assert.deepEqual(JSON.parse(posts[0].body), { ref: 'main', inputs: { send_reel: false } });
@@ -180,7 +180,7 @@ test('GitHub App signs short-lived JWT and requests only this repository/Actions
     const config = { ...env, GITHUB_APP_PRIVATE_KEY: keys.privateKey.export({ type, format: 'pem' }) };
     const token = await installationToken(config, async (url, init) => {
       assert.equal(url, 'https://api.github.com/app/installations/456/access_tokens');
-      assert.equal(init.redirect, 'error');
+      assert.equal(init.redirect, 'manual');
       assert.deepEqual(JSON.parse(init.body), { repositories: ['goals-scanner'], permissions: { actions: 'write' } });
       const jwt = init.headers.Authorization.slice(7);
       const [header, body, signature] = jwt.split('.');
@@ -244,4 +244,102 @@ test('overlapping ticks share atomic admission, not process-local locks', async 
   assert.equal(two.calls.length, 0);
   release();
   await first;
+});
+
+// Synthetic keys only. No production keys/tokens are stored in these fixtures.
+const { generateKeyPairSync: diagnosticKeyPair } = await import('node:crypto');
+const diagnosticKeys = diagnosticKeyPair('rsa', { modulusLength: 2048 });
+const diagnosticEnv = { ...env,
+  GITHUB_APP_PRIVATE_KEY: diagnosticKeys.privateKey.export({ type: 'pkcs1', format: 'pem' }) };
+const privateError = () => Object.assign(new Error('dummy-private-upstream-message'), {
+  auth_stage: 'dummy-sensitive-stage', http_status: 'dummy-sensitive-status',
+  response: { body: 'dummy-sensitive-response' }, cause: 'dummy-private-cause',
+});
+async function expectAuthDiagnosis({ config = diagnosticEnv, fetcher, cryptography,
+                                     stage, reason, status, calls = 0 }) {
+  const h = harness({ fetcher: fetcher || (() => assert.fail('network forbidden')) });
+  const report = await h.go({ env: config,
+    authenticate: (e, f, n) => installationToken(e, f, n, cryptography) });
+  assert.deepEqual(report.outcomes, [{ workflow: 'timer', result: 'app_authentication_failed_no_dispatch',
+    auth_stage: stage, auth_reason: reason, ...(status ? { http_status: status } : {}) }]);
+  assert.equal(h.calls.length, calls);
+  assert.ok(h.calls.every(c => c.url.includes('/app/installations/') && !c.url.includes('/dispatches')));
+  assert.equal(h.storage.map.size, 0, 'no auth data or dispatch reservations persisted on failure');
+  assert.equal(h.logs.length, 1);
+  assert.deepEqual(JSON.parse(h.logs[0]), report);
+  for (const sensitive of [diagnosticEnv.GITHUB_APP_PRIVATE_KEY, dummyCredential,
+    'dummy-private-upstream-message', 'dummy-sensitive', 'dummy-private-cause',
+    'BEGIN RSA PRIVATE KEY', 'Authorization', 'Bearer', '/access_tokens']) {
+    assert.ok(!h.logs[0].includes(sensitive), 'only allowlisted metadata may be logged');
+  }
+}
+
+for (const [name, value, reason] of [
+  ['GITHUB_APP_ID', 'dummy-client-id', 'app_id_not_positive_integer'],
+  ['GITHUB_APP_ID', '123 ', 'app_id_not_positive_integer'],
+  ['GITHUB_INSTALLATION_ID', 'https://github.com/settings/installations/456', 'installation_id_not_positive_integer'],
+  ['GITHUB_INSTALLATION_ID', '0', 'installation_id_not_positive_integer'],
+]) test(`diagnose configuration: ${name} ${reason} ${value}`, async () => {
+  await expectAuthDiagnosis({ config: { ...diagnosticEnv, [name]: value }, stage: 'configuration', reason });
+});
+
+test('diagnose fingerprint/header, base64 and DER failures separately without exposing key bytes', async () => {
+  for (const [pem, stage, reason] of [
+    ['SHA256:dummy-fingerprint', 'pem_decode', 'private_key_header_invalid'],
+    ['-----BEGIN RSA PRIVATE KEY-----\n%%%%\n-----END RSA PRIVATE KEY-----', 'pem_decode', 'private_key_base64_invalid'], // dummy invalid-base64 fixture, not a credential
+    ['-----BEGIN PRIVATE KEY-----\nYWJj\n-----END PRIVATE KEY-----', 'key_import', 'private_key_import_failed'], // dummy three-byte DER fixture, not a credential
+  ]) await expectAuthDiagnosis({ config: { ...diagnosticEnv, GITHUB_APP_PRIVATE_KEY: pem }, stage, reason });
+});
+
+test('diagnose key import and JWT signing exceptions without trusting upstream error fields', async () => {
+  await expectAuthDiagnosis({ stage: 'key_import', reason: 'private_key_import_failed',
+    cryptography: { subtle: { importKey: async () => { throw privateError(); } } } });
+  await expectAuthDiagnosis({ stage: 'jwt_sign', reason: 'jwt_signing_failed',
+    cryptography: { subtle: { importKey: async () => ({}), sign: async () => { throw privateError(); } } } });
+});
+
+test('diagnose network/timeout before any token response; do not expose exception text', async () => {
+  await expectAuthDiagnosis({ stage: 'installation_token_request', reason: 'network_or_timeout', calls: 1,
+    fetcher: async () => { throw privateError(); } });
+});
+
+for (const status of [301, 401, 403, 404, 422, 429, 500]) {
+  test(`diagnose installation token HTTP ${status}, never read or print its body`, async () => {
+    await expectAuthDiagnosis({ stage: 'installation_token_http', reason: 'github_rejected_token_request', status, calls: 1,
+      fetcher: async () => ({ status, json() { assert.fail('error response body must not be read'); } }) });
+  });
+}
+
+test('diagnose JSON response parse failure separately', async () => {
+  await expectAuthDiagnosis({ stage: 'installation_token_response', reason: 'response_not_json', status: 201, calls: 1,
+    fetcher: async () => ({ status: 201, json: async () => { throw privateError(); } }) });
+});
+
+for (const [body, reason] of [
+  [null, 'response_schema_invalid'], [[], 'response_schema_invalid'], ['dummy-sensitive', 'response_schema_invalid'],
+  [{ token: '' }, 'token_missing'], [{ token: dummyCredential, permissions: { actions: 'read' } }, 'actions_write_not_granted'],
+  [{ token: dummyCredential, permissions: { actions: 'write' }, expires_at: 'bad' }, 'token_expiry_invalid'],
+  [{ token: dummyCredential, permissions: { actions: 'write' }, expires_at: new Date(at('05:54')).toISOString() }, 'token_expiry_invalid'],
+]) test(`diagnose installation token response: ${reason} ${JSON.stringify(body)}`, async () => {
+  await expectAuthDiagnosis({ stage: 'installation_token_response', reason, status: 201, calls: 1,
+    fetcher: async () => Response.json(body, { status: 201 }) });
+});
+
+test('unrecognized errors cannot inject diagnostic fields or secrets into report', async () => {
+  const h = harness();
+  const report = await h.go({ authenticate: async () => { throw privateError(); } });
+  assert.deepEqual(report.outcomes, [{ workflow: 'timer', result: 'app_authentication_failed_no_dispatch',
+    auth_stage: 'unknown', auth_reason: 'unexpected_error' }]);
+  assert.ok(!h.logs.join('').includes('dummy-private'));
+  assert.ok(!h.logs.join('').includes('dummy-sensitive'));
+});
+
+test('whitespace and collapsed PEM line breaks are not themselves authentication failures', async () => {
+  for (const pem of [diagnosticEnv.GITHUB_APP_PRIVATE_KEY.replaceAll('\n', ''),
+    ' \n' + diagnosticEnv.GITHUB_APP_PRIVATE_KEY.replaceAll('\n', '\r\n\r\n') + '\n ']) {
+    const token = await installationToken({ ...diagnosticEnv, GITHUB_APP_PRIVATE_KEY: pem }, async () =>
+      Response.json({ token: dummyCredential, permissions: { actions: 'write' },
+        expires_at: new Date(at('06:55')).toISOString() }, { status: 201 }), at('05:55'));
+    assert.equal(token, dummyCredential);
+  }
 });
