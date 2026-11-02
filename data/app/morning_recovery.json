@@ -1,0 +1,7 @@
+{
+  "date": "2026-11-02",
+  "edition": "morning",
+  "status": "already_delivered",
+  "deliveries": {},
+  "message": "Edition already has a recorded delivery lane. No rerender or Telegram resend; Facebook-only recovery uses the saved queue, not this marker as proof of Facebook delivery."
+}

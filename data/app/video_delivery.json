@@ -1,0 +1,27 @@
+{
+  "version": 1,
+  "since": "2026-11-01T20:18:12.139304+02:00",
+  "days": {
+    "2026-11-02": {
+      "morning": {
+        "lanes": {
+          "facebook": {
+            "status": "confirmed",
+            "checked_at": "2026-11-02T05:08:03.256040+02:00",
+            "receipt_id": "2392678821536274",
+            "evidence": "publishing_complete"
+          },
+          "telegram": {
+            "status": "confirmed",
+            "checked_at": "2026-11-02T05:08:08.158199+02:00",
+            "receipt_id": "1204",
+            "evidence": "sendVideo_acknowledged"
+          }
+        },
+        "last_result": "already_delivered",
+        "checked_at": "2026-11-02T06:01:30.284554+02:00",
+        "health": "confirmed_both_channels"
+      }
+    }
+  }
+}
